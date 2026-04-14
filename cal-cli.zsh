@@ -143,76 +143,89 @@ api_request() {
 
 # --- Response normalization ---
 # Normalize Outlook PascalCase / Graph camelCase to consistent camelCase output
-# Converts UTC timestamps to local timezone
-normalize_event() {
-  python3 -c "
+# Converts timestamps to local timezone, respecting the TimeZone field from the API
+
+NORMALIZE_PY='
 import json, sys
 from datetime import datetime, timezone, timedelta
 import time
 
-offset = timedelta(seconds=-time.timezone if time.daylight == 0 else -time.altzone)
-tz_local = timezone(offset)
+local_offset = timedelta(seconds=-time.timezone if time.daylight == 0 else -time.altzone)
+tz_local = timezone(local_offset)
 
-def to_local(dt_str):
+# Map Windows timezone names to UTC offsets (common European ones + UTC)
+TZ_OFFSETS = {
+    "UTC": 0,
+    "W. Europe Standard Time": 1, "Romance Standard Time": 1,
+    "Central European Standard Time": 1, "Central Europe Standard Time": 1,
+    "E. Europe Standard Time": 2, "FLE Standard Time": 2,
+    "GTB Standard Time": 2, "Eastern Standard Time": -5,
+    "Pacific Standard Time": -8, "Mountain Standard Time": -7,
+    "Central Standard Time": -6, "GMT Standard Time": 0,
+}
+# DST: add 1h for European zones between last Sunday of March and last Sunday of October
+def is_dst_europe(dt):
+    if dt.month < 3 or dt.month > 10: return False
+    if dt.month > 3 and dt.month < 10: return True
+    # March or October: check last Sunday
+    last_sunday = max(d for d in range(25, 32) if datetime(dt.year, dt.month, d).weekday() == 6)
+    if dt.month == 3: return dt.day >= last_sunday
+    return dt.day < last_sunday
+
+def to_local(dt_str, tz_name=""):
     if not dt_str: return dt_str
-    clean = dt_str.split('.')[0].replace('Z','')
+    clean = dt_str.split(".")[0].replace("Z", "")
     try:
-        dt = datetime.fromisoformat(clean).replace(tzinfo=timezone.utc)
-        return dt.astimezone(tz_local).strftime('%Y-%m-%dT%H:%M:%S')
-    except: return dt_str
+        dt = datetime.fromisoformat(clean)
+    except:
+        return dt_str
 
+    # If the datetime already has offset info, use it
+    if dt.tzinfo is not None:
+        return dt.astimezone(tz_local).strftime("%Y-%m-%dT%H:%M:%S")
+
+    # Check if the API-provided TimeZone tells us the source timezone
+    if tz_name in TZ_OFFSETS:
+        base_offset = TZ_OFFSETS[tz_name]
+        # Only apply DST for non-UTC European zones
+        dst_extra = 1 if base_offset != 0 and is_dst_europe(dt) and -1 <= base_offset <= 3 else 0
+        source_tz = timezone(timedelta(hours=base_offset + dst_extra))
+        dt = dt.replace(tzinfo=source_tz)
+        return dt.astimezone(tz_local).strftime("%Y-%m-%dT%H:%M:%S")
+
+    # No timezone info: assume UTC (Outlook REST API default)
+    dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(tz_local).strftime("%Y-%m-%dT%H:%M:%S")
+
+def normalize(e):
+    s = e.get("Start") or e.get("start") or {}
+    en = e.get("End") or e.get("end") or {}
+    loc = e.get("Location") or e.get("location") or {}
+    s_tz = s.get("TimeZone") or s.get("timeZone") or ""
+    e_tz = en.get("TimeZone") or en.get("timeZone") or ""
+    return {
+        "id": e.get("Id") or e.get("id"),
+        "subject": e.get("Subject") or e.get("subject"),
+        "start": to_local(s.get("DateTime") or s.get("dateTime") or "", s_tz),
+        "end": to_local(en.get("DateTime") or en.get("dateTime") or "", e_tz),
+        "categories": e.get("Categories") or e.get("categories") or [],
+        "location": loc.get("DisplayName") or loc.get("displayName") or "",
+        "showAs": e.get("ShowAs") or e.get("showAs") or "",
+        "isAllDay": e.get("IsAllDay") or e.get("isAllDay") or False,
+    }
+'
+
+normalize_event() {
+  python3 -c "${NORMALIZE_PY}
 e = json.load(sys.stdin)
-s = e.get('Start') or e.get('start') or {}
-en = e.get('End') or e.get('end') or {}
-loc = e.get('Location') or e.get('location') or {}
-print(json.dumps({
-    'id': e.get('Id') or e.get('id'),
-    'subject': e.get('Subject') or e.get('subject'),
-    'start': to_local(s.get('DateTime') or s.get('dateTime') or ''),
-    'end': to_local(en.get('DateTime') or en.get('dateTime') or ''),
-    'categories': e.get('Categories') or e.get('categories') or [],
-    'location': loc.get('DisplayName') or loc.get('displayName') or '',
-    'showAs': e.get('ShowAs') or e.get('showAs') or '',
-    'isAllDay': e.get('IsAllDay') or e.get('isAllDay') or False
-}))
+print(json.dumps(normalize(e)))
 "
 }
 
 normalize_events() {
-  python3 -c "
-import json, sys
-from datetime import datetime, timezone, timedelta
-import time
-
-offset = timedelta(seconds=-time.timezone if time.daylight == 0 else -time.altzone)
-tz_local = timezone(offset)
-
-def to_local(dt_str):
-    if not dt_str: return dt_str
-    clean = dt_str.split('.')[0].replace('Z','')
-    try:
-        dt = datetime.fromisoformat(clean).replace(tzinfo=timezone.utc)
-        return dt.astimezone(tz_local).strftime('%Y-%m-%dT%H:%M:%S')
-    except: return dt_str
-
+  python3 -c "${NORMALIZE_PY}
 data = json.load(sys.stdin)
-events = data.get('value', [])
-out = []
-for e in events:
-    s = e.get('Start') or e.get('start') or {}
-    en = e.get('End') or e.get('end') or {}
-    loc = e.get('Location') or e.get('location') or {}
-    out.append({
-        'id': e.get('Id') or e.get('id'),
-        'subject': e.get('Subject') or e.get('subject'),
-        'start': to_local(s.get('DateTime') or s.get('dateTime') or ''),
-        'end': to_local(en.get('DateTime') or en.get('dateTime') or ''),
-        'categories': e.get('Categories') or e.get('categories') or [],
-        'location': loc.get('DisplayName') or loc.get('displayName') or '',
-        'showAs': e.get('ShowAs') or e.get('showAs') or '',
-        'isAllDay': e.get('IsAllDay') or e.get('isAllDay') or False
-    })
-print(json.dumps(out))
+print(json.dumps([normalize(e) for e in data.get('value', [])]))
 "
 }
 
@@ -411,31 +424,33 @@ cmd_events() {
   # Select only the fields we need (Body contains HTML with control chars that break jq)
   local select_fields
   if [[ "$API_CASE" == "camel" ]]; then
-    select_fields="id,subject,start,end,location,categories,showAs,isAllDay"
+    select_fields="id,subject,start,end,location,categories,showAs,isAllDay,originalStartTimeZone,originalEndTimeZone"
   else
-    select_fields="Id,Subject,Start,End,Location,Categories,ShowAs,IsAllDay"
+    select_fields="Id,Subject,Start,End,Location,Categories,ShowAs,IsAllDay,OriginalStartTimeZone,OriginalEndTimeZone"
   fi
 
   # Escape single quotes for OData filter
   local safe_search="${search//\'/\'\'}"
 
-  local endpoint
-  if [[ -n "$search" ]]; then
-    if [[ "$API_CASE" == "camel" ]]; then
-      endpoint="me/events?\$filter=contains(subject,'${safe_search}')&\$top=${limit}&\$orderby=start/dateTime&\$select=${select_fields}"
-    else
-      endpoint="me/events?\$filter=contains(Subject,'${safe_search}')&\$top=${limit}&\$orderby=Start/DateTime&\$select=${select_fields}"
-    fi
-  else
-    if [[ "$API_CASE" == "camel" ]]; then
-      endpoint="me/calendarView?startDateTime=${start_dt}&endDateTime=${end_dt}&\$top=${limit}&\$orderby=start/dateTime&\$select=${select_fields}"
-    else
-      endpoint="me/calendarView?startDateTime=${start_dt}&endDateTime=${end_dt}&\$top=${limit}&\$orderby=Start/DateTime&\$select=${select_fields}"
-    fi
-  fi
-
   local data
-  data=$(api_request GET "$endpoint") || return 1
+  if [[ -n "$search" ]]; then
+    # URL-encode the OData filter to handle spaces, &, and special chars
+    local filter_field="Subject" orderby_field="Start/DateTime"
+    [[ "$API_CASE" == "camel" ]] && filter_field="subject" && orderby_field="start/dateTime"
+    local filter="contains(${filter_field},'${safe_search}')"
+    local encoded_filter
+    encoded_filter=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$filter")
+    data=$(curl -s -w "\n%{http_code}" -X GET -H "$AUTH_HEADER" \
+      "${API_BASE}/me/events?\$filter=${encoded_filter}&\$top=${limit}&\$orderby=${orderby_field}&\$select=${select_fields}")
+    local http_code=$(echo "$data" | tail -1)
+    data=$(echo "$data" | sed '$d')
+    [[ "$http_code" != 2* ]] && { error_log "HTTP $http_code"; return 1; }
+  else
+    local orderby_field="Start/DateTime"
+    [[ "$API_CASE" == "camel" ]] && orderby_field="start/dateTime"
+    local endpoint="me/calendarView?startDateTime=${start_dt}&endDateTime=${end_dt}&\$top=${limit}&\$orderby=${orderby_field}&\$select=${select_fields}"
+    data=$(api_request GET "$endpoint") || return 1
+  fi
 
   if [[ "$pretty" -eq 1 ]]; then
     echo "$data" | normalize_events | format_events_pretty
@@ -508,14 +523,32 @@ cmd_update() {
     exit 1
   fi
 
-  # Handle date/time → full datetime for patch
-  if [[ -n "$start_time" || -n "$date" ]]; then
-    local sd="${date:-$(today)}"
-    patch_args+=(start "$(make_datetime "$sd" "${start_time:-00:00}")")
-  fi
-  if [[ -n "$end_time" ]]; then
-    local ed="${date:-$(today)}"
-    patch_args+=(end "$(make_datetime "$ed" "$end_time")")
+  # For date/time changes, fetch the existing event to preserve untouched components
+  if [[ -n "$start_time" || -n "$end_time" || -n "$date" ]]; then
+    local existing
+    existing=$(api_request GET "me/events/$id" 2>/dev/null | normalize_event)
+    local existing_start existing_end existing_date
+    existing_start=$(echo "$existing" | jq -r '.start // empty')
+    existing_end=$(echo "$existing" | jq -r '.end // empty')
+    # Extract date and time parts from existing event
+    local existing_date_part="${existing_start%%T*}"
+    local existing_start_time="${existing_start##*T}"
+    local existing_end_time="${existing_end##*T}"
+
+    # Merge: use provided values, fall back to existing
+    local patch_date="${date:-$existing_date_part}"
+    if [[ -n "$start_time" ]]; then
+      patch_args+=(start "$(make_datetime "$patch_date" "$start_time")")
+    elif [[ -n "$date" ]]; then
+      # Date changed but not start time - keep the original time
+      patch_args+=(start "$(make_datetime "$patch_date" "$existing_start_time")")
+    fi
+    if [[ -n "$end_time" ]]; then
+      patch_args+=(end "$(make_datetime "$patch_date" "$end_time")")
+    elif [[ -n "$date" ]]; then
+      # Date changed but not end time - keep the original time
+      patch_args+=(end "$(make_datetime "$patch_date" "$existing_end_time")")
+    fi
   fi
 
   local patch
