@@ -416,12 +416,15 @@ cmd_events() {
     select_fields="Id,Subject,Start,End,Location,Categories,ShowAs,IsAllDay"
   fi
 
+  # Escape single quotes for OData filter
+  local safe_search="${search//\'/\'\'}"
+
   local endpoint
   if [[ -n "$search" ]]; then
     if [[ "$API_CASE" == "camel" ]]; then
-      endpoint="me/events?\$filter=contains(subject,'${search}')&\$top=${limit}&\$orderby=start/dateTime&\$select=${select_fields}"
+      endpoint="me/events?\$filter=contains(subject,'${safe_search}')&\$top=${limit}&\$orderby=start/dateTime&\$select=${select_fields}"
     else
-      endpoint="me/events?\$filter=contains(Subject,'${search}')&\$top=${limit}&\$orderby=Start/DateTime&\$select=${select_fields}"
+      endpoint="me/events?\$filter=contains(Subject,'${safe_search}')&\$top=${limit}&\$orderby=Start/DateTime&\$select=${select_fields}"
     fi
   else
     if [[ "$API_CASE" == "camel" ]]; then
@@ -622,9 +625,10 @@ cmd_config() {
 
   if [[ -n "$cookie" ]]; then
     if grep -q '^OUTLOOK_COOKIE=' .env; then
-      sed -i '' "s|^OUTLOOK_COOKIE=.*|OUTLOOK_COOKIE='$cookie'|" .env
+      local tmpfile=$(mktemp)
+      awk -v val="$cookie" '/^OUTLOOK_COOKIE=/{print "OUTLOOK_COOKIE=\"" val "\""; next} {print}' .env > "$tmpfile" && mv "$tmpfile" .env
     else
-      echo "OUTLOOK_COOKIE='$cookie'" >> .env
+      echo "OUTLOOK_COOKIE=\"$cookie\"" >> .env
     fi
     info_log "Cookie updated"
   fi
@@ -733,6 +737,44 @@ cmd_login() {
   fi
 }
 
+cmd_setup() {
+  info_log "Setting up automated token refresh..."
+  info_log "This restarts your default browser with remote debugging (port 9222)."
+  info_log "Tabs and session are preserved."
+  info_log ""
+  "$SCRIPT_DIR/scripts/vivaldi-debug.sh"
+  info_log ""
+  info_log "Open Outlook in the browser, then run: cal-cli refresh"
+}
+
+cmd_refresh() {
+  info_log "Refreshing token via browser CDP..."
+
+  local token
+  token=$(python3 "$SCRIPT_DIR/scripts/refresh-token.py")
+
+  if [[ -n "$token" && "$token" == eyJ* ]]; then
+    cmd_config --token "$token"
+
+    # Verify
+    source .env
+    OUTLOOK_TOKEN="$token"
+    AUTH_HEADER="Authorization: Bearer $OUTLOOK_TOKEN"
+    API_BASE="https://outlook.office.com/api/v2.0"
+    API_CASE="pascal"
+
+    local me
+    me=$(api_request GET "me" 2>/dev/null)
+    local name
+    name=$(echo "$me" | jq -r '.DisplayName // .displayName // empty' 2>/dev/null)
+    if [[ -n "$name" ]]; then
+      info_log "Authenticated as $name"
+    fi
+  else
+    error_log "Token refresh failed. Use: cal-cli login"
+  fi
+}
+
 cmd_help() {
   cat >&2 <<'HELP'
 cal-cli - Calendar CLI for Outlook / Microsoft 365
@@ -741,6 +783,8 @@ Usage: cal-cli <command> [options]
 
 Commands:
   login               Grab a fresh JWT from Outlook (interactive)
+  setup               Restart browser with remote debugging (one-time)
+  refresh             Headless token refresh via browser CDP (no UI)
   events              List calendar events (default: today)
   create              Create a new event
   update              Update an existing event
@@ -820,12 +864,14 @@ HELP
 # --- Main ---
 # Skip auth for commands that don't need it
 case "${1:-help}" in
-  login|config|help|--help|-h) ;;
+  login|setup|refresh|config|help|--help|-h) ;;
   *) setup_auth ;;
 esac
 
 case "${1:-help}" in
   login)      shift; cmd_login "$@" ;;
+  setup)      shift; cmd_setup "$@" ;;
+  refresh)    shift; cmd_refresh "$@" ;;
   events)     shift; cmd_events "$@" ;;
   create)     shift; cmd_create "$@" ;;
   update)     shift; cmd_update "$@" ;;
