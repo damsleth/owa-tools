@@ -217,14 +217,20 @@ def normalize(e):
 
 normalize_event() {
   python3 -c "${NORMALIZE_PY}
-e = json.load(sys.stdin)
+import codecs
+raw = sys.stdin.buffer.read()
+text = raw.decode('utf-8', errors='replace')
+e = json.loads(text, strict=False)
 print(json.dumps(normalize(e)))
 "
 }
 
 normalize_events() {
   python3 -c "${NORMALIZE_PY}
-data = json.load(sys.stdin)
+import codecs
+raw = sys.stdin.buffer.read()
+text = raw.decode('utf-8', errors='replace')
+data = json.loads(text, strict=False)
 print(json.dumps([normalize(e) for e in data.get('value', [])]))
 "
 }
@@ -496,7 +502,52 @@ cmd_create() {
 
   local result
   result=$(api_request POST "me/events" "$event_json")
-  echo "$result" | normalize_event
+  local created
+  created=$(echo "$result" | normalize_event)
+  echo "$created"
+
+  # Post-creation duplicate check: query all events on the same day (normalized),
+  # then compare against the just-created event to detect duplicates.
+  local created_subject created_start created_end created_id
+  created_subject=$(echo "$created" | jq -r '.subject')
+  created_start=$(echo "$created" | jq -r '.start')
+  created_end=$(echo "$created" | jq -r '.end')
+  created_id=$(echo "$created" | jq -r '.id')
+
+  local check_date="${date}"
+  local select_fields="Id,Subject,Start,End"
+  [[ "$API_CASE" == "camel" ]] && select_fields="id,subject,start,end"
+  local orderby_field="Start/DateTime"
+  [[ "$API_CASE" == "camel" ]] && orderby_field="start/dateTime"
+
+  local check_start="${check_date}T00:00:00"
+  local check_end="${check_date}T23:59:59"
+  local existing
+  existing=$(api_request GET "me/calendarView?startDateTime=${check_start}&endDateTime=${check_end}&\$top=50&\$orderby=${orderby_field}&\$select=${select_fields}" 2>/dev/null) || return 0
+
+  # Normalize the existing events to local time, then compare against created event
+  local normalized_existing
+  normalized_existing=$(echo "$existing" | normalize_events 2>/dev/null) || return 0
+
+  local dup_count
+  dup_count=$(python3 -c "
+import json, sys
+events = json.loads(sys.argv[1])
+target_id = sys.argv[2]
+target_subj = sys.argv[3]
+target_start = sys.argv[4]
+target_end = sys.argv[5]
+dupes = [e for e in events
+  if e.get('subject') == target_subj
+  and e.get('id') != target_id
+  and e.get('start') == target_start
+  and e.get('end') == target_end]
+print(len(dupes))
+" "$normalized_existing" "$created_id" "$created_subject" "$created_start" "$created_end" 2>/dev/null)
+
+  if [[ -n "$dup_count" && "$dup_count" -gt 0 ]]; then
+    echo -e "\033[33m⚠ Warning: Found $dup_count other event(s) with same subject/time on $check_date. Possible duplicates.\033[0m" >&2
+  fi
 }
 
 cmd_update() {
