@@ -4,25 +4,53 @@
 # Uses Outlook REST API (cookie auth) or Microsoft Graph (OAuth)
 # POSIX-style util: pipe-friendly, JSON by default, --pretty for humans
 
-SCRIPT_DIR="${0:A:h}"
-cd "$SCRIPT_DIR"
+# --- Config ---
+# Precedence: environment variables > ~/.config/cal-cli/config > defaults
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cal-cli"
+CONFIG_FILE="$CONFIG_DIR/config"
 
-# --- .env loading ---
-if [ ! -f .env ]; then
-  if [ -f .env.sample ]; then
-    if cp .env.sample .env 2>/dev/null; then
-      print -P "%F{yellow}Created .env from .env.sample. Configure auth then re-run.%f" >&2
-      exit 2
-    fi
-  fi
-  print -P "%F{red}ERROR: .env not found. Copy .env.sample to .env and configure it.%f" >&2
-  exit 1
+# Snapshot env overrides before sourcing config
+_env_refresh="$OUTLOOK_REFRESH_TOKEN"
+_env_tenant="$OUTLOOK_TENANT_ID"
+_env_client="$OUTLOOK_APP_CLIENT_ID"
+
+if [ -f "$CONFIG_FILE" ]; then
+  source "$CONFIG_FILE"
 fi
-source .env
+
+# Reapply env overrides (env wins)
+[[ -n "$_env_refresh" ]] && OUTLOOK_REFRESH_TOKEN="$_env_refresh"
+[[ -n "$_env_tenant" ]]  && OUTLOOK_TENANT_ID="$_env_tenant"
+[[ -n "$_env_client" ]]  && OUTLOOK_APP_CLIENT_ID="$_env_client"
+unset _env_refresh _env_tenant _env_client
 
 # --- Defaults ---
 : ${debug:=0}
 : ${default_timezone:="W. Europe Standard Time"}
+
+# --- Config persistence ---
+# Upsert KEY="VALUE" into $CONFIG_FILE (creates file if missing).
+config_set() {
+  local key="$1" val="$2"
+  mkdir -p "$CONFIG_DIR"
+  chmod 700 "$CONFIG_DIR" 2>/dev/null
+  touch "$CONFIG_FILE"
+  chmod 600 "$CONFIG_FILE" 2>/dev/null
+  local tmpfile
+  tmpfile=$(mktemp)
+  if grep -q "^${key}=" "$CONFIG_FILE" 2>/dev/null; then
+    awk -v k="$key" -v v="$val" '
+      BEGIN { FS="=" }
+      $1 == k { print k "=\"" v "\""; next }
+      { print }
+    ' "$CONFIG_FILE" > "$tmpfile" && mv "$tmpfile" "$CONFIG_FILE"
+  else
+    cp "$CONFIG_FILE" "$tmpfile" 2>/dev/null || true
+    echo "${key}=\"${val}\"" >> "$tmpfile"
+    mv "$tmpfile" "$CONFIG_FILE"
+  fi
+  chmod 600 "$CONFIG_FILE" 2>/dev/null
+}
 
 # --- Logging (all to stderr, stdout is data only) ---
 debug_log() { [[ "$debug" -eq 1 ]] && print -P "%F{green}DEBUG: $1%f" >&2 }
@@ -39,20 +67,14 @@ check_dep() {
 check_dep curl
 check_dep jq
 
-# Locate owa-piggy: PATH first, then sibling repo directory.
 _owa_piggy() {
-  if command -v owa-piggy &>/dev/null; then
-    OWA_REFRESH_TOKEN="$OUTLOOK_REFRESH_TOKEN" \
-    OWA_TENANT_ID="$OUTLOOK_TENANT_ID" \
-    owa-piggy "$@"
-  elif [[ -x "$SCRIPT_DIR/../owa-piggy/owa-piggy" ]]; then
-    OWA_REFRESH_TOKEN="$OUTLOOK_REFRESH_TOKEN" \
-    OWA_TENANT_ID="$OUTLOOK_TENANT_ID" \
-    "$SCRIPT_DIR/../owa-piggy/owa-piggy" "$@"
-  else
-    error_log "owa-piggy not found. Add it to PATH or place it at ../owa-piggy/owa-piggy"
+  if ! command -v owa-piggy &>/dev/null; then
+    error_log "owa-piggy not found. Install with: brew install --HEAD damsleth/tap/owa-piggy"
     return 1
   fi
+  OWA_REFRESH_TOKEN="$OUTLOOK_REFRESH_TOKEN" \
+  OWA_TENANT_ID="$OUTLOOK_TENANT_ID" \
+  owa-piggy "$@"
 }
 
 # --- Auth setup ---
@@ -62,7 +84,7 @@ API_CASE="pascal" # pascal (Outlook) or camel (Graph)
 
 # Exchange OUTLOOK_REFRESH_TOKEN for a new access token.
 # Uses OUTLOOK_APP_CLIENT_ID (app registration) if set, otherwise owa-piggy.
-# On success: sets OUTLOOK_TOKEN, persists rotated refresh token to .env, returns 0.
+# On success: sets OUTLOOK_TOKEN, persists rotated refresh token to config, returns 0.
 # On failure: returns 1.
 do_token_refresh() {
   if [[ -z "$OUTLOOK_REFRESH_TOKEN" || -z "$OUTLOOK_TENANT_ID" ]]; then
@@ -103,9 +125,7 @@ do_token_refresh() {
   # Persist rotated refresh token (single-use)
   if [[ -n "$new_refresh" ]]; then
     OUTLOOK_REFRESH_TOKEN="$new_refresh"
-    local tmpfile
-    tmpfile=$(mktemp)
-    awk -v val="$new_refresh" '/^OUTLOOK_REFRESH_TOKEN=/{print "OUTLOOK_REFRESH_TOKEN=\"" val "\""; next} {print}' .env > "$tmpfile" && mv "$tmpfile" .env
+    config_set OUTLOOK_REFRESH_TOKEN "$new_refresh"
   fi
 
   local exp remaining
@@ -123,12 +143,12 @@ setup_auth() {
       API_CASE="pascal"
       return
     else
-      error_log "Token refresh failed. Check OUTLOOK_REFRESH_TOKEN and OUTLOOK_TENANT_ID in .env"
+      error_log "Token refresh failed. Run 'cal-cli config' to inspect settings, or re-seed via owa-piggy."
       exit 1
     fi
   fi
 
-  error_log "No auth configured. Set OUTLOOK_REFRESH_TOKEN + OUTLOOK_TENANT_ID in .env"
+  error_log "No auth configured. Run: cal-cli config --refresh-token <t> --tenant-id <id>"
   exit 1
 }
 
@@ -721,31 +741,22 @@ cmd_config() {
   done
 
   if [[ -n "$refresh_token" ]]; then
-    local tmpfile=$(mktemp)
-    awk -v val="$refresh_token" '/^OUTLOOK_REFRESH_TOKEN=/{print "OUTLOOK_REFRESH_TOKEN=\"" val "\""; next} {print}' .env > "$tmpfile" && mv "$tmpfile" .env
+    config_set OUTLOOK_REFRESH_TOKEN "$refresh_token"
     info_log "Refresh token saved"
   fi
 
   if [[ -n "$tenant_id" ]]; then
-    if grep -q '^OUTLOOK_TENANT_ID=' .env; then
-      sed -i '' "s|^OUTLOOK_TENANT_ID=.*|OUTLOOK_TENANT_ID=\"$tenant_id\"|" .env
-    else
-      echo "OUTLOOK_TENANT_ID=\"$tenant_id\"" >> .env
-    fi
+    config_set OUTLOOK_TENANT_ID "$tenant_id"
     info_log "Tenant ID saved"
   fi
 
   if [[ -n "$app_client_id" ]]; then
-    if grep -q '^OUTLOOK_APP_CLIENT_ID=' .env; then
-      sed -i '' "s|^OUTLOOK_APP_CLIENT_ID=.*|OUTLOOK_APP_CLIENT_ID=\"$app_client_id\"|" .env
-    else
-      echo "OUTLOOK_APP_CLIENT_ID=\"$app_client_id\"" >> .env
-    fi
+    config_set OUTLOOK_APP_CLIENT_ID "$app_client_id"
     info_log "App client ID saved"
   fi
 
   if [[ -z "$refresh_token" && -z "$tenant_id" && -z "$app_client_id" ]]; then
-    info_log "Current config:"
+    info_log "Config file: $CONFIG_FILE"
     if [[ -n "$OUTLOOK_REFRESH_TOKEN" ]]; then
       info_log "  OUTLOOK_REFRESH_TOKEN=set (tenant: ${OUTLOOK_TENANT_ID:-not set})"
     else
@@ -763,7 +774,7 @@ cmd_config() {
 
 cmd_refresh() {
   if [[ -z "$OUTLOOK_REFRESH_TOKEN" || -z "$OUTLOOK_TENANT_ID" ]]; then
-    error_log "OUTLOOK_REFRESH_TOKEN and OUTLOOK_TENANT_ID must be set in .env"
+    error_log "OUTLOOK_REFRESH_TOKEN and OUTLOOK_TENANT_ID must be set (via env or $CONFIG_FILE)"
     exit 1
   fi
 
@@ -839,26 +850,20 @@ Config options:
   --app-client-id <id> Set app registration client ID (optional)
 
 Auth:
-  Requires OUTLOOK_REFRESH_TOKEN + OUTLOOK_TENANT_ID in .env.
+  Requires OUTLOOK_REFRESH_TOKEN + OUTLOOK_TENANT_ID.
+  Set via env vars or ~/.config/cal-cli/config (env wins).
 
   If OUTLOOK_APP_CLIENT_ID is set, uses that app registration directly
-  (standard OAuth2 refresh_token grant - more durable, recommended for
-  registered apps).
+  (standard OAuth2 refresh_token grant).
 
-  Otherwise falls back to owa-piggy, which piggybacks on OWA's public
-  SPA client - no app registration needed, but requires owa-piggy on PATH
-  (or at ../owa-piggy/owa-piggy).
+  Otherwise falls back to owa-piggy (brew install --HEAD damsleth/tap/owa-piggy),
+  which piggybacks on OWA's public SPA client - no app registration needed.
 
-  Setup (app registration):
-    1. Register an app in Azure AD with Calendars.ReadWrite delegated permission
-    2. Run device code or auth code flow to get a refresh token
-    3. cal-cli config --refresh-token "1.AQ..." --tenant-id "8f47ad71-..." \
-                      --app-client-id "your-client-id"
-
-  Setup (owa-piggy, no app registration):
-    1. owa-piggy --save-config  (one-time interactive setup)
-    2. cal-cli config --refresh-token "$(owa-piggy --json | jq -r .refresh_token)" \
-                      --tenant-id "your-tenant-id"
+  Quickstart (owa-piggy):
+    brew install --HEAD damsleth/tap/owa-piggy
+    owa-piggy --setup
+    cal-cli config --refresh-token "$(owa-piggy --json | jq -r .refresh_token)" \
+                   --tenant-id "$(owa-piggy --json | jq -r .tenant_id)"
 
 Examples:
   cal-cli events --pretty

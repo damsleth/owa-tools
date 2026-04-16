@@ -1,96 +1,81 @@
 # cal-cli
 
-Calendar CLI for Outlook / Microsoft 365. Read, create, update, and delete calendar events from the terminal.
+Calendar CLI for Outlook / Microsoft 365. Read, create, update and delete events from the terminal.
+Pipe-friendly JSON by default, `--pretty` for humans.
 
-Built for the same POSIX-util philosophy as [did-cli](https://github.com/damsleth/did-cli) - pipe-friendly JSON by default, `--pretty` for humans.
-
-## Setup
-
-```bash
-chmod +x cal-cli.zsh add-to-path.sh
-cp .env.sample .env
-./add-to-path.sh   # symlinks to /usr/local/bin/cal-cli
+```sh
+brew install --HEAD damsleth/tap/cal-cli
+cal-cli config --refresh-token "$(owa-piggy --json | jq -r .refresh_token)" \
+               --tenant-id     "$(owa-piggy --json | jq -r .tenant_id)"
 ```
 
-## Authentication
+Then
 
-The CLI uses a JWT from the Outlook Web App. Tokens last ~65 minutes but can be refreshed automatically.
-
-### Automated (recommended)
-
-One-time setup - restarts your default Chromium browser with remote debugging:
-
-```bash
-cal-cli setup
+```sh
+cal-cli events --pretty
 ```
 
-Then refresh tokens hands-free whenever needed:
+---
 
-```bash
-cal-cli refresh   # ~5 seconds, no browser interaction
-```
+## Examples
 
-This connects to your running browser via CDP, navigates the Outlook tab to the calendar view, and intercepts the Bearer token from network traffic. Works with Vivaldi, Chrome, Edge, Brave, and Arc.
-
-### Manual alternatives
-
-**Bookmarklet** - add this as a bookmark, click it on `outlook.cloud.microsoft`, then click anything in Outlook. Copies the token to clipboard.
-
-```
-javascript:void((async()=>{let t=null;const of=window.fetch;window.fetch=function(...a){const[input,opts]=a;let auth=null;if(input instanceof Request)auth=input.headers.get('authorization');else if(opts?.headers instanceof Headers)auth=opts.headers.get('authorization');else if(opts?.headers)auth=opts.headers.Authorization||opts.headers.authorization;if(auth?.startsWith('Bearer ')&&!t){try{const p=JSON.parse(atob(auth.slice(7).split('.')[1]));if(p.aud?.includes('outlook.office.com'))t=auth.slice(7)}catch{}}return of.apply(this,a)};for(let i=0;i<150&&!t;i++)await new Promise(r=>setTimeout(r,100));window.fetch=of;if(t){const p=JSON.parse(atob(t.split('.')[1]));await navigator.clipboard.writeText(t);alert('Token copied! '+Math.round((p.exp-Date.now()/1000)/60)+'min left')}else alert('No token captured. Click something in Outlook, then try again.')})())
-```
-
-Then: `cal-cli login` (reads clipboard automatically on macOS).
-
-**Interactive login** - opens Outlook, prompts for token paste:
-
-```bash
-cal-cli login
-```
-
-## Usage
-
-```bash
-# List events
-cal-cli events --pretty                    # today
-cal-cli events --date tomorrow --pretty    # tomorrow
-cal-cli events --week 16 --pretty          # ISO week
+```sh
+cal-cli events --pretty                       # today
+cal-cli events --week 16 --pretty             # ISO week
 cal-cli events --from 2026-04-14 --to 2026-04-18 --pretty
 cal-cli events --search "standup" --pretty
 
-# Create
 cal-cli create --subject "lunsj" --start 11:00 --end 11:30 --category "CC LUNCH"
-cal-cli create --subject "Deep work" --date tomorrow --start 13:00 --end 15:00
-
-# Update
 cal-cli update --id <event-id> --category "ProjectX"
-cal-cli update --id <event-id> --start 14:00 --end 15:00
-
-# Delete
 cal-cli delete --id <event-id>
 
-# Categories (used by DID for project/customer mapping)
 cal-cli categories
-
-# Config
-cal-cli config
 ```
 
-JSON output by default (pipe to `jq`). Add `--pretty` for formatted tables. Times displayed in local timezone.
+Pipe-friendly - JSON on stdout, logs on stderr:
+
+```sh
+cal-cli events | jq '.[].subject'
+cal-cli events --date tomorrow | jq '[.[] | select(.showAs == "busy")] | length'
+```
+
+---
+
+## Auth
+
+Uses an OAuth2 refresh token for `outlook.office.com/Calendars.ReadWrite`.
+
+- **With an app registration** - set `OUTLOOK_APP_CLIENT_ID` and cal-cli talks to the OAuth2 token endpoint directly.
+- **Without** - cal-cli shells out to [`owa-piggy`](https://github.com/damsleth/owa-piggy), which piggybacks on OWA's public SPA client (no Azure app registration needed).
+
+Refresh tokens rotate on every exchange and are persisted back to the config after each call. Use it once a day and it never lapses.
+
+Config lives at `~/.config/cal-cli/config`:
+
+```
+OUTLOOK_REFRESH_TOKEN="1.AQ..."
+OUTLOOK_TENANT_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+OUTLOOK_APP_CLIENT_ID=""   # optional
+```
+
+Env vars (`OUTLOOK_REFRESH_TOKEN`, `OUTLOOK_TENANT_ID`, `OUTLOOK_APP_CLIENT_ID`) override the config file.
+
+---
 
 ## DID integration
 
-This calendar is the data source for [DID](https://did.acmeconsulting.no) (timesheet system). Event categories determine which project/customer hours are billed to. Changing events here directly affects your timesheet.
+This calendar is the data source for [DID](https://did.acmeconsulting.no) timesheets. Event categories map to projects/customers, so editing events here directly affects billed hours.
+
+---
 
 ## Dependencies
 
-- zsh, curl, jq, python3 (all standard on macOS)
-- python3 `websockets` package (for `cal-cli refresh`)
+- `zsh`, `curl`, `jq`, `python3` (all standard on macOS)
+- [`owa-piggy`](https://github.com/damsleth/owa-piggy) unless you bring your own app registration
 
-## Auth methods
+## Disclaimer
 
-| Method | Lifetime | How |
-|--------|----------|-----|
-| JWT via CDP (primary) | ~65 min, auto-refresh | `cal-cli setup` once, then `cal-cli refresh` |
-| JWT via bookmarklet | ~65 min | Click bookmarklet + `cal-cli login` |
-| OAuth via get-token | Until revoked | Requires `Calendars.ReadWrite` scope (needs tenant admin) |
+```
+Personal tooling. Stores a delegated refresh token on disk.
+If you don't know why that might be a bad idea, don't use it.
+```
