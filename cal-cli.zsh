@@ -22,9 +22,7 @@ source .env
 
 # --- Defaults ---
 : ${debug:=0}
-: ${use_oauth:=0}
 : ${default_timezone:="W. Europe Standard Time"}
-: ${OUTLOOK_CLIENT_ID:="9199bf20-a13f-4107-85dc-02114787ef48"}
 
 # --- Logging (all to stderr, stdout is data only) ---
 debug_log() { [[ "$debug" -eq 1 ]] && print -P "%F{green}DEBUG: $1%f" >&2 }
@@ -41,26 +39,51 @@ check_dep() {
 check_dep curl
 check_dep jq
 
+# Locate owa-piggy: PATH first, then sibling repo directory.
+_owa_piggy() {
+  if command -v owa-piggy &>/dev/null; then
+    OWA_REFRESH_TOKEN="$OUTLOOK_REFRESH_TOKEN" \
+    OWA_TENANT_ID="$OUTLOOK_TENANT_ID" \
+    owa-piggy "$@"
+  elif [[ -x "$SCRIPT_DIR/../owa-piggy/owa-piggy" ]]; then
+    OWA_REFRESH_TOKEN="$OUTLOOK_REFRESH_TOKEN" \
+    OWA_TENANT_ID="$OUTLOOK_TENANT_ID" \
+    "$SCRIPT_DIR/../owa-piggy/owa-piggy" "$@"
+  else
+    error_log "owa-piggy not found. Add it to PATH or place it at ../owa-piggy/owa-piggy"
+    return 1
+  fi
+}
+
 # --- Auth setup ---
 AUTH_HEADER=""
 API_BASE=""
 API_CASE="pascal" # pascal (Outlook) or camel (Graph)
 
 # Exchange OUTLOOK_REFRESH_TOKEN for a new access token.
-# On success: sets OUTLOOK_TOKEN, persists both new tokens to .env, returns 0.
+# Uses OUTLOOK_APP_CLIENT_ID (app registration) if set, otherwise owa-piggy.
+# On success: sets OUTLOOK_TOKEN, persists rotated refresh token to .env, returns 0.
 # On failure: returns 1.
 do_token_refresh() {
   if [[ -z "$OUTLOOK_REFRESH_TOKEN" || -z "$OUTLOOK_TENANT_ID" ]]; then
     return 1
   fi
 
-  debug_log "Auth: attempting refresh token exchange..."
-
   local result
-  result=$(OUTLOOK_REFRESH_TOKEN="$OUTLOOK_REFRESH_TOKEN" \
-           OUTLOOK_TENANT_ID="$OUTLOOK_TENANT_ID" \
-           OUTLOOK_CLIENT_ID="$OUTLOOK_CLIENT_ID" \
-           python3 "$SCRIPT_DIR/scripts/graph-refresh.py" 2>/dev/null)
+  if [[ -n "$OUTLOOK_APP_CLIENT_ID" ]]; then
+    debug_log "Auth: using app registration (${OUTLOOK_APP_CLIENT_ID})"
+    result=$(curl -s -X POST \
+      "https://login.microsoftonline.com/${OUTLOOK_TENANT_ID}/oauth2/v2.0/token" \
+      -H "Content-Type: application/x-www-form-urlencoded" \
+      --data-urlencode "grant_type=refresh_token" \
+      --data-urlencode "client_id=${OUTLOOK_APP_CLIENT_ID}" \
+      --data-urlencode "refresh_token=${OUTLOOK_REFRESH_TOKEN}" \
+      --data-urlencode "scope=https://outlook.office.com/Calendars.ReadWrite openid profile offline_access" \
+      2>/dev/null)
+  else
+    debug_log "Auth: using owa-piggy"
+    result=$(_owa_piggy --json 2>/dev/null)
+  fi
 
   if [[ -z "$result" ]]; then
     return 1
@@ -71,18 +94,16 @@ do_token_refresh() {
   new_refresh=$(echo "$result" | jq -r '.refresh_token // empty')
 
   if [[ -z "$new_access" ]]; then
+    debug_log "Auth: exchange failed: $(echo "$result" | jq -r '.error_description // .error // "unknown"' 2>/dev/null)"
     return 1
   fi
 
-  # Persist new access token
   OUTLOOK_TOKEN="$new_access"
-  local tmpfile
-  tmpfile=$(mktemp)
-  awk -v val="$new_access" '/^OUTLOOK_TOKEN=/{print "OUTLOOK_TOKEN=\"" val "\""; next} {print}' .env > "$tmpfile" && mv "$tmpfile" .env
 
-  # Persist rotated refresh token (refresh tokens are single-use)
+  # Persist rotated refresh token (single-use)
   if [[ -n "$new_refresh" ]]; then
     OUTLOOK_REFRESH_TOKEN="$new_refresh"
+    local tmpfile
     tmpfile=$(mktemp)
     awk -v val="$new_refresh" '/^OUTLOOK_REFRESH_TOKEN=/{print "OUTLOOK_REFRESH_TOKEN=\"" val "\""; next} {print}' .env > "$tmpfile" && mv "$tmpfile" .env
   fi
@@ -90,70 +111,25 @@ do_token_refresh() {
   local exp remaining
   exp=$(echo "$new_access" | cut -d'.' -f2 | (cat; echo '==') | base64 -d 2>/dev/null | jq -r '.exp // 0' 2>/dev/null)
   remaining=$(( (exp - $(date +%s)) / 60 ))
-  debug_log "Auth: refresh token exchange succeeded (${remaining}min remaining)"
+  debug_log "Auth: token exchange succeeded (${remaining}min remaining)"
   return 0
 }
 
 setup_auth() {
-  # Priority: 1. JWT token  2. Refresh token  3. OAuth via get-token  4. Cookie
-
-  # 1. JWT token from Outlook Web (grab from DevTools, ~65 min lifetime)
-  if [[ -n "$OUTLOOK_TOKEN" ]]; then
-    # Check if token is expired (best-effort, works for standard JWTs)
-    local exp
-    exp=$(echo "$OUTLOOK_TOKEN" | cut -d'.' -f2 | (cat; echo '==') | base64 -d 2>/dev/null | jq -r '.exp // 0' 2>/dev/null)
-    local now=$(date +%s)
-    if [[ "$exp" -gt "$now" ]]; then
-      AUTH_HEADER="Authorization: Bearer $OUTLOOK_TOKEN"
-      API_BASE="https://outlook.office.com/api/v2.0"
-      API_CASE="pascal"
-      local remaining=$(( (exp - now) / 60 ))
-      debug_log "Auth: JWT token (outlook.office.com, ${remaining}min remaining)"
-      return
-    else
-      debug_log "JWT token expired, trying refresh token..."
-    fi
-  fi
-
-  # 2. Refresh token (MSAL-style, auto-renewing)
   if [[ -n "$OUTLOOK_REFRESH_TOKEN" && -n "$OUTLOOK_TENANT_ID" ]]; then
     if do_token_refresh; then
       AUTH_HEADER="Authorization: Bearer $OUTLOOK_TOKEN"
       API_BASE="https://outlook.office.com/api/v2.0"
       API_CASE="pascal"
-      info_log "Auth: refreshed via refresh token" >&2
       return
     else
-      info_log "Refresh token exchange failed. Falling back..." >&2
+      error_log "Token refresh failed. Check OUTLOOK_REFRESH_TOKEN and OUTLOOK_TENANT_ID in .env"
+      exit 1
     fi
   fi
 
-  # 3. OAuth via get-token (if enabled)
-  if [[ "$use_oauth" -eq 1 ]]; then
-    if command -v get-token &>/dev/null; then
-      local token
-      token=$(get-token 2>/dev/null)
-      if [[ -n "$token" ]]; then
-        AUTH_HEADER="Authorization: Bearer $token"
-        API_BASE="https://graph.microsoft.com/v1.0"
-        API_CASE="camel"
-        debug_log "Auth: OAuth token (graph.microsoft.com)"
-        return
-      fi
-    fi
-    debug_log "OAuth failed, falling back to cookie"
-  fi
-
-  # 4. Cookie auth (full Cookie header from DevTools)
-  if [[ -n "$OUTLOOK_COOKIE" ]]; then
-    AUTH_HEADER="Cookie: $OUTLOOK_COOKIE"
-    API_BASE="https://outlook.office.com/api/v2.0"
-    API_CASE="pascal"
-    debug_log "Auth: cookie (outlook.office.com)"
-  else
-    error_log "No auth configured. Set OUTLOOK_REFRESH_TOKEN+OUTLOOK_TENANT_ID, OUTLOOK_TOKEN, or OUTLOOK_COOKIE in .env"
-    exit 1
-  fi
+  error_log "No auth configured. Set OUTLOOK_REFRESH_TOKEN + OUTLOOK_TENANT_ID in .env"
+  exit 1
 }
 
 # --- API helper ---
@@ -183,7 +159,7 @@ api_request() {
   case "$http_code" in
     2*) ;; # success
     401)
-      error_log "Auth expired (401). Refresh your cookie or re-run get-token."
+      error_log "Auth expired (401). Run: cal-cli refresh"
       exit 1 ;;
     403)
       error_log "Access denied (403). Check permissions."
@@ -733,26 +709,20 @@ cmd_categories() {
 }
 
 cmd_config() {
-  local token="" cookie="" oauth="" refresh_token="" tenant_id=""
+  local refresh_token="" tenant_id="" app_client_id=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --token)         token="$2"; shift 2 ;;
-      --cookie)        cookie="$2"; shift 2 ;;
-      --oauth)         oauth="$2"; shift 2 ;;
-      --refresh-token) refresh_token="$2"; shift 2 ;;
-      --tenant-id)     tenant_id="$2"; shift 2 ;;
+      --refresh-token)  refresh_token="$2"; shift 2 ;;
+      --tenant-id)      tenant_id="$2"; shift 2 ;;
+      --app-client-id)  app_client_id="$2"; shift 2 ;;
       *) error_log "Unknown flag: $1"; exit 1 ;;
     esac
   done
 
   if [[ -n "$refresh_token" ]]; then
-    if grep -q '^OUTLOOK_REFRESH_TOKEN=' .env; then
-      local tmpfile=$(mktemp)
-      awk -v val="$refresh_token" '/^OUTLOOK_REFRESH_TOKEN=/{print "OUTLOOK_REFRESH_TOKEN=\"" val "\""; next} {print}' .env > "$tmpfile" && mv "$tmpfile" .env
-    else
-      echo "OUTLOOK_REFRESH_TOKEN=\"$refresh_token\"" >> .env
-    fi
+    local tmpfile=$(mktemp)
+    awk -v val="$refresh_token" '/^OUTLOOK_REFRESH_TOKEN=/{print "OUTLOOK_REFRESH_TOKEN=\"" val "\""; next} {print}' .env > "$tmpfile" && mv "$tmpfile" .env
     info_log "Refresh token saved"
   fi
 
@@ -765,225 +735,51 @@ cmd_config() {
     info_log "Tenant ID saved"
   fi
 
-  if [[ -n "$token" ]]; then
-    # Strip "Bearer " prefix if included
-    token="${token#Bearer }"
-    if grep -q '^OUTLOOK_TOKEN=' .env; then
-      # Token is too long for sed, rewrite the line
-      local tmpfile=$(mktemp)
-      awk -v val="$token" '/^OUTLOOK_TOKEN=/{print "OUTLOOK_TOKEN=\"" val "\""; next} {print}' .env > "$tmpfile" && mv "$tmpfile" .env
+  if [[ -n "$app_client_id" ]]; then
+    if grep -q '^OUTLOOK_APP_CLIENT_ID=' .env; then
+      sed -i '' "s|^OUTLOOK_APP_CLIENT_ID=.*|OUTLOOK_APP_CLIENT_ID=\"$app_client_id\"|" .env
     else
-      echo "OUTLOOK_TOKEN=\"$token\"" >> .env
+      echo "OUTLOOK_APP_CLIENT_ID=\"$app_client_id\"" >> .env
     fi
-    info_log "JWT token updated"
-    # Show expiry
-    local exp
-    exp=$(echo "$token" | cut -d'.' -f2 | (cat; echo '==') | base64 -d 2>/dev/null | jq -r '.exp // 0' 2>/dev/null)
-    if [[ "$exp" -gt 0 ]]; then
-      local now=$(date +%s)
-      local remaining=$(( (exp - now) / 60 ))
-      if [[ $remaining -gt 0 ]]; then
-        info_log "Token valid for ${remaining} more minutes"
-      else
-        info_log "Warning: token is already expired"
-      fi
-    fi
+    info_log "App client ID saved"
   fi
 
-  if [[ -n "$cookie" ]]; then
-    if grep -q '^OUTLOOK_COOKIE=' .env; then
-      local tmpfile=$(mktemp)
-      awk -v val="$cookie" '/^OUTLOOK_COOKIE=/{print "OUTLOOK_COOKIE=\"" val "\""; next} {print}' .env > "$tmpfile" && mv "$tmpfile" .env
-    else
-      echo "OUTLOOK_COOKIE=\"$cookie\"" >> .env
-    fi
-    info_log "Cookie updated"
-  fi
-
-  if [[ -n "$oauth" ]]; then
-    if grep -q '^use_oauth=' .env; then
-      sed -i '' "s|^use_oauth=.*|use_oauth=$oauth|" .env
-    else
-      echo "use_oauth=$oauth" >> .env
-    fi
-    info_log "OAuth set to $oauth"
-  fi
-
-  if [[ -z "$token" && -z "$cookie" && -z "$oauth" && -z "$refresh_token" && -z "$tenant_id" ]]; then
+  if [[ -z "$refresh_token" && -z "$tenant_id" && -z "$app_client_id" ]]; then
     info_log "Current config:"
     if [[ -n "$OUTLOOK_REFRESH_TOKEN" ]]; then
       info_log "  OUTLOOK_REFRESH_TOKEN=set (tenant: ${OUTLOOK_TENANT_ID:-not set})"
     else
       info_log "  OUTLOOK_REFRESH_TOKEN=(not set)"
     fi
-    if [[ -n "$OUTLOOK_TOKEN" ]]; then
-      local exp
-      exp=$(echo "$OUTLOOK_TOKEN" | cut -d'.' -f2 | (cat; echo '==') | base64 -d 2>/dev/null | jq -r '.exp // 0' 2>/dev/null)
-      local now=$(date +%s)
-      local remaining=$(( (exp - now) / 60 ))
-      if [[ $remaining -gt 0 ]]; then
-        info_log "  OUTLOOK_TOKEN=set (${remaining}min remaining)"
-      else
-        info_log "  OUTLOOK_TOKEN=set (EXPIRED)"
-      fi
+    if [[ -n "$OUTLOOK_APP_CLIENT_ID" ]]; then
+      info_log "  OUTLOOK_APP_CLIENT_ID=$OUTLOOK_APP_CLIENT_ID (app registration)"
     else
-      info_log "  OUTLOOK_TOKEN=(not set)"
+      info_log "  OUTLOOK_APP_CLIENT_ID=(not set - using owa-piggy)"
     fi
-    if [[ -n "$OUTLOOK_COOKIE" ]]; then
-      info_log "  OUTLOOK_COOKIE=$(echo "$OUTLOOK_COOKIE" | cut -c1-40)..."
-    else
-      info_log "  OUTLOOK_COOKIE=(not set)"
-    fi
-    info_log "  use_oauth=$use_oauth"
     info_log "  default_timezone=$default_timezone"
-    info_log "  API: $API_BASE"
+    info_log "  API: ${API_BASE:-(auth not yet run)}"
   fi
-}
-
-cmd_login() {
-  local token=""
-
-  # Check clipboard first (from bookmarklet)
-  if command -v pbpaste &>/dev/null; then
-    local clip
-    clip=$(pbpaste 2>/dev/null)
-    if [[ "$clip" == eyJ* ]] || [[ "$clip" == Bearer\ eyJ* ]]; then
-      token="${clip#Bearer }"
-      info_log "Found JWT in clipboard"
-    fi
-  fi
-
-  if [[ -z "$token" ]]; then
-    info_log "Grab a token from Outlook:"
-    info_log ""
-    info_log "  Option A: Use the bookmarklet (one click)"
-    info_log "    Add this as a bookmark, click it on outlook.cloud.microsoft:"
-    info_log "    (see cal-cli help for the bookmarklet URL)"
-    info_log ""
-    info_log "  Option B: DevTools > Network > any outlook.office.com API request"
-    info_log "    Copy the Authorization: Bearer eyJ... header"
-    info_log ""
-    info_log "Then either:"
-    info_log "  - Run cal-cli login again (reads clipboard automatically)"
-    info_log "  - Or paste below:"
-    info_log ""
-
-    open "https://outlook.cloud.microsoft/calendar" 2>/dev/null
-
-    print -P -n "%F{cyan}Token: %f" >&2
-    read -r token
-
-    if [[ -z "$token" ]]; then
-      error_log "No token provided."
-      exit 1
-    fi
-  fi
-
-  # Strip "Bearer " prefix
-  token="${token#Bearer }"
-
-  if [[ "$token" != eyJ* ]]; then
-    error_log "Doesn't look like a JWT (should start with eyJ)."
-    exit 1
-  fi
-
-  # Save it
-  cmd_config --token "$token"
-
-  # Verify
-  source .env
-  OUTLOOK_TOKEN="$token"
-  AUTH_HEADER="Authorization: Bearer $OUTLOOK_TOKEN"
-  API_BASE="https://outlook.office.com/api/v2.0"
-  API_CASE="pascal"
-
-  local me
-  me=$(api_request GET "me" 2>/dev/null)
-  local name
-  name=$(echo "$me" | jq -r '.DisplayName // .displayName // empty' 2>/dev/null)
-
-  if [[ -n "$name" ]]; then
-    info_log "Authenticated as $name"
-  else
-    error_log "Token saved but verification failed. It may already be expired."
-  fi
-}
-
-cmd_setup() {
-  info_log "Setting up automated token refresh..."
-  info_log "This restarts your default browser with remote debugging (port 9222)."
-  info_log "Tabs and session are preserved."
-  info_log ""
-  "$SCRIPT_DIR/scripts/vivaldi-debug.sh"
-  info_log ""
-  info_log "Open Outlook in the browser, then run: cal-cli refresh"
 }
 
 cmd_refresh() {
-  # Try refresh token (no browser) first, then fall back to CDP
-  if [[ -n "$OUTLOOK_REFRESH_TOKEN" && -n "$OUTLOOK_TENANT_ID" ]]; then
-    info_log "Refreshing token via refresh_token grant..."
-
-    local result
-    result=$(OUTLOOK_REFRESH_TOKEN="$OUTLOOK_REFRESH_TOKEN" \
-             OUTLOOK_TENANT_ID="$OUTLOOK_TENANT_ID" \
-             OUTLOOK_CLIENT_ID="$OUTLOOK_CLIENT_ID" \
-             python3 "$SCRIPT_DIR/scripts/graph-refresh.py" 2>/dev/null)
-
-    if [[ -n "$result" ]]; then
-      local new_access new_refresh
-      new_access=$(echo "$result" | jq -r '.access_token // empty')
-      new_refresh=$(echo "$result" | jq -r '.refresh_token // empty')
-
-      if [[ -n "$new_access" ]]; then
-        cmd_config --token "$new_access"
-
-        # Persist rotated refresh token
-        if [[ -n "$new_refresh" ]]; then
-          local tmpfile
-          tmpfile=$(mktemp)
-          awk -v val="$new_refresh" '/^OUTLOOK_REFRESH_TOKEN=/{print "OUTLOOK_REFRESH_TOKEN=\"" val "\""; next} {print}' .env > "$tmpfile" && mv "$tmpfile" .env
-          info_log "Refresh token rotated and saved"
-        fi
-
-        source .env
-        OUTLOOK_TOKEN="$new_access"
-        AUTH_HEADER="Authorization: Bearer $OUTLOOK_TOKEN"
-        API_BASE="https://outlook.office.com/api/v2.0"
-        API_CASE="pascal"
-
-        local me name
-        me=$(api_request GET "me" 2>/dev/null)
-        name=$(echo "$me" | jq -r '.DisplayName // .displayName // empty' 2>/dev/null)
-        [[ -n "$name" ]] && info_log "Authenticated as $name"
-        return
-      fi
-    fi
-
-    error_log "Refresh token exchange failed. Falling back to browser CDP..."
+  if [[ -z "$OUTLOOK_REFRESH_TOKEN" || -z "$OUTLOOK_TENANT_ID" ]]; then
+    error_log "OUTLOOK_REFRESH_TOKEN and OUTLOOK_TENANT_ID must be set in .env"
+    exit 1
   fi
 
-  # Fallback: CDP-based browser token extraction
-  info_log "Refreshing token via browser CDP..."
+  info_log "Refreshing token..."
 
-  local token
-  token=$(python3 "$SCRIPT_DIR/scripts/refresh-token.py")
-
-  if [[ -n "$token" && "$token" == eyJ* ]]; then
-    cmd_config --token "$token"
-
-    source .env
-    OUTLOOK_TOKEN="$token"
+  if do_token_refresh; then
     AUTH_HEADER="Authorization: Bearer $OUTLOOK_TOKEN"
     API_BASE="https://outlook.office.com/api/v2.0"
     API_CASE="pascal"
-
     local me name
     me=$(api_request GET "me" 2>/dev/null)
     name=$(echo "$me" | jq -r '.DisplayName // .displayName // empty' 2>/dev/null)
     [[ -n "$name" ]] && info_log "Authenticated as $name"
   else
-    error_log "Token refresh failed. Use: cal-cli login"
+    error_log "Token refresh failed."
+    exit 1
   fi
 }
 
@@ -994,9 +790,7 @@ cal-cli - Calendar CLI for Outlook / Microsoft 365
 Usage: cal-cli <command> [options]
 
 Commands:
-  login               Grab a fresh JWT from Outlook (interactive)
-  setup               Restart browser with remote debugging (one-time)
-  refresh             Headless token refresh via browser CDP (no UI)
+  refresh             Force a token refresh and verify auth
   events              List calendar events (default: today)
   create              Create a new event
   update              Update an existing event
@@ -1040,36 +834,31 @@ Categories options:
   (no flags)          List all categories
 
 Config options:
-  --refresh-token <v> Set MSAL refresh token (auto-renews, no browser needed)
-  --tenant-id <id>    Set Azure AD tenant ID (required for refresh token)
-  --token <jwt>       Set JWT from Outlook Web (~65min)
-  --cookie <value>    Set full cookie header from DevTools
-  --oauth <0|1>       Enable/disable OAuth via get-token
+  --refresh-token <v> Set MSAL refresh token
+  --tenant-id <id>    Set Azure AD tenant ID
+  --app-client-id <id> Set app registration client ID (optional)
 
-Auth (tried in order):
-  1. Refresh token exchange (MSAL RefreshToken.secret - recommended, persistent)
-  2. JWT token from Outlook Web (~65 min lifetime, full permissions)
-  3. OAuth via get-token (requires Calendars.ReadWrite scope)
-  4. Session cookie from outlook.office.com
+Auth:
+  Requires OUTLOOK_REFRESH_TOKEN + OUTLOOK_TENANT_ID in .env.
 
-  Refresh token setup (one-time, then auto-renews forever):
-    1. Open DevTools on outlook.cloud.microsoft > Application > Local Storage
-    2. Find key ending in "-refreshtoken-9199bf20-a13f-4107-85dc-02114787ef48--"
-    3. Copy the "secret" value (starts with "1.AQ...")
-    4. cal-cli config --refresh-token "1.AQ..." --tenant-id "8f47ad71-..."
-    5. cal-cli refresh   # verify it works
+  If OUTLOOK_APP_CLIENT_ID is set, uses that app registration directly
+  (standard OAuth2 refresh_token grant - more durable, recommended for
+  registered apps).
 
-  Quickest: bookmarklet (copies token to clipboard automatically)
-  Add this URL as a bookmark, click it on outlook.cloud.microsoft,
-  then click anything in Outlook (switch folder, open email) to
-  trigger an API call. The token gets intercepted and copied.
+  Otherwise falls back to owa-piggy, which piggybacks on OWA's public
+  SPA client - no app registration needed, but requires owa-piggy on PATH
+  (or at ../owa-piggy/owa-piggy).
 
-  javascript:void((async()=>{let t=null;const of=window.fetch;window.fetch=function(...a){const[input,opts]=a;let auth=null;if(input instanceof Request)auth=input.headers.get('authorization');else if(opts?.headers instanceof Headers)auth=opts.headers.get('authorization');else if(opts?.headers)auth=opts.headers.Authorization||opts.headers.authorization;if(auth?.startsWith('Bearer ')&&!t){try{const p=JSON.parse(atob(auth.slice(7).split('.')[1]));if(p.aud?.includes('outlook.office.com'))t=auth.slice(7)}catch{}}return of.apply(this,a)};for(let i=0;i<150&&!t;i++)await new Promise(r=>setTimeout(r,100));window.fetch=of;if(t){const p=JSON.parse(atob(t.split('.')[1]));await navigator.clipboard.writeText(t);alert('Token copied! '+Math.round((p.exp-Date.now()/1000)/60)+'min left')}else alert('No token captured. Click something in Outlook, then try again.')})())
+  Setup (app registration):
+    1. Register an app in Azure AD with Calendars.ReadWrite delegated permission
+    2. Run device code or auth code flow to get a refresh token
+    3. cal-cli config --refresh-token "1.AQ..." --tenant-id "8f47ad71-..." \
+                      --app-client-id "your-client-id"
 
-  Then: cal-cli login  (reads clipboard automatically on macOS)
-
-  Manual: DevTools (F12) > Network > any outlook.office.com API request
-  Copy Authorization header > cal-cli config --token "eyJ..."
+  Setup (owa-piggy, no app registration):
+    1. owa-piggy --save-config  (one-time interactive setup)
+    2. cal-cli config --refresh-token "$(owa-piggy --json | jq -r .refresh_token)" \
+                      --tenant-id "your-tenant-id"
 
 Examples:
   cal-cli events --pretty
@@ -1086,13 +875,11 @@ HELP
 # --- Main ---
 # Skip auth for commands that don't need it
 case "${1:-help}" in
-  login|setup|refresh|config|help|--help|-h) ;;
+  refresh|config|help|--help|-h) ;;
   *) setup_auth ;;
 esac
 
 case "${1:-help}" in
-  login)      shift; cmd_login "$@" ;;
-  setup)      shift; cmd_setup "$@" ;;
   refresh)    shift; cmd_refresh "$@" ;;
   events)     shift; cmd_events "$@" ;;
   create)     shift; cmd_create "$@" ;;
