@@ -37,25 +37,47 @@ config_set() {
   touch "$CONFIG_FILE"
   chmod 600 "$CONFIG_FILE" 2>/dev/null
   local tmpfile
-  tmpfile=$(mktemp)
+  tmpfile=$(mktemp "${CONFIG_DIR}/.config.XXXXXX") || {
+    error_log "Failed to create temp file in $CONFIG_DIR"
+    return 1
+  }
+  chmod 600 "$tmpfile" 2>/dev/null
   if grep -q "^${key}=" "$CONFIG_FILE" 2>/dev/null; then
-    awk -v k="$key" -v v="$val" '
-      BEGIN { FS="=" }
+    # Pass key/value via env to avoid awk -v backslash interpretation
+    if ! CAL_K="$key" CAL_V="$val" awk '
+      BEGIN { k=ENVIRON["CAL_K"]; v=ENVIRON["CAL_V"]; FS="=" }
       $1 == k { print k "=\"" v "\""; next }
       { print }
-    ' "$CONFIG_FILE" > "$tmpfile" && mv "$tmpfile" "$CONFIG_FILE"
+    ' "$CONFIG_FILE" > "$tmpfile"; then
+      rm -f "$tmpfile"
+      error_log "Failed to rewrite config file"
+      return 1
+    fi
   else
-    cp "$CONFIG_FILE" "$tmpfile" 2>/dev/null || true
-    echo "${key}=\"${val}\"" >> "$tmpfile"
-    mv "$tmpfile" "$CONFIG_FILE"
+    if ! cp "$CONFIG_FILE" "$tmpfile"; then
+      rm -f "$tmpfile"
+      error_log "Failed to copy config file"
+      return 1
+    fi
+    if ! printf '%s="%s"\n' "$key" "$val" >> "$tmpfile"; then
+      rm -f "$tmpfile"
+      error_log "Failed to append to config file"
+      return 1
+    fi
+  fi
+  if ! mv "$tmpfile" "$CONFIG_FILE"; then
+    rm -f "$tmpfile"
+    error_log "Failed to replace config file"
+    return 1
   fi
   chmod 600 "$CONFIG_FILE" 2>/dev/null
 }
 
 # --- Logging (all to stderr, stdout is data only) ---
-debug_log() { [[ "$debug" -eq 1 ]] && print -P "%F{green}DEBUG: $1%f" >&2 }
-error_log() { print -P "%F{red}ERROR: $1%f" >&2 }
-info_log()  { print -P "%F{cyan}$1%f" >&2 }
+# printf with %s keeps user-controlled strings out of format/prompt expansion.
+debug_log() { [[ "$debug" -eq 1 ]] && printf '\e[32mDEBUG: %s\e[0m\n' "$1" >&2 }
+error_log() { printf '\e[31mERROR: %s\e[0m\n' "$1" >&2 }
+info_log()  { printf '\e[36m%s\e[0m\n' "$1" >&2 }
 
 # --- Dependencies ---
 check_dep() {
@@ -309,11 +331,14 @@ resolve_date() {
 
 # Monday and Sunday of an ISO week
 week_range() {
-  local week="${1:-$(date +%V | sed 's/^0//')}"
+  local week="${1:-$(date +%V)}"
   local year="${2:-$(date +%G)}"
-  python3 -c "
+  CAL_WEEK="$week" CAL_YEAR="$year" python3 -c "
+import os
 from datetime import datetime, timedelta
-d = datetime.strptime(f'${year}-W${week}-1', '%G-W%V-%u')
+week = int(os.environ['CAL_WEEK'])
+year = int(os.environ['CAL_YEAR'])
+d = datetime.strptime(f'{year}-W{week:02d}-1', '%G-W%V-%u')
 print(d.strftime('%Y-%m-%d'))
 print((d + timedelta(days=6)).strftime('%Y-%m-%d'))
 "
@@ -559,7 +584,7 @@ cmd_create() {
   debug_log "Creating event: $(echo "$event_json" | jq -c .)"
 
   local result
-  result=$(api_request POST "me/events" "$event_json")
+  result=$(api_request POST "me/events" "$event_json") || return 1
   local created
   created=$(echo "$result" | normalize_event)
   echo "$created"
@@ -634,8 +659,9 @@ cmd_update() {
 
   # For date/time changes, fetch the existing event to preserve untouched components
   if [[ -n "$start_time" || -n "$end_time" || -n "$date" ]]; then
-    local existing
-    existing=$(api_request GET "me/events/$id" 2>/dev/null | normalize_event)
+    local existing_raw existing
+    existing_raw=$(api_request GET "me/events/$id") || return 1
+    existing=$(echo "$existing_raw" | normalize_event)
     local existing_start existing_end existing_date
     existing_start=$(echo "$existing" | jq -r '.start // empty')
     existing_end=$(echo "$existing" | jq -r '.end // empty')
@@ -664,7 +690,7 @@ cmd_update() {
   patch=$(build_patch_json "${patch_args[@]}")
 
   local result
-  result=$(api_request PATCH "me/events/$id" "$patch")
+  result=$(api_request PATCH "me/events/$id" "$patch") || return 1
   echo "$result" | normalize_event
 }
 
@@ -686,12 +712,13 @@ cmd_delete() {
 
   # Show what we're about to delete
   if [[ "$confirm" -eq 0 ]]; then
-    local event
-    event=$(api_request GET "me/events/$id" | normalize_event)
+    local event_raw event
+    event_raw=$(api_request GET "me/events/$id") || return 1
+    event=$(echo "$event_raw" | normalize_event)
     local subj start_time
     subj=$(echo "$event" | jq -r '.subject')
     start_time=$(echo "$event" | jq -r '.start')
-    print -P -n "%F{yellow}Delete '$subj' ($start_time)? (y/N): %f" >&2
+    printf "\e[33mDelete '%s' (%s)? (y/N): \e[0m" "$subj" "$start_time" >&2
     read -r answer
     if [[ "$answer" != "y" && "$answer" != "Y" ]]; then
       info_log "Aborted."
@@ -699,7 +726,7 @@ cmd_delete() {
     fi
   fi
 
-  api_request DELETE "me/events/$id" >/dev/null
+  api_request DELETE "me/events/$id" >/dev/null || return 1
   info_log "Deleted."
 }
 
@@ -714,16 +741,17 @@ cmd_categories() {
   done
 
   if [[ -n "$add" ]]; then
-    local body
+    local body result
     if [[ "$API_CASE" == "camel" ]]; then
       body=$(jq -n --arg n "$add" '{displayName: $n, color: "preset0"}')
     else
       body=$(jq -n --arg n "$add" '{DisplayName: $n, Color: "Preset0"}')
     fi
-    api_request POST "me/outlook/masterCategories" "$body" | jq .
+    result=$(api_request POST "me/outlook/masterCategories" "$body") || return 1
+    echo "$result" | jq .
   else
     local data
-    data=$(api_request GET "me/outlook/masterCategories")
+    data=$(api_request GET "me/outlook/masterCategories") || return 1
     echo "$data" | jq -r '.value[] | "\((.DisplayName // .displayName))\t\((.Color // .color))"' | column -t -s $'\t'
   fi
 }

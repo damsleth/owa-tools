@@ -221,7 +221,14 @@ def export_cookies(browser_key=None, profile=None):
                 })
 
             OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-            OUTPUT_FILE.write_text(json.dumps(cookies, indent=2))
+            try:
+                OUTPUT_DIR.chmod(0o700)
+            except OSError:
+                pass
+            # Write with 0600 perms so decrypted cookies aren't world-readable
+            fd = os.open(str(OUTPUT_FILE), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, 'w') as f:
+                json.dump(cookies, f, indent=2)
             print(f'Exported {len(cookies)} cookies from {len(set(c["domain"] for c in cookies))} domains', file=sys.stderr)
             print(f'Saved to {OUTPUT_FILE}', file=sys.stderr)
             return True
