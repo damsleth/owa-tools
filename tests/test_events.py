@@ -35,20 +35,6 @@ def test_normalize_event_pascal():
     assert out['isAllDay'] is False
 
 
-def test_normalize_event_camel():
-    e = {
-        'id': 'X',
-        'subject': 'X',
-        'start': {'dateTime': '2026-04-20T09:00:00', 'timeZone': 'UTC'},
-        'end': {'dateTime': '2026-04-20T10:00:00', 'timeZone': 'UTC'},
-        'location': {'displayName': 'Z'},
-        'categories': [],
-    }
-    out = normalize_event(e)
-    assert out['id'] == 'X'
-    assert out['location'] == 'Z'
-
-
 def test_normalize_events_empty():
     assert normalize_events({'value': []}) == []
 
@@ -109,10 +95,10 @@ def test_to_local_aware_datetime_respects_offset(monkeypatch):
 
 # --- build_event_json ---
 
-def test_build_event_pascal_minimal():
+def test_build_event_minimal():
     body = build_event_json(
         'Lunsj', '2026-04-20T11:00:00', '2026-04-20T11:30:00',
-        'W. Europe Standard Time', api_case='pascal',
+        'W. Europe Standard Time',
     )
     assert body['Subject'] == 'Lunsj'
     assert body['Start']['DateTime'] == '2026-04-20T11:00:00'
@@ -122,45 +108,40 @@ def test_build_event_pascal_minimal():
     assert 'Body' not in body
 
 
-def test_build_event_camel_with_optional_fields():
+def test_build_event_with_optional_fields():
     body = build_event_json(
         'X', '2026-04-20T09:00:00', '2026-04-20T10:00:00', 'UTC',
         category='ProjectX', location='Room 1', body_text='notes',
-        allday=True, showas='free', api_case='camel',
+        allday=True, showas='Free',
     )
-    assert body['subject'] == 'X'
-    assert body['categories'] == ['ProjectX']
-    assert body['location'] == {'displayName': 'Room 1'}
-    assert body['body'] == {'contentType': 'text', 'content': 'notes'}
-    assert body['showAs'] == 'free'
-    assert body['isAllDay'] is True
+    assert body['Subject'] == 'X'
+    assert body['Categories'] == ['ProjectX']
+    assert body['Location'] == {'DisplayName': 'Room 1'}
+    assert body['Body'] == {'ContentType': 'Text', 'Content': 'notes'}
+    assert body['ShowAs'] == 'Free'
+    assert body['IsAllDay'] is True
 
 
 # --- build_patch_json: only provided fields ---
 
-def test_patch_only_provided_fields_pascal():
-    patch = build_patch_json({'subject': 'New'}, 'W. Europe Standard Time', api_case='pascal')
+def test_patch_only_provided_fields():
+    patch = build_patch_json({'subject': 'New'}, 'W. Europe Standard Time')
     assert patch == {'Subject': 'New'}
 
 
 def test_patch_empty_input_empty_output():
-    assert build_patch_json({}, 'UTC', api_case='pascal') == {}
+    assert build_patch_json({}, 'UTC') == {}
 
 
-def test_patch_category_wraps_in_list_pascal():
-    patch = build_patch_json({'category': 'ProjectX'}, 'UTC', api_case='pascal')
+def test_patch_category_wraps_in_list():
+    patch = build_patch_json({'category': 'ProjectX'}, 'UTC')
     assert patch == {'Categories': ['ProjectX']}
-
-
-def test_patch_category_wraps_in_list_camel():
-    patch = build_patch_json({'category': 'ProjectX'}, 'UTC', api_case='camel')
-    assert patch == {'categories': ['ProjectX']}
 
 
 def test_patch_start_end_include_timezone():
     patch = build_patch_json(
         {'start': '2026-04-20T09:00:00', 'end': '2026-04-20T10:00:00'},
-        'W. Europe Standard Time', api_case='pascal',
+        'W. Europe Standard Time',
     )
     assert patch == {
         'Start': {'DateTime': '2026-04-20T09:00:00', 'TimeZone': 'W. Europe Standard Time'},
@@ -168,15 +149,15 @@ def test_patch_start_end_include_timezone():
     }
 
 
-def test_patch_body_content_type_lowercase_in_camel():
-    patch = build_patch_json({'body': 'notes'}, 'UTC', api_case='camel')
-    assert patch == {'body': {'contentType': 'text', 'content': 'notes'}}
+def test_patch_body_content_type():
+    patch = build_patch_json({'body': 'notes'}, 'UTC')
+    assert patch == {'Body': {'ContentType': 'Text', 'Content': 'notes'}}
 
 
 def test_patch_multiple_fields():
     patch = build_patch_json(
         {'subject': 'S', 'location': 'L', 'showas': 'Free'},
-        'UTC', api_case='pascal',
+        'UTC',
     )
     assert patch == {
         'Subject': 'S',

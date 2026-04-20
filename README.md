@@ -76,9 +76,9 @@ cal-cli events
 ]
 ```
 
-Timestamps are normalized to your local timezone. Field names are
-stable regardless of whether the backend speaks Outlook REST
-PascalCase or Graph camelCase.
+Timestamps are normalized to your local timezone. Field names in the
+output are stable lowercase; the backend is Outlook REST v2 (PascalCase
+upstream) but cal-cli hides that detail.
 
 ```sh
 cal-cli events | jq '.[].subject'

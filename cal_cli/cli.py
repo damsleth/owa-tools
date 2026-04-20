@@ -146,7 +146,7 @@ def _require_int(flag, args):
 # Subcommands
 # ---------------------------------------------------------------------------
 
-def cmd_events(args, config, access_token, api_base, api_case):
+def cmd_events(args, config, access_token, api_base):
     date_ = from_ = to_ = search = ''
     week = year = 0
     pretty = False
@@ -190,14 +190,9 @@ def cmd_events(args, config, access_token, api_base, api_case):
     if debug:
         print(f'DEBUG: events {from_} to {to_}', file=sys.stderr)
 
-    if api_case == 'camel':
-        select_fields = 'id,subject,start,end,location,categories,showAs,isAllDay,originalStartTimeZone,originalEndTimeZone'
-        orderby_field = 'start/dateTime'
-        filter_field = 'subject'
-    else:
-        select_fields = 'Id,Subject,Start,End,Location,Categories,ShowAs,IsAllDay,OriginalStartTimeZone,OriginalEndTimeZone'
-        orderby_field = 'Start/DateTime'
-        filter_field = 'Subject'
+    select_fields = 'Id,Subject,Start,End,Location,Categories,ShowAs,IsAllDay,OriginalStartTimeZone,OriginalEndTimeZone'
+    orderby_field = 'Start/DateTime'
+    filter_field = 'Subject'
 
     if search:
         safe = search.replace("'", "''")
@@ -228,7 +223,7 @@ def cmd_events(args, config, access_token, api_base, api_case):
     return 0
 
 
-def cmd_create(args, config, access_token, api_base, api_case):
+def cmd_create(args, config, access_token, api_base):
     subject = date_ = start_time = end_time = category = location = body_text = showas = ''
     allday = False
     while args:
@@ -267,7 +262,7 @@ def cmd_create(args, config, access_token, api_base, api_case):
     body = events_mod.build_event_json(
         subject, start_dt, end_dt, tz,
         category=category, location=location, body_text=body_text,
-        allday=allday, showas=showas, api_case=api_case,
+        allday=allday, showas=showas,
     )
     if debug:
         print(f'DEBUG: creating event: {json.dumps(body)[:500]}', file=sys.stderr)
@@ -276,19 +271,15 @@ def cmd_create(args, config, access_token, api_base, api_case):
         return 1
     created = events_mod.normalize_event(result)
     print(json.dumps(created))
-    _check_duplicates(created, date_, access_token, api_base, api_case, debug)
+    _check_duplicates(created, date_, access_token, api_base, debug)
     return 0
 
 
-def _check_duplicates(created, check_date, access_token, api_base, api_case, debug):
+def _check_duplicates(created, check_date, access_token, api_base, debug):
     """Post-create: warn if another event with the same subject/time
     already existed that day. Best-effort; failures are swallowed."""
-    if api_case == 'camel':
-        select_fields = 'id,subject,start,end'
-        orderby_field = 'start/dateTime'
-    else:
-        select_fields = 'Id,Subject,Start,End'
-        orderby_field = 'Start/DateTime'
+    select_fields = 'Id,Subject,Start,End'
+    orderby_field = 'Start/DateTime'
     q = api_mod.build_query({
         'startDateTime': f'{check_date}T00:00:00',
         'endDateTime': f'{check_date}T23:59:59',
@@ -314,7 +305,7 @@ def _check_duplicates(created, check_date, access_token, api_base, api_case, deb
         print(msg, file=sys.stderr)
 
 
-def cmd_update(args, config, access_token, api_base, api_case):
+def cmd_update(args, config, access_token, api_base):
     event_id = ''
     fields = {}
     date_ = start_time = end_time = ''
@@ -377,7 +368,7 @@ def cmd_update(args, config, access_token, api_base, api_case):
         return 1
 
     tz = config.get('default_timezone') or config_mod.DEFAULT_TIMEZONE
-    patch = events_mod.build_patch_json(fields, tz, api_case=api_case)
+    patch = events_mod.build_patch_json(fields, tz)
     result = api_mod.api_request('PATCH', api_base, f'me/events/{event_id}', access_token, body=patch, debug=debug)
     if not result:
         return 1
@@ -385,7 +376,7 @@ def cmd_update(args, config, access_token, api_base, api_case):
     return 0
 
 
-def cmd_delete(args, config, access_token, api_base, api_case):
+def cmd_delete(args, config, access_token, api_base):
     event_id = ''
     confirm = False
     while args:
@@ -425,7 +416,7 @@ def cmd_delete(args, config, access_token, api_base, api_case):
     return 0
 
 
-def cmd_categories(args, config, access_token, api_base, api_case):
+def cmd_categories(args, config, access_token, api_base):
     add = ''
     pretty = False
     while args:
@@ -438,21 +429,15 @@ def cmd_categories(args, config, access_token, api_base, api_case):
             _error(f'Unknown flag: {flag}'); sys.exit(1)
 
     debug = _debug_enabled(config)
-    # Outlook REST v2.0 exposes master categories at `me/MasterCategories`;
-    # Graph puts them under `me/outlook/masterCategories`. Hitting the Graph
-    # path against Outlook REST yields `RequestBroker--ParseUri: Resource
-    # not found for the segment 'outlook'`.
-    if api_case == 'camel':
-        cat_path = 'me/outlook/masterCategories'
-        body_key_name, body_key_color = 'displayName', 'color'
-        preset = 'preset0'
-    else:
-        cat_path = 'me/MasterCategories'
-        body_key_name, body_key_color = 'DisplayName', 'Color'
-        preset = 'Preset0'
+    # Outlook REST v2.0 exposes master categories at `me/MasterCategories`.
+    # The Graph equivalent (`me/outlook/masterCategories`) is NOT reachable
+    # here - see auth.py for why the owa-piggy token lacks Graph calendar
+    # scopes. Using the Graph path yields `RequestBroker--ParseUri:
+    # Resource not found for the segment 'outlook'`.
+    cat_path = 'me/MasterCategories'
 
     if add:
-        body = {body_key_name: add, body_key_color: preset}
+        body = {'DisplayName': add, 'Color': 'Preset0'}
         result = api_mod.api_request('POST', api_base, cat_path, access_token, body=body, debug=debug)
         if not result:
             return 1
@@ -462,12 +447,8 @@ def cmd_categories(args, config, access_token, api_base, api_case):
     data = api_mod.api_get(api_base, cat_path, access_token, debug=debug)
     if data is None:
         return 1
-    # Normalize pascal/camel so consumers get a stable shape.
     items = [
-        {
-            'name': c.get('DisplayName') or c.get('displayName') or '',
-            'color': c.get('Color') or c.get('color') or '',
-        }
+        {'name': c.get('DisplayName') or '', 'color': c.get('Color') or ''}
         for c in data.get('value', [])
     ]
     if pretty:
@@ -480,9 +461,9 @@ def cmd_categories(args, config, access_token, api_base, api_case):
     return 0
 
 
-def cmd_config(args, config, access_token=None, api_base=None, api_case=None):
-    """Handled specially: no auth required, so access_token/api_base
-    are optional. Called in both modes via the main dispatcher."""
+def cmd_config(args, config):
+    """Handled specially: no auth required, so this does not call
+    setup_auth - the dispatcher routes `config` here before auth."""
     refresh_token = tenant_id = app_client_id = ''
     while args:
         flag, args = args[0], args[1:]
@@ -584,20 +565,20 @@ def main():
         _error(f"Unknown command: {cmd}. Run 'cal-cli help' for usage.")
         return 1
 
-    access_token, api_base, api_case = auth_mod.setup_auth(
+    access_token, api_base = auth_mod.setup_auth(
         config, debug=_debug_enabled(config)
     )
 
     if cmd == 'events':
-        return cmd_events(rest, config, access_token, api_base, api_case)
+        return cmd_events(rest, config, access_token, api_base)
     if cmd == 'create':
-        return cmd_create(rest, config, access_token, api_base, api_case)
+        return cmd_create(rest, config, access_token, api_base)
     if cmd == 'update':
-        return cmd_update(rest, config, access_token, api_base, api_case)
+        return cmd_update(rest, config, access_token, api_base)
     if cmd == 'delete':
-        return cmd_delete(rest, config, access_token, api_base, api_case)
+        return cmd_delete(rest, config, access_token, api_base)
     if cmd == 'categories':
-        return cmd_categories(rest, config, access_token, api_base, api_case)
+        return cmd_categories(rest, config, access_token, api_base)
 
     # Unreachable: AUTHED_COMMANDS guarded above.
     return 1

@@ -11,7 +11,7 @@ import pytest
 def test_events_limit_non_integer_exits_clean(capsys):
     from cal_cli.cli import cmd_events
     with pytest.raises(SystemExit) as exc:
-        cmd_events(['--limit', 'nope'], {}, 'tok', 'https://example.invalid', 'pascal')
+        cmd_events(['--limit', 'nope'], {}, 'tok', 'https://example.invalid')
     assert exc.value.code == 1
     err = capsys.readouterr().err
     assert 'ERROR:' in err
@@ -21,7 +21,7 @@ def test_events_limit_non_integer_exits_clean(capsys):
 def test_events_week_non_integer_exits_clean(capsys):
     from cal_cli.cli import cmd_events
     with pytest.raises(SystemExit) as exc:
-        cmd_events(['--week', 'nope'], {}, 'tok', 'https://example.invalid', 'pascal')
+        cmd_events(['--week', 'nope'], {}, 'tok', 'https://example.invalid')
     assert exc.value.code == 1
     err = capsys.readouterr().err
     assert 'ERROR:' in err
@@ -36,7 +36,7 @@ def test_update_without_fields_returns_error(capsys, monkeypatch):
         raise AssertionError('no API call should happen')
     import cal_cli.api as api_mod
     monkeypatch.setattr(api_mod, 'api_request', boom)
-    rc = cmd_update(['--id', 'abc'], {}, 'tok', 'https://example.invalid', 'pascal')
+    rc = cmd_update(['--id', 'abc'], {}, 'tok', 'https://example.invalid')
     assert rc == 1
     err = capsys.readouterr().err
     assert 'at least one field' in err
@@ -53,7 +53,7 @@ def test_categories_json_by_default(capsys, monkeypatch):
             {'DisplayName': 'Beta', 'Color': 'Preset1'},
         ]}
     monkeypatch.setattr(api_mod, 'api_get', fake_get)
-    rc = cmd_categories([], {}, 'tok', 'https://example.invalid', 'pascal')
+    rc = cmd_categories([], {}, 'tok', 'https://example.invalid')
     assert rc == 0
     stdout = capsys.readouterr().out
     parsed = json.loads(stdout)
@@ -69,7 +69,7 @@ def test_categories_pretty_opt_in(capsys, monkeypatch):
     def fake_get(base, endpoint, token, debug=False):
         return {'value': [{'DisplayName': 'Alpha', 'Color': 'Preset0'}]}
     monkeypatch.setattr(api_mod, 'api_get', fake_get)
-    rc = cmd_categories(['--pretty'], {}, 'tok', 'https://example.invalid', 'pascal')
+    rc = cmd_categories(['--pretty'], {}, 'tok', 'https://example.invalid')
     assert rc == 0
     out = capsys.readouterr().out
     # No JSON brackets, should have the category name

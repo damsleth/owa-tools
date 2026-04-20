@@ -9,6 +9,15 @@ Two paths:
    output. Both tools live in the same CLI dir; think of them as two
    POSIX utils piped together.
 
+Both paths request an Outlook-audience token (`outlook.office.com`).
+Microsoft Graph is not a drop-in replacement: OWA's first-party SPA
+client (which owa-piggy borrows) does NOT carry `Calendars.ReadWrite`
+on the Graph audience - OWA itself calls Outlook REST for calendar,
+so the Graph-audience consent grant for that client only covers
+Teams/Files/Directory. Switching `api_base` to
+`https://graph.microsoft.com/v1.0` without also registering your own
+app will return 403 on every call.
+
 On success we persist the rotated refresh token back to config, since
 refresh tokens are single-use.
 """
@@ -93,7 +102,9 @@ def refresh_via_owa_piggy(refresh_token, tenant_id):
     try:
         # --outlook: cal-cli talks to outlook.office.com, which wants an
         # Outlook-audience token. owa-piggy's default is Graph; a Graph
-        # token gets 401 from the Outlook REST endpoint.
+        # token gets 403 from the Outlook REST endpoint AND lacks
+        # Calendars.ReadWrite on Graph itself (see module docstring), so
+        # we must pin --outlook explicitly.
         proc = subprocess.run(
             ['owa-piggy', '--outlook', '--json'],
             env=env,
@@ -161,9 +172,9 @@ def do_token_refresh(config, debug=False):
 def setup_auth(config, debug=False):
     """Ensure we have a valid access token, or die.
 
-    Returns (access_token, api_base, api_case). Exits the process on
-    missing config or refresh failure - interactive CLI, so a clear
-    error message is the right thing.
+    Returns (access_token, api_base). Exits the process on missing
+    config or refresh failure - interactive CLI, so a clear error
+    message is the right thing.
     """
     if not config.get('OUTLOOK_REFRESH_TOKEN') or not config.get('OUTLOOK_TENANT_ID'):
         print(
@@ -180,4 +191,4 @@ def setup_auth(config, debug=False):
             file=sys.stderr,
         )
         sys.exit(1)
-    return access, 'https://outlook.office.com/api/v2.0', 'pascal'
+    return access, 'https://outlook.office.com/api/v2.0'

@@ -59,10 +59,10 @@ user. Token acquisition is delegated: either to an app-registration
 ## What _can_ break
 
 - The Outlook REST v2 endpoint (`outlook.office.com/api/v2.0`) is
-  older than Graph. Microsoft may EOL it; if that happens, the
-  fix is swapping `api_base` to Graph and flipping `api_case` to
-  `camel`. The code is already shaped to allow that without a
-  rewrite.
+  older than Graph. Microsoft may EOL it; Graph would be a natural
+  replacement but only if you have your own app registration -
+  `owa-piggy`'s SPA client is not granted calendar scopes on the
+  Graph audience.
 - If you use the `owa-piggy` path, every failure mode from
   `owa-piggy`'s SECURITY.md applies here. Read that doc.
 

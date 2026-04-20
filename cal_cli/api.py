@@ -1,4 +1,4 @@
-"""Outlook REST / Graph HTTP helper.
+"""Outlook REST HTTP helper.
 
 One function: api_request. Returns parsed JSON or None (for
 return-to-caller failures). For auth/permission failures we exit the
@@ -13,7 +13,7 @@ import urllib.request
 
 
 def api_request(method, base, endpoint, access_token, body=None, debug=False):
-    """Issue a request against Outlook REST / Graph.
+    """Issue a request against Outlook REST.
 
     - `base` and `endpoint` are joined with a single slash.
     - `body` is dict-serialised to JSON when non-None.

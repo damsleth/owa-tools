@@ -30,6 +30,13 @@ via `OUTLOOK_APP_CLIENT_ID`.
 - **Do not change `default_timezone` to IANA** (e.g. `Europe/Oslo`).
   The Outlook REST API wants the Windows zone name
   (`W. Europe Standard Time`); IANA breaks the create/update flow.
+- **Do not switch the backend to Microsoft Graph on the owa-piggy
+  auth path.** OWA's first-party SPA client (which owa-piggy borrows)
+  does not carry `Calendars.ReadWrite` or `MailboxSettings.*` on the
+  Graph audience - only on the Outlook audience. Switching `api_base`
+  to `graph.microsoft.com/v1.0` returns 403 on every call. See
+  `cal_cli/auth.py` docstring for the scope decode. Graph is an
+  option only for users with their own `OUTLOOK_APP_CLIENT_ID`.
 
 ## Layout
 
@@ -43,7 +50,7 @@ cal_cli/
   events.py          # normalize_event, build_event_json, build_patch_json
   format.py          # --pretty formatter
   auth.py            # do_token_refresh (app-reg path + owa-piggy bridge)
-  api.py             # Outlook REST / Graph HTTP helper (urllib)
+  api.py             # Outlook REST HTTP helper (urllib)
   jwt.py             # token_minutes_remaining (no signature validation)
 scripts/
   add-to-path.sh     # pipx-based installer shim
@@ -97,8 +104,5 @@ SECURITY.md
   optional for users who already have one.
 - Don't add telemetry, crash reporting, update checks, or any network
   call beyond the Outlook REST API and `login.microsoftonline.com`.
-- Don't swap to Graph casing as the default without a clear reason.
-  Outlook REST is what the refresh token lands on; Graph works but
-  adds a round-trip for no practical gain right now.
 - Don't add emoji, badges, or marketing copy to docs.
 - Don't break the `jq`-friendly JSON output contract on stdout.
