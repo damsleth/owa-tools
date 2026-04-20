@@ -45,6 +45,10 @@ def print_help():
 
 Usage: cal-cli <command> [options]
 
+Global options:
+  --debug, --verbose  Print HTTP requests and response bodies on errors
+                      (also: CAL_DEBUG=1)
+
 Commands:
   refresh             Force a token refresh and verify auth
   events              List calendar events (default: today)
@@ -434,18 +438,28 @@ def cmd_categories(args, config, access_token, api_base, api_case):
             _error(f'Unknown flag: {flag}'); sys.exit(1)
 
     debug = _debug_enabled(config)
+    # Outlook REST v2.0 exposes master categories at `me/MasterCategories`;
+    # Graph puts them under `me/outlook/masterCategories`. Hitting the Graph
+    # path against Outlook REST yields `RequestBroker--ParseUri: Resource
+    # not found for the segment 'outlook'`.
+    if api_case == 'camel':
+        cat_path = 'me/outlook/masterCategories'
+        body_key_name, body_key_color = 'displayName', 'color'
+        preset = 'preset0'
+    else:
+        cat_path = 'me/MasterCategories'
+        body_key_name, body_key_color = 'DisplayName', 'Color'
+        preset = 'Preset0'
+
     if add:
-        if api_case == 'camel':
-            body = {'displayName': add, 'color': 'preset0'}
-        else:
-            body = {'DisplayName': add, 'Color': 'Preset0'}
-        result = api_mod.api_request('POST', api_base, 'me/outlook/masterCategories', access_token, body=body, debug=debug)
+        body = {body_key_name: add, body_key_color: preset}
+        result = api_mod.api_request('POST', api_base, cat_path, access_token, body=body, debug=debug)
         if not result:
             return 1
         print(json.dumps(result))
         return 0
 
-    data = api_mod.api_get(api_base, 'me/outlook/masterCategories', access_token, debug=debug)
+    data = api_mod.api_get(api_base, cat_path, access_token, debug=debug)
     if data is None:
         return 1
     # Normalize pascal/camel so consumers get a stable shape.
@@ -537,6 +551,15 @@ AUTHED_COMMANDS = {'events', 'create', 'update', 'delete', 'categories'}
 
 def main():
     argv = sys.argv[1:]
+    debug_flag = False
+    filtered = []
+    for a in argv:
+        if a in ('--debug', '--verbose'):
+            debug_flag = True
+        else:
+            filtered.append(a)
+    argv = filtered
+
     if not argv:
         print_help()
         return 0
@@ -548,6 +571,9 @@ def main():
         return 0
 
     config = config_mod.load_config()
+    if debug_flag:
+        config['debug'] = True
+        _info('DEBUG: verbose logging enabled')
 
     if cmd == 'config':
         return cmd_config(rest, config)
