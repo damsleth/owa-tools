@@ -4,7 +4,7 @@ Calendar CLI for Outlook / Microsoft 365. Read, create, update and delete events
 Pipe-friendly JSON by default, `--pretty` for humans.
 
 ```sh
-brew install --HEAD damsleth/tap/cal-cli
+brew install damsleth/tap/cal-cli
 cal-cli config --refresh-token "$(owa-piggy --json | jq -r .refresh_token)" \
                --tenant-id     "$(owa-piggy --json | jq -r .tenant_id)"
 ```
@@ -70,8 +70,18 @@ This calendar is the data source for [DID](https://did.acmeconsulting.no) timesh
 
 ## Dependencies
 
-- `zsh`, `curl`, `jq`, `python3` (all standard on macOS)
+- Python 3.8+ (stdlib only - no `pip install` required at runtime)
 - [`owa-piggy`](https://github.com/damsleth/owa-piggy) unless you bring your own app registration
+
+## Development
+
+```sh
+git clone https://github.com/damsleth/cal-cli
+cd cal-cli
+./scripts/add-to-path.sh       # installs via pipx
+pip install -e '.[test]'       # or: pytest for dev
+pytest -q
+```
 
 ## Disclaimer
 
