@@ -70,7 +70,7 @@ Create options:
   --date <date>       Date (default: today)
   --start <HH:MM>     Start time (default: 09:00)
   --end <HH:MM>       End time (default: 10:00)
-  --category <name>   Category for DID project mapping
+  --category <name>   Category name
   --location <place>  Location
   --body <text>       Description
   --allday            All-day event

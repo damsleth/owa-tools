@@ -132,15 +132,6 @@ Env vars (`OUTLOOK_REFRESH_TOKEN`, `OUTLOOK_TENANT_ID`,
 
 ---
 
-## DID integration
-
-This calendar is the data source for
-[DID](https://did.acmeconsulting.no) timesheets. Event categories
-map to projects/customers, so editing events here directly affects
-billed hours.
-
----
-
 ## Dependencies
 
 - Python 3.8+ (stdlib only - no `pip install` required at runtime)
