@@ -27,9 +27,9 @@ ALLOWED_KEYS = (
 DEFAULT_TIMEZONE = 'W. Europe Standard Time'
 
 
-def parse_kv_stream(text):
-    """Parse KEY=value (or KEY="value") lines. Only recognises known
-    cal-cli keys; writes for unknown keys are silently dropped."""
+def _parse_lines(text):
+    """Parse KEY=value (or KEY="value") lines into a dict. No key
+    allowlist - callers decide whether to filter."""
     out = {}
     for line in text.splitlines():
         line = line.strip()
@@ -38,9 +38,17 @@ def parse_kv_stream(text):
         k, _, v = line.partition('=')
         k = k.strip()
         v = v.strip().strip('"').strip("'")
-        if k in ALLOWED_KEYS and v:
+        if k and v:
             out[k] = v
     return out
+
+
+def parse_kv_stream(text):
+    """Parse KEY=value lines, dropping anything outside ALLOWED_KEYS.
+    Used on the write path where unknown keys are a config-injection
+    risk (e.g. piped input). Reads (load_config) preserve unknown keys
+    so pre-existing file contents are not silently dropped."""
+    return {k: v for k, v in _parse_lines(text).items() if k in ALLOWED_KEYS}
 
 
 def load_config():
@@ -53,15 +61,7 @@ def load_config():
     """
     config = {}
     if CONFIG_PATH.exists():
-        for line in CONFIG_PATH.read_text().splitlines():
-            line = line.strip()
-            if not line or line.startswith('#') or '=' not in line:
-                continue
-            k, _, v = line.partition('=')
-            k = k.strip()
-            v = v.strip().strip('"').strip("'")
-            if k and v:
-                config[k] = v
+        config.update(_parse_lines(CONFIG_PATH.read_text()))
     for key in ('OUTLOOK_REFRESH_TOKEN', 'OUTLOOK_TENANT_ID', 'OUTLOOK_APP_CLIENT_ID'):
         if os.environ.get(key):
             config[key] = os.environ[key]

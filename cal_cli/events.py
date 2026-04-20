@@ -5,7 +5,6 @@ camelCase. We prefer Outlook REST because it is what the refresh token
 actually lands on, but the helpers here stay case-agnostic so a future
 Graph switch does not require a rewrite.
 """
-import time
 from datetime import datetime, timedelta, timezone
 
 # Windows timezone names -> UTC offset hours (winter baseline). DST is
@@ -20,12 +19,6 @@ TZ_OFFSETS = {
     'Pacific Standard Time': -8, 'Mountain Standard Time': -7,
     'Central Standard Time': -6, 'GMT Standard Time': 0,
 }
-
-
-def _local_tz():
-    """Local timezone as a fixed offset from stdlib time module."""
-    offset = -time.timezone if time.daylight == 0 else -time.altzone
-    return timezone(timedelta(seconds=offset))
 
 
 def is_dst_europe(dt):
@@ -63,17 +56,18 @@ def to_local(dt_str, tz_name=''):
         dt = datetime.fromisoformat(clean)
     except ValueError:
         return dt_str
-    local_tz = _local_tz()
-    if dt.tzinfo is not None:
-        return dt.astimezone(local_tz).strftime('%Y-%m-%dT%H:%M:%S')
-    if tz_name in TZ_OFFSETS:
-        base = TZ_OFFSETS[tz_name]
-        dst = 1 if base != 0 and -1 <= base <= 3 and is_dst_europe(dt) else 0
-        source = timezone(timedelta(hours=base + dst))
-        dt = dt.replace(tzinfo=source)
-        return dt.astimezone(local_tz).strftime('%Y-%m-%dT%H:%M:%S')
-    dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(local_tz).strftime('%Y-%m-%dT%H:%M:%S')
+    # Build an aware datetime, then let datetime.astimezone() read the
+    # host's real local TZ (including per-instant DST). The previous
+    # implementation used time.altzone whenever the host zone observed
+    # DST at all, which produced summer offsets for winter events.
+    if dt.tzinfo is None:
+        if tz_name in TZ_OFFSETS:
+            base = TZ_OFFSETS[tz_name]
+            dst = 1 if base != 0 and -1 <= base <= 3 and is_dst_europe(dt) else 0
+            dt = dt.replace(tzinfo=timezone(timedelta(hours=base + dst)))
+        else:
+            dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone().strftime('%Y-%m-%dT%H:%M:%S')
 
 
 def normalize_event(event):

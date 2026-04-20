@@ -87,7 +87,8 @@ Delete options:
 
 Categories options:
   --add <name>        Add a new master category
-  (no flags)          List all categories
+  --pretty            Human-readable table (default: JSON)
+  (no flags)          List all categories as JSON
 
 Config options:
   --refresh-token <v> Set MSAL refresh token
@@ -128,12 +129,22 @@ def _require_value(flag, args):
     return args[0], args[1:]
 
 
+def _require_int(flag, args):
+    v, args = _require_value(flag, args)
+    try:
+        return int(v), args
+    except ValueError:
+        _error(f'{flag} requires an integer, got: {v}')
+        sys.exit(1)
+
+
 # ---------------------------------------------------------------------------
 # Subcommands
 # ---------------------------------------------------------------------------
 
 def cmd_events(args, config, access_token, api_base, api_case):
-    date_ = from_ = to_ = week = year = search = ''
+    date_ = from_ = to_ = search = ''
+    week = year = 0
     pretty = False
     limit = 50
 
@@ -146,20 +157,20 @@ def cmd_events(args, config, access_token, api_base, api_case):
         elif flag == '--to':
             v, args = _require_value(flag, args); to_ = resolve_date(v)
         elif flag == '--week':
-            week, args = _require_value(flag, args)
+            week, args = _require_int(flag, args)
         elif flag == '--year':
-            year, args = _require_value(flag, args)
+            year, args = _require_int(flag, args)
         elif flag == '--search':
             search, args = _require_value(flag, args)
         elif flag == '--pretty':
             pretty = True
         elif flag == '--limit':
-            v, args = _require_value(flag, args); limit = int(v)
+            limit, args = _require_int(flag, args)
         else:
             _error(f'Unknown flag: {flag}'); sys.exit(1)
 
     if week:
-        year = year or str(current_iso_week()[1])
+        year = year or current_iso_week()[1]
         from_, to_ = iso_week_range(week, year)
     elif date_:
         from_ = to_ = date_
@@ -353,6 +364,14 @@ def cmd_update(args, config, access_token, api_base, api_case):
         elif date_:
             fields['end'] = make_datetime(patch_date, existing_end_time)
 
+    if not fields:
+        _error(
+            'update requires at least one field '
+            '(--subject, --category, --location, --body, --showas, '
+            '--date, --start, --end)'
+        )
+        return 1
+
     tz = config.get('default_timezone') or config_mod.DEFAULT_TIMEZONE
     patch = events_mod.build_patch_json(fields, tz, api_case=api_case)
     result = api_mod.api_request('PATCH', api_base, f'me/events/{event_id}', access_token, body=patch, debug=debug)
@@ -404,10 +423,13 @@ def cmd_delete(args, config, access_token, api_base, api_case):
 
 def cmd_categories(args, config, access_token, api_base, api_case):
     add = ''
+    pretty = False
     while args:
         flag, args = args[0], args[1:]
         if flag == '--add':
             add, args = _require_value(flag, args)
+        elif flag == '--pretty':
+            pretty = True
         else:
             _error(f'Unknown flag: {flag}'); sys.exit(1)
 
@@ -420,21 +442,27 @@ def cmd_categories(args, config, access_token, api_base, api_case):
         result = api_mod.api_request('POST', api_base, 'me/outlook/masterCategories', access_token, body=body, debug=debug)
         if not result:
             return 1
-        print(json.dumps(result, indent=2))
+        print(json.dumps(result))
         return 0
 
     data = api_mod.api_get(api_base, 'me/outlook/masterCategories', access_token, debug=debug)
     if data is None:
         return 1
-    rows = []
-    for c in data.get('value', []):
-        name = c.get('DisplayName') or c.get('displayName') or ''
-        color = c.get('Color') or c.get('color') or ''
-        rows.append((name, color))
-    if rows:
-        width = max(len(r[0]) for r in rows)
-        for name, color in rows:
-            print(f'{name:<{width}}  {color}')
+    # Normalize pascal/camel so consumers get a stable shape.
+    items = [
+        {
+            'name': c.get('DisplayName') or c.get('displayName') or '',
+            'color': c.get('Color') or c.get('color') or '',
+        }
+        for c in data.get('value', [])
+    ]
+    if pretty:
+        if items:
+            width = max(len(i['name']) for i in items)
+            for i in items:
+                print(f"{i['name']:<{width}}  {i['color']}")
+        return 0
+    print(json.dumps(items))
     return 0
 
 
