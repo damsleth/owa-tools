@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cal-cli"
-version = "0.1.0"
+version = "0.1.1"
 description = "Pipe-friendly calendar CLI for Outlook / Microsoft 365"
 readme = "README.md"
 requires-python = ">=3.8"
