@@ -6,7 +6,41 @@ build-backend = "setuptools.build_meta"
 name = "cal-cli"
 version = "0.1.0"
 description = "Pipe-friendly calendar CLI for Outlook / Microsoft 365"
+readme = "README.md"
 requires-python = ">=3.8"
+license = { file = "LICENSE" }
+authors = [{ name = "Carl Joakim Damsleth" }]
+keywords = [
+  "outlook",
+  "microsoft-365",
+  "calendar",
+  "cli",
+  "json",
+  "graph",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: End Users/Desktop",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Office/Business :: Scheduling",
+  "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://github.com/damsleth/cal-cli"
+Repository = "https://github.com/damsleth/cal-cli"
+Issues = "https://github.com/damsleth/cal-cli/issues"
+Changelog = "https://github.com/damsleth/cal-cli/releases"
 
 [project.scripts]
 cal-cli = "cal_cli:main"

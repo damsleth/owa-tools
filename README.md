@@ -5,19 +5,93 @@ Pipe-friendly JSON by default, `--pretty` for humans.
 
 ```sh
 brew install damsleth/tap/cal-cli
-cal-cli config --refresh-token "$(owa-piggy --json | jq -r .refresh_token)" \
-               --tenant-id     "$(owa-piggy --json | jq -r .tenant_id)"
-```
-
-Then
-
-```sh
 cal-cli events --pretty
 ```
 
 ---
 
-## Examples
+## Happy-path setup (no app registration)
+
+If you have [`owa-piggy`](https://github.com/damsleth/owa-piggy) installed,
+cal-cli delegates auth to it and you don't need an Azure AD app
+registration. The full first-run flow:
+
+```sh
+# 1. Install both
+brew install damsleth/tap/owa-piggy
+brew install damsleth/tap/cal-cli
+
+# 2. Seed owa-piggy once from your browser (walks you through it)
+owa-piggy --setup
+
+# 3. Point cal-cli at the same token + tenant
+cal-cli config \
+  --refresh-token "$(owa-piggy --json | jq -r .refresh_token)" \
+  --tenant-id     "$(owa-piggy --json | jq -r .tenant_id)"
+
+# 4. Go
+cal-cli events --pretty
+```
+
+Refresh tokens rotate on every call; cal-cli persists the rotated
+value back to `~/.config/cal-cli/config` atomically. Use the CLI once
+a day and the sliding window keeps it alive. (The underlying SPA
+refresh token still has a 24h hard-expiry - when you hit it,
+`owa-piggy --reseed` fetches a fresh one headlessly from Edge.)
+
+---
+
+## The output contract
+
+**JSON on stdout, logs on stderr.** Every read command emits parseable
+JSON by default; `--pretty` is a human override that goes to stdout
+too. That means the entire CLI composes with `jq`:
+
+```sh
+cal-cli events
+```
+
+```json
+[
+  {
+    "id": "AAMkAGI1...redacted",
+    "subject": "Standup",
+    "start": "2026-04-20T09:00:00",
+    "end": "2026-04-20T09:30:00",
+    "categories": ["ProjectX"],
+    "location": "Teams",
+    "showAs": "Busy",
+    "isAllDay": false
+  },
+  {
+    "id": "AAMkAGI2...redacted",
+    "subject": "Lunsj",
+    "start": "2026-04-20T11:00:00",
+    "end": "2026-04-20T11:30:00",
+    "categories": ["CC LUNCH"],
+    "location": "",
+    "showAs": "Busy",
+    "isAllDay": false
+  }
+]
+```
+
+Timestamps are normalized to your local timezone. Field names are
+stable regardless of whether the backend speaks Outlook REST
+PascalCase or Graph camelCase.
+
+```sh
+cal-cli events | jq '.[].subject'
+cal-cli events --date tomorrow | jq '[.[] | select(.showAs == "Busy")] | length'
+cal-cli events --week 16 | jq 'group_by(.start | .[0:10]) | map({day: .[0].start[0:10], count: length})'
+```
+
+Same shape on `create` / `update` (returns the single normalized
+event), and on `categories` (returns `[{"name": ..., "color": ...}]`).
+
+---
+
+## Commands
 
 ```sh
 cal-cli events --pretty                       # today
@@ -29,26 +103,21 @@ cal-cli create --subject "lunsj" --start 11:00 --end 11:30 --category "CC LUNCH"
 cal-cli update --id <event-id> --category "ProjectX"
 cal-cli delete --id <event-id>
 
-cal-cli categories
-```
-
-Pipe-friendly - JSON on stdout, logs on stderr:
-
-```sh
-cal-cli events | jq '.[].subject'
-cal-cli events --date tomorrow | jq '[.[] | select(.showAs == "busy")] | length'
+cal-cli categories                            # JSON
+cal-cli categories --pretty                   # aligned table
 ```
 
 ---
 
 ## Auth
 
-Uses an OAuth2 refresh token for `outlook.office.com/Calendars.ReadWrite`.
+Two paths:
 
-- **With an app registration** - set `OUTLOOK_APP_CLIENT_ID` and cal-cli talks to the OAuth2 token endpoint directly.
-- **Without** - cal-cli shells out to [`owa-piggy`](https://github.com/damsleth/owa-piggy), which piggybacks on OWA's public SPA client (no Azure app registration needed).
-
-Refresh tokens rotate on every exchange and are persisted back to the config after each call. Use it once a day and it never lapses.
+- **With an app registration** - set `OUTLOOK_APP_CLIENT_ID` and
+  cal-cli talks to the AAD token endpoint directly.
+- **Without** - cal-cli shells out to
+  [`owa-piggy`](https://github.com/damsleth/owa-piggy), which
+  piggybacks on OWA's public SPA client. No app registration needed.
 
 Config lives at `~/.config/cal-cli/config`:
 
@@ -58,30 +127,36 @@ OUTLOOK_TENANT_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 OUTLOOK_APP_CLIENT_ID=""   # optional
 ```
 
-Env vars (`OUTLOOK_REFRESH_TOKEN`, `OUTLOOK_TENANT_ID`, `OUTLOOK_APP_CLIENT_ID`) override the config file.
+Env vars (`OUTLOOK_REFRESH_TOKEN`, `OUTLOOK_TENANT_ID`,
+`OUTLOOK_APP_CLIENT_ID`) override the config file.
 
 ---
 
 ## DID integration
 
-This calendar is the data source for [DID](https://did.acmeconsulting.no) timesheets. Event categories map to projects/customers, so editing events here directly affects billed hours.
+This calendar is the data source for
+[DID](https://did.acmeconsulting.no) timesheets. Event categories
+map to projects/customers, so editing events here directly affects
+billed hours.
 
 ---
 
 ## Dependencies
 
 - Python 3.8+ (stdlib only - no `pip install` required at runtime)
-- [`owa-piggy`](https://github.com/damsleth/owa-piggy) unless you bring your own app registration
+- [`owa-piggy`](https://github.com/damsleth/owa-piggy) unless you
+  bring your own app registration
 
 ## Development
 
 ```sh
 git clone https://github.com/damsleth/cal-cli
 cd cal-cli
-./scripts/add-to-path.sh       # installs via pipx
-pip install -e '.[test]'       # or: pytest for dev
+pip install -e '.[test]'
 pytest -q
 ```
+
+See [`AGENTS.md`](AGENTS.md) for repo layout and ground rules.
 
 ## Disclaimer
 
