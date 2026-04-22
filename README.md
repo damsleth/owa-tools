@@ -12,32 +12,37 @@ cal-cli events --pretty
 
 ## Happy-path setup (no app registration)
 
-If you have [`owa-piggy`](https://github.com/damsleth/owa-piggy) installed,
-cal-cli delegates auth to it and you don't need an Azure AD app
-registration. The full first-run flow:
+[`owa-piggy`](https://github.com/damsleth/owa-piggy) owns the token
+lifecycle; cal-cli just shells out to it on every call. The full
+first-run flow:
 
 ```sh
 # 1. Install both
-brew install damsleth/tap/owa-piggy
-brew install damsleth/tap/cal-cli
+brew install damsleth/tap/owa-piggy damsleth/tap/cal-cli
 
 # 2. Seed owa-piggy once from your browser (walks you through it)
 owa-piggy --setup
 
-# 3. Point cal-cli at the same token + tenant
-cal-cli config \
-  --refresh-token "$(owa-piggy --json | jq -r .refresh_token)" \
-  --tenant-id     "$(owa-piggy --json | jq -r .tenant_id)"
-
-# 4. Go
+# 3. Go
 cal-cli events --pretty
 ```
 
-Refresh tokens rotate on every call; cal-cli persists the rotated
-value back to `~/.config/cal-cli/config` atomically. Use the CLI once
-a day and the sliding window keeps it alive. (The underlying SPA
-refresh token still has a 24h hard-expiry - when you hit it,
-`owa-piggy --reseed` fetches a fresh one headlessly from Edge.)
+Multi-account: seed a named owa-piggy profile and pin it in cal-cli's
+config.
+
+```sh
+owa-piggy --setup --profile work
+cal-cli config --profile work
+```
+
+`--profile` also works as a one-shot override:
+`cal-cli --profile home events`.
+
+Refresh tokens rotate on every call and are persisted by owa-piggy in
+its own profile store. cal-cli stores no refresh token on this path;
+`owa-piggy --reseed --profile <alias>` refreshes the token headlessly
+when the 24h hard-expiry lapses, and cal-cli picks up the new token
+on the next call automatically.
 
 ---
 
@@ -113,22 +118,30 @@ cal-cli categories --pretty                   # aligned table
 
 Two paths:
 
-- **With an app registration** - set `OUTLOOK_APP_CLIENT_ID` and
-  cal-cli talks to the AAD token endpoint directly.
-- **Without** - cal-cli shells out to
+- **owa-piggy bridge (default)** - cal-cli shells out to
   [`owa-piggy`](https://github.com/damsleth/owa-piggy), which
-  piggybacks on OWA's public SPA client. No app registration needed.
+  piggybacks on OWA's public SPA client. No app registration needed;
+  cal-cli stores no refresh token. Optional `owa_piggy_profile` pins a
+  named owa-piggy profile.
+- **With an app registration** - set `OUTLOOK_APP_CLIENT_ID`,
+  `OUTLOOK_REFRESH_TOKEN`, and `OUTLOOK_TENANT_ID` in the config file
+  and cal-cli talks to the AAD token endpoint directly.
 
 Config lives at `~/.config/cal-cli/config`:
 
 ```
-OUTLOOK_REFRESH_TOKEN="1.AQ..."
-OUTLOOK_TENANT_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-OUTLOOK_APP_CLIENT_ID=""   # optional
+# Default (owa-piggy) path - optional, pins a profile alias
+owa_piggy_profile="work"
+
+# App-registration path (optional, mutually exclusive)
+OUTLOOK_APP_CLIENT_ID=""
+OUTLOOK_REFRESH_TOKEN=""
+OUTLOOK_TENANT_ID=""
 ```
 
-Env vars (`OUTLOOK_REFRESH_TOKEN`, `OUTLOOK_TENANT_ID`,
-`OUTLOOK_APP_CLIENT_ID`) override the config file.
+`OUTLOOK_APP_CLIENT_ID` can be overridden via the environment. The
+refresh token / tenant id on the app-registration path live
+exclusively in the config file.
 
 ---
 

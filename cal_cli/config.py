@@ -1,10 +1,11 @@
 """Config file I/O for cal-cli.
 
 File format is KEY="VALUE" lines, shell-sourceable for backward
-compatibility with the old zsh script. Refresh tokens rotate on every
-exchange, so a partial write here would corrupt the only live token and
-force the user to reseed via owa-piggy. All writes go through a temp
-file + fsync + rename.
+compatibility with the old zsh script. On the app-registration path
+refresh tokens rotate on every exchange, so a partial write here would
+corrupt the only live token; all writes go through a temp file + fsync
++ rename. On the owa-piggy path cal-cli holds no secrets, just an
+optional profile alias string.
 """
 import os
 import tempfile
@@ -20,6 +21,7 @@ ALLOWED_KEYS = (
     'OUTLOOK_REFRESH_TOKEN',
     'OUTLOOK_TENANT_ID',
     'OUTLOOK_APP_CLIENT_ID',
+    'owa_piggy_profile',
     'default_timezone',
     'debug',
 )
@@ -54,17 +56,18 @@ def parse_kv_stream(text):
 def load_config():
     """Returns a dict merging the on-disk config with env-var overrides.
 
-    Precedence: environment variables > on-disk config > defaults. Unlike
-    owa-piggy we do not track a 'persist' flag - cal-cli always persists
-    a rotated refresh token, since cal-cli is only useful when run
-    interactively against a configured profile.
+    Precedence: environment variables > on-disk config > defaults. Only
+    the app-registration client_id is env-overrideable; the refresh
+    token and tenant id on the app-reg path live exclusively in the
+    config file. The owa-piggy path reads no secrets out of the
+    environment (OWA_PROFILE reaches owa-piggy directly via inherited
+    env).
     """
     config = {}
     if CONFIG_PATH.exists():
         config.update(_parse_lines(CONFIG_PATH.read_text()))
-    for key in ('OUTLOOK_REFRESH_TOKEN', 'OUTLOOK_TENANT_ID', 'OUTLOOK_APP_CLIENT_ID'):
-        if os.environ.get(key):
-            config[key] = os.environ[key]
+    if os.environ.get('OUTLOOK_APP_CLIENT_ID'):
+        config['OUTLOOK_APP_CLIENT_ID'] = os.environ['OUTLOOK_APP_CLIENT_ID']
     config.setdefault('default_timezone', DEFAULT_TIMEZONE)
     return config
 

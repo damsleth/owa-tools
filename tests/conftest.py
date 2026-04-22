@@ -19,6 +19,6 @@ def clean_env(monkeypatch):
     """Strip OUTLOOK_* env vars so tests start from a known state."""
     for key in (
         'OUTLOOK_REFRESH_TOKEN', 'OUTLOOK_TENANT_ID', 'OUTLOOK_APP_CLIENT_ID',
-        'CAL_DEBUG', 'XDG_CONFIG_HOME',
+        'OWA_PROFILE', 'CAL_DEBUG', 'XDG_CONFIG_HOME',
     ):
         monkeypatch.delenv(key, raising=False)

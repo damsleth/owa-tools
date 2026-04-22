@@ -10,10 +10,12 @@ Microsoft 365 / Outlook calendar events from the terminal. JSON on
 stdout, logs on stderr, `--pretty` for humans.
 
 The tool is a sibling of [`owa-piggy`](../owa-piggy) and shares its
-layout and coding style. For auth it shells out to the `owa-piggy`
-binary on `$PATH` (treat them as two POSIX utils piped together) OR
-uses an optional app-registration `client_id` if the user provides one
-via `OUTLOOK_APP_CLIENT_ID`.
+layout and coding style. Default auth path: shell out to `owa-piggy`
+on `$PATH` (treat them as two POSIX utils piped together); owa-piggy
+owns the refresh token, cal-cli stores only an optional profile alias
+(`owa_piggy_profile`). Alternative path: set `OUTLOOK_APP_CLIENT_ID`
+(plus `OUTLOOK_REFRESH_TOKEN` / `OUTLOOK_TENANT_ID` in the config
+file) to use a user-owned app registration directly.
 
 ## Ground rules
 
@@ -23,7 +25,9 @@ via `OUTLOOK_APP_CLIENT_ID`.
   into `jq`. Do not print progress, timing, or decorations to stdout.
 - **Never commit real refresh tokens, access tokens, tenant IDs, or
   `~/.config/cal-cli/config` contents**, even in tests or fixtures.
-  Use obvious fakes (`"fake-rt-for-tests"`).
+  Use obvious fakes (`"fake-rt-for-tests"`). Refresh-token handling
+  applies only on the app-registration path; on the owa-piggy path
+  cal-cli holds no secrets.
 - **Preserve the "only provided fields" invariant in
   `build_patch_json`**. Adding keys with empty values silently clobbers
   other event fields in Outlook.
@@ -96,6 +100,40 @@ SECURITY.md
 - One logical change per commit.
 - Do not push or open PRs without the user asking. Do not force-push
   `main`.
+
+## Cutting a release (only when the user asks)
+
+Releases are pushed out through a Homebrew tap at
+`~/Code/homebrew-tap` (`damsleth/homebrew-tap` on GitHub). The
+formula pins a specific tag tarball and sha256, so a version bump
+here must be followed by a tap update or `brew upgrade` stays on
+the old version.
+
+When the user says "cut a release" / "new patch version" / "ship it":
+
+1. Pick the bump. Patch (`0.3.0 -> 0.3.1`) for bug fixes, doc
+   corrections, small UX polish. Minor (`0.3.0 -> 0.4.0`) for new
+   flags, new behaviors, anything a user might notice. Never bump
+   major without explicit instruction - this tool is 0.x by design.
+2. Commit the feature work separately from the version bump. Keep
+   one `Bump version to X.Y.Z` commit sitting on top of the feature
+   commit so `git log` reads cleanly.
+3. Update `pyproject.toml` `version = "X.Y.Z"`. No other file tracks
+   the version today.
+4. Push `main`, then `git tag vX.Y.Z && git push origin vX.Y.Z`.
+   Never retag a version that's already public - Homebrew users
+   cache the tarball by sha.
+5. Fetch the GitHub-generated tarball and compute its sha256:
+   `curl -sL https://github.com/damsleth/cal-cli/archive/refs/tags/vX.Y.Z.tar.gz -o /tmp/cal-cli-X.Y.Z.tar.gz && shasum -a 256 /tmp/cal-cli-X.Y.Z.tar.gz`
+6. Edit `~/Code/homebrew-tap/Formula/cal-cli.rb` - bump the `url`
+   tag and the `sha256`. Nothing else changes unless dependencies
+   did.
+7. Commit the tap with message `cal-cli X.Y.Z` (matches the tap's
+   existing convention) and push.
+
+If any step fails midway (tag push rejected, sha mismatch, tap push
+rejected), stop and surface the error - do not try to "fix" a
+published tag by force-pushing.
 
 ## What NOT to do
 

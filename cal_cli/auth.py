@@ -3,11 +3,16 @@
 Two paths:
 
 1. **App registration**: OUTLOOK_APP_CLIENT_ID is set. We hit the AAD
-   v2 token endpoint directly with refresh_token grant.
+   v2 token endpoint directly with refresh_token grant and persist the
+   rotated refresh token back to config, since refresh tokens are
+   single-use.
 2. **owa-piggy bridge**: no app registration. We shell out to the
    `owa-piggy` CLI (which must live in $PATH) and take its --json
-   output. Both tools live in the same CLI dir; think of them as two
-   POSIX utils piped together.
+   output. cal-cli stores no refresh token on this path; owa-piggy
+   owns the token lifecycle in its own profile store. An optional
+   `owa_piggy_profile` alias forwards through as `--profile <alias>`.
+   Both tools live in the same CLI dir; think of them as two POSIX
+   utils piped together.
 
 Both paths request an Outlook-audience token (`outlook.office.com`).
 Microsoft Graph is not a drop-in replacement: OWA's first-party SPA
@@ -17,12 +22,8 @@ so the Graph-audience consent grant for that client only covers
 Teams/Files/Directory. Switching `api_base` to
 `https://graph.microsoft.com/v1.0` without also registering your own
 app will return 403 on every call.
-
-On success we persist the rotated refresh token back to config, since
-refresh tokens are single-use.
 """
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -80,76 +81,15 @@ def refresh_via_app_registration(refresh_token, tenant_id, client_id):
         return None
 
 
-def refresh_via_owa_piggy(refresh_token, tenant_id):
-    """Shell out to owa-piggy --json with OWA_* env vars set.
-
-    We deliberately do not import owa-piggy; treating it as a sibling
-    POSIX util keeps the coupling loose and lets either tool be swapped
-    independently.
-    """
-    if not _owa_piggy_available():
-        print(
-            'ERROR: owa-piggy not found in $PATH. Install with: '
-            'brew install damsleth/tap/owa-piggy',
-            file=sys.stderr,
-        )
-        return None
-    env = os.environ.copy()
-    if refresh_token:
-        env['OWA_REFRESH_TOKEN'] = refresh_token
-    if tenant_id:
-        env['OWA_TENANT_ID'] = tenant_id
-    try:
-        # --outlook: cal-cli talks to outlook.office.com, which wants an
-        # Outlook-audience token. owa-piggy's default is Graph; a Graph
-        # token gets 403 from the Outlook REST endpoint AND lacks
-        # Calendars.ReadWrite on Graph itself (see module docstring), so
-        # we must pin --outlook explicitly.
-        proc = subprocess.run(
-            ['owa-piggy', '--outlook', '--json'],
-            env=env,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError as e:
-        print(f'ERROR: failed to run owa-piggy: {e}', file=sys.stderr)
-        return None
-    if proc.returncode != 0:
-        stderr = proc.stderr.strip()
-        if stderr:
-            print(stderr, file=sys.stderr)
-        return None
-    try:
-        return json.loads(proc.stdout)
-    except json.JSONDecodeError:
-        print('ERROR: owa-piggy returned non-JSON output', file=sys.stderr)
-        return None
-
-
-def do_token_refresh(config, debug=False):
-    """Exchange the configured refresh token for a new access token.
-
-    Uses the app-registration path if OUTLOOK_APP_CLIENT_ID is set,
-    otherwise shells out to owa-piggy. On success: persists rotated
-    refresh token back to config (if rotated), returns the access
-    token. On failure: returns None.
-    """
+def _refresh_via_app_registration(config, debug=False):
     refresh_token = config.get('OUTLOOK_REFRESH_TOKEN', '').strip()
     tenant_id = config.get('OUTLOOK_TENANT_ID', '').strip()
     client_id = config.get('OUTLOOK_APP_CLIENT_ID', '').strip()
     if not refresh_token or not tenant_id:
         return None
-
-    if client_id:
-        if debug:
-            print(f'DEBUG: auth via app registration ({client_id})', file=sys.stderr)
-        result = refresh_via_app_registration(refresh_token, tenant_id, client_id)
-    else:
-        if debug:
-            print('DEBUG: auth via owa-piggy', file=sys.stderr)
-        result = refresh_via_owa_piggy(refresh_token, tenant_id)
-
+    if debug:
+        print(f'DEBUG: auth via app registration ({client_id})', file=sys.stderr)
+    result = refresh_via_app_registration(refresh_token, tenant_id, client_id)
     if not result:
         return None
     access = result.get('access_token')
@@ -169,6 +109,74 @@ def do_token_refresh(config, debug=False):
     return access
 
 
+def _refresh_via_owa_piggy(config, debug=False):
+    """Shell out to `owa-piggy --outlook --json [--profile <alias>]`.
+
+    We deliberately do not import owa-piggy; treating it as a sibling
+    POSIX util keeps the coupling loose and lets either tool be swapped
+    independently. owa-piggy owns the token lifecycle - no refresh
+    token flows through cal-cli on this path.
+    """
+    if not _owa_piggy_available():
+        print(
+            'ERROR: owa-piggy not found in $PATH. Install with: '
+            'brew install damsleth/tap/owa-piggy',
+            file=sys.stderr,
+        )
+        return None
+    argv = ['owa-piggy', '--outlook', '--json']
+    profile = (config.get('owa_piggy_profile') or '').strip()
+    if profile:
+        argv += ['--profile', profile]
+    if debug:
+        print(f'DEBUG: auth via owa-piggy ({" ".join(argv)})', file=sys.stderr)
+    try:
+        # --outlook: cal-cli talks to outlook.office.com, which wants an
+        # Outlook-audience token. owa-piggy's default is Graph; a Graph
+        # token gets 403 from the Outlook REST endpoint AND lacks
+        # Calendars.ReadWrite on Graph itself (see module docstring), so
+        # we must pin --outlook explicitly.
+        proc = subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as e:
+        print(f'ERROR: failed to run owa-piggy: {e}', file=sys.stderr)
+        return None
+    if proc.returncode != 0:
+        stderr = proc.stderr.strip()
+        if stderr:
+            print(stderr, file=sys.stderr)
+        return None
+    try:
+        result = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        print('ERROR: owa-piggy returned non-JSON output', file=sys.stderr)
+        return None
+    access = result.get('access_token')
+    if not access:
+        return None
+    if debug:
+        remaining = token_minutes_remaining(access)
+        if remaining is not None:
+            print(f'DEBUG: token exchange ok ({remaining}min remaining)', file=sys.stderr)
+    return access
+
+
+def do_token_refresh(config, debug=False):
+    """Exchange credentials for a new access token.
+
+    Uses the app-registration path if OUTLOOK_APP_CLIENT_ID is set,
+    otherwise shells out to owa-piggy. Returns the access token on
+    success, None on failure.
+    """
+    if config.get('OUTLOOK_APP_CLIENT_ID'):
+        return _refresh_via_app_registration(config, debug=debug)
+    return _refresh_via_owa_piggy(config, debug=debug)
+
+
 def setup_auth(config, debug=False):
     """Ensure we have a valid access token, or die.
 
@@ -176,19 +184,30 @@ def setup_auth(config, debug=False):
     config or refresh failure - interactive CLI, so a clear error
     message is the right thing.
     """
-    if not config.get('OUTLOOK_REFRESH_TOKEN') or not config.get('OUTLOOK_TENANT_ID'):
-        print(
-            'ERROR: no auth configured. Run: '
-            'cal-cli config --refresh-token <t> --tenant-id <id>',
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    if config.get('OUTLOOK_APP_CLIENT_ID'):
+        if not config.get('OUTLOOK_REFRESH_TOKEN') or not config.get('OUTLOOK_TENANT_ID'):
+            print(
+                'ERROR: app-registration path needs OUTLOOK_REFRESH_TOKEN '
+                'and OUTLOOK_TENANT_ID in ~/.config/cal-cli/config.',
+                file=sys.stderr,
+            )
+            sys.exit(1)
     access = do_token_refresh(config, debug=debug)
     if not access:
-        print(
-            'ERROR: token refresh failed. Run `cal-cli config` to inspect '
-            'settings, or re-seed via `owa-piggy --setup`.',
-            file=sys.stderr,
-        )
+        if config.get('OUTLOOK_APP_CLIENT_ID'):
+            print(
+                'ERROR: token refresh failed. Run `cal-cli config` to '
+                'inspect settings.',
+                file=sys.stderr,
+            )
+        else:
+            profile = (config.get('owa_piggy_profile') or '').strip()
+            hint = f' --profile {profile}' if profile else ''
+            print(
+                f'ERROR: token refresh failed. Re-seed via '
+                f'`owa-piggy --setup{hint}`'
+                + (f' or adjust the profile with `cal-cli config --profile <alias>`.' if profile else '.'),
+                file=sys.stderr,
+            )
         sys.exit(1)
     return access, 'https://outlook.office.com/api/v2.0'

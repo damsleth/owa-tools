@@ -48,6 +48,9 @@ Usage: cal-cli <command> [options]
 Global options:
   --debug, --verbose  Print HTTP requests and response bodies on errors
                       (also: CAL_DEBUG=1)
+  --profile <alias>   Forward to owa-piggy as --profile <alias> for
+                      this invocation (overrides owa_piggy_profile in
+                      the config file)
 
 Commands:
   refresh             Force a token refresh and verify auth
@@ -95,25 +98,22 @@ Categories options:
   (no flags)          List all categories as JSON
 
 Config options:
-  --refresh-token <v> Set MSAL refresh token
-  --tenant-id <id>    Set Azure AD tenant ID
+  --profile <alias>   Pin an owa-piggy profile alias (owa_piggy_profile)
   --app-client-id <id> Set app registration client ID (optional)
 
 Auth:
-  Requires OUTLOOK_REFRESH_TOKEN + OUTLOOK_TENANT_ID.
-  Set via env vars or ~/.config/cal-cli/config (env wins).
+  Default path: cal-cli shells out to owa-piggy for a fresh access
+  token on every call. owa-piggy owns the refresh token; cal-cli
+  stores only an optional profile alias.
 
-  If OUTLOOK_APP_CLIENT_ID is set, uses that app registration directly
-  (standard OAuth2 refresh_token grant).
+  App-registration path: set OUTLOOK_APP_CLIENT_ID (plus
+  OUTLOOK_REFRESH_TOKEN and OUTLOOK_TENANT_ID) in
+  ~/.config/cal-cli/config and cal-cli talks to the AAD token endpoint
+  directly.
 
-  Otherwise falls back to owa-piggy (brew install damsleth/tap/owa-piggy),
-  which piggybacks on OWA's public SPA client - no app registration needed.
-
-  Quickstart (owa-piggy):
+  Quickstart:
     brew install damsleth/tap/owa-piggy
-    owa-piggy --setup
-    cal-cli config --refresh-token "$(owa-piggy --json | jq -r .refresh_token)" \\
-                   --tenant-id "$(owa-piggy --json | jq -r .tenant_id)"
+    owa-piggy --setup                         # or: --setup --profile work
 
 Examples:
   cal-cli events --pretty
@@ -464,35 +464,30 @@ def cmd_categories(args, config, access_token, api_base):
 def cmd_config(args, config):
     """Handled specially: no auth required, so this does not call
     setup_auth - the dispatcher routes `config` here before auth."""
-    refresh_token = tenant_id = app_client_id = ''
+    profile = app_client_id = ''
     while args:
         flag, args = args[0], args[1:]
-        if flag == '--refresh-token':
-            refresh_token, args = _require_value(flag, args)
-        elif flag == '--tenant-id':
-            tenant_id, args = _require_value(flag, args)
+        if flag == '--profile':
+            profile, args = _require_value(flag, args)
         elif flag == '--app-client-id':
             app_client_id, args = _require_value(flag, args)
         else:
             _error(f'Unknown flag: {flag}'); sys.exit(1)
 
     wrote = False
-    if refresh_token:
-        config_mod.config_set('OUTLOOK_REFRESH_TOKEN', refresh_token)
-        _info('Refresh token saved'); wrote = True
-    if tenant_id:
-        config_mod.config_set('OUTLOOK_TENANT_ID', tenant_id)
-        _info('Tenant ID saved'); wrote = True
+    if profile:
+        config_mod.config_set('owa_piggy_profile', profile)
+        _info(f'owa-piggy profile saved: {profile}'); wrote = True
     if app_client_id:
         config_mod.config_set('OUTLOOK_APP_CLIENT_ID', app_client_id)
         _info('App client ID saved'); wrote = True
 
     if not wrote:
         _info(f'Config file: {config_mod.CONFIG_PATH}')
-        if config.get('OUTLOOK_REFRESH_TOKEN'):
-            _info(f"  OUTLOOK_REFRESH_TOKEN=set (tenant: {config.get('OUTLOOK_TENANT_ID','not set')})")
+        if config.get('owa_piggy_profile'):
+            _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
         else:
-            _info('  OUTLOOK_REFRESH_TOKEN=(not set)')
+            _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
         if config.get('OUTLOOK_APP_CLIENT_ID'):
             _info(f"  OUTLOOK_APP_CLIENT_ID={config.get('OUTLOOK_APP_CLIENT_ID')} (app registration)")
         else:
@@ -504,12 +499,6 @@ def cmd_config(args, config):
 def cmd_refresh(args, config):
     if args:
         _error(f'Unknown flag: {args[0]}'); sys.exit(1)
-    if not config.get('OUTLOOK_REFRESH_TOKEN') or not config.get('OUTLOOK_TENANT_ID'):
-        _error(
-            f'OUTLOOK_REFRESH_TOKEN and OUTLOOK_TENANT_ID must be set '
-            f'(via env or {config_mod.CONFIG_PATH})'
-        )
-        return 1
     _info('Refreshing token...')
     access = auth_mod.do_token_refresh(config, debug=_debug_enabled(config))
     if not access:
@@ -532,13 +521,37 @@ AUTHED_COMMANDS = {'events', 'create', 'update', 'delete', 'categories'}
 
 def main():
     argv = sys.argv[1:]
+
+    if not argv:
+        print_help()
+        return 0
+    if argv[0] in ('help', '--help', '-h'):
+        print_help()
+        return 0
+
     debug_flag = False
+    profile_override = ''
+    # Strip global flags (--debug/--verbose, --profile) from anywhere in
+    # argv. Exception: on `cal-cli config`, --profile is a subcommand
+    # flag that writes to the config file, so leave it in place.
+    is_config_cmd = 'config' in argv and not any(
+        a.startswith('-') for a in argv[:argv.index('config')]
+    )
     filtered = []
-    for a in argv:
+    i = 0
+    while i < len(argv):
+        a = argv[i]
         if a in ('--debug', '--verbose'):
             debug_flag = True
+        elif a == '--profile' and not (is_config_cmd and 'config' in filtered):
+            if i + 1 >= len(argv):
+                _error('--profile requires a value'); return 1
+            profile_override = argv[i + 1]
+            i += 2
+            continue
         else:
             filtered.append(a)
+        i += 1
     argv = filtered
 
     if not argv:
@@ -547,14 +560,12 @@ def main():
 
     cmd, rest = argv[0], argv[1:]
 
-    if cmd in ('help', '--help', '-h'):
-        print_help()
-        return 0
-
     config = config_mod.load_config()
     if debug_flag:
         config['debug'] = True
         _info('DEBUG: verbose logging enabled')
+    if profile_override:
+        config['owa_piggy_profile'] = profile_override
 
     if cmd == 'config':
         return cmd_config(rest, config)

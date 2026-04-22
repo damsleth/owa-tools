@@ -3,8 +3,11 @@
 ## TL;DR
 
 `cal-cli` is a personal productivity tool that reads and writes the
-user's own Outlook calendar from the terminal. It uses the user's own
-refresh token, stored on disk under the user's own home directory.
+user's own Outlook calendar from the terminal. On the default
+(owa-piggy) path cal-cli holds no secrets at all - only an optional
+profile alias string - and owa-piggy owns the refresh token in its
+own profile store. On the app-registration path the user's own
+refresh token is stored on disk under the user's own home directory.
 Don't deploy it for other people.
 
 ## What this actually is
@@ -21,18 +24,23 @@ user. Token acquisition is delegated: either to an app-registration
 **In scope:** single-user, single-machine use. The caller runs
 `cal-cli` under their own account against their own tenant.
 
-- Refresh tokens are stored at `~/.config/cal-cli/config`, mode
-  `0600`. Any process running as that user can read the file. That
-  is the same trust boundary SSH keys live in.
-- Refresh tokens rotate on every successful exchange; cal-cli
-  persists the rotated token back atomically (temp file + fsync +
-  rename). A crash mid-exchange leaves either the old or the new
-  token, never a truncated mix.
+- On the **owa-piggy path** `~/.config/cal-cli/config` contains only
+  an alias string (`owa_piggy_profile`) plus the default timezone.
+  No credentials live in cal-cli. The refresh token lives in
+  owa-piggy's profile store and is subject to owa-piggy's threat
+  model (see its `SECURITY.md`).
+- On the **app-registration path** the refresh token is stored at
+  `~/.config/cal-cli/config`, mode `0600`. Any process running as
+  that user can read the file. That is the same trust boundary SSH
+  keys live in. Refresh tokens rotate on every successful exchange;
+  cal-cli persists the rotated token back atomically (temp file +
+  fsync + rename). A crash mid-exchange leaves either the old or the
+  new token, never a truncated mix.
 - Access tokens are held in memory only. They are not cached on
-  disk; each CLI invocation exchanges the refresh token fresh.
-  (`owa-piggy` does cache access tokens; see its SECURITY.md.)
+  disk; each CLI invocation fetches a fresh one. (`owa-piggy` does
+  cache access tokens in its own process; see its SECURITY.md.)
 - `config` output deliberately reports "set" / "not set" instead of
-  echoing token values.
+  echoing any stored values.
 
 **Out of scope:**
 
