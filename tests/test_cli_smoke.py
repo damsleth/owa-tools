@@ -72,7 +72,7 @@ def test_events_without_owa_piggy_fails_with_clear_error(tmp_path):
 
 def test_profile_flag_forwards_to_owa_piggy(monkeypatch, tmp_path, clean_env):
     """`cal-cli --profile work events` must invoke
-    `owa-piggy --outlook --json --profile work`."""
+    `owa-piggy token --audience outlook --json --profile work`."""
     from cal_cli import auth as auth_mod
 
     captured = {}
@@ -93,7 +93,7 @@ def test_profile_flag_forwards_to_owa_piggy(monkeypatch, tmp_path, clean_env):
         {'owa_piggy_profile': 'work'}, debug=False
     )
     assert result is None
-    assert captured['argv'] == ['owa-piggy', '--outlook', '--json', '--profile', 'work']
+    assert captured['argv'] == ['owa-piggy', 'token', '--audience', 'outlook', '--json', '--profile', 'work']
 
 
 def test_refresh_via_owa_piggy_no_profile(monkeypatch, clean_env):
@@ -113,7 +113,7 @@ def test_refresh_via_owa_piggy_no_profile(monkeypatch, clean_env):
     monkeypatch.setattr(auth_mod, '_owa_piggy_available', lambda: True)
     monkeypatch.setattr(auth_mod.subprocess, 'run', fake_run)
     auth_mod._refresh_via_owa_piggy({}, debug=False)
-    assert captured['argv'] == ['owa-piggy', '--outlook', '--json']
+    assert captured['argv'] == ['owa-piggy', 'token', '--audience', 'outlook', '--json']
 
 
 def test_config_profile_writes_to_file(tmp_config, clean_env):

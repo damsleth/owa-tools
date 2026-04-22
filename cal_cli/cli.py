@@ -113,7 +113,7 @@ Auth:
 
   Quickstart:
     brew install damsleth/tap/owa-piggy
-    owa-piggy --setup                         # or: --setup --profile work
+    owa-piggy setup                           # or: setup --profile work
 
 Examples:
   cal-cli events --pretty

@@ -21,7 +21,7 @@ first-run flow:
 brew install damsleth/tap/owa-piggy damsleth/tap/cal-cli
 
 # 2. Seed owa-piggy once from your browser (walks you through it)
-owa-piggy --setup
+owa-piggy setup
 
 # 3. Go
 cal-cli events --pretty
@@ -31,7 +31,7 @@ Multi-account: seed a named owa-piggy profile and pin it in cal-cli's
 config.
 
 ```sh
-owa-piggy --setup --profile work
+owa-piggy setup --profile work
 cal-cli config --profile work
 ```
 

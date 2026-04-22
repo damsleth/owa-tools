@@ -110,7 +110,7 @@ def _refresh_via_app_registration(config, debug=False):
 
 
 def _refresh_via_owa_piggy(config, debug=False):
-    """Shell out to `owa-piggy --outlook --json [--profile <alias>]`.
+    """Shell out to `owa-piggy token --audience outlook --json [--profile <alias>]`.
 
     We deliberately do not import owa-piggy; treating it as a sibling
     POSIX util keeps the coupling loose and lets either tool be swapped
@@ -124,18 +124,18 @@ def _refresh_via_owa_piggy(config, debug=False):
             file=sys.stderr,
         )
         return None
-    argv = ['owa-piggy', '--outlook', '--json']
+    # --audience outlook: cal-cli talks to outlook.office.com, which
+    # wants an Outlook-audience token. owa-piggy's default is Graph; a
+    # Graph token gets 403 from the Outlook REST endpoint AND lacks
+    # Calendars.ReadWrite on Graph itself (see module docstring), so we
+    # must pin the audience explicitly.
+    argv = ['owa-piggy', 'token', '--audience', 'outlook', '--json']
     profile = (config.get('owa_piggy_profile') or '').strip()
     if profile:
         argv += ['--profile', profile]
     if debug:
         print(f'DEBUG: auth via owa-piggy ({" ".join(argv)})', file=sys.stderr)
     try:
-        # --outlook: cal-cli talks to outlook.office.com, which wants an
-        # Outlook-audience token. owa-piggy's default is Graph; a Graph
-        # token gets 403 from the Outlook REST endpoint AND lacks
-        # Calendars.ReadWrite on Graph itself (see module docstring), so
-        # we must pin --outlook explicitly.
         proc = subprocess.run(
             argv,
             capture_output=True,
@@ -205,7 +205,7 @@ def setup_auth(config, debug=False):
             hint = f' --profile {profile}' if profile else ''
             print(
                 f'ERROR: token refresh failed. Re-seed via '
-                f'`owa-piggy --setup{hint}`'
+                f'`owa-piggy setup{hint}`'
                 + (f' or adjust the profile with `cal-cli config --profile <alias>`.' if profile else '.'),
                 file=sys.stderr,
             )
