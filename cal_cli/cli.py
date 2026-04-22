@@ -11,6 +11,8 @@ responsible for its own flag loop.
 import json
 import os
 import sys
+import urllib.parse
+from datetime import datetime, timedelta
 
 from . import api as api_mod
 from . import auth as auth_mod
@@ -36,6 +38,43 @@ def _info(msg):
 
 def _debug_enabled(config):
     return bool(config.get('debug')) or os.environ.get('CAL_DEBUG') == '1'
+
+
+def _event_path(event_id):
+    return f'me/events/{urllib.parse.quote(event_id, safe="")}'
+
+
+def _split_datetime(value):
+    if not value or 'T' not in value:
+        return '', ''
+    return value.split('T', 1)
+
+
+def _add_days(date_value, days):
+    dt = datetime.strptime(date_value, '%Y-%m-%d')
+    return (dt + timedelta(days=days)).strftime('%Y-%m-%d')
+
+
+def _date_delta_days(start_date, end_date):
+    if not start_date or not end_date:
+        return 0
+    start = datetime.strptime(start_date, '%Y-%m-%d')
+    end = datetime.strptime(end_date, '%Y-%m-%d')
+    return (end - start).days
+
+
+def _command_name(argv):
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg in ('--debug', '--verbose'):
+            i += 1
+            continue
+        if arg == '--profile':
+            i += 2
+            continue
+        return arg
+    return ''
 
 
 def print_help():
@@ -192,30 +231,25 @@ def cmd_events(args, config, access_token, api_base):
 
     select_fields = 'Id,Subject,Start,End,Location,Categories,ShowAs,IsAllDay,OriginalStartTimeZone,OriginalEndTimeZone'
     orderby_field = 'Start/DateTime'
-    filter_field = 'Subject'
 
-    if search:
-        safe = search.replace("'", "''")
-        q = api_mod.build_query({
-            '$filter': f"contains({filter_field},'{safe}')",
-            '$top': limit,
-            '$orderby': orderby_field,
-            '$select': select_fields,
-        })
-        data = api_mod.api_get(api_base, f'me/events?{q}', access_token, debug=debug)
-    else:
-        q = api_mod.build_query({
-            'startDateTime': start_dt,
-            'endDateTime': end_dt,
-            '$top': limit,
-            '$orderby': orderby_field,
-            '$select': select_fields,
-        })
-        data = api_mod.api_get(api_base, f'me/calendarView?{q}', access_token, debug=debug)
+    q = api_mod.build_query({
+        'startDateTime': start_dt,
+        'endDateTime': end_dt,
+        '$top': limit,
+        '$orderby': orderby_field,
+        '$select': select_fields,
+    })
+    data = api_mod.api_get(api_base, f'me/calendarView?{q}', access_token, debug=debug)
 
     if data is None:
         return 1
     normalized = events_mod.normalize_events(data)
+    if search:
+        needle = search.lower()
+        normalized = [
+            e for e in normalized
+            if needle in (e.get('subject') or '').lower()
+        ]
     if pretty:
         print(format_events_pretty(normalized))
     else:
@@ -252,10 +286,14 @@ def cmd_create(args, config, access_token, api_base):
     if not subject:
         _error('--subject is required'); sys.exit(1)
     date_ = date_ or today()
-    start_time = start_time or '09:00'
-    end_time = end_time or '10:00'
-    start_dt = make_datetime(date_, start_time)
-    end_dt = make_datetime(date_, end_time)
+    if allday:
+        start_dt = make_datetime(date_, '00:00')
+        end_dt = make_datetime(_add_days(date_, 1), '00:00')
+    else:
+        start_time = start_time or '09:00'
+        end_time = end_time or '10:00'
+        start_dt = make_datetime(date_, start_time)
+        end_dt = make_datetime(date_, end_time)
 
     tz = config.get('default_timezone') or config_mod.DEFAULT_TIMEZONE
     debug = _debug_enabled(config)
@@ -340,24 +378,28 @@ def cmd_update(args, config, access_token, api_base):
     if start_time or end_time or date_:
         # Merge against existing event so partial date/time edits do not
         # clobber the other half of the range.
-        existing_raw = api_mod.api_get(api_base, f'me/events/{event_id}', access_token, debug=debug)
+        existing_raw = api_mod.api_get(api_base, _event_path(event_id), access_token, debug=debug)
         if not existing_raw:
             return 1
         existing = events_mod.normalize_event(existing_raw)
         existing_start = existing.get('start') or ''
         existing_end = existing.get('end') or ''
-        existing_date = existing_start.split('T')[0] if 'T' in existing_start else ''
-        existing_start_time = existing_start.split('T')[1] if 'T' in existing_start else ''
-        existing_end_time = existing_end.split('T')[1] if 'T' in existing_end else ''
-        patch_date = date_ or existing_date
+        existing_start_date, existing_start_time = _split_datetime(existing_start)
+        existing_end_date, existing_end_time = _split_datetime(existing_end)
+        patch_start_date = date_ or existing_start_date
+        patch_end_date = existing_end_date or patch_start_date
+        if date_:
+            patch_end_date = _add_days(
+                date_, _date_delta_days(existing_start_date, existing_end_date)
+            )
         if start_time:
-            fields['start'] = make_datetime(patch_date, start_time)
+            fields['start'] = make_datetime(patch_start_date, start_time)
         elif date_:
-            fields['start'] = make_datetime(patch_date, existing_start_time)
+            fields['start'] = make_datetime(patch_start_date, existing_start_time)
         if end_time:
-            fields['end'] = make_datetime(patch_date, end_time)
+            fields['end'] = make_datetime(patch_end_date, end_time)
         elif date_:
-            fields['end'] = make_datetime(patch_date, existing_end_time)
+            fields['end'] = make_datetime(patch_end_date, existing_end_time)
 
     if not fields:
         _error(
@@ -369,7 +411,7 @@ def cmd_update(args, config, access_token, api_base):
 
     tz = config.get('default_timezone') or config_mod.DEFAULT_TIMEZONE
     patch = events_mod.build_patch_json(fields, tz)
-    result = api_mod.api_request('PATCH', api_base, f'me/events/{event_id}', access_token, body=patch, debug=debug)
+    result = api_mod.api_request('PATCH', api_base, _event_path(event_id), access_token, body=patch, debug=debug)
     if not result:
         return 1
     print(json.dumps(events_mod.normalize_event(result)))
@@ -393,7 +435,7 @@ def cmd_delete(args, config, access_token, api_base):
     debug = _debug_enabled(config)
 
     if not confirm:
-        existing_raw = api_mod.api_get(api_base, f'me/events/{event_id}', access_token, debug=debug)
+        existing_raw = api_mod.api_get(api_base, _event_path(event_id), access_token, debug=debug)
         if not existing_raw:
             return 1
         existing = events_mod.normalize_event(existing_raw)
@@ -409,7 +451,7 @@ def cmd_delete(args, config, access_token, api_base):
             _info('Aborted.')
             return 0
 
-    result = api_mod.api_request('DELETE', api_base, f'me/events/{event_id}', access_token, debug=debug)
+    result = api_mod.api_request('DELETE', api_base, _event_path(event_id), access_token, debug=debug)
     if result is None:
         return 1
     _info('Deleted.')
@@ -504,11 +546,16 @@ def cmd_refresh(args, config):
     if not access:
         _error('Token refresh failed.')
         return 1
-    me = api_mod.api_get('https://outlook.office.com/api/v2.0', 'me', access)
-    if isinstance(me, dict):
-        name = me.get('DisplayName') or me.get('displayName')
-        if name:
-            _info(f'Authenticated as {name}')
+    me = api_mod.api_get(
+        'https://outlook.office.com/api/v2.0', 'me', access,
+        debug=_debug_enabled(config),
+    )
+    if not isinstance(me, dict):
+        _error('Auth verification failed.')
+        return 1
+    name = me.get('DisplayName') or me.get('displayName')
+    if name:
+        _info(f'Authenticated as {name}')
     return 0
 
 
@@ -534,9 +581,7 @@ def main():
     # Strip global flags (--debug/--verbose, --profile) from anywhere in
     # argv. Exception: on `cal-cli config`, --profile is a subcommand
     # flag that writes to the config file, so leave it in place.
-    is_config_cmd = 'config' in argv and not any(
-        a.startswith('-') for a in argv[:argv.index('config')]
-    )
+    is_config_cmd = _command_name(argv) == 'config'
     filtered = []
     i = 0
     while i < len(argv):

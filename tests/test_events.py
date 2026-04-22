@@ -48,6 +48,13 @@ def test_is_dst_europe_summer():
     assert is_dst_europe(datetime(2026, 6, 15)) is True
 
 
+def test_is_dst_europe_transition_hours():
+    assert is_dst_europe(datetime(2026, 3, 29, 1, 59), 1) is False
+    assert is_dst_europe(datetime(2026, 3, 29, 2, 0), 1) is True
+    assert is_dst_europe(datetime(2026, 10, 25, 2, 59), 1) is True
+    assert is_dst_europe(datetime(2026, 10, 25, 3, 0), 1) is False
+
+
 def test_to_local_empty_returns_empty():
     assert to_local('') == ''
 
@@ -91,6 +98,21 @@ def test_to_local_aware_datetime_respects_offset(monkeypatch):
     _force_tz(monkeypatch, 'Europe/Oslo')
     # Input already carries +00:00; should still reach Oslo winter time
     assert to_local('2026-01-15T09:00:00+00:00') == '2026-01-15T10:00:00'
+
+
+def test_to_local_fractional_aware_datetime_preserves_offset(monkeypatch):
+    _force_tz(monkeypatch, 'UTC')
+    assert to_local('2026-01-15T09:00:00.1234567+02:00') == '2026-01-15T07:00:00'
+
+
+def test_to_local_windows_zone_dst_start_boundary(monkeypatch):
+    _force_tz(monkeypatch, 'Europe/Oslo')
+    assert to_local('2026-03-29T01:30:00', 'W. Europe Standard Time') == '2026-03-29T01:30:00'
+
+
+def test_to_local_us_zone_uses_dst(monkeypatch):
+    _force_tz(monkeypatch, 'UTC')
+    assert to_local('2026-07-15T12:00:00', 'Eastern Standard Time') == '2026-07-15T16:00:00'
 
 
 # --- build_event_json ---

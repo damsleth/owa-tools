@@ -7,9 +7,32 @@ owa-piggy auth path.
 """
 from datetime import datetime, timedelta, timezone
 
-# Windows timezone names -> UTC offset hours (winter baseline). DST is
-# applied on top for European zones via is_dst_europe(). Outlook REST
-# returns these names in the TimeZone field.
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # Python 3.8: keep the stdlib-only fallback below.
+    ZoneInfo = None
+
+# Windows timezone names -> IANA names for accurate stdlib zoneinfo
+# conversion where available. Outlook REST returns these names in the
+# TimeZone field.
+WINDOWS_TZ_TO_IANA = {
+    'UTC': 'UTC',
+    'W. Europe Standard Time': 'Europe/Berlin',
+    'Romance Standard Time': 'Europe/Paris',
+    'Central European Standard Time': 'Europe/Warsaw',
+    'Central Europe Standard Time': 'Europe/Budapest',
+    'E. Europe Standard Time': 'Europe/Bucharest',
+    'FLE Standard Time': 'Europe/Helsinki',
+    'GTB Standard Time': 'Europe/Athens',
+    'GMT Standard Time': 'Europe/London',
+    'Eastern Standard Time': 'America/New_York',
+    'Pacific Standard Time': 'America/Los_Angeles',
+    'Mountain Standard Time': 'America/Denver',
+    'Central Standard Time': 'America/Chicago',
+}
+
+# Windows timezone names -> UTC offset hours (winter baseline). Used only
+# when zoneinfo is unavailable.
 TZ_OFFSETS = {
     'UTC': 0,
     'W. Europe Standard Time': 1, 'Romance Standard Time': 1,
@@ -20,24 +43,121 @@ TZ_OFFSETS = {
     'Central Standard Time': -6, 'GMT Standard Time': 0,
 }
 
+EUROPEAN_TZ_NAMES = {
+    'W. Europe Standard Time',
+    'Romance Standard Time',
+    'Central European Standard Time',
+    'Central Europe Standard Time',
+    'E. Europe Standard Time',
+    'FLE Standard Time',
+    'GTB Standard Time',
+    'GMT Standard Time',
+}
 
-def is_dst_europe(dt):
+US_TZ_NAMES = {
+    'Eastern Standard Time',
+    'Pacific Standard Time',
+    'Mountain Standard Time',
+    'Central Standard Time',
+}
+
+
+def _last_sunday(year, month):
+    return max(
+        d for d in range(25, 32)
+        if datetime(year, month, d).weekday() == 6
+    )
+
+
+def _nth_weekday(year, month, weekday, n):
+    seen = 0
+    for day in range(1, 32):
+        try:
+            if datetime(year, month, day).weekday() == weekday:
+                seen += 1
+                if seen == n:
+                    return day
+        except ValueError:
+            break
+    return 0
+
+
+def is_dst_europe(dt, base_offset=1):
     """DST active for a European zone on the given naive datetime.
 
-    Last Sunday of March through last Sunday of October. Good enough for
-    the tz names we actually see from Outlook; we do not carry pytz.
+    EU DST starts at 01:00 UTC on the last Sunday of March and ends at
+    01:00 UTC on the last Sunday of October. `base_offset` is the
+    standard-time UTC offset for the zone.
     """
     if dt.month < 3 or dt.month > 10:
         return False
     if 3 < dt.month < 10:
         return True
-    last_sunday = max(
-        d for d in range(25, 32)
-        if datetime(dt.year, dt.month, d).weekday() == 6
-    )
+    last_sunday = _last_sunday(dt.year, dt.month)
     if dt.month == 3:
-        return dt.day >= last_sunday
-    return dt.day < last_sunday
+        return dt.day > last_sunday or (
+            dt.day == last_sunday and dt.hour >= base_offset + 1
+        )
+    return dt.day < last_sunday or (
+        dt.day == last_sunday and dt.hour < base_offset + 2
+    )
+
+
+def _is_dst_us(dt):
+    """US DST: second Sunday in March through first Sunday in November."""
+    if dt.month < 3 or dt.month > 11:
+        return False
+    if 3 < dt.month < 11:
+        return True
+    if dt.month == 3:
+        start_day = _nth_weekday(dt.year, 3, 6, 2)
+        return dt.day > start_day or (dt.day == start_day and dt.hour >= 2)
+    end_day = _nth_weekday(dt.year, 11, 6, 1)
+    return dt.day < end_day or (dt.day == end_day and dt.hour < 2)
+
+
+def _parse_outlook_datetime(dt_str):
+    clean = dt_str.strip()
+    if clean.endswith('Z'):
+        clean = clean[:-1] + '+00:00'
+    if '.' in clean:
+        prefix, rest = clean.split('.', 1)
+        digits = []
+        suffix_at = len(rest)
+        for i, ch in enumerate(rest):
+            if ch.isdigit():
+                digits.append(ch)
+            else:
+                suffix_at = i
+                break
+        frac = ''.join(digits)[:6]
+        suffix = rest[suffix_at:]
+        clean = f'{prefix}.{frac}{suffix}' if frac else f'{prefix}{suffix}'
+    return datetime.fromisoformat(clean)
+
+
+def _windows_zoneinfo(tz_name):
+    if ZoneInfo is None:
+        return None
+    iana = WINDOWS_TZ_TO_IANA.get(tz_name)
+    if not iana:
+        return None
+    try:
+        return ZoneInfo(iana)
+    except Exception:
+        return None
+
+
+def _fallback_timezone(tz_name, dt):
+    if tz_name not in TZ_OFFSETS:
+        return timezone.utc
+    base = TZ_OFFSETS[tz_name]
+    dst = 0
+    if tz_name in EUROPEAN_TZ_NAMES and is_dst_europe(dt, base):
+        dst = 1
+    elif tz_name in US_TZ_NAMES and _is_dst_us(dt):
+        dst = 1
+    return timezone(timedelta(hours=base + dst))
 
 
 def to_local(dt_str, tz_name=''):
@@ -51,9 +171,8 @@ def to_local(dt_str, tz_name=''):
     """
     if not dt_str:
         return dt_str
-    clean = dt_str.split('.')[0].replace('Z', '')
     try:
-        dt = datetime.fromisoformat(clean)
+        dt = _parse_outlook_datetime(dt_str)
     except ValueError:
         return dt_str
     # Build an aware datetime, then let datetime.astimezone() read the
@@ -61,12 +180,8 @@ def to_local(dt_str, tz_name=''):
     # implementation used time.altzone whenever the host zone observed
     # DST at all, which produced summer offsets for winter events.
     if dt.tzinfo is None:
-        if tz_name in TZ_OFFSETS:
-            base = TZ_OFFSETS[tz_name]
-            dst = 1 if base != 0 and -1 <= base <= 3 and is_dst_europe(dt) else 0
-            dt = dt.replace(tzinfo=timezone(timedelta(hours=base + dst)))
-        else:
-            dt = dt.replace(tzinfo=timezone.utc)
+        tz = _windows_zoneinfo(tz_name) or _fallback_timezone(tz_name, dt)
+        dt = dt.replace(tzinfo=tz)
     return dt.astimezone().strftime('%Y-%m-%dT%H:%M:%S')
 
 

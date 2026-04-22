@@ -124,6 +124,16 @@ def test_config_profile_writes_to_file(tmp_config, clean_env):
     assert 'owa_piggy_profile="work"' in content
 
 
+def test_config_profile_with_leading_debug_writes_to_file(tmp_config, clean_env, monkeypatch):
+    from cal_cli.cli import main
+
+    monkeypatch.setattr(sys, 'argv', ['cal-cli', '--debug', 'config', '--profile', 'work'])
+
+    assert main() == 0
+    assert tmp_config.exists()
+    assert 'owa_piggy_profile="work"' in tmp_config.read_text()
+
+
 def _safe_path():
     """A minimal PATH so subprocess can find python and nothing else."""
     import os
