@@ -199,6 +199,30 @@ Caveats:
   (`set -a; . secrets.env; set +a; uvx owa-cal events`) or your
   password manager's CLI.
 
+#### For agents
+
+The same invocation is the cleanest way for an LLM agent or automation
+to read/write a calendar without persistent setup:
+
+```sh
+OWA_REFRESH_TOKEN=$RT OWA_TENANT_ID=$TID \
+  uvx --quiet owa-cal events --from 2026-04-26 --to 2026-05-03
+```
+
+Useful contract for agent code:
+
+- stdout is JSON (omit `--pretty`); stderr is logs.
+- exit `0` success, `1` any failure (auth, network, validation).
+- `--quiet` on `uvx` suppresses the `Installed N packages` line so
+  stdout stays clean for `jq` / `json.loads`.
+- pin a version for reproducibility: `uvx --from 'owa-cal==0.6.1'
+  owa-cal events`.
+- short-lived only. Refresh tokens rotate on every exchange and have
+  nowhere to go in env-only mode; for an agent that calls more than
+  once across the 24h sliding window, run `owa-piggy setup --profile
+  agent` once on the host and use `OWA_PROFILE=agent uvx owa-cal ...`
+  instead - owa-piggy then handles rotation and caching.
+
 ---
 
 ## Dependencies
