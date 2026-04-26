@@ -25,9 +25,9 @@ jobs:
       - name: Install
         run: pip install -e '.[test]'
       - name: Syntax check
-        run: python -m compileall -q cal_cli
+        run: python -m compileall -q owa_cal
       - name: Help smoke
-        run: python -m cal_cli --help
+        run: python -m owa_cal --help
       - name: Tests
         run: pytest -q
       - name: Shellcheck
