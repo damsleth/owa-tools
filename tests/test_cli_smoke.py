@@ -134,6 +134,63 @@ def test_config_profile_with_leading_debug_writes_to_file(tmp_config, clean_env,
     assert 'owa_piggy_profile="work"' in tmp_config.read_text()
 
 
+def _capture_setup_auth_config(monkeypatch, argv):
+    """Run main() with sys.argv = argv and capture the config dict that
+    setup_auth receives. Stops execution before any network call by
+    raising once setup_auth is reached."""
+    from owa_cal import auth as auth_mod
+    from owa_cal.cli import main
+
+    seen = {}
+
+    class _Stop(Exception):
+        pass
+
+    def fake_setup_auth(config, debug=False):
+        seen['config'] = dict(config)
+        raise _Stop()
+
+    monkeypatch.setattr(sys, 'argv', argv)
+    monkeypatch.setattr(auth_mod, 'setup_auth', fake_setup_auth)
+    # cli.py imported setup_auth via `from . import auth as auth_mod`, so
+    # patching auth_mod.setup_auth is the load-bearing patch.
+    try:
+        main()
+    except _Stop:
+        pass
+    return seen.get('config', {})
+
+
+def test_global_profile_flag_overrides_for_subcommand(tmp_config, clean_env, monkeypatch):
+    """`owa-cal --profile work events` must reach setup_auth with the
+    profile pinned. This is the multi-tenant entry point."""
+    seen = _capture_setup_auth_config(
+        monkeypatch, ['owa-cal', '--profile', 'work', 'events']
+    )
+    assert seen.get('owa_piggy_profile') == 'work'
+
+
+def test_profile_flag_after_subcommand_also_works(tmp_config, clean_env, monkeypatch):
+    """Same outcome whether --profile comes before or after the
+    subcommand. Important for muscle memory: `owa-cal events --profile X`
+    is at least as natural as `owa-cal --profile X events`."""
+    seen = _capture_setup_auth_config(
+        monkeypatch, ['owa-cal', 'events', '--profile', 'home']
+    )
+    assert seen.get('owa_piggy_profile') == 'home'
+
+
+def test_global_profile_overrides_config_pin(tmp_config, clean_env, monkeypatch):
+    """A pinned profile in the config file is overridden by an explicit
+    --profile flag at invocation time."""
+    from owa_cal import config as config_mod
+    config_mod.config_set('owa_piggy_profile', 'pinned')
+    seen = _capture_setup_auth_config(
+        monkeypatch, ['owa-cal', '--profile', 'override', 'events']
+    )
+    assert seen.get('owa_piggy_profile') == 'override'
+
+
 def _safe_path():
     """A minimal PATH so subprocess can find python and nothing else."""
     import os

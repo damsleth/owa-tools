@@ -89,7 +89,14 @@ Global options:
                       (also: CAL_DEBUG=1)
   --profile <alias>   Forward to owa-piggy as --profile <alias> for
                       this invocation (overrides owa_piggy_profile in
-                      the config file)
+                      the config file, and OWA_PROFILE in the env)
+
+Environment:
+  CAL_DEBUG=1         Same as --debug
+  OWA_PROFILE=<alias> Inherited by the owa-piggy subprocess. Lower
+                      precedence than --profile and the config file
+                      pin, but useful for one-shot sessions
+                      (`OWA_PROFILE=work owa-cal events`)
 
 Commands:
   refresh             Force a token refresh and verify auth
