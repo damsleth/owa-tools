@@ -1,7 +1,7 @@
 """Tests for config file I/O."""
 import stat
 
-from cal_cli.config import (
+from owa_cal.config import (
     config_set,
     load_config,
     parse_kv_stream,
@@ -59,7 +59,7 @@ def test_env_overrides_file_app_client_id(tmp_config, monkeypatch, clean_env):
 
 def test_refresh_token_env_does_not_override(tmp_config, monkeypatch, clean_env):
     # On the owa-piggy path the refresh token lives in owa-piggy's
-    # profile store; cal-cli ignores OUTLOOK_REFRESH_TOKEN in the env.
+    # profile store; owa-cal ignores OUTLOOK_REFRESH_TOKEN in the env.
     save_config({'OUTLOOK_REFRESH_TOKEN': 'from-file', 'OUTLOOK_TENANT_ID': 'tid'})
     monkeypatch.setenv('OUTLOOK_REFRESH_TOKEN', 'from-env')
     monkeypatch.setenv('OUTLOOK_TENANT_ID', 'from-env-tid')

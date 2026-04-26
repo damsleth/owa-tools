@@ -8,26 +8,26 @@ import sys
 
 
 def _run(args, env=None):
-    cmd = [sys.executable, '-m', 'cal_cli', *args]
+    cmd = [sys.executable, '-m', 'owa_cal', *args]
     return subprocess.run(cmd, capture_output=True, text=True, env=env)
 
 
 def test_no_args_shows_help():
     r = _run([])
     assert r.returncode == 0
-    assert 'Usage: cal-cli' in r.stdout
+    assert 'Usage: owa-cal' in r.stdout
 
 
 def test_help_flag():
     r = _run(['--help'])
     assert r.returncode == 0
-    assert 'Usage: cal-cli' in r.stdout
+    assert 'Usage: owa-cal' in r.stdout
 
 
 def test_help_subcommand():
     r = _run(['help'])
     assert r.returncode == 0
-    assert 'Usage: cal-cli' in r.stdout
+    assert 'Usage: owa-cal' in r.stdout
 
 
 def test_unknown_command_exits_nonzero():
@@ -37,7 +37,7 @@ def test_unknown_command_exits_nonzero():
 
 
 def test_config_subcommand_no_flags_runs_without_auth(tmp_path, monkeypatch):
-    """`cal-cli config` (no args) prints the current state and must NOT
+    """`owa-cal config` (no args) prints the current state and must NOT
     require OUTLOOK_* env or a live token."""
     env = {
         'HOME': str(tmp_path),
@@ -71,9 +71,9 @@ def test_events_without_owa_piggy_fails_with_clear_error(tmp_path):
 
 
 def test_profile_flag_forwards_to_owa_piggy(monkeypatch, tmp_path, clean_env):
-    """`cal-cli --profile work events` must invoke
+    """`owa-cal --profile work events` must invoke
     `owa-piggy token --audience outlook --json --profile work`."""
-    from cal_cli import auth as auth_mod
+    from owa_cal import auth as auth_mod
 
     captured = {}
 
@@ -97,7 +97,7 @@ def test_profile_flag_forwards_to_owa_piggy(monkeypatch, tmp_path, clean_env):
 
 
 def test_refresh_via_owa_piggy_no_profile(monkeypatch, clean_env):
-    from cal_cli import auth as auth_mod
+    from owa_cal import auth as auth_mod
 
     captured = {}
 
@@ -117,7 +117,7 @@ def test_refresh_via_owa_piggy_no_profile(monkeypatch, clean_env):
 
 
 def test_config_profile_writes_to_file(tmp_config, clean_env):
-    from cal_cli.cli import cmd_config
+    from owa_cal.cli import cmd_config
     cmd_config(['--profile', 'work'], {})
     assert tmp_config.exists()
     content = tmp_config.read_text()
@@ -125,9 +125,9 @@ def test_config_profile_writes_to_file(tmp_config, clean_env):
 
 
 def test_config_profile_with_leading_debug_writes_to_file(tmp_config, clean_env, monkeypatch):
-    from cal_cli.cli import main
+    from owa_cal.cli import main
 
-    monkeypatch.setattr(sys, 'argv', ['cal-cli', '--debug', 'config', '--profile', 'work'])
+    monkeypatch.setattr(sys, 'argv', ['owa-cal', '--debug', 'config', '--profile', 'work'])
 
     assert main() == 0
     assert tmp_config.exists()

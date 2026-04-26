@@ -1,6 +1,6 @@
-"""Argument parsing and dispatch for the `cal-cli` command.
+"""Argument parsing and dispatch for the `owa-cal` command.
 
-cal-cli is pipe-friendly: JSON on stdout, logs on stderr. --pretty
+owa-cal is pipe-friendly: JSON on stdout, logs on stderr. --pretty
 switches stdout to a human-readable table. Exit codes follow POSIX
 convention (0 success, 1 error).
 
@@ -78,11 +78,11 @@ def _command_name(argv):
 
 
 def print_help():
-    """cal-cli help output. Kept verbatim to the zsh version so muscle
+    """owa-cal help output. Kept verbatim to the zsh version so muscle
     memory still works."""
-    print("""cal-cli - Calendar CLI for Outlook / Microsoft 365
+    print("""owa-cal - Calendar CLI for Outlook / Microsoft 365
 
-Usage: cal-cli <command> [options]
+Usage: owa-cal <command> [options]
 
 Global options:
   --debug, --verbose  Print HTTP requests and response bodies on errors
@@ -141,13 +141,13 @@ Config options:
   --app-client-id <id> Set app registration client ID (optional)
 
 Auth:
-  Default path: cal-cli shells out to owa-piggy for a fresh access
-  token on every call. owa-piggy owns the refresh token; cal-cli
+  Default path: owa-cal shells out to owa-piggy for a fresh access
+  token on every call. owa-piggy owns the refresh token; owa-cal
   stores only an optional profile alias.
 
   App-registration path: set OUTLOOK_APP_CLIENT_ID (plus
   OUTLOOK_REFRESH_TOKEN and OUTLOOK_TENANT_ID) in
-  ~/.config/cal-cli/config and cal-cli talks to the AAD token endpoint
+  ~/.config/owa-cal/config and owa-cal talks to the AAD token endpoint
   directly.
 
   Quickstart:
@@ -155,14 +155,14 @@ Auth:
     owa-piggy setup                           # or: setup --profile work
 
 Examples:
-  cal-cli events --pretty
-  cal-cli events --week 16 --pretty
-  cal-cli events --from 2026-04-14 --to 2026-04-18 --pretty
-  cal-cli create --subject "lunsj" --start 11:00 --end 11:30 --category "CC LUNCH"
-  cal-cli create --subject "Standup" --date tomorrow --start 09:00 --end 09:30
-  cal-cli update --id AAMkAG... --category "ProjectX"
-  cal-cli delete --id AAMkAG...
-  cal-cli categories""")
+  owa-cal events --pretty
+  owa-cal events --week 16 --pretty
+  owa-cal events --from 2026-04-14 --to 2026-04-18 --pretty
+  owa-cal create --subject "lunsj" --start 11:00 --end 11:30 --category "CC LUNCH"
+  owa-cal create --subject "Standup" --date tomorrow --start 09:00 --end 09:30
+  owa-cal update --id AAMkAG... --category "ProjectX"
+  owa-cal delete --id AAMkAG...
+  owa-cal categories""")
 
 
 def _require_value(flag, args):
@@ -579,7 +579,7 @@ def main():
     debug_flag = False
     profile_override = ''
     # Strip global flags (--debug/--verbose, --profile) from anywhere in
-    # argv. Exception: on `cal-cli config`, --profile is a subcommand
+    # argv. Exception: on `owa-cal config`, --profile is a subcommand
     # flag that writes to the config file, so leave it in place.
     is_config_cmd = _command_name(argv) == 'config'
     filtered = []
@@ -618,7 +618,7 @@ def main():
         return cmd_refresh(rest, config)
 
     if cmd not in AUTHED_COMMANDS:
-        _error(f"Unknown command: {cmd}. Run 'cal-cli help' for usage.")
+        _error(f"Unknown command: {cmd}. Run 'owa-cal help' for usage.")
         return 1
 
     access_token, api_base = auth_mod.setup_auth(

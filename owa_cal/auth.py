@@ -8,7 +8,7 @@ Two paths:
    single-use.
 2. **owa-piggy bridge**: no app registration. We shell out to the
    `owa-piggy` CLI (which must live in $PATH) and take its --json
-   output. cal-cli stores no refresh token on this path; owa-piggy
+   output. owa-cal stores no refresh token on this path; owa-piggy
    owns the token lifecycle in its own profile store. An optional
    `owa_piggy_profile` alias forwards through as `--profile <alias>`.
    Both tools live in the same CLI dir; think of them as two POSIX
@@ -115,7 +115,7 @@ def _refresh_via_owa_piggy(config, debug=False):
     We deliberately do not import owa-piggy; treating it as a sibling
     POSIX util keeps the coupling loose and lets either tool be swapped
     independently. owa-piggy owns the token lifecycle - no refresh
-    token flows through cal-cli on this path.
+    token flows through owa-cal on this path.
     """
     if not _owa_piggy_available():
         print(
@@ -124,7 +124,7 @@ def _refresh_via_owa_piggy(config, debug=False):
             file=sys.stderr,
         )
         return None
-    # --audience outlook: cal-cli talks to outlook.office.com, which
+    # --audience outlook: owa-cal talks to outlook.office.com, which
     # wants an Outlook-audience token. owa-piggy's default is Graph; a
     # Graph token gets 403 from the Outlook REST endpoint AND lacks
     # Calendars.ReadWrite on Graph itself (see module docstring), so we
@@ -188,7 +188,7 @@ def setup_auth(config, debug=False):
         if not config.get('OUTLOOK_REFRESH_TOKEN') or not config.get('OUTLOOK_TENANT_ID'):
             print(
                 'ERROR: app-registration path needs OUTLOOK_REFRESH_TOKEN '
-                'and OUTLOOK_TENANT_ID in ~/.config/cal-cli/config.',
+                'and OUTLOOK_TENANT_ID in ~/.config/owa-cal/config.',
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -196,7 +196,7 @@ def setup_auth(config, debug=False):
     if not access:
         if config.get('OUTLOOK_APP_CLIENT_ID'):
             print(
-                'ERROR: token refresh failed. Run `cal-cli config` to '
+                'ERROR: token refresh failed. Run `owa-cal config` to '
                 'inspect settings.',
                 file=sys.stderr,
             )
@@ -206,7 +206,7 @@ def setup_auth(config, debug=False):
             print(
                 f'ERROR: token refresh failed. Re-seed via '
                 f'`owa-piggy setup{hint}`'
-                + (f' or adjust the profile with `cal-cli config --profile <alias>`.' if profile else '.'),
+                + (f' or adjust the profile with `owa-cal config --profile <alias>`.' if profile else '.'),
                 file=sys.stderr,
             )
         sys.exit(1)

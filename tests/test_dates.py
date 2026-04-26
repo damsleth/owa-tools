@@ -1,5 +1,5 @@
 """Tests for date helpers."""
-from cal_cli.dates import iso_week_range, make_datetime, resolve_date, today
+from owa_cal.dates import iso_week_range, make_datetime, resolve_date, today
 
 
 def test_resolve_date_passthrough():

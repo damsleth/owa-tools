@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install cal-cli as an editable pipx package so the `cal-cli` console
+# Install owa-cal as an editable pipx package so the `owa-cal` console
 # script lands on PATH. Replaces the old shell-script symlink approach.
 set -e
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -11,4 +11,4 @@ fi
 
 pipx install --force -e "$REPO_DIR"
 echo
-echo "cal-cli installed via pipx. Run: cal-cli --help"
+echo "owa-cal installed via pipx. Run: owa-cal --help"

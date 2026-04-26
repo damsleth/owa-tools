@@ -1,4 +1,4 @@
-"""Shared fixtures for the cal-cli test suite.
+"""Shared fixtures for the owa-cal test suite.
 
 No network. No real tokens. No writes outside tmp_path.
 """
@@ -7,9 +7,9 @@ import pytest
 
 @pytest.fixture
 def tmp_config(tmp_path, monkeypatch):
-    """Redirect cal_cli.config.CONFIG_PATH to a path under tmp_path."""
-    fake_path = tmp_path / 'cal-cli' / 'config'
-    from cal_cli import config as config_mod
+    """Redirect owa_cal.config.CONFIG_PATH to a path under tmp_path."""
+    fake_path = tmp_path / 'owa-cal' / 'config'
+    from owa_cal import config as config_mod
     monkeypatch.setattr(config_mod, 'CONFIG_PATH', fake_path)
     return fake_path
 

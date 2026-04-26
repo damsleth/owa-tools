@@ -1,4 +1,4 @@
-"""`python -m cal_cli` entrypoint."""
+"""`python -m owa_cal` entrypoint."""
 import sys
 
 from .cli import main

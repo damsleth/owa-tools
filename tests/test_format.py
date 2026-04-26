@@ -1,5 +1,5 @@
 """Tests for the --pretty formatter."""
-from cal_cli.format import format_events_pretty
+from owa_cal.format import format_events_pretty
 
 
 def test_empty_message():

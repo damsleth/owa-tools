@@ -1,10 +1,10 @@
-"""Config file I/O for cal-cli.
+"""Config file I/O for owa-cal.
 
 File format is KEY="VALUE" lines, shell-sourceable for backward
 compatibility with the old zsh script. On the app-registration path
 refresh tokens rotate on every exchange, so a partial write here would
 corrupt the only live token; all writes go through a temp file + fsync
-+ rename. On the owa-piggy path cal-cli holds no secrets, just an
++ rename. On the owa-piggy path owa-cal holds no secrets, just an
 optional profile alias string.
 """
 import os
@@ -13,7 +13,7 @@ from pathlib import Path
 
 CONFIG_PATH = Path(
     os.environ.get('XDG_CONFIG_HOME') or str(Path.home() / '.config')
-) / 'cal-cli' / 'config'
+) / 'owa-cal' / 'config'
 
 # Keys we recognise. Parsing an unknown key out of the file is fine (we
 # preserve it verbatim), but we never write unknown keys from user input.

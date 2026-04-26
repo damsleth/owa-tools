@@ -1,10 +1,10 @@
-# Security model for cal-cli
+# Security model for owa-cal
 
 ## TL;DR
 
-`cal-cli` is a personal productivity tool that reads and writes the
+`owa-cal` is a personal productivity tool that reads and writes the
 user's own Outlook calendar from the terminal. On the default
-(owa-piggy) path cal-cli holds no secrets at all - only an optional
+(owa-piggy) path owa-cal holds no secrets at all - only an optional
 profile alias string - and owa-piggy owns the refresh token in its
 own profile store. On the app-registration path the user's own
 refresh token is stored on disk under the user's own home directory.
@@ -12,7 +12,7 @@ Don't deploy it for other people.
 
 ## What this actually is
 
-`cal-cli` is a thin client over the Outlook REST API v2. It exchanges
+`owa-cal` is a thin client over the Outlook REST API v2. It exchanges
 a refresh token for a short-lived access token, then issues
 calendarView, events, and masterCategories calls as the authenticated
 user. Token acquisition is delegated: either to an app-registration
@@ -22,18 +22,18 @@ user. Token acquisition is delegated: either to an app-registration
 ## Threat model
 
 **In scope:** single-user, single-machine use. The caller runs
-`cal-cli` under their own account against their own tenant.
+`owa-cal` under their own account against their own tenant.
 
-- On the **owa-piggy path** `~/.config/cal-cli/config` contains only
+- On the **owa-piggy path** `~/.config/owa-cal/config` contains only
   an alias string (`owa_piggy_profile`) plus the default timezone.
-  No credentials live in cal-cli. The refresh token lives in
+  No credentials live in owa-cal. The refresh token lives in
   owa-piggy's profile store and is subject to owa-piggy's threat
   model (see its `SECURITY.md`).
 - On the **app-registration path** the refresh token is stored at
-  `~/.config/cal-cli/config`, mode `0600`. Any process running as
+  `~/.config/owa-cal/config`, mode `0600`. Any process running as
   that user can read the file. That is the same trust boundary SSH
   keys live in. Refresh tokens rotate on every successful exchange;
-  cal-cli persists the rotated token back atomically (temp file +
+  owa-cal persists the rotated token back atomically (temp file +
   fsync + rename). A crash mid-exchange leaves either the old or the
   new token, never a truncated mix.
 - Access tokens are held in memory only. They are not cached on
@@ -51,7 +51,7 @@ user. Token acquisition is delegated: either to an app-registration
 - Sharing the config file across hosts or users. The token inside
   is a user credential.
 
-## What `cal-cli` does _not_ do
+## What `owa-cal` does _not_ do
 
 - Register an application in anyone's tenant.
 - Send telemetry, crash reports, or update checks. The only
@@ -62,7 +62,7 @@ user. Token acquisition is delegated: either to an app-registration
   - `{GET,POST,PATCH,DELETE} https://outlook.office.com/api/v2.0/...`
     for calendar operations.
 - Ask for admin consent.
-- Read or write files outside `~/.config/cal-cli/`.
+- Read or write files outside `~/.config/owa-cal/`.
 
 ## What _can_ break
 

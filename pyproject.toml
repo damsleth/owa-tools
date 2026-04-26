@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cal-cli"
+name = "owa-cal"
 version = "0.6.0"
 description = "Pipe-friendly calendar CLI for Outlook / Microsoft 365"
 readme = "README.md"
@@ -45,10 +45,10 @@ Issues = "https://github.com/damsleth/cal-cli/issues"
 Changelog = "https://github.com/damsleth/cal-cli/releases"
 
 [project.scripts]
-cal-cli = "cal_cli:main"
+owa-cal = "owa_cal:main"
 
 [project.optional-dependencies]
 test = ["pytest"]
 
 [tool.setuptools]
-packages = ["cal_cli"]
+packages = ["owa_cal"]

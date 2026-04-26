@@ -2,7 +2,7 @@
 
 One function: api_request. Returns parsed JSON or None (for
 return-to-caller failures). For auth/permission failures we exit the
-process with a clear message - cal-cli is a CLI, not a library, and
+process with a clear message - owa-cal is a CLI, not a library, and
 there is no recovery path for a 401 except telling the user to re-run.
 """
 import json
@@ -43,7 +43,7 @@ def api_request(method, base, endpoint, access_token, body=None, debug=False):
         code = e.code
         err_body = e.read().decode('utf-8', errors='replace')
         if code == 401:
-            print('ERROR: auth expired (401). Run: cal-cli refresh', file=sys.stderr)
+            print('ERROR: auth expired (401). Run: owa-cal refresh', file=sys.stderr)
             sys.exit(1)
         if code == 403:
             print('ERROR: access denied (403). Check permissions.', file=sys.stderr)

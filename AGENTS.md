@@ -4,7 +4,7 @@ Instructions for AI coding agents working in this repo.
 
 ## What this is
 
-`cal-cli` is a small stdlib-only Python CLI (package at `cal_cli/`,
+`owa-cal` is a small stdlib-only Python CLI (package at `owa_cal/`,
 ~900 lines split across a handful of modules) for reading and writing
 Microsoft 365 / Outlook calendar events from the terminal. JSON on
 stdout, logs on stderr, `--pretty` for humans.
@@ -12,7 +12,7 @@ stdout, logs on stderr, `--pretty` for humans.
 The tool is a sibling of [`owa-piggy`](../owa-piggy) and shares its
 layout and coding style. Default auth path: shell out to `owa-piggy`
 on `$PATH` (treat them as two POSIX utils piped together); owa-piggy
-owns the refresh token, cal-cli stores only an optional profile alias
+owns the refresh token, owa-cal stores only an optional profile alias
 (`owa_piggy_profile`). Alternative path: set `OUTLOOK_APP_CLIENT_ID`
 (plus `OUTLOOK_REFRESH_TOKEN` / `OUTLOOK_TENANT_ID` in the config
 file) to use a user-owned app registration directly.
@@ -21,13 +21,13 @@ file) to use a user-owned app registration directly.
 
 - **Stdlib only** at runtime. No `requests`, no `msal`, no deps.
   `pytest` is dev-only under `[project.optional-dependencies] test`.
-- **JSON on stdout, logs on stderr.** Callers pipe `cal-cli events`
+- **JSON on stdout, logs on stderr.** Callers pipe `owa-cal events`
   into `jq`. Do not print progress, timing, or decorations to stdout.
 - **Never commit real refresh tokens, access tokens, tenant IDs, or
-  `~/.config/cal-cli/config` contents**, even in tests or fixtures.
+  `~/.config/owa-cal/config` contents**, even in tests or fixtures.
   Use obvious fakes (`"fake-rt-for-tests"`). Refresh-token handling
   applies only on the app-registration path; on the owa-piggy path
-  cal-cli holds no secrets.
+  owa-cal holds no secrets.
 - **Preserve the "only provided fields" invariant in
   `build_patch_json`**. Adding keys with empty values silently clobbers
   other event fields in Outlook.
@@ -39,15 +39,15 @@ file) to use a user-owned app registration directly.
   does not carry `Calendars.ReadWrite` or `MailboxSettings.*` on the
   Graph audience - only on the Outlook audience. Switching `api_base`
   to `graph.microsoft.com/v1.0` returns 403 on every call. See
-  `cal_cli/auth.py` docstring for the scope decode. Graph is an
+  `owa_cal/auth.py` docstring for the scope decode. Graph is an
   option only for users with their own `OUTLOOK_APP_CLIENT_ID`.
 
 ## Layout
 
 ```
-cal_cli/
-  __init__.py        # re-exports `main` so `cal-cli = "cal_cli:main"` resolves
-  __main__.py        # `python -m cal_cli`
+owa_cal/
+  __init__.py        # re-exports `main` so `owa-cal = "owa_cal:main"` resolves
+  __main__.py        # `python -m owa_cal`
   cli.py             # arg parsing + dispatch + cmd_* handlers
   config.py          # CONFIG_PATH, load_config, save_config, config_set
   dates.py           # today/tomorrow/yesterday, resolve_date, iso_week_range
@@ -59,7 +59,7 @@ cal_cli/
 scripts/
   add-to-path.sh     # pipx-based installer shim
 tests/               # pytest suite around pure functions + CLI smoke
-Formula/cal-cli.rb   # Homebrew tap formula
+Formula/owa-cal.rb   # Homebrew tap formula
 pyproject.toml
 README.md
 SECURITY.md
@@ -82,12 +82,12 @@ SECURITY.md
 
 ## Verification before claiming done
 
-- `python -m compileall -q cal_cli` passes.
-- `python -m cal_cli --help` runs without traceback on a machine with
+- `python -m compileall -q owa_cal` passes.
+- `python -m owa_cal --help` runs without traceback on a machine with
   no config.
 - `pytest -q` is green.
-- If you touched the event read/write path: `cal-cli events --pretty`
-  and `cal-cli create --subject test --date tomorrow --start 09:00
+- If you touched the event read/write path: `owa-cal events --pretty`
+  and `owa-cal create --subject test --date tomorrow --start 09:00
   --end 09:30` still work against a real configured profile. If you
   cannot run against a real profile, say so explicitly rather than
   claiming it works.
@@ -124,11 +124,11 @@ When the user says "cut a release" / "new patch version" / "ship it":
    Never retag a version that's already public - Homebrew users
    cache the tarball by sha.
 5. Fetch the GitHub-generated tarball and compute its sha256:
-   `curl -sL https://github.com/damsleth/cal-cli/archive/refs/tags/vX.Y.Z.tar.gz -o /tmp/cal-cli-X.Y.Z.tar.gz && shasum -a 256 /tmp/cal-cli-X.Y.Z.tar.gz`
-6. Edit `~/Code/homebrew-tap/Formula/cal-cli.rb` - bump the `url`
+   `curl -sL https://github.com/damsleth/cal-cli/archive/refs/tags/vX.Y.Z.tar.gz -o /tmp/owa-cal-X.Y.Z.tar.gz && shasum -a 256 /tmp/owa-cal-X.Y.Z.tar.gz`
+6. Edit `~/Code/homebrew-tap/Formula/owa-cal.rb` - bump the `url`
    tag and the `sha256`. Nothing else changes unless dependencies
    did.
-7. Commit the tap with message `cal-cli X.Y.Z` (matches the tap's
+7. Commit the tap with message `owa-cal X.Y.Z` (matches the tap's
    existing convention) and push.
 
 If any step fails midway (tag push rejected, sha mismatch, tap push

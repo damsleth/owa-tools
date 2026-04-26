@@ -1,6 +1,6 @@
 """Event JSON shaping: normalize API responses, build POST/PATCH bodies.
 
-cal-cli talks to the Outlook REST API v2.0, which returns PascalCase.
+owa-cal talks to the Outlook REST API v2.0, which returns PascalCase.
 We normalize into lowercase-key shapes on read and emit PascalCase on
 write. See `auth.py` for why Microsoft Graph is not an option on the
 owa-piggy auth path.
@@ -186,7 +186,7 @@ def to_local(dt_str, tz_name=''):
 
 
 def normalize_event(event):
-    """Flatten an Outlook REST event (PascalCase) into cal-cli's wire shape."""
+    """Flatten an Outlook REST event (PascalCase) into owa-cal's wire shape."""
     s = event.get('Start') or {}
     en = event.get('End') or {}
     loc = event.get('Location') or {}
