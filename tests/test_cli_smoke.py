@@ -82,7 +82,7 @@ def test_profile_flag_forwards_to_owa_piggy(monkeypatch, tmp_path, clean_env):
         stdout = ''
         stderr = 'fake error'
 
-    def fake_run(argv, capture_output=False, text=False, check=False):
+    def fake_run(argv, *args, **kwargs):
         captured['argv'] = argv
         return FakeProc()
 
@@ -106,7 +106,7 @@ def test_refresh_via_owa_piggy_no_profile(monkeypatch, clean_env):
         stdout = ''
         stderr = ''
 
-    def fake_run(argv, capture_output=False, text=False, check=False):
+    def fake_run(argv, *args, **kwargs):
         captured['argv'] = argv
         return FakeProc()
 

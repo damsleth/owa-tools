@@ -44,6 +44,64 @@ def _owa_piggy_available():
     return shutil.which('owa-piggy') is not None
 
 
+# owa-cal and owa-piggy version independently. The bridge is a stdout
+# JSON contract, not a Python import. We sanity-check the floor once
+# per process so a stale owa-piggy fails fast with a clear message
+# instead of a confusing JSON-shape error later.
+MIN_OWA_PIGGY_VERSION = (0, 6, 0)
+_owa_piggy_version_checked = False
+
+
+def _parse_version(s):
+    parts = s.strip().split('.')
+    out = []
+    for p in parts[:3]:
+        try:
+            out.append(int(p.split('-', 1)[0]))
+        except ValueError:
+            return None
+    return tuple(out) if len(out) == 3 else None
+
+
+def _check_owa_piggy_version():
+    """Verify owa-piggy on PATH is >= MIN_OWA_PIGGY_VERSION.
+
+    Runs `owa-piggy --version` once per process. Returns True if the
+    version is acceptable or unparseable (don't fail closed on a parse
+    quirk - the JSON-contract check downstream will still catch real
+    breakage). Returns False only when the version is parseable AND
+    older than the floor.
+    """
+    global _owa_piggy_version_checked
+    if _owa_piggy_version_checked:
+        return True
+    _owa_piggy_version_checked = True
+    try:
+        proc = subprocess.run(
+            ['owa-piggy', '--version'],
+            capture_output=True, text=True, check=False, timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return True
+    if proc.returncode != 0:
+        return True
+    # argparse prints "owa-piggy X.Y.Z" to stdout (or stderr on py<3.10)
+    raw = (proc.stdout or proc.stderr).strip().split()
+    found = next((_parse_version(t) for t in raw if _parse_version(t)), None)
+    if found is None:
+        return True
+    if found < MIN_OWA_PIGGY_VERSION:
+        floor = '.'.join(str(n) for n in MIN_OWA_PIGGY_VERSION)
+        have = '.'.join(str(n) for n in found)
+        print(
+            f'ERROR: owa-piggy {have} is too old; owa-cal needs >= {floor}. '
+            f'Upgrade with: brew upgrade damsleth/tap/owa-piggy',
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
 def refresh_via_app_registration(refresh_token, tenant_id, client_id):
     """Call AAD v2 token endpoint with the app-registration client_id.
 
@@ -123,6 +181,8 @@ def _refresh_via_owa_piggy(config, debug=False):
             'brew install damsleth/tap/owa-piggy',
             file=sys.stderr,
         )
+        return None
+    if not _check_owa_piggy_version():
         return None
     # --audience outlook: owa-cal talks to outlook.office.com, which
     # wants an Outlook-audience token. owa-piggy's default is Graph; a
