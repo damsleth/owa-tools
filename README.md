@@ -154,7 +154,7 @@ exclusively in the config file.
 ## Development
 
 ```sh
-git clone https://github.com/damsleth/cal-cli
+git clone https://github.com/damsleth/owa-cal
 cd owa-cal
 pip install -e '.[test]'
 pytest -q

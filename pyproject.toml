@@ -39,10 +39,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/damsleth/cal-cli"
-Repository = "https://github.com/damsleth/cal-cli"
-Issues = "https://github.com/damsleth/cal-cli/issues"
-Changelog = "https://github.com/damsleth/cal-cli/releases"
+Homepage = "https://github.com/damsleth/owa-cal"
+Repository = "https://github.com/damsleth/owa-cal"
+Issues = "https://github.com/damsleth/owa-cal/issues"
+Changelog = "https://github.com/damsleth/owa-cal/releases"
 
 [project.scripts]
 owa-cal = "owa_cal:main"

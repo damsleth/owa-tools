@@ -124,7 +124,7 @@ When the user says "cut a release" / "new patch version" / "ship it":
    Never retag a version that's already public - Homebrew users
    cache the tarball by sha.
 5. Fetch the GitHub-generated tarball and compute its sha256:
-   `curl -sL https://github.com/damsleth/cal-cli/archive/refs/tags/vX.Y.Z.tar.gz -o /tmp/owa-cal-X.Y.Z.tar.gz && shasum -a 256 /tmp/owa-cal-X.Y.Z.tar.gz`
+   `curl -sL https://github.com/damsleth/owa-cal/archive/refs/tags/vX.Y.Z.tar.gz -o /tmp/owa-cal-X.Y.Z.tar.gz && shasum -a 256 /tmp/owa-cal-X.Y.Z.tar.gz`
 6. Edit `~/Code/homebrew-tap/Formula/owa-cal.rb` - bump the `url`
    tag and the `sha256`. Nothing else changes unless dependencies
    did.
