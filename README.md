@@ -8,6 +8,20 @@ brew install damsleth/tap/owa-cal
 owa-cal events --pretty
 ```
 
+Or one-shot, no install, no on-disk state:
+
+```sh
+OWA_REFRESH_TOKEN=1.AQ... OWA_TENANT_ID=<tenant-id-or-domain> \
+  uvx owa-cal events --pretty
+```
+
+`uvx` pulls owa-cal (and owa-piggy as a transitive dep) into a
+throwaway venv. The two env vars feed straight through to owa-piggy's
+env-only mode - nothing is written to `~/.config/`. Useful on a
+borrowed laptop, in a CI job, or for a one-off script. See
+[Single-line uvx](#single-line-uvx-no-install-no-disk-state) for how
+to scrape the two values from a browser session.
+
 ---
 
 ## Happy-path setup (no app registration)
@@ -145,6 +159,45 @@ OUTLOOK_TENANT_ID=""
 `OUTLOOK_APP_CLIENT_ID` can be overridden via the environment. The
 refresh token / tenant id on the app-registration path live
 exclusively in the config file.
+
+### Single-line uvx (no install, no disk state)
+
+`uvx owa-cal` pulls both packages into an ephemeral venv and never
+writes to `~/.config/`. Pair it with owa-piggy's env-only mode and
+you have a one-shot, fully portable invocation:
+
+```sh
+OWA_REFRESH_TOKEN=1.AQ... \
+OWA_TENANT_ID=<tenant-id-or-domain> \
+  uvx owa-cal events --pretty
+```
+
+Variables go to owa-piggy via subprocess env inheritance; owa-cal
+itself never sees the token. `OWA_PROFILE` is honored if you also
+have profiles on disk, but is unnecessary in env-only mode.
+
+To scrape the two values out of a browser session (Edge -> outlook.cloud.microsoft, F12 -> Console):
+
+```js
+const find = s => Object.keys(localStorage).find(k => k.includes(s))
+const parse = s => JSON.parse(localStorage[find(s)])
+const rt = parse('|refreshtoken|'), it = parse('|idtoken|')
+console.log(`OWA_REFRESH_TOKEN=${rt.secret || rt.data}
+OWA_TENANT_ID=${it.realm || find('|idtoken|').split('|')[5]}`)
+```
+
+Caveats:
+
+- Plain Chromium browsers (vanilla Chrome/Brave) store a session-bound
+  token AAD won't accept. Use Microsoft Edge.
+- The refresh token AAD returns rotates on every exchange. In env-only
+  mode owa-piggy prints a `NOTE:` to stderr noting the new token; copy
+  it back into your env if you plan another call. Persistent use
+  belongs in `owa-piggy setup`, not env vars.
+- Tokens on a command line (e.g. `OWA_REFRESH_TOKEN=... uvx ...`) end
+  up in shell history and `ps aux`. Source them from a file
+  (`set -a; . secrets.env; set +a; uvx owa-cal events`) or your
+  password manager's CLI.
 
 ---
 

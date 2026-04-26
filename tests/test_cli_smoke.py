@@ -70,6 +70,38 @@ def test_events_without_owa_piggy_fails_with_clear_error(tmp_path):
     assert 'Traceback' not in r.stderr
 
 
+def test_subprocess_inherits_env_for_uvx_one_liner(monkeypatch, tmp_path, clean_env):
+    """The single-line uvx invocation depends on subprocess.run NOT
+    overriding env=, so OWA_REFRESH_TOKEN / OWA_TENANT_ID inherit from
+    the parent shell straight through to owa-piggy. If a future change
+    starts setting env={...} explicitly, this test catches it."""
+    from owa_cal import auth as auth_mod
+
+    captured = {}
+
+    class FakeProc:
+        returncode = 1
+        stdout = ''
+        stderr = ''
+
+    def fake_run(argv, *args, **kwargs):
+        captured['kwargs'] = kwargs
+        return FakeProc()
+
+    monkeypatch.setattr(auth_mod, '_owa_piggy_available', lambda: True)
+    monkeypatch.setattr(auth_mod.subprocess, 'run', fake_run)
+    auth_mod._refresh_via_owa_piggy({}, debug=False)
+
+    # The contract: no explicit env= means the child inherits the
+    # parent's environment, which is what owa-piggy needs to see
+    # OWA_REFRESH_TOKEN / OWA_TENANT_ID for env-only mode.
+    assert 'env' not in captured['kwargs'], (
+        'subprocess.run was called with env={...}; this breaks the uvx '
+        'one-liner because owa-piggy will no longer see OWA_REFRESH_TOKEN '
+        'and OWA_TENANT_ID from the calling shell.'
+    )
+
+
 def test_profile_flag_forwards_to_owa_piggy(monkeypatch, tmp_path, clean_env):
     """`owa-cal --profile work events` must invoke
     `owa-piggy token --audience outlook --json --profile work`."""

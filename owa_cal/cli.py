@@ -97,6 +97,10 @@ Environment:
                       precedence than --profile and the config file
                       pin, but useful for one-shot sessions
                       (`OWA_PROFILE=work owa-cal events`)
+  OWA_REFRESH_TOKEN,  Env-only mode: passed through to owa-piggy so it
+  OWA_TENANT_ID       can mint tokens with no on-disk config. Enables
+                      `uvx owa-cal events` against a fresh machine
+                      (see README -> Single-line uvx)
 
 Commands:
   refresh             Force a token refresh and verify auth
