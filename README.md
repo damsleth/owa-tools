@@ -27,6 +27,9 @@ owa-piggy setup
 owa-cal events --pretty
 ```
 
+owa-piggy and owa-cal version independently. owa-cal expects any
+owa-piggy >= 0.6.0 and sanity-checks the version on first call.
+
 Multi-account: seed a named owa-piggy profile and pin it in owa-cal's
 config.
 
@@ -165,6 +168,10 @@ See [`AGENTS.md`](AGENTS.md) for repo layout and ground rules.
 ## Disclaimer
 
 ```
-Personal tooling. Stores a delegated refresh token on disk.
-If you don't know why that might be a bad idea, don't use it.
+Personal tooling. The default (owa-piggy bridge) path holds no
+refresh token of its own - tokens are owa-piggy's responsibility,
+scoped to its profile store. The optional app-registration path
+does persist a delegated refresh token in owa-cal's config file.
+If you don't know why either of those might be a bad idea, don't
+use it.
 ```
