@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "owa-cal"
-version = "0.6.1"
+version = "0.6.2"
 description = "Pipe-friendly calendar CLI for Outlook / Microsoft 365"
 readme = "README.md"
 requires-python = ">=3.8"
