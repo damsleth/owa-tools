@@ -130,6 +130,12 @@ When the user says "cut a release" / "new patch version" / "ship it":
    did.
 7. Commit the tap with message `owa-cal X.Y.Z` (matches the tap's
    existing convention) and push.
+8. `brew upgrade owa-cal owa-piggy` on the dev machine to actually
+   pull the new formula locally - the tap push only updates the
+   metadata; nothing on disk changes until brew refetches. Skipping
+   this leaves the dev machine on the previous version even though
+   `git log` and PyPI both say the new one shipped. Upgrading both
+   together keeps owa-cal's `>=0.6.0` dep on owa-piggy in lockstep.
 
 If any step fails midway (tag push rejected, sha mismatch, tap push
 rejected), stop and surface the error - do not try to "fix" a
