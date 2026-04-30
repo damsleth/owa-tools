@@ -27,6 +27,15 @@ from .dates import (
 )
 from .format import format_events_pretty
 
+# OData $select / $orderby fragments shared by `events` listing and the
+# post-create duplicate check. Keep these in sync: the dupe check
+# compares the same normalized fields the listing surfaces.
+_EVENTS_SELECT = (
+    'Id,Subject,Start,End,Location,Categories,ShowAs,IsAllDay,'
+    'OriginalStartTimeZone,OriginalEndTimeZone'
+)
+_EVENTS_ORDERBY = 'Start/DateTime'
+
 
 def _error(msg):
     print(f'ERROR: {msg}', file=sys.stderr)
@@ -240,8 +249,8 @@ def cmd_events(args, config, access_token, api_base):
     if debug:
         print(f'DEBUG: events {from_} to {to_}', file=sys.stderr)
 
-    select_fields = 'Id,Subject,Start,End,Location,Categories,ShowAs,IsAllDay,OriginalStartTimeZone,OriginalEndTimeZone'
-    orderby_field = 'Start/DateTime'
+    select_fields = _EVENTS_SELECT
+    orderby_field = _EVENTS_ORDERBY
 
     q = api_mod.build_query({
         'startDateTime': start_dt,
@@ -328,12 +337,11 @@ def _check_duplicates(created, check_date, access_token, api_base, debug):
     """Post-create: warn if another event with the same subject/time
     already existed that day. Best-effort; failures are swallowed."""
     select_fields = 'Id,Subject,Start,End'
-    orderby_field = 'Start/DateTime'
     q = api_mod.build_query({
         'startDateTime': f'{check_date}T00:00:00',
         'endDateTime': f'{check_date}T23:59:59',
         '$top': 50,
-        '$orderby': orderby_field,
+        '$orderby': _EVENTS_ORDERBY,
         '$select': select_fields,
     })
     existing = api_mod.api_get(api_base, f'me/calendarView?{q}', access_token, debug=debug)

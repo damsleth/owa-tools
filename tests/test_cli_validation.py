@@ -75,11 +75,11 @@ def test_create_allday_uses_midnight_next_day(capsys, monkeypatch):
     capsys.readouterr()
 
 
-def test_update_end_time_preserves_existing_end_date(monkeypatch):
+def test_update_end_time_preserves_existing_end_date(monkeypatch, force_tz):
     from owa_cal.cli import cmd_update
     import owa_cal.api as api_mod
 
-    _force_tz(monkeypatch, 'UTC')
+    force_tz('UTC')
     captured = {}
 
     def fake_get(base, endpoint, token, debug=False):
@@ -117,11 +117,11 @@ def test_update_end_time_preserves_existing_end_date(monkeypatch):
     assert captured['body']['End']['DateTime'] == '2026-04-21T02:00:00'
 
 
-def test_update_date_preserves_all_day_end_delta(monkeypatch):
+def test_update_date_preserves_all_day_end_delta(monkeypatch, force_tz):
     from owa_cal.cli import cmd_update
     import owa_cal.api as api_mod
 
-    _force_tz(monkeypatch, 'UTC')
+    force_tz('UTC')
     captured = {}
 
     def fake_get(base, endpoint, token, debug=False):
@@ -245,10 +245,3 @@ def test_categories_pretty_opt_in(capsys, monkeypatch):
     assert 'Alpha' in out
     assert 'Preset0' in out
     assert '[' not in out
-
-
-def _force_tz(monkeypatch, tz):
-    import time as time_mod
-    monkeypatch.setenv('TZ', tz)
-    if hasattr(time_mod, 'tzset'):
-        time_mod.tzset()

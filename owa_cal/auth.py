@@ -139,6 +139,15 @@ def refresh_via_app_registration(refresh_token, tenant_id, client_id):
         return None
 
 
+def _log_token_remaining(access, debug):
+    """Debug-only: report the access token's remaining lifetime to stderr."""
+    if not debug:
+        return
+    remaining = token_minutes_remaining(access)
+    if remaining is not None:
+        print(f'DEBUG: token exchange ok ({remaining}min remaining)', file=sys.stderr)
+
+
 def _refresh_via_app_registration(config, debug=False):
     refresh_token = config.get('OUTLOOK_REFRESH_TOKEN', '').strip()
     tenant_id = config.get('OUTLOOK_TENANT_ID', '').strip()
@@ -160,10 +169,7 @@ def _refresh_via_app_registration(config, debug=False):
             config_mod.config_set('OUTLOOK_REFRESH_TOKEN', new_refresh)
         except Exception as e:
             print(f'WARN: failed to persist rotated refresh token: {e}', file=sys.stderr)
-    if debug:
-        remaining = token_minutes_remaining(access)
-        if remaining is not None:
-            print(f'DEBUG: token exchange ok ({remaining}min remaining)', file=sys.stderr)
+    _log_token_remaining(access, debug)
     return access
 
 
@@ -218,10 +224,7 @@ def _refresh_via_owa_piggy(config, debug=False):
     access = result.get('access_token')
     if not access:
         return None
-    if debug:
-        remaining = token_minutes_remaining(access)
-        if remaining is not None:
-            print(f'DEBUG: token exchange ok ({remaining}min remaining)', file=sys.stderr)
+    _log_token_remaining(access, debug)
     return access
 
 

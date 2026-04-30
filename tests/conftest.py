@@ -22,3 +22,22 @@ def clean_env(monkeypatch):
         'OWA_PROFILE', 'CAL_DEBUG', 'XDG_CONFIG_HOME',
     ):
         monkeypatch.delenv(key, raising=False)
+
+
+@pytest.fixture
+def force_tz(monkeypatch):
+    """Force the process-local timezone for a test.
+
+    POSIX only - sets the TZ env var and calls time.tzset() so
+    datetime.astimezone() picks up the right rules for *that* moment
+    in time (DST-aware). Returns a setter so a single test can switch
+    timezones, e.g. `force_tz('Europe/Oslo')`.
+    """
+    import time as time_mod
+
+    def _set(tz):
+        monkeypatch.setenv('TZ', tz)
+        if hasattr(time_mod, 'tzset'):
+            time_mod.tzset()
+
+    return _set

@@ -65,53 +65,43 @@ def test_to_local_known_tz_roundtrip_is_string():
     assert 'T' in out and len(out) == 19
 
 
-def _force_tz(monkeypatch, tz):
-    """Force the process-local timezone to `tz`. POSIX only - sets the
-    TZ env var and calls time.tzset() so datetime.astimezone() picks
-    up the right rules for *that* moment in time (DST-aware)."""
-    import time as time_mod
-    monkeypatch.setenv('TZ', tz)
-    if hasattr(time_mod, 'tzset'):
-        time_mod.tzset()
-
-
-def test_to_local_utc_to_oslo_winter(monkeypatch):
+def test_to_local_utc_to_oslo_winter(force_tz):
     """Anchor for the DST bug: a winter UTC timestamp in Europe/Oslo
     should be +01:00, not +02:00."""
-    _force_tz(monkeypatch, 'Europe/Oslo')
+    force_tz('Europe/Oslo')
     assert to_local('2026-01-15T09:00:00', 'UTC') == '2026-01-15T10:00:00'
 
 
-def test_to_local_utc_to_oslo_summer(monkeypatch):
+def test_to_local_utc_to_oslo_summer(force_tz):
     """Summer UTC -> Oslo should be +02:00 (DST)."""
-    _force_tz(monkeypatch, 'Europe/Oslo')
+    force_tz('Europe/Oslo')
     assert to_local('2026-07-15T09:00:00', 'UTC') == '2026-07-15T11:00:00'
 
 
-def test_to_local_unspecified_tz_assumes_utc(monkeypatch):
-    _force_tz(monkeypatch, 'Europe/Oslo')
+def test_to_local_unspecified_tz_assumes_utc(force_tz):
+    force_tz('Europe/Oslo')
     # No tz_name provided -> treated as UTC
     assert to_local('2026-01-15T09:00:00') == '2026-01-15T10:00:00'
 
 
-def test_to_local_aware_datetime_respects_offset(monkeypatch):
-    _force_tz(monkeypatch, 'Europe/Oslo')
+def test_to_local_aware_datetime_respects_offset(force_tz):
+    force_tz('Europe/Oslo')
     # Input already carries +00:00; should still reach Oslo winter time
     assert to_local('2026-01-15T09:00:00+00:00') == '2026-01-15T10:00:00'
 
 
-def test_to_local_fractional_aware_datetime_preserves_offset(monkeypatch):
-    _force_tz(monkeypatch, 'UTC')
+def test_to_local_fractional_aware_datetime_preserves_offset(force_tz):
+    force_tz('UTC')
     assert to_local('2026-01-15T09:00:00.1234567+02:00') == '2026-01-15T07:00:00'
 
 
-def test_to_local_windows_zone_dst_start_boundary(monkeypatch):
-    _force_tz(monkeypatch, 'Europe/Oslo')
+def test_to_local_windows_zone_dst_start_boundary(force_tz):
+    force_tz('Europe/Oslo')
     assert to_local('2026-03-29T01:30:00', 'W. Europe Standard Time') == '2026-03-29T01:30:00'
 
 
-def test_to_local_us_zone_uses_dst(monkeypatch):
-    _force_tz(monkeypatch, 'UTC')
+def test_to_local_us_zone_uses_dst(force_tz):
+    force_tz('UTC')
     assert to_local('2026-07-15T12:00:00', 'Eastern Standard Time') == '2026-07-15T16:00:00'
 
 
