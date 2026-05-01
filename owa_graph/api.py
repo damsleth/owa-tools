@@ -114,6 +114,21 @@ def api_request(method, base, endpoint, access_token, body=None,
             print(err_body, file=sys.stderr)
         return None
     except urllib.error.URLError as e:
+        if retry:
+            # Single retry on transport-level failures (e.g. connection
+            # reset between pages of a long --all walk). Bounded - we
+            # disable retry on the second attempt so a persistently
+            # broken host still surfaces as an error.
+            if debug:
+                print(f'DEBUG: URLError {e.reason!r} - retrying once', file=sys.stderr)
+            try:
+                return api_request(
+                    method, base, endpoint, access_token,
+                    body=body, extra_headers=extra_headers,
+                    debug=debug, raw=raw, retry=False,
+                )
+            except Exception:  # pragma: no cover - defensive
+                pass
         print(f'ERROR: {e.reason}', file=sys.stderr)
         return None
 

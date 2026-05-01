@@ -6,12 +6,15 @@ auth, no token plumbing, no `az login`, no app registration required.
 ```sh
 owa-graph GET /me
 owa-graph GET '/users?$top=5' --pretty
+owa-graph GET /users --all --ndjson | jq -c .displayName
+owa-graph GET /users --search 'displayName:Bob' --count
 owa-graph GET /me/messages --top 10 --select id,subject,from
 owa-graph POST /me/sendMail --body @mail.json
 owa-graph PATCH /me/messages/AAMk... --body '{"isRead":true}'
 owa-graph GET /me/drive/root/children --beta
 owa-graph GET /me --curl | pbcopy
 owa-graph GET me/events --audience outlook --pretty
+owa-graph batch requests.json --pretty
 ```
 
 ## Install
@@ -34,6 +37,13 @@ request with the right base URL and Bearer header.
   JSON for everything else.
 - `--curl` and `--az` print the equivalent shell command instead of
   executing - useful for sharing, scripting, or piping into `pbcopy`.
+- `--all` follows `@odata.nextLink` until exhausted; pair with
+  `--ndjson` to stream items one per line through `jq`.
+- `--count` and `--search` set Graph's `ConsistencyLevel: eventual`
+  header so advanced directory queries don't 400.
+- `--retry` honors `Retry-After` once on 429/503 (capped at 60s).
+- `owa-graph batch <file|->` posts a JSON-batching request to `/$batch`;
+  flat arrays are auto-wrapped in `{"requests": [...]}`.
 - `--beta` switches to `https://graph.microsoft.com/beta`.
 - `--audience` retargets at any FOCI audience `owa-piggy` knows about
   (Outlook REST, Teams, Azure Mgmt, KeyVault, etc.) using the same

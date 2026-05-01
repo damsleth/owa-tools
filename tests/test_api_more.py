@@ -105,3 +105,42 @@ def test_endpoint_starting_with_http_overrides_base(monkeypatch):
         'GET', 'IGNORED', 'https://other.example/foo', 't',
     )
     assert seen['url'] == 'https://other.example/foo'
+
+
+def test_url_error_retried_once_when_retry_true(monkeypatch, capsys):
+    """retry=True absorbs a single transport flake and retries once."""
+    calls = []
+    def _flake(req):
+        calls.append(req.full_url)
+        if len(calls) == 1:
+            raise urllib.error.URLError('connection reset')
+        return _FakeResp(b'{"ok":true}')
+    monkeypatch.setattr(api.urllib.request, 'urlopen', _flake)
+    out = api.api_request('GET', 'https://x/y', 'a', 't', retry=True)
+    assert out == {'ok': True}
+    assert len(calls) == 2
+
+
+def test_url_error_not_retried_when_retry_false(monkeypatch, capsys):
+    calls = []
+    def _flake(req):
+        calls.append(1)
+        raise urllib.error.URLError('reset')
+    monkeypatch.setattr(api.urllib.request, 'urlopen', _flake)
+    out = api.api_request('GET', 'https://x/y', 'a', 't', retry=False)
+    assert out is None
+    assert len(calls) == 1
+
+
+def test_url_error_persistent_with_retry_surfaces_error(monkeypatch, capsys):
+    """If the second attempt also fails, give up and surface the error."""
+    calls = []
+    def _flake(req):
+        calls.append(1)
+        raise urllib.error.URLError('still reset')
+    monkeypatch.setattr(api.urllib.request, 'urlopen', _flake)
+    out = api.api_request('GET', 'https://x/y', 'a', 't', retry=True, debug=True)
+    assert out is None
+    assert len(calls) == 2
+    err = capsys.readouterr().err
+    assert 'still reset' in err

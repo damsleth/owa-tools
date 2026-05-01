@@ -45,6 +45,7 @@ def print_help():
     print("""owa-graph - Microsoft Graph CLI for one-off queries
 
 Usage: owa-graph <METHOD> <path> [options]
+       owa-graph batch <file|-> [--pretty] [--retry]
        owa-graph refresh
        owa-graph config [--profile <alias>] [--app-client-id <id>] [--audience <name>]
 
@@ -59,6 +60,16 @@ Per-call options:
   --select F1,F2            Shortcut for --query '$select=F1,F2'.
   --top N                   Shortcut for --query '$top=N'.
   --filter EXPR             Shortcut for --query '$filter=EXPR'.
+  --count                   Shortcut for $count=true (sets ConsistencyLevel:
+                            eventual; required for advanced directory queries).
+  --search EXPR             Shortcut for $search="EXPR" (also sets
+                            ConsistencyLevel: eventual).
+  --all                     Follow @odata.nextLink until exhausted.
+                            Output: single {"value": [...]} unless --ndjson.
+  --ndjson                  Stream items one per line (jq-friendly).
+                            Pairs with --all; standalone splits a single
+                            page's value array.
+  --retry                   Honor Retry-After once on 429/503 (capped at 60s).
   --beta                    Use https://graph.microsoft.com/beta (graph audience only).
   --audience <name>         Forward to owa-piggy. Default: graph.
                             Known: graph, outlook, teams, azure, keyvault,
@@ -113,12 +124,15 @@ Scope caveat:
 Examples:
   owa-graph GET /me
   owa-graph GET '/users?$top=5' --pretty
+  owa-graph GET /users --all --ndjson | jq -c .displayName
+  owa-graph GET /users --search 'displayName:Bob' --count
   owa-graph GET /me/messages --top 10 --select id,subject,from
   owa-graph POST /me/sendMail --body @mail.json
   owa-graph PATCH /me/messages/AAMk... --body '{"isRead":true}'
   owa-graph GET /me/drive/root/children --beta
   owa-graph GET /me --curl | pbcopy
   owa-graph GET me/events --audience outlook --pretty
+  owa-graph batch requests.json --pretty
   owa-graph refresh""")
 
 
