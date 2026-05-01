@@ -5,6 +5,7 @@ Outlook REST accepts well-known folder names directly in URL segments
 lookup. resolve_folder_id normalises user input to the canonical casing
 the API expects, or passes opaque folder ids through untouched.
 """
+from .messages import _pick_str
 
 # Canonical names accepted by Outlook REST as path segments. The map
 # value is the exact casing the API wants; keys are lowercase for
@@ -50,8 +51,8 @@ def normalize_folder(raw):
     if not isinstance(raw, dict):
         return {}
     return {
-        'id': raw.get('Id') or raw.get('id') or '',
-        'name': raw.get('DisplayName') or raw.get('displayName') or '',
+        'id': _pick_str(raw, 'Id', 'id'),
+        'name': _pick_str(raw, 'DisplayName', 'displayName'),
         'unread': raw.get('UnreadItemCount', raw.get('unreadItemCount', 0)) or 0,
         'total': raw.get('TotalItemCount', raw.get('totalItemCount', 0)) or 0,
     }

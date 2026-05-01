@@ -8,15 +8,51 @@ go the other way: from CLI flags to the Outlook payload shape.
 from . import scheduled as scheduled_mod
 
 
+def _pick_str(d, *keys):
+    """First non-empty string among `keys` in dict `d`, or ''.
+
+    Outlook REST is inconsistent: PascalCase on the v2.0 audience, camelCase
+    on Graph. This helper collapses the `d.get('Foo') or d.get('foo') or ''`
+    chain that scalar fields need.
+    """
+    if not isinstance(d, dict):
+        return ''
+    for k in keys:
+        v = d.get(k)
+        if v:
+            return v
+    return ''
+
+
+def _pick_dict(d, *keys):
+    """First dict-valued match among `keys` in `d`, or {}."""
+    if not isinstance(d, dict):
+        return {}
+    for k in keys:
+        v = d.get(k)
+        if isinstance(v, dict):
+            return v
+    return {}
+
+
+def _pick_list(d, *keys):
+    """First list-valued match among `keys` in `d`, or []."""
+    if not isinstance(d, dict):
+        return []
+    for k in keys:
+        v = d.get(k)
+        if isinstance(v, list):
+            return v
+    return []
+
+
 def _addr(rec):
     """Pull a flat email address out of an EmailAddress wrapper.
 
     Outlook returns `{"EmailAddress": {"Address": "...", "Name": "..."}}`
     for sender / recipient slots; we surface just the address."""
-    if not isinstance(rec, dict):
-        return ''
-    inner = rec.get('EmailAddress') or rec.get('emailAddress') or {}
-    return inner.get('Address') or inner.get('address') or ''
+    inner = _pick_dict(rec, 'EmailAddress', 'emailAddress')
+    return _pick_str(inner, 'Address', 'address')
 
 
 def _addrs(items):
@@ -27,9 +63,7 @@ def _addrs(items):
 
 
 def _flag_status(flag):
-    if not isinstance(flag, dict):
-        return ''
-    return flag.get('FlagStatus') or flag.get('flagStatus') or ''
+    return _pick_str(flag, 'FlagStatus', 'flagStatus')
 
 
 def normalize_message(raw):
@@ -40,26 +74,26 @@ def normalize_message(raw):
     """
     if not isinstance(raw, dict):
         return {}
-    body = raw.get('Body') or raw.get('body') or {}
+    body = _pick_dict(raw, 'Body', 'body')
     return {
-        'id': raw.get('Id') or raw.get('id') or '',
-        'conversation_id': raw.get('ConversationId') or raw.get('conversationId') or '',
-        'received': raw.get('ReceivedDateTime') or raw.get('receivedDateTime') or '',
-        'sent': raw.get('SentDateTime') or raw.get('sentDateTime') or '',
-        'subject': raw.get('Subject') or raw.get('subject') or '',
-        'from': _addr(raw.get('From') or raw.get('from') or {}),
-        'to': _addrs(raw.get('ToRecipients') or raw.get('toRecipients') or []),
-        'cc': _addrs(raw.get('CcRecipients') or raw.get('ccRecipients') or []),
-        'bcc': _addrs(raw.get('BccRecipients') or raw.get('bccRecipients') or []),
-        'preview': raw.get('BodyPreview') or raw.get('bodyPreview') or '',
+        'id': _pick_str(raw, 'Id', 'id'),
+        'conversation_id': _pick_str(raw, 'ConversationId', 'conversationId'),
+        'received': _pick_str(raw, 'ReceivedDateTime', 'receivedDateTime'),
+        'sent': _pick_str(raw, 'SentDateTime', 'sentDateTime'),
+        'subject': _pick_str(raw, 'Subject', 'subject'),
+        'from': _addr(_pick_dict(raw, 'From', 'from')),
+        'to': _addrs(_pick_list(raw, 'ToRecipients', 'toRecipients')),
+        'cc': _addrs(_pick_list(raw, 'CcRecipients', 'ccRecipients')),
+        'bcc': _addrs(_pick_list(raw, 'BccRecipients', 'bccRecipients')),
+        'preview': _pick_str(raw, 'BodyPreview', 'bodyPreview'),
         'is_read': bool(raw.get('IsRead', raw.get('isRead', False))),
         'has_attachments': bool(raw.get('HasAttachments', raw.get('hasAttachments', False))),
-        'importance': raw.get('Importance') or raw.get('importance') or '',
-        'flag': _flag_status(raw.get('Flag') or raw.get('flag') or {}),
-        'folder_id': raw.get('ParentFolderId') or raw.get('parentFolderId') or '',
-        'web_link': raw.get('WebLink') or raw.get('webLink') or '',
-        'body_type': body.get('ContentType') or body.get('contentType') or '',
-        'body': body.get('Content') or body.get('content') or '',
+        'importance': _pick_str(raw, 'Importance', 'importance'),
+        'flag': _flag_status(_pick_dict(raw, 'Flag', 'flag')),
+        'folder_id': _pick_str(raw, 'ParentFolderId', 'parentFolderId'),
+        'web_link': _pick_str(raw, 'WebLink', 'webLink'),
+        'body_type': _pick_str(body, 'ContentType', 'contentType'),
+        'body': _pick_str(body, 'Content', 'content'),
     }
 
 

@@ -54,18 +54,38 @@ def _message_path(message_id):
     return f'me/messages/{urllib.parse.quote(message_id, safe="")}'
 
 
-def _command_name(argv):
+def _split_globals(argv):
+    """Pull --debug/--verbose and --profile out of argv.
+
+    --profile is consumed as a global override unless it appears after the
+    `config` subcommand (where `config --profile <alias>` is the subcommand's
+    own flag for setting the persisted profile).
+
+    Returns (debug, profile, remaining, error). `error` is None on success
+    or a string describing a malformed flag.
+    """
+    debug = False
+    profile = ''
+    seen_cmd = ''
+    out = []
     i = 0
     while i < len(argv):
-        arg = argv[i]
-        if arg in ('--debug', '--verbose'):
+        a = argv[i]
+        if a in ('--debug', '--verbose'):
+            debug = True
             i += 1
             continue
-        if arg == '--profile':
+        if a == '--profile' and seen_cmd != 'config':
+            if i + 1 >= len(argv):
+                return debug, profile, out, '--profile requires a value'
+            profile = argv[i + 1]
             i += 2
             continue
-        return arg
-    return ''
+        if not seen_cmd and not a.startswith('-'):
+            seen_cmd = a
+        out.append(a)
+        i += 1
+    return debug, profile, out, None
 
 
 def print_help():
@@ -108,7 +128,6 @@ messages options:
 
 show options:
   --id <message-id>    (required)
-  --html               Print HTML body if available
   --pretty             Human-readable header block + body
 
 send options:
@@ -291,14 +310,11 @@ def cmd_messages(args, config, access_token, api_base):
 
 def cmd_show(args, config, access_token, api_base):
     message_id = ''
-    html = False
     pretty = False
     while args:
         flag, args = args[0], args[1:]
         if flag == '--id':
             message_id, args = _require_value(flag, args)
-        elif flag == '--html':
-            html = True
         elif flag == '--pretty':
             pretty = True
         else:
@@ -315,12 +331,8 @@ def cmd_show(args, config, access_token, api_base):
         return 1
     flat = messages_mod.normalize_message(raw)
     if pretty:
-        print(format_message_pretty(flat, html=html))
+        print(format_message_pretty(flat))
     else:
-        if not html and (flat.get('body_type') or '').lower() == 'html':
-            # JSON consumers asking without --html still get the HTML
-            # body verbatim. Stripping it would need a parser.
-            pass
         print(json.dumps(flat))
     return 0
 
@@ -704,9 +716,17 @@ def cmd_refresh(args, config):
 # Dispatch
 # ---------------------------------------------------------------------------
 
-AUTHED_COMMANDS = {
-    'messages', 'show', 'send', 'reply', 'reply-all', 'forward',
-    'delete', 'move', 'mark', 'folders',
+AUTHED_HANDLERS = {
+    'messages': cmd_messages,
+    'show': cmd_show,
+    'send': cmd_send,
+    'reply': cmd_reply,
+    'reply-all': cmd_reply_all,
+    'forward': cmd_forward,
+    'delete': cmd_delete,
+    'move': cmd_move,
+    'mark': cmd_mark,
+    'folders': cmd_folders,
 }
 
 
@@ -720,25 +740,9 @@ def main():
         print_help()
         return 0
 
-    debug_flag = False
-    profile_override = ''
-    is_config_cmd = _command_name(argv) == 'config'
-    filtered = []
-    i = 0
-    while i < len(argv):
-        a = argv[i]
-        if a in ('--debug', '--verbose'):
-            debug_flag = True
-        elif a == '--profile' and not (is_config_cmd and 'config' in filtered):
-            if i + 1 >= len(argv):
-                _error('--profile requires a value'); return 1
-            profile_override = argv[i + 1]
-            i += 2
-            continue
-        else:
-            filtered.append(a)
-        i += 1
-    argv = filtered
+    debug_flag, profile_override, argv, err = _split_globals(argv)
+    if err:
+        _error(err); return 1
 
     if not argv:
         print_help()
@@ -758,33 +762,12 @@ def main():
     if cmd == 'refresh':
         return cmd_refresh(rest, config)
 
-    if cmd not in AUTHED_COMMANDS:
+    handler = AUTHED_HANDLERS.get(cmd)
+    if handler is None:
         _error(f"Unknown command: {cmd}. Run 'owa-mail help' for usage.")
         return 1
 
     access_token, api_base = auth_mod.setup_auth(
         config, debug=_debug_enabled(config)
     )
-
-    if cmd == 'messages':
-        return cmd_messages(rest, config, access_token, api_base)
-    if cmd == 'show':
-        return cmd_show(rest, config, access_token, api_base)
-    if cmd == 'send':
-        return cmd_send(rest, config, access_token, api_base)
-    if cmd == 'reply':
-        return cmd_reply(rest, config, access_token, api_base)
-    if cmd == 'reply-all':
-        return cmd_reply_all(rest, config, access_token, api_base)
-    if cmd == 'forward':
-        return cmd_forward(rest, config, access_token, api_base)
-    if cmd == 'delete':
-        return cmd_delete(rest, config, access_token, api_base)
-    if cmd == 'move':
-        return cmd_move(rest, config, access_token, api_base)
-    if cmd == 'mark':
-        return cmd_mark(rest, config, access_token, api_base)
-    if cmd == 'folders':
-        return cmd_folders(rest, config, access_token, api_base)
-
-    return 1
+    return handler(rest, config, access_token, api_base)

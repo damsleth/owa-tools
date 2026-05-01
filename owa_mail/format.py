@@ -61,7 +61,7 @@ def format_messages_pretty(messages):
     return '\n'.join(out)
 
 
-def format_message_pretty(message, html=False):
+def format_message_pretty(message):
     """Single-message rendering: header block then body.
 
     The body is printed verbatim (HTML or text - we don't strip HTML;
@@ -91,12 +91,7 @@ def format_message_pretty(message, html=False):
     if extras:
         lines.append('  ' + ' / '.join(extras))
     lines.append('')
-    body_type = (message.get('body_type') or '').lower()
-    body = message.get('body') or ''
-    if html or body_type == 'html':
-        lines.append(body)
-    else:
-        lines.append(body)
+    lines.append(message.get('body') or '')
     return '\n'.join(lines)
 
 
