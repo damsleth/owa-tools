@@ -3,44 +3,36 @@
 ## TL;DR
 
 `owa-mail` is a personal productivity tool that reads and writes the
-user's own Outlook mailbox from the terminal. On the default
-(owa-piggy) path owa-mail holds no secrets at all - only an optional
-profile alias string - and owa-piggy owns the refresh token in its
-own profile store. On the app-registration path the user's own
-refresh token is stored on disk under the user's own home directory.
-Don't deploy it for other people.
+user's own Outlook mailbox from the terminal. owa-mail holds **no**
+auth secrets - tokens are owa-piggy's responsibility, scoped to its
+profile store. The only thing on disk under `~/.config/owa-mail/` is
+an optional profile-alias string. Don't deploy it for other people.
 
 ## What this actually is
 
-`owa-mail` is a thin client over the Outlook REST API v2. It exchanges
-a refresh token for a short-lived access token, then issues
-messages, sendMail, mailFolders, move, createReply / createForward
-and deferred-send calls as the authenticated user. Token acquisition
-is delegated: either to an app-registration `client_id` the user
-controls (via `OUTLOOK_APP_CLIENT_ID`) or to
-[`owa-piggy`](../owa-piggy), which the user installs separately.
+`owa-mail` is a thin client over the Outlook REST API v2. It asks
+[`owa-piggy`](../owa-piggy) for a short-lived access token, then
+issues messages, sendMail, mailFolders, move, createReply /
+createForward and deferred-send calls as the authenticated user.
+Token acquisition is fully delegated to owa-piggy; owa-mail itself
+never talks to AAD.
 
 ## Threat model
 
 **In scope:** single-user, single-machine use. The caller runs
 `owa-mail` under their own account against their own tenant.
 
-- On the **owa-piggy path** `~/.config/owa-mail/config` contains only
-  an alias string (`owa_piggy_profile`). No credentials live in
-  owa-mail. The refresh token lives in owa-piggy's profile store and
-  is subject to owa-piggy's threat model (see its `SECURITY.md`).
-- On the **app-registration path** the refresh token is stored at
-  `~/.config/owa-mail/config`, mode `0600`. Any process running as
-  that user can read the file. That is the same trust boundary SSH
-  keys live in. Refresh tokens rotate on every successful exchange;
-  owa-mail persists the rotated token back atomically (temp file +
-  fsync + rename). A crash mid-exchange leaves either the old or the
-  new token, never a truncated mix.
+- `~/.config/owa-mail/config` contains only an alias string
+  (`owa_piggy_profile`). No credentials live in owa-mail. The
+  refresh token lives in owa-piggy's profile store and is subject
+  to owa-piggy's threat model (see its `SECURITY.md`).
+- The config file is chmod `0600` as a hygiene default, even though
+  it carries no secrets - it lives under the user's home and there
+  is no reason for other users on a shared box to read it.
 - Access tokens are held in memory only. They are not cached on
-  disk; each CLI invocation fetches a fresh one. (`owa-piggy` does
-  cache access tokens in its own process; see its SECURITY.md.)
-- `config` output deliberately reports "set" / "not set" instead of
-  echoing any stored values.
+  disk; each CLI invocation asks owa-piggy for a fresh one.
+  (`owa-piggy` does cache access tokens in its own process; see its
+  SECURITY.md.)
 
 **Out of scope:**
 
@@ -55,17 +47,16 @@ controls (via `OUTLOOK_APP_CLIENT_ID`) or to
 ## What `owa-mail` does _not_ do
 
 - Register an application in anyone's tenant.
-- Send telemetry, crash reports, or update checks. The only outbound
-  network calls are:
-  - `POST https://login.microsoftonline.com/.../token` (token
-    refresh, via the app-registration path only - the `owa-piggy`
-    path makes the call from that tool's process).
-  - `{GET,POST,PATCH,DELETE} https://outlook.office.com/api/v2.0/...`
-    for mail operations.
+- Talk directly to `login.microsoftonline.com`. Token acquisition
+  happens in owa-piggy's process, not this one.
+- Send telemetry, crash reports, or update checks. The only
+  outbound network calls owa-mail makes are
+  `{GET,POST,PATCH,DELETE} https://outlook.office.com/api/v2.0/...`
+  for mail operations.
 - Ask for admin consent.
 - Read or write files outside `~/.config/owa-mail/`.
-- Render HTML mail (no third-party HTML parser is bundled). On
-  `show --html` the raw HTML is printed verbatim; if you pipe that
+- Render HTML mail (no third-party HTML parser is bundled). HTML
+  bodies returned by `show` are printed verbatim; if you pipe that
   to a viewer, sanitise it first.
 
 ## Mail-specific risks
@@ -90,12 +81,12 @@ controls (via `OUTLOOK_APP_CLIENT_ID`) or to
 ## What _can_ break
 
 - The Outlook REST v2 endpoint (`outlook.office.com/api/v2.0`) is
-  older than Graph. Microsoft may EOL it; Graph would be a natural
-  replacement but only if you have your own app registration -
-  `owa-piggy`'s SPA client is granted mail scopes on the Outlook
-  audience, not necessarily on the Graph audience.
-- If you use the `owa-piggy` path, every failure mode from
-  `owa-piggy`'s SECURITY.md applies here. Read that doc.
+  older than Graph. Microsoft may EOL it. A migration to Graph would
+  need owa-piggy's SPA client to carry the mail scopes on the Graph
+  audience too, which is not guaranteed; that switch belongs in
+  owa-piggy first, owa-mail second.
+- Every failure mode from `owa-piggy`'s SECURITY.md applies here.
+  Read that doc.
 - `PR_DEFERRED_SEND_TIME` is a stable MAPI property tag, but
   Microsoft's transport behaviour around it is not contractually
   guaranteed. If a future Exchange change ignores the property,

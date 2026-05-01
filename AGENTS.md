@@ -11,12 +11,12 @@ terminal. JSON on stdout, logs on stderr, `--pretty` for humans.
 
 The tool is a sibling of [`owa-piggy`](../owa-piggy) and
 [`owa-cal`](../owa-cal); the three share layout, coding style and
-auth contract. Default auth path: shell out to `owa-piggy` on `$PATH`
-(treat them as POSIX utils piped together); owa-piggy owns the
-refresh token, owa-mail stores only an optional profile alias
-(`owa_piggy_profile`). Alternative path: set `OUTLOOK_APP_CLIENT_ID`
-(plus `OUTLOOK_REFRESH_TOKEN` / `OUTLOOK_TENANT_ID` in the config
-file) to use a user-owned app registration directly.
+auth contract. Auth is **owa-piggy only**: owa-mail shells out to
+`owa-piggy` on `$PATH` for a fresh access token on every call. owa-piggy
+owns the entire token lifecycle; owa-mail stores nothing more than
+an optional profile alias (`owa_piggy_profile`). If a different
+identity provider is ever needed, that work belongs in owa-piggy -
+every owa-* CLI is a thin token consumer.
 
 ## Ground rules
 
@@ -24,17 +24,16 @@ file) to use a user-owned app registration directly.
   `pytest` is dev-only under `[project.optional-dependencies] test`.
 - **JSON on stdout, logs on stderr.** Callers pipe `owa-mail messages`
   into `jq`. Do not print progress, timing, or decorations to stdout.
-- **Never commit real refresh tokens, access tokens, tenant IDs, or
-  `~/.config/owa-mail/config` contents**, even in tests or fixtures.
-  Use obvious fakes (`"fake-rt-for-tests"`). Refresh-token handling
-  applies only on the app-registration path; on the owa-piggy path
-  owa-mail holds no secrets.
-- **Do not switch the backend to Microsoft Graph on the owa-piggy
-  auth path** unless you've verified the SPA client carries the mail
-  scopes you need on the Graph audience. The Outlook REST v2 audience
-  is what `owa-cal` uses and what OWA itself uses for mail; staying
-  there keeps the three tools symmetric. Graph is an option only for
-  users with their own `OUTLOOK_APP_CLIENT_ID`.
+- **owa-mail holds no secrets.** No refresh tokens, access tokens,
+  or tenant IDs land on disk in this tool - they live in owa-piggy.
+  Don't add config keys for them, don't add an app-registration
+  fallback path; if auth is broken, fix it in owa-piggy. Tests still
+  must use obvious fakes (`"fake-access-token-for-tests"`).
+- **Do not switch the backend to Microsoft Graph** unless you've
+  verified owa-piggy's SPA client carries the mail scopes you need
+  on the Graph audience. The Outlook REST v2 audience is what
+  `owa-cal` uses and what OWA itself uses for mail; staying there
+  keeps the suite symmetric.
 - **Preserve the scheduled-send invariant.** `--send-at` works by
   attaching the `PR_DEFERRED_SEND_TIME` extended property
   (`PropertyId = "SystemTime 0x3FEF"`) to a draft, then calling
@@ -64,9 +63,9 @@ owa_mail/
                      # normalize_folder
   scheduled.py       # build_deferred_send_props (PR_DEFERRED_SEND_TIME)
   format.py          # --pretty formatters (messages, message, folders)
-  auth.py            # do_token_refresh (app-reg path + owa-piggy bridge)
+  auth.py            # do_token_refresh, setup_auth (owa-piggy bridge only)
   api.py             # Outlook REST HTTP helper (urllib)
-  jwt.py             # token_minutes_remaining (no signature validation)
+  jwt.py             # token_minutes_remaining (debug logging only)
 scripts/
   add-to-path.sh     # pipx-based installer shim
 tests/               # pytest suite around pure functions + CLI smoke
@@ -79,10 +78,9 @@ SECURITY.md
 
 - **Read before editing.** Don't change code you haven't read.
 - **Preserve behavior** unless a commit explicitly changes it. Recent
-  commits encode subtle decisions: env-wins-over-config precedence,
-  atomic config writes with 0600 perms, unknown-command check before
-  auth, `--search` xor filter flags, mark mutually-exclusive flag
-  pairs. Do not regress those.
+  commits encode subtle decisions: 0600 perms on the config file,
+  unknown-command check before auth, `--search` xor filter flags,
+  mark mutually-exclusive flag pairs. Do not regress those.
 - **Don't add abstractions.** A `class MailClient` wrapping three
   `urlopen` calls is noise. Flat functions are the norm.
 - **Test what matters.** Pure functions (`resolve_folder_id`,
@@ -136,11 +134,16 @@ published tag by force-pushing.
 ## What NOT to do
 
 - Don't register an Azure AD app "just to make auth simpler" - that
-  is what `owa-piggy` exists to avoid. The app-registration path is
-  optional for users who already have one.
+  is what `owa-piggy` exists to avoid. If a user has their own app
+  registration and wants to use it, that integration belongs in
+  owa-piggy, not here.
+- Don't add a direct AAD token-endpoint code path back into owa-mail
+  ("just for one user" / "just for testing"). The bridge to owa-piggy
+  is the only auth path; keep it that way so the suite stays
+  symmetric.
 - Don't add telemetry, crash reporting, update checks, or any
-  network call beyond the Outlook REST API and
-  `login.microsoftonline.com`.
+  network call beyond the Outlook REST API. owa-mail itself does not
+  talk to `login.microsoftonline.com` - owa-piggy does.
 - Don't add HTML-to-text rendering with a third-party HTML parser to
   "improve" `--pretty` output. Stdlib-only is the point.
 - Don't add emoji, badges, or marketing copy to docs.

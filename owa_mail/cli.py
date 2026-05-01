@@ -150,17 +150,11 @@ folders options:
 
 config options:
   --profile <alias>    Pin an owa-piggy profile alias (owa_piggy_profile)
-  --app-client-id <id> Set app registration client ID (optional)
 
 Auth:
-  Default path: owa-mail shells out to owa-piggy for a fresh access
-  token on every call. owa-piggy owns the refresh token; owa-mail
-  stores only an optional profile alias.
-
-  App-registration path: set OUTLOOK_APP_CLIENT_ID (plus
-  OUTLOOK_REFRESH_TOKEN and OUTLOOK_TENANT_ID) in
-  ~/.config/owa-mail/config and owa-mail talks to the AAD token
-  endpoint directly.
+  owa-mail shells out to owa-piggy for a fresh access token on every
+  call. owa-piggy owns the token lifecycle; owa-mail stores nothing
+  more than an optional profile alias.
 
   Quickstart:
     brew install damsleth/tap/owa-piggy
@@ -616,34 +610,24 @@ def cmd_folders(args, config, access_token, api_base):
 
 def cmd_config(args, config):
     """Handled specially: no auth required."""
-    profile = app_client_id = ''
+    profile = ''
     while args:
         flag, args = args[0], args[1:]
         if flag == '--profile':
             profile, args = _require_value(flag, args)
-        elif flag == '--app-client-id':
-            app_client_id, args = _require_value(flag, args)
         else:
             _error(f'Unknown flag: {flag}'); sys.exit(1)
 
-    wrote = False
     if profile:
         config_mod.config_set('owa_piggy_profile', profile)
-        _info(f'owa-piggy profile saved: {profile}'); wrote = True
-    if app_client_id:
-        config_mod.config_set('OUTLOOK_APP_CLIENT_ID', app_client_id)
-        _info('App client ID saved'); wrote = True
+        _info(f'owa-piggy profile saved: {profile}')
+        return 0
 
-    if not wrote:
-        _info(f'Config file: {config_mod.CONFIG_PATH}')
-        if config.get('owa_piggy_profile'):
-            _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
-        else:
-            _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
-        if config.get('OUTLOOK_APP_CLIENT_ID'):
-            _info(f"  OUTLOOK_APP_CLIENT_ID={config.get('OUTLOOK_APP_CLIENT_ID')} (app registration)")
-        else:
-            _info('  OUTLOOK_APP_CLIENT_ID=(not set - using owa-piggy)')
+    _info(f'Config file: {config_mod.CONFIG_PATH}')
+    if config.get('owa_piggy_profile'):
+        _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
+    else:
+        _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
     return 0
 
 

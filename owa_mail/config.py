@@ -1,14 +1,11 @@
 """Config file I/O for owa-mail.
 
 File format is KEY="VALUE" lines, shell-sourceable for symmetry with
-owa-cal and owa-piggy. On the app-registration path refresh tokens
-rotate on every exchange, so a partial write here would corrupt the
-only live token; all writes go through a temp file + fsync + rename.
-On the owa-piggy path owa-mail holds no secrets, just an optional
-profile alias string.
+owa-cal and owa-piggy. owa-mail holds no secrets - only an optional
+profile alias that names which owa-piggy profile to consume tokens
+from. The on-disk file is chmod 0600 anyway as a hygiene default.
 """
 import os
-import tempfile
 from pathlib import Path
 
 CONFIG_PATH = Path(
@@ -18,9 +15,6 @@ CONFIG_PATH = Path(
 # Keys we recognise. Parsing an unknown key out of the file is fine (we
 # preserve it verbatim), but we never write unknown keys from user input.
 ALLOWED_KEYS = (
-    'OUTLOOK_REFRESH_TOKEN',
-    'OUTLOOK_TENANT_ID',
-    'OUTLOOK_APP_CLIENT_ID',
     'owa_piggy_profile',
     'debug',
 )
@@ -44,36 +38,31 @@ def _parse_lines(text):
 
 def parse_kv_stream(text):
     """Parse KEY=value lines, dropping anything outside ALLOWED_KEYS.
-    Used on the write path where unknown keys are a config-injection
-    risk (e.g. piped input). Reads (load_config) preserve unknown keys
-    so pre-existing file contents are not silently dropped."""
+    Used on the write path to filter user input. Reads (load_config)
+    preserve unknown keys so pre-existing file contents are not
+    silently dropped."""
     return {k: v for k, v in _parse_lines(text).items() if k in ALLOWED_KEYS}
 
 
 def load_config():
-    """Returns a dict merging the on-disk config with env-var overrides.
+    """Returns a dict reflecting the on-disk config.
 
-    Precedence: environment variables > on-disk config > defaults. Only
-    the app-registration client_id is env-overrideable; the refresh
-    token and tenant id on the app-reg path live exclusively in the
-    config file. The owa-piggy path reads no secrets out of the
-    environment (OWA_PROFILE reaches owa-piggy directly via inherited
-    env).
+    No env-var pickup: owa-mail's only knob is `owa_piggy_profile`,
+    and that is overridden via the `--profile` CLI flag (or
+    `OWA_PROFILE`, which reaches owa-piggy directly via inherited env).
     """
-    config = {}
     if CONFIG_PATH.exists():
-        config.update(_parse_lines(CONFIG_PATH.read_text()))
-    if os.environ.get('OUTLOOK_APP_CLIENT_ID'):
-        config['OUTLOOK_APP_CLIENT_ID'] = os.environ['OUTLOOK_APP_CLIENT_ID']
-    return config
+        return _parse_lines(CONFIG_PATH.read_text())
+    return {}
 
 
 def save_config(config):
-    """Atomically rewrite the config file, preserving unknown lines.
+    """Rewrite the config file, preserving unknown lines.
 
-    Write to a sibling temp file, fsync, chmod 0600, then rename. Rename
-    within a filesystem is atomic on POSIX, so readers see either the
-    old contents or the new ones, never a truncated mix.
+    Atomicity is not required (no secret rotation here), but we still
+    chmod 0600 on the way out as a hygiene default - the file lives
+    under the user's home and there is no reason for other users on
+    a shared box to read it.
     """
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     lines = []
@@ -92,24 +81,8 @@ def save_config(config):
         if k not in existing_keys:
             lines.append(f'{k}="{v}"')
     payload = '\n'.join(lines) + '\n'
-
-    fd, tmp_path = tempfile.mkstemp(
-        prefix='.config.', suffix='.tmp', dir=str(CONFIG_PATH.parent)
-    )
-    tmp = Path(tmp_path)
-    try:
-        os.chmod(tmp, 0o600)
-        with os.fdopen(fd, 'w') as f:
-            f.write(payload)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp, CONFIG_PATH)
-    except Exception:
-        try:
-            tmp.unlink()
-        except FileNotFoundError:
-            pass
-        raise
+    CONFIG_PATH.write_text(payload)
+    CONFIG_PATH.chmod(0o600)
 
 
 def config_set(key, value):

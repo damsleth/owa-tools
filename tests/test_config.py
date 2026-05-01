@@ -12,58 +12,41 @@ from owa_mail.config import (
 
 
 def test_parse_kv_stream_basic():
-    out = parse_kv_stream('OUTLOOK_REFRESH_TOKEN=abc\nOUTLOOK_TENANT_ID=xyz\n')
-    assert out == {'OUTLOOK_REFRESH_TOKEN': 'abc', 'OUTLOOK_TENANT_ID': 'xyz'}
+    out = parse_kv_stream('owa_piggy_profile=work\ndebug=1\n')
+    assert out == {'owa_piggy_profile': 'work', 'debug': '1'}
 
 
 def test_parse_kv_stream_strips_quotes():
-    out = parse_kv_stream('OUTLOOK_REFRESH_TOKEN="quoted"\nOUTLOOK_TENANT_ID=\'single\'\n')
-    assert out == {'OUTLOOK_REFRESH_TOKEN': 'quoted', 'OUTLOOK_TENANT_ID': 'single'}
+    out = parse_kv_stream('owa_piggy_profile="work"\ndebug=\'1\'\n')
+    assert out == {'owa_piggy_profile': 'work', 'debug': '1'}
 
 
 def test_parse_kv_stream_rejects_unknown_keys():
-    out = parse_kv_stream('EVIL=1\nOUTLOOK_REFRESH_TOKEN=ok\n')
-    assert out == {'OUTLOOK_REFRESH_TOKEN': 'ok'}
+    out = parse_kv_stream('EVIL=1\nowa_piggy_profile=ok\n')
+    assert out == {'owa_piggy_profile': 'ok'}
 
 
 def test_parse_kv_stream_ignores_comments_and_blanks():
-    out = parse_kv_stream('\n# comment\nOUTLOOK_TENANT_ID=t\n\n')
-    assert out == {'OUTLOOK_TENANT_ID': 't'}
+    out = parse_kv_stream('\n# comment\nowa_piggy_profile=work\n\n')
+    assert out == {'owa_piggy_profile': 'work'}
 
 
 def test_load_config_missing_file(tmp_config, clean_env):
     assert not tmp_config.exists()
     cfg = load_config()
-    assert 'OUTLOOK_REFRESH_TOKEN' not in cfg
+    assert cfg == {}
 
 
 def test_save_and_load_roundtrip(tmp_config, clean_env):
-    save_config({'OUTLOOK_REFRESH_TOKEN': 'fake-rt', 'OUTLOOK_TENANT_ID': 'tid-1'})
+    save_config({'owa_piggy_profile': 'work'})
     cfg = load_config()
-    assert cfg['OUTLOOK_REFRESH_TOKEN'] == 'fake-rt'
-    assert cfg['OUTLOOK_TENANT_ID'] == 'tid-1'
+    assert cfg['owa_piggy_profile'] == 'work'
 
 
 def test_save_sets_0600(tmp_config, clean_env):
-    save_config({'OUTLOOK_REFRESH_TOKEN': 'x', 'OUTLOOK_TENANT_ID': 'y'})
+    save_config({'owa_piggy_profile': 'work'})
     mode = stat.S_IMODE(tmp_config.stat().st_mode)
     assert mode == 0o600
-
-
-def test_env_overrides_file_app_client_id(tmp_config, monkeypatch, clean_env):
-    save_config({'OUTLOOK_APP_CLIENT_ID': 'from-file'})
-    monkeypatch.setenv('OUTLOOK_APP_CLIENT_ID', 'from-env')
-    cfg = load_config()
-    assert cfg['OUTLOOK_APP_CLIENT_ID'] == 'from-env'
-
-
-def test_refresh_token_env_does_not_override(tmp_config, monkeypatch, clean_env):
-    save_config({'OUTLOOK_REFRESH_TOKEN': 'from-file', 'OUTLOOK_TENANT_ID': 'tid'})
-    monkeypatch.setenv('OUTLOOK_REFRESH_TOKEN', 'from-env')
-    monkeypatch.setenv('OUTLOOK_TENANT_ID', 'from-env-tid')
-    cfg = load_config()
-    assert cfg['OUTLOOK_REFRESH_TOKEN'] == 'from-file'
-    assert cfg['OUTLOOK_TENANT_ID'] == 'tid'
 
 
 def test_owa_piggy_profile_roundtrip(tmp_config, clean_env):
@@ -77,12 +60,20 @@ def test_parse_kv_stream_preserves_profile_key():
     assert out == {'owa_piggy_profile': 'work'}
 
 
-def test_config_set_preserves_other_keys(tmp_config, clean_env):
-    save_config({'owa_piggy_profile': 'work', 'OUTLOOK_APP_CLIENT_ID': 'cid'})
+def test_config_set_preserves_unknown_lines(tmp_config, clean_env):
+    """save_config preserves unknown keys/lines from the existing file
+    on its read-and-rewrite path. Verifies hand-edits survive."""
+    tmp_config.parent.mkdir(parents=True, exist_ok=True)
+    tmp_config.write_text(
+        '# user comment\n'
+        'owa_piggy_profile="work"\n'
+        'CUSTOM_THING="kept"\n'
+    )
     config_set('owa_piggy_profile', 'home')
-    cfg = load_config()
-    assert cfg['owa_piggy_profile'] == 'home'
-    assert cfg['OUTLOOK_APP_CLIENT_ID'] == 'cid'
+    text = tmp_config.read_text()
+    assert 'owa_piggy_profile="home"' in text
+    assert 'CUSTOM_THING="kept"' in text
+    assert '# user comment' in text
 
 
 def test_config_set_rejects_unknown_key(tmp_config, clean_env):
@@ -90,7 +81,7 @@ def test_config_set_rejects_unknown_key(tmp_config, clean_env):
         config_set('EVIL_KEY', 'pwned')
 
 
-def test_save_atomic_no_stray_tmpfile(tmp_config, clean_env):
-    save_config({'OUTLOOK_REFRESH_TOKEN': 'x', 'OUTLOOK_TENANT_ID': 'y'})
+def test_save_no_stray_files(tmp_config, clean_env):
+    save_config({'owa_piggy_profile': 'work'})
     siblings = list(tmp_config.parent.iterdir())
     assert [p.name for p in siblings] == [tmp_config.name]

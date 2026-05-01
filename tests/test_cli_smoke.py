@@ -52,8 +52,7 @@ def test_config_subcommand_no_flags_runs_without_auth(tmp_path):
 
 
 def test_messages_without_owa_piggy_fails_with_clear_error(tmp_path):
-    """With no OUTLOOK_APP_CLIENT_ID configured we take the owa-piggy
-    path. A PATH that doesn't expose `owa-piggy` must yield a clear
+    """A PATH that doesn't expose `owa-piggy` must yield a clear
     install hint, not a traceback."""
     env = {
         'HOME': str(tmp_path),

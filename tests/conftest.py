@@ -16,9 +16,6 @@ def tmp_config(tmp_path, monkeypatch):
 
 @pytest.fixture
 def clean_env(monkeypatch):
-    """Strip OUTLOOK_* / OWA_* env vars so tests start from a known state."""
-    for key in (
-        'OUTLOOK_REFRESH_TOKEN', 'OUTLOOK_TENANT_ID', 'OUTLOOK_APP_CLIENT_ID',
-        'OWA_PROFILE', 'MAIL_DEBUG', 'XDG_CONFIG_HOME',
-    ):
+    """Strip OWA_* env vars so tests start from a known state."""
+    for key in ('OWA_PROFILE', 'MAIL_DEBUG', 'XDG_CONFIG_HOME'):
         monkeypatch.delenv(key, raising=False)

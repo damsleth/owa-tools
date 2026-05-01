@@ -116,20 +116,6 @@ def test_owa_piggy_version_unparseable_does_not_block(monkeypatch, clean_env):
     assert auth_mod._refresh_via_owa_piggy({}, debug=False) == 'fake-access-token-for-tests'
 
 
-def test_setup_auth_app_path_requires_refresh_token_and_tenant(
-    monkeypatch, capsys, clean_env,
-):
-    from owa_mail import auth as auth_mod
-
-    config = {'OUTLOOK_APP_CLIENT_ID': 'cid'}
-    with pytest.raises(SystemExit) as exc:
-        auth_mod.setup_auth(config, debug=False)
-    assert exc.value.code == 1
-    err = capsys.readouterr().err
-    assert 'OUTLOOK_REFRESH_TOKEN' in err
-    assert 'OUTLOOK_TENANT_ID' in err
-
-
 def test_setup_auth_owa_piggy_failure_includes_profile_hint(
     monkeypatch, capsys, clean_env,
 ):
@@ -142,11 +128,15 @@ def test_setup_auth_owa_piggy_failure_includes_profile_hint(
     assert 'owa-piggy setup --profile work' in err
 
 
-def test_outlook_scope_includes_mail_readwrite_and_send():
-    """The app-registration path scope must include both Mail.ReadWrite
-    and Mail.Send. Locking this in keeps the contract explicit if
-    someone trims the scope to "fix" a 403 by accident."""
+def test_setup_auth_returns_outlook_audience(monkeypatch, clean_env):
+    """owa-mail uses the Outlook REST v2 audience, matching the rest of
+    the owa-* suite. Lock this in so a refactor doesn't silently flip
+    to Graph (which has a different scope on owa-piggy's SPA client)."""
     from owa_mail import auth as auth_mod
-    assert 'Mail.ReadWrite' in auth_mod.OUTLOOK_SCOPE
-    assert 'Mail.Send' in auth_mod.OUTLOOK_SCOPE
-    assert 'offline_access' in auth_mod.OUTLOOK_SCOPE
+
+    monkeypatch.setattr(
+        auth_mod, 'do_token_refresh', lambda c, debug=False: 'fake-access-token-for-tests',
+    )
+    access, base = auth_mod.setup_auth({}, debug=False)
+    assert access == 'fake-access-token-for-tests'
+    assert base == 'https://outlook.office.com/api/v2.0'

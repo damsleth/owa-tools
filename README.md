@@ -111,7 +111,6 @@ owa-mail messages --unread --limit 10 --pretty
 owa-mail messages --folder SentItems --since 2026-04-01 --pretty
 owa-mail messages --search 'subject:invoice'         # KQL search
 owa-mail show --id AAMkAG... --pretty
-owa-mail show --id AAMkAG... --html                  # raw HTML body
 
 # Send
 owa-mail send --to a@example.com --subject "hi" --body "hello"
@@ -171,38 +170,29 @@ button uses.
 
 ## Auth
 
-Two paths:
+owa-mail shells out to
+[`owa-piggy`](https://github.com/damsleth/owa-piggy) for an access
+token on every call. owa-piggy piggybacks on OWA's public SPA client,
+so no app registration is needed; owa-mail itself stores no token.
+Optional `owa_piggy_profile` pins a named owa-piggy profile.
 
-- **owa-piggy bridge (default)** - owa-mail shells out to
-  [`owa-piggy`](https://github.com/damsleth/owa-piggy), which
-  piggybacks on OWA's public SPA client. No app registration needed;
-  owa-mail stores no refresh token. Optional `owa_piggy_profile`
-  pins a named owa-piggy profile.
-- **With an app registration** - set `OUTLOOK_APP_CLIENT_ID`,
-  `OUTLOOK_REFRESH_TOKEN`, and `OUTLOOK_TENANT_ID` in the config file
-  and owa-mail talks to the AAD token endpoint directly. The app
-  registration must have `Mail.ReadWrite` and `Mail.Send` (delegated)
-  consented for your user.
+If you have your own app registration and would rather use it, that
+goes through owa-piggy too - owa-mail is a token consumer, not a
+token acquirer.
 
 Config lives at `~/.config/owa-mail/config`:
 
 ```
-# Default (owa-piggy) path - optional, pins a profile alias
+# Optional - pins which owa-piggy profile to consume tokens from
 owa_piggy_profile="work"
-
-# App-registration path (optional, mutually exclusive)
-OUTLOOK_APP_CLIENT_ID=""
-OUTLOOK_REFRESH_TOKEN=""
-OUTLOOK_TENANT_ID=""
 ```
 
 ---
 
 ## Dependencies
 
-- Python 3.8+ (stdlib only - no `pip install` required at runtime)
-- [`owa-piggy`](https://github.com/damsleth/owa-piggy) unless you
-  bring your own app registration
+- Python 3.9+ (stdlib only - no `pip install` required at runtime)
+- [`owa-piggy`](https://github.com/damsleth/owa-piggy) >= 0.6.0
 
 ## Development
 
@@ -232,18 +222,16 @@ See [`AGENTS.md`](AGENTS.md) for repo layout and ground rules.
 - **`@odata.nextLink` pagination** - `--limit` caps a single page;
   use date bounds (`--since` / `--until`) to walk further back.
 - **HTML-to-text rendering** - `--pretty` shows the API's BodyPreview
-  field; `--html` on `show` prints raw HTML. owa-mail does not parse
-  HTML for terminal display (stdlib-only).
+  field. owa-mail does not parse HTML for terminal display
+  (stdlib-only); HTML bodies returned by `show` are printed verbatim.
 - **Real-time receive** (webhooks, IMAP IDLE) - poll `messages
   --unread` from cron or your agent loop.
 
 ## Disclaimer
 
 ```
-Personal tooling. The default (owa-piggy bridge) path holds no
-refresh token of its own - tokens are owa-piggy's responsibility,
-scoped to its profile store. The optional app-registration path
-does persist a delegated refresh token in owa-mail's config file.
-If you don't know why either of those might be a bad idea, don't
-use it.
+Personal tooling. owa-mail holds no auth secrets of its own -
+tokens are owa-piggy's responsibility, scoped to its profile store.
+If you don't know why piping a real mailbox through a personal CLI
+might be a bad idea, don't use it.
 ```
