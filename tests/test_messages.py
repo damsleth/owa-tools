@@ -2,11 +2,14 @@
 import pytest
 
 from owa_mail.messages import (
+    LIST_SELECT,
     build_draft_payload,
+    build_list_query,
     build_mark_patch,
     build_message_body,
     build_reply_patch,
     build_send_payload,
+    message_path,
     normalize_message,
     normalize_messages,
 )
@@ -215,3 +218,58 @@ def test_build_mark_patch_combined():
 
 def test_build_mark_patch_neither():
     assert build_mark_patch() == {}
+
+
+def test_message_path_url_encodes_id():
+    assert message_path('AAMkAG=') == 'me/messages/AAMkAG%3D'
+    assert message_path('a/b c') == 'me/messages/a%2Fb%20c'
+
+
+def test_build_list_query_default_has_orderby():
+    params = build_list_query()
+    assert params['$top'] == 25
+    assert params['$select'] == LIST_SELECT
+    assert params['$orderby'] == 'ReceivedDateTime desc'
+    assert '$filter' not in params
+    assert '$search' not in params
+
+
+def test_build_list_query_search_overrides_filter_and_orderby_kept():
+    params = build_list_query(search='budget')
+    assert params['$search'] == '"budget"'
+    assert '$filter' not in params
+    # search has no clauses dropping orderby; only sender/subject_q do.
+    assert params['$orderby'] == 'ReceivedDateTime desc'
+
+
+def test_build_list_query_sender_drops_orderby_and_escapes_quote():
+    params = build_list_query(sender="O'Brien@example.com")
+    assert '$orderby' not in params
+    assert params['$filter'] == "contains(From/EmailAddress/Address,'O''Brien@example.com')"
+
+
+def test_build_list_query_subject_drops_orderby():
+    params = build_list_query(subject_q='quarterly')
+    assert '$orderby' not in params
+    assert params['$filter'] == "contains(Subject,'quarterly')"
+
+
+def test_build_list_query_unread_keeps_orderby():
+    params = build_list_query(unread=True)
+    assert params['$orderby'] == 'ReceivedDateTime desc'
+    assert params['$filter'] == 'IsRead eq false'
+
+
+def test_build_list_query_combines_clauses_with_and():
+    params = build_list_query(unread=True, since='2026-04-01', until='2026-04-30')
+    assert params['$filter'] == (
+        'IsRead eq false'
+        ' and ReceivedDateTime ge 2026-04-01T00:00:00Z'
+        ' and ReceivedDateTime le 2026-04-30T23:59:59Z'
+    )
+
+
+def test_build_list_query_limit_and_select_passthrough():
+    params = build_list_query(limit=5, select='Id,Subject')
+    assert params['$top'] == 5
+    assert params['$select'] == 'Id,Subject'

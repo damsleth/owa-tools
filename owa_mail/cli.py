@@ -11,7 +11,6 @@ owa-piggy. Each cmd_* fn is responsible for its own flag loop.
 import json
 import os
 import sys
-import urllib.parse
 
 from . import api as api_mod
 from . import auth as auth_mod
@@ -25,18 +24,6 @@ from .format import (
     format_messages_pretty,
 )
 
-# Shared $select clauses. Listing skips Body (heavy); show fetches it.
-_LIST_SELECT = (
-    'Id,ConversationId,ReceivedDateTime,Subject,From,ToRecipients,'
-    'CcRecipients,BccRecipients,BodyPreview,IsRead,HasAttachments,'
-    'Importance,Flag,WebLink,ParentFolderId'
-)
-_SHOW_SELECT = (
-    'Id,ConversationId,ReceivedDateTime,SentDateTime,Subject,From,'
-    'ToRecipients,CcRecipients,BccRecipients,BodyPreview,Body,IsRead,'
-    'HasAttachments,Importance,Flag,WebLink,ParentFolderId'
-)
-
 
 def _error(msg):
     print(f'ERROR: {msg}', file=sys.stderr)
@@ -48,10 +35,6 @@ def _info(msg):
 
 def _debug_enabled(config):
     return bool(config.get('debug')) or os.environ.get('MAIL_DEBUG') == '1'
-
-
-def _message_path(message_id):
-    return f'me/messages/{urllib.parse.quote(message_id, safe="")}'
 
 
 def _split_globals(argv):
@@ -265,37 +248,10 @@ def cmd_messages(args, config, access_token, api_base):
     debug = _debug_enabled(config)
     path = folders_mod.folder_messages_path(folder)
 
-    params = {
-        '$top': limit,
-        '$select': _LIST_SELECT,
-    }
-    # Outlook REST can reject contains(...) filters combined with our
-    # default sort as InefficientFilter (HTTP 400). Keep newest-first
-    # ordering for plain listings and simple non-contains filters, but
-    # drop $orderby when filtering on Subject/From so real mailboxes
-    # keep working.
-    if not sender and not subject_q:
-        params['$orderby'] = 'ReceivedDateTime desc'
-    if search:
-        # Outlook REST wants the value double-quoted inside $search="...".
-        params['$search'] = f'"{search}"'
-    else:
-        clauses = []
-        if unread:
-            clauses.append('IsRead eq false')
-        if sender:
-            esc = sender.replace("'", "''")
-            clauses.append(f"contains(From/EmailAddress/Address,'{esc}')")
-        if subject_q:
-            esc = subject_q.replace("'", "''")
-            clauses.append(f"contains(Subject,'{esc}')")
-        if since:
-            clauses.append(f"ReceivedDateTime ge {since}T00:00:00Z")
-        if until:
-            clauses.append(f"ReceivedDateTime le {until}T23:59:59Z")
-        if clauses:
-            params['$filter'] = ' and '.join(clauses)
-
+    params = messages_mod.build_list_query(
+        unread=unread, sender=sender, subject_q=subject_q, search=search,
+        since=since, until=until, limit=limit,
+    )
     q = api_mod.build_query(params)
     data = api_mod.api_get(api_base, f'{path}?{q}', access_token, debug=debug)
     if data is None:
@@ -323,9 +279,9 @@ def cmd_show(args, config, access_token, api_base):
         _error('--id is required'); return 1
 
     debug = _debug_enabled(config)
-    q = api_mod.build_query({'$select': _SHOW_SELECT})
+    q = api_mod.build_query({'$select': messages_mod.SHOW_SELECT})
     raw = api_mod.api_get(
-        api_base, f'{_message_path(message_id)}?{q}', access_token, debug=debug
+        api_base, f'{messages_mod.message_path(message_id)}?{q}', access_token, debug=debug
     )
     if raw is None:
         return 1
@@ -431,7 +387,7 @@ def cmd_send(args, config, access_token, api_base):
     # /send too - Exchange Transport then holds them in Outbox until
     # the deferred time.
     result = api_mod.api_request(
-        'POST', api_base, f'{_message_path(draft_flat["id"])}/send',
+        'POST', api_base, f'{messages_mod.message_path(draft_flat["id"])}/send',
         access_token, debug=debug,
     )
     if result is None:
@@ -462,7 +418,7 @@ def _reply_like(args, config, access_token, api_base, action):
 
     debug = _debug_enabled(config)
     draft = api_mod.api_request(
-        'POST', api_base, f'{_message_path(opts["id"])}/{action}',
+        'POST', api_base, f'{messages_mod.message_path(opts["id"])}/{action}',
         access_token, debug=debug,
     )
     if not draft:
@@ -479,7 +435,7 @@ def _reply_like(args, config, access_token, api_base, action):
     )
     if patch:
         result = api_mod.api_request(
-            'PATCH', api_base, _message_path(draft_id), access_token,
+            'PATCH', api_base, messages_mod.message_path(draft_id), access_token,
             body=patch, debug=debug,
         )
         if result is None:
@@ -489,14 +445,14 @@ def _reply_like(args, config, access_token, api_base, action):
         # Re-fetch normalized state after patch.
         latest = api_mod.api_get(
             api_base,
-            f'{_message_path(draft_id)}?{api_mod.build_query({"$select": _LIST_SELECT})}',
+            f'{messages_mod.message_path(draft_id)}?{api_mod.build_query({"$select": messages_mod.LIST_SELECT})}',
             access_token, debug=debug,
         )
         print(json.dumps(messages_mod.normalize_message(latest or draft)))
         return 0
 
     sent = api_mod.api_request(
-        'POST', api_base, f'{_message_path(draft_id)}/send',
+        'POST', api_base, f'{messages_mod.message_path(draft_id)}/send',
         access_token, debug=debug,
     )
     if sent is None:
@@ -535,7 +491,7 @@ def cmd_delete(args, config, access_token, api_base):
     if not confirm:
         existing = api_mod.api_get(
             api_base,
-            f'{_message_path(message_id)}?{api_mod.build_query({"$select":"Id,Subject,From,ReceivedDateTime"})}',
+            f'{messages_mod.message_path(message_id)}?{api_mod.build_query({"$select":"Id,Subject,From,ReceivedDateTime"})}',
             access_token, debug=debug,
         )
         if existing is None:
@@ -555,7 +511,7 @@ def cmd_delete(args, config, access_token, api_base):
             return 0
 
     result = api_mod.api_request(
-        'DELETE', api_base, _message_path(message_id), access_token, debug=debug,
+        'DELETE', api_base, messages_mod.message_path(message_id), access_token, debug=debug,
     )
     if result is None:
         return 1
@@ -582,7 +538,7 @@ def cmd_move(args, config, access_token, api_base):
     debug = _debug_enabled(config)
     body = {'DestinationId': folders_mod.resolve_folder_id(destination)}
     result = api_mod.api_request(
-        'POST', api_base, f'{_message_path(message_id)}/move',
+        'POST', api_base, f'{messages_mod.message_path(message_id)}/move',
         access_token, body=body, debug=debug,
     )
     if result is None:
@@ -624,7 +580,7 @@ def cmd_mark(args, config, access_token, api_base):
     debug = _debug_enabled(config)
     patch = messages_mod.build_mark_patch(read=read, flag=flag_state)
     result = api_mod.api_request(
-        'PATCH', api_base, _message_path(message_id), access_token,
+        'PATCH', api_base, messages_mod.message_path(message_id), access_token,
         body=patch, debug=debug,
     )
     if result is None:

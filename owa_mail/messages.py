@@ -5,7 +5,64 @@ Pure functions only. Outlook REST returns PascalCase with nested
 for `--pretty`, JSON consumers and our own internal use. Build helpers
 go the other way: from CLI flags to the Outlook payload shape.
 """
+import urllib.parse
+
 from . import scheduled as scheduled_mod
+
+# Shared $select clauses. Listing skips Body (heavy); show fetches it.
+LIST_SELECT = (
+    'Id,ConversationId,ReceivedDateTime,Subject,From,ToRecipients,'
+    'CcRecipients,BccRecipients,BodyPreview,IsRead,HasAttachments,'
+    'Importance,Flag,WebLink,ParentFolderId'
+)
+SHOW_SELECT = (
+    'Id,ConversationId,ReceivedDateTime,SentDateTime,Subject,From,'
+    'ToRecipients,CcRecipients,BccRecipients,BodyPreview,Body,IsRead,'
+    'HasAttachments,Importance,Flag,WebLink,ParentFolderId'
+)
+
+
+def message_path(message_id):
+    """Build the REST path for a single message by id (id is URL-encoded)."""
+    return f'me/messages/{urllib.parse.quote(message_id, safe="")}'
+
+
+def build_list_query(unread=False, sender='', subject_q='', search='',
+                     since='', until='', limit=25, select=None):
+    """Build the OData params dict for a messages listing.
+
+    Encodes two non-obvious Outlook REST quirks:
+
+    - `$search` and `$filter` are mutually exclusive at the API level.
+      Caller is responsible for input-side validation; this builder
+      will silently prefer `$search` if both are passed.
+    - `contains(...)` filters combined with `$orderby ReceivedDateTime`
+      can return InefficientFilter (HTTP 400) on real mailboxes. We drop
+      `$orderby` whenever a Subject/From contains-clause is present.
+    """
+    params = {'$top': limit, '$select': select or LIST_SELECT}
+    if not sender and not subject_q:
+        params['$orderby'] = 'ReceivedDateTime desc'
+    if search:
+        # Outlook REST wants the value double-quoted inside $search="...".
+        params['$search'] = f'"{search}"'
+        return params
+    clauses = []
+    if unread:
+        clauses.append('IsRead eq false')
+    if sender:
+        esc = sender.replace("'", "''")
+        clauses.append(f"contains(From/EmailAddress/Address,'{esc}')")
+    if subject_q:
+        esc = subject_q.replace("'", "''")
+        clauses.append(f"contains(Subject,'{esc}')")
+    if since:
+        clauses.append(f"ReceivedDateTime ge {since}T00:00:00Z")
+    if until:
+        clauses.append(f"ReceivedDateTime le {until}T23:59:59Z")
+    if clauses:
+        params['$filter'] = ' and '.join(clauses)
+    return params
 
 
 def _pick_str(d, *keys):
