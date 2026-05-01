@@ -164,6 +164,9 @@ def cmd_request(method, path, args, config):
     pretty = False
     raw = False
     emit_mode = None
+    all_pages = False
+    ndjson = False
+    do_retry = False
 
     while args:
         flag, args = args[0], args[1:]
@@ -201,12 +204,25 @@ def cmd_request(method, path, args, config):
             pretty = True
         elif flag == '--raw':
             raw = True
+        elif flag == '--all':
+            all_pages = True
+        elif flag == '--ndjson':
+            ndjson = True
+        elif flag == '--retry':
+            do_retry = True
         elif flag == '--curl':
             emit_mode = 'curl'
         elif flag == '--az':
             emit_mode = 'az'
         else:
             _error(f'Unknown flag: {flag}'); return 1
+
+    if all_pages and raw:
+        _error('--all and --raw are incompatible (collection vs single binary)')
+        return 1
+    if ndjson and raw:
+        _error('--ndjson and --raw are incompatible')
+        return 1
 
     debug = _debug_enabled(config)
 
@@ -236,13 +252,19 @@ def cmd_request(method, path, args, config):
     if body_is_file_ref:
         request_body = _read_file_body(body)
 
+    if all_pages:
+        return _emit_paginated(
+            method, url, access_token, headers,
+            ndjson=ndjson, pretty=pretty, debug=debug, retry=do_retry,
+        )
+
     # api_request joins base+endpoint with `/`, but we already built the
     # full URL above. Pass a synthetic base of '' and the absolute URL
     # as the endpoint - api_request honors `http`-prefixed endpoints.
     result = api_mod.api_request(
         method, '', url, access_token,
         body=request_body, extra_headers=headers,
-        debug=debug, raw=raw,
+        debug=debug, raw=raw, retry=do_retry,
     )
 
     if result is None:
@@ -254,11 +276,53 @@ def cmd_request(method, path, args, config):
         sys.stdout.buffer.write(result)
         return 0
 
+    if ndjson:
+        _emit_ndjson_single(result)
+        return 0
+
     if pretty:
         print(format_mod.format_pretty(result))
     else:
         print(json.dumps(result, ensure_ascii=False))
     return 0
+
+
+def _emit_paginated(method, url, access_token, headers,
+                    ndjson=False, pretty=False, debug=False, retry=False):
+    """Drive api.paginate and emit results in the requested form.
+
+    --ndjson streams each item; --pretty buffers everything and renders
+    the table once (we can't pretty-print incrementally without breaking
+    column alignment); default emits a single `{"value": [...]}` wrapper
+    matching Graph's collection shape so jq pipelines keep working."""
+    items_iter = api_mod.paginate(
+        method, url, access_token,
+        extra_headers=headers, debug=debug, retry=retry,
+    )
+    if ndjson:
+        emitted = 0
+        for item in items_iter:
+            print(json.dumps(item, ensure_ascii=False))
+            emitted += 1
+        # Treat zero items as success - empty collection is a valid result.
+        return 0
+    items = list(items_iter)
+    if pretty:
+        print(format_mod.format_pretty({'value': items}))
+    else:
+        print(json.dumps({'value': items}, ensure_ascii=False))
+    return 0
+
+
+def _emit_ndjson_single(result):
+    """Emit a single (non-paginated) response as NDJSON. If `value` is a
+    list, each item gets its own line; otherwise the whole response is
+    one line."""
+    if isinstance(result, dict) and isinstance(result.get('value'), list):
+        for item in result['value']:
+            print(json.dumps(item, ensure_ascii=False))
+    else:
+        print(json.dumps(result, ensure_ascii=False))
 
 
 def cmd_refresh(args, config):
