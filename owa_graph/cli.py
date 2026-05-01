@@ -196,6 +196,20 @@ def cmd_request(method, path, args, config):
         elif flag == '--filter':
             v, args = _require_value(flag, args)
             query_pairs.append(('$filter', v))
+        elif flag == '--count':
+            # $count=true on directory objects requires
+            # ConsistencyLevel: eventual, otherwise Graph 400s with a
+            # "Request_UnsupportedQuery" message that's hard to
+            # diagnose. Set the header unless the caller already did.
+            query_pairs.append(('$count', 'true'))
+            headers.setdefault('ConsistencyLevel', 'eventual')
+        elif flag == '--search':
+            v, args = _require_value(flag, args)
+            # Graph wants the search expression wrapped in double
+            # quotes (`$search="value"`). Same eventual-consistency
+            # requirement as --count.
+            query_pairs.append(('$search', f'"{v}"'))
+            headers.setdefault('ConsistencyLevel', 'eventual')
         elif flag == '--audience':
             audience, args = _require_value(flag, args)
         elif flag == '--beta':
