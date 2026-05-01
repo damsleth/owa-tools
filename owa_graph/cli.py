@@ -19,7 +19,7 @@ from . import emit as emit_mod
 from . import format as format_mod
 
 HTTP_VERBS = {'GET', 'POST', 'PATCH', 'PUT', 'DELETE'}
-RESERVED_SUBCOMMANDS = {'refresh', 'config', 'help'}
+RESERVED_SUBCOMMANDS = {'refresh', 'config', 'batch', 'help'}
 
 
 def _error(msg):
@@ -339,6 +339,78 @@ def _emit_ndjson_single(result):
         print(json.dumps(result, ensure_ascii=False))
 
 
+def cmd_batch(args, config):
+    """Post a Graph JSON-batch request body and surface the response.
+
+    The body is read from a file path or `-` for stdin. If the body is
+    a flat array we wrap it in `{"requests": [...]}` so callers don't
+    have to remember Graph's outer envelope; objects are passed through
+    verbatim. Default output is the raw JSON response (which is itself
+    a `{"responses": [...]}` envelope); --pretty renders the per-request
+    status table.
+    """
+    pretty = False
+    do_retry = False
+    source = None
+    while args:
+        a, args = args[0], args[1:]
+        if a == '--pretty':
+            pretty = True
+        elif a == '--retry':
+            do_retry = True
+        elif a.startswith('--'):
+            _error(f'Unknown flag: {a}'); return 1
+        elif source is None:
+            source = a
+        else:
+            _error(f'Unexpected argument: {a!r}'); return 1
+
+    if source is None:
+        _error('batch requires a file path or - for stdin')
+        return 1
+
+    if source == '-':
+        raw_body = sys.stdin.read()
+    else:
+        path = source[1:] if source.startswith('@') else source
+        try:
+            with open(path) as f:
+                raw_body = f.read()
+        except OSError as e:
+            _error(f'cannot read {path!r}: {e}')
+            return 1
+
+    try:
+        body = json.loads(raw_body)
+    except json.JSONDecodeError as e:
+        _error(f'batch body is not valid JSON: {e}')
+        return 1
+
+    if isinstance(body, list):
+        body = {'requests': body}
+    elif not isinstance(body, dict) or 'requests' not in body:
+        _error("batch body must be a list of requests or "
+               "a {'requests': [...]} object")
+        return 1
+
+    debug = _debug_enabled(config)
+    audience = config.get('default_audience') or 'graph'
+    access_token, api_base = auth_mod.setup_auth(
+        config, audience=audience, debug=debug,
+    )
+    result = api_mod.api_request(
+        'POST', api_base, '$batch', access_token,
+        body=body, debug=debug, retry=do_retry,
+    )
+    if result is None:
+        return 1
+    if pretty:
+        print(format_mod.format_pretty(result))
+    else:
+        print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
 def cmd_refresh(args, config):
     if args:
         _error(f'Unknown flag: {args[0]}'); return 1
@@ -469,6 +541,8 @@ def main():
         return cmd_config(rest, config)
     if head == 'refresh':
         return cmd_refresh(rest, config)
+    if head == 'batch':
+        return cmd_batch(rest, config)
     if head in ('help', '--help', '-h'):
         print_help()
         return 0
