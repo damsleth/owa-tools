@@ -17,6 +17,17 @@ owa-graph GET me/events --audience outlook --pretty
 owa-graph batch requests.json --pretty
 ```
 
+Or, since v0.3, with curated shortcuts:
+
+```sh
+owa-graph me whoami
+owa-graph mail list --unread --top 5 --pretty
+owa-graph mail send --to foo@bar.com --subject hi --body 'hello'
+owa-graph users find kim
+owa-graph teams joined
+owa-graph files list --pretty
+```
+
 ## Install
 
 ```sh
@@ -49,6 +60,51 @@ request with the right base URL and Bearer header.
   (Outlook REST, Teams, Azure Mgmt, KeyVault, etc.) using the same
   query ergonomics.
 
+## Resource shortcuts (v0.3+)
+
+Curated subcommand groups that resolve common flows without typing the full
+URL. The verb-first form keeps working - this is purely additive.
+
+```sh
+owa-graph                    # top-level help, lists groups
+owa-graph mail               # group-level help, lists shortcuts
+owa-graph mail list --unread --top 5 --pretty
+```
+
+Every shortcut accepts the cross-cutting flags `--pretty`, `--ndjson`, and
+`--retry` (the dispatcher peels them off before calling the handler). All
+other flags are per-shortcut.
+
+### Scope matrix
+
+The OWA-SPA client `owa-piggy` borrows is FOCI but doesn't carry the full
+Graph scope set. The table below is what each group returns against the
+default (owa-piggy) auth path on a normal corporate tenant. Anything marked
+`needs app-reg` works once you set `GRAPH_APP_CLIENT_ID` for an app
+registration that grants the relevant Graph delegated scopes.
+
+| Group       | Default path  | Notes                                   |
+|-------------|---------------|-----------------------------------------|
+| `me`        | works         | profile, manager, direct reports        |
+| `users`     | works         | list / find / get; manager + reports    |
+| `teams`     | works         | joined teams, channels, channel msgs    |
+| `chats`     | works         | 1:1 + group chats, send messages        |
+| `groups`    | works         | M365 groups, members                    |
+| `planner`   | works         | Planner tasks, plans, buckets           |
+| `files`     | works         | OneDrive list/upload/download/share     |
+| `directory` | works         | directory roles, audit logs (admin)     |
+| `mail`      | needs app-reg | use `owa-mail` for the Outlook-REST path |
+| `calendar`  | needs app-reg | use `owa-cal` for the Outlook-REST path |
+| `contacts`  | needs app-reg | personal contacts                       |
+| `todo`      | needs app-reg | Microsoft To-Do                         |
+| `sites`     | needs app-reg | SharePoint sites and lists              |
+| `presence`  | needs app-reg | Teams presence read/set                 |
+
+Auth fallback isn't automatic - if a shortcut returns `403`, switch the
+profile to one with `GRAPH_APP_CLIENT_ID` set, or fall through to the
+sibling tool (`owa-cal`, `owa-mail`) when the audience-specific path is
+the simpler answer.
+
 ## Auth
 
 Default path: `owa-graph` shells out to `owa-piggy` for a fresh access
@@ -64,11 +120,12 @@ scope.
 ## Scope caveat
 
 The OWA first-party SPA client `owa-piggy` borrows does NOT carry full
-Graph permissions. Calls like `GET /me`, `/users`, `/me/joinedTeams`,
-and most directory queries work; calendar/mail/files writes via Graph
-return 403. Set `GRAPH_APP_CLIENT_ID` to your own app registration to
-broaden scope, or use the audience-specific siblings (`owa-cal`,
-`owa-mail`) which target the Outlook REST audience instead.
+Graph permissions: most reads work, calendar/mail/files *writes* via
+Graph return `403`. See the [scope matrix](#scope-matrix) above for
+which v0.3 shortcuts work on the default path. Set
+`GRAPH_APP_CLIENT_ID` to your own app registration to broaden scope,
+or use the audience-specific siblings (`owa-cal`, `owa-mail`) which
+target the Outlook REST audience instead.
 
 ## Development
 

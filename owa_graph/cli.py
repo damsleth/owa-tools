@@ -127,11 +127,12 @@ Auth:
 
 Scope caveat:
   The OWA first-party SPA client owa-piggy borrows does NOT carry full
-  Graph permissions. Calls like GET /me, /users, /me/joinedTeams and
-  most directory queries work; calendar/mail/files writes via Graph
-  return 403. Set GRAPH_APP_CLIENT_ID to broaden scope, or use the
-  audience-specific siblings (owa-cal, owa-mail) which target the
-  Outlook REST audience instead.
+  Graph permissions. Reads on /me, /users, /me/joinedTeams, /groups,
+  /planner, /me/drive and directory work; mail/calendar/contacts/todo/
+  sites/presence shortcuts return 403 on this path. Set
+  GRAPH_APP_CLIENT_ID to broaden scope, or use the audience-specific
+  siblings (owa-cal, owa-mail) which target the Outlook REST audience.
+  See README.md "Scope matrix" for per-shortcut details.
 
 Examples:
   owa-graph GET /me
