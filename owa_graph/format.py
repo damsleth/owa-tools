@@ -54,6 +54,41 @@ def _looks_like_teams(items):
     )
 
 
+def _looks_like_drives(items):
+    # Every Graph drive carries `driveType` (personal | business |
+    # documentLibrary). Unique enough to discriminate.
+    return all(
+        isinstance(i, dict) and i.get('driveType') in {
+            'personal', 'business', 'documentLibrary',
+        }
+        for i in items
+    )
+
+
+def _looks_like_sites(items):
+    # SharePoint site: displayName + a sharepoint.com webUrl. Drives
+    # also live on sharepoint.com, but they get caught earlier by the
+    # driveType detector.
+    if not items:
+        return False
+    for i in items:
+        if not (isinstance(i, dict) and 'displayName' in i):
+            return False
+        url = i.get('webUrl') or ''
+        if 'sharepoint.com' not in url:
+            return False
+    return True
+
+
+def _looks_like_calendars(items):
+    # Outlook calendar: `name` + `canEdit` (Boolean). `canEdit` doesn't
+    # appear on any other shape we render.
+    return all(
+        isinstance(i, dict) and 'name' in i and isinstance(i.get('canEdit'), bool)
+        for i in items
+    )
+
+
 def _looks_like_planner_tasks(items):
     # Every Planner task carries `percentComplete` (int 0-100). No other
     # Graph shape we render uses that field.
@@ -166,6 +201,54 @@ def _format_channels(items):
     )
 
 
+def _format_drives(items):
+    rows = [(
+        i.get('name') or '',
+        i.get('driveType') or '',
+        i.get('id') or '',
+    ) for i in items]
+    if not rows:
+        return '(no items)'
+    name_w = max(len(r[0]) for r in rows)
+    type_w = max(len(r[1]) for r in rows)
+    return '\n'.join(
+        f'{_pad(n, name_w)}  {_pad(t, type_w)}  {i}' for n, t, i in rows
+    )
+
+
+def _format_sites(items):
+    rows = [(
+        i.get('displayName') or '',
+        i.get('webUrl') or '',
+    ) for i in items]
+    if not rows:
+        return '(no items)'
+    name_w = max(len(r[0]) for r in rows)
+    return '\n'.join(
+        f'{_pad(n, name_w)}  {u}' for n, u in rows
+    )
+
+
+def _format_calendars(items):
+    rows = []
+    for i in items:
+        owner = ((i.get('owner') or {}).get('address')
+                 or (i.get('owner') or {}).get('name')
+                 or '')
+        rows.append((
+            i.get('name') or '',
+            owner,
+            i.get('id') or '',
+        ))
+    if not rows:
+        return '(no items)'
+    name_w = max(len(r[0]) for r in rows)
+    owner_w = max(len(r[1]) for r in rows)
+    return '\n'.join(
+        f'{_pad(n, name_w)}  {_pad(o, owner_w)}  {i}' for n, o, i in rows
+    )
+
+
 def _format_planner_tasks(items):
     rows = []
     for i in items:
@@ -234,10 +317,16 @@ def format_pretty(payload):
             # which would otherwise greedily match displayName-only items.
             if _looks_like_groups(items):
                 return _format_groups(items)
+            if _looks_like_drives(items):
+                return _format_drives(items)
             if _looks_like_channels(items):
                 return _format_channels(items)
             if _looks_like_teams(items):
                 return _format_teams(items)
+            if _looks_like_sites(items):
+                return _format_sites(items)
+            if _looks_like_calendars(items):
+                return _format_calendars(items)
             if _looks_like_planner_tasks(items):
                 return _format_planner_tasks(items)
             if _looks_like_todo_tasks(items):
