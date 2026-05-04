@@ -43,13 +43,17 @@ def _looks_like_channels(items):
 
 def _looks_like_teams(items):
     # Teams: displayName + description, no mailEnabled (groups), no
-    # userPrincipalName (users), no teams.microsoft.com webUrl (channels).
+    # userPrincipalName (users), no teams.microsoft.com webUrl (channels),
+    # no appId (applications also carry `description: null`). Reordering
+    # alone isn't enough - belt-and-suspenders so the detector can't
+    # reclaim applications if dispatch order changes later.
     return all(
         isinstance(i, dict)
         and 'displayName' in i
         and 'description' in i
         and 'mailEnabled' not in i
         and 'userPrincipalName' not in i
+        and 'appId' not in i
         for i in items
     )
 
@@ -85,6 +89,42 @@ def _looks_like_calendars(items):
     # appear on any other shape we render.
     return all(
         isinstance(i, dict) and 'name' in i and isinstance(i.get('canEdit'), bool)
+        for i in items
+    )
+
+
+_UUID_LEN = 36
+
+
+def _is_uuid_shape(s):
+    # Cheap UUID heuristic without importing re. Graph appId is canonical
+    # 8-4-4-4-12 hex; we don't need to validate hex chars - the dash
+    # positions alone are enough to distinguish appId from a free-form
+    # id string.
+    return (isinstance(s, str)
+            and len(s) == _UUID_LEN
+            and s[8] == s[13] == s[18] == s[23] == '-')
+
+
+def _looks_like_applications(items):
+    # Graph application objects: displayName + appId in UUID form. The
+    # appId shape is what tells us this isn't a user (whose `id` is also
+    # a UUID but doesn't sit in `appId`).
+    return all(
+        isinstance(i, dict)
+        and 'displayName' in i
+        and _is_uuid_shape(i.get('appId'))
+        for i in items
+    )
+
+
+def _looks_like_audit_logs(items):
+    # directoryAudits / signIns: both carry `activityDateTime` +
+    # `activityDisplayName`. Unique enough to claim the table.
+    return all(
+        isinstance(i, dict)
+        and 'activityDateTime' in i
+        and 'activityDisplayName' in i
         for i in items
     )
 
@@ -249,6 +289,44 @@ def _format_calendars(items):
     )
 
 
+def _format_applications(items):
+    rows = [(
+        i.get('displayName') or '',
+        i.get('appId') or '',
+    ) for i in items]
+    if not rows:
+        return '(no items)'
+    name_w = max(len(r[0]) for r in rows)
+    return '\n'.join(
+        f'{_pad(n, name_w)}  {a}' for n, a in rows
+    )
+
+
+def _format_audit_logs(items):
+    rows = []
+    for i in items:
+        when = (i.get('activityDateTime') or '')[:19].replace('T', ' ')
+        actor = (
+            (i.get('initiatedBy') or {})
+            .get('user', {}).get('userPrincipalName')
+            or (i.get('initiatedBy') or {}).get('app', {}).get('displayName')
+            or ''
+        )
+        rows.append((
+            when,
+            actor,
+            i.get('activityDisplayName') or '',
+        ))
+    if not rows:
+        return '(no items)'
+    when_w = max(len(r[0]) for r in rows)
+    actor_w = min(max(len(r[1]) for r in rows), 40)
+    return '\n'.join(
+        f'{_pad(w, when_w)}  {_pad(a[:actor_w], actor_w)}  {act}'
+        for w, a, act in rows
+    )
+
+
 def _format_planner_tasks(items):
     rows = []
     for i in items:
@@ -321,6 +399,8 @@ def format_pretty(payload):
                 return _format_drives(items)
             if _looks_like_channels(items):
                 return _format_channels(items)
+            if _looks_like_applications(items):
+                return _format_applications(items)
             if _looks_like_teams(items):
                 return _format_teams(items)
             if _looks_like_sites(items):
@@ -331,6 +411,8 @@ def format_pretty(payload):
                 return _format_planner_tasks(items)
             if _looks_like_todo_tasks(items):
                 return _format_todo_tasks(items)
+            if _looks_like_audit_logs(items):
+                return _format_audit_logs(items)
             if _looks_like_users(items):
                 return _format_users(items)
             if _looks_like_messages(items):
