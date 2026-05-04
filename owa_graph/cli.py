@@ -20,6 +20,7 @@ from . import ctx as ctx_mod
 from . import emit as emit_mod
 from . import format as format_mod
 from . import jwt as jwt_mod
+from . import paths as paths_mod
 from . import resources as resources_mod
 from . import scopes as scopes_mod
 
@@ -184,6 +185,23 @@ def _emit_scope_hint(method, path, audience, access_token):
         f'OWA_GRAPH_NO_SCOPE_HINTS=1 to silence this warning.',
         file=sys.stderr,
     )
+
+
+def _cmd_internal_complete(args):
+    """Hidden subcommand used by the shell completion scripts. Stable
+    enough for them to depend on; deliberately not advertised in help.
+
+    Usage:
+      owa-graph __complete paths [v1.0|beta]   # one path per line
+    """
+    if not args:
+        return 1
+    head, rest = args[0], args[1:]
+    if head == 'paths':
+        endpoint = rest[0] if rest else 'v1.0'
+        paths_mod.dump_paths(endpoint)
+        return 0
+    return 1
 
 
 def _resolve_body(arg):
@@ -693,6 +711,8 @@ def main():
     if head in ('help', '--help', '-h'):
         print_help()
         return 0
+    if head == '__complete':
+        return _cmd_internal_complete(rest)
 
     if head in resources_mod.known_groups():
         return _dispatch_resource_group(head, rest, config)

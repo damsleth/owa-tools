@@ -31,10 +31,10 @@ _owa_graph() {
             ;;
     esac
 
-    # Resource-group shortcuts. Walk back through COMP_WORDS to find
-    # the last non-flag token; if it's a known group, complete that
-    # group's shortcuts.
-    local i group=""
+    # Walk back through COMP_WORDS to classify the head: was it a
+    # resource group, an HTTP verb, or a reserved subcommand? Sets
+    # `head_kind` and (for groups) `group`.
+    local i head_kind="" group=""
     for (( i=1; i<COMP_CWORD; i++ )); do
         local w="${COMP_WORDS[i]}"
         case "$w" in
@@ -42,15 +42,35 @@ _owa_graph() {
         esac
         case "$w" in
             me|mail|calendar|files|users|teams|chats|presence|contacts|groups|planner|todo|sites|directory)
+                head_kind="group"
                 group="$w"
                 break
                 ;;
-            GET|POST|PATCH|PUT|DELETE|get|post|patch|put|delete|refresh|config|batch|help)
-                # User chose a non-group head - no shortcut completion.
+            GET|POST|PATCH|PUT|DELETE|get|post|patch|put|delete)
+                head_kind="verb"
+                break
+                ;;
+            refresh|config|batch|help)
+                head_kind="reserved"
                 break
                 ;;
         esac
     done
+
+    # Path completion: when the head is an HTTP verb and we're filling
+    # the slot right after it, complete from the vendored Graph path
+    # manifest. --beta switches the source endpoint.
+    if [[ "$head_kind" == "verb" && ${COMP_CWORD} -eq $((i+1)) && "$cur" != -* ]]; then
+        local endpoint="v1.0"
+        local w
+        for w in "${COMP_WORDS[@]}"; do
+            [[ "$w" == "--beta" ]] && endpoint="beta"
+        done
+        local paths
+        paths="$(owa-graph __complete paths "$endpoint" 2>/dev/null)"
+        COMPREPLY=( $(compgen -W "$paths" -- "$cur") )
+        return 0
+    fi
 
     if [[ -n "$group" && "$cur" != -* ]]; then
         # Only complete shortcut name in the slot immediately after the

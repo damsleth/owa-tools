@@ -19,17 +19,23 @@ _owa_graph() {
         --query --select --top --filter --count --search --audience
     )
 
-    # Detect the resource group, if any, in the words seen so far.
-    local i group=""
+    # Classify the head and remember which slot it sat in.
+    local i head_kind="" group=""
     for (( i=2; i<=CURRENT-1; i++ )); do
         local w="${words[i]}"
         case "$w" in
             -*) continue ;;
             me|mail|calendar|files|users|teams|chats|presence|contacts|groups|planner|todo|sites|directory)
+                head_kind="group"
                 group="$w"
                 break
                 ;;
-            GET|POST|PATCH|PUT|DELETE|get|post|patch|put|delete|refresh|config|batch|help)
+            GET|POST|PATCH|PUT|DELETE|get|post|patch|put|delete)
+                head_kind="verb"
+                break
+                ;;
+            refresh|config|batch|help)
+                head_kind="reserved"
                 break
                 ;;
         esac
@@ -38,6 +44,20 @@ _owa_graph() {
     # Value-completing flags.
     if [[ "${words[CURRENT-1]}" == "--audience" ]]; then
         _values 'audience' "${audiences[@]}"
+        return
+    fi
+
+    # Path completion right after an HTTP verb. --beta anywhere in the
+    # words list switches to the beta path manifest.
+    if [[ "$head_kind" == "verb" && $CURRENT -eq $((i+1)) ]]; then
+        local endpoint="v1.0"
+        local w
+        for w in "${words[@]}"; do
+            [[ "$w" == "--beta" ]] && endpoint="beta"
+        done
+        local -a graph_paths
+        graph_paths=("${(@f)$(owa-graph __complete paths $endpoint 2>/dev/null)}")
+        _values 'path' "${graph_paths[@]}"
         return
     fi
 

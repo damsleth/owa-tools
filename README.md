@@ -174,11 +174,19 @@ Coverage:
 
 - HTTP verbs, resource groups, and reserved subcommands at the top level
 - per-group shortcuts after `owa-graph mail <TAB>` etc.
+- Graph paths after `owa-graph GET <TAB>` (~10 000 paths from the
+  vendored CSDL manifest at `owa_graph/data/paths.json.gz`; `--beta`
+  switches to beta paths)
 - `--audience <TAB>` lists the 13 known FOCI audiences
 - the full flag set is suggested anywhere a flag can appear
 
-Path completion (`owa-graph GET <TAB>` resolving to known Graph paths)
-lands in v0.6 with the CSDL-derived path manifest.
+Refresh the path manifest:
+
+```sh
+python3 scripts/refresh-paths.py     # writes owa_graph/data/paths.json.gz
+```
+
+Run periodically (and pinned in CI) to track Graph schema additions.
 
 ## Development
 
