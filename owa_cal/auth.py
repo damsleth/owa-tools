@@ -1,43 +1,30 @@
 """Token acquisition.
 
-Two paths:
+owa-cal does not own any auth credentials. It shells out to the
+`owa-piggy` CLI (must live in $PATH) and consumes its `--json` token
+output. owa-piggy owns the token lifecycle in its own profile store;
+owa-cal stores nothing more than an optional `owa_piggy_profile`
+alias to forward through as `--profile <alias>`.
 
-1. **App registration**: OUTLOOK_APP_CLIENT_ID is set. We hit the AAD
-   v2 token endpoint directly with refresh_token grant and persist the
-   rotated refresh token back to config, since refresh tokens are
-   single-use.
-2. **owa-piggy bridge**: no app registration. We shell out to the
-   `owa-piggy` CLI (which must live in $PATH) and take its --json
-   output. owa-cal stores no refresh token on this path; owa-piggy
-   owns the token lifecycle in its own profile store. An optional
-   `owa_piggy_profile` alias forwards through as `--profile <alias>`.
-   Both tools live in the same CLI dir; think of them as two POSIX
-   utils piped together.
+If we ever need a different identity provider, that lives in
+owa-piggy too: every owa-* CLI in the suite is a thin consumer of the
+same token contract. This file deliberately knows about owa-piggy and
+nothing else.
 
-Both paths request an Outlook-audience token (`outlook.office.com`).
-Microsoft Graph is not a drop-in replacement: OWA's first-party SPA
-client (which owa-piggy borrows) does NOT carry `Calendars.ReadWrite`
-on the Graph audience - OWA itself calls Outlook REST for calendar,
-so the Graph-audience consent grant for that client only covers
-Teams/Files/Directory. Switching `api_base` to
-`https://graph.microsoft.com/v1.0` without also registering your own
-app will return 403 on every call.
+The token is requested on the Outlook REST audience
+(`outlook.office.com`). Microsoft Graph is not a drop-in replacement
+for the OWA SPA client owa-piggy borrows: that client does NOT carry
+`Calendars.ReadWrite` on the Graph audience - OWA itself calls
+Outlook REST for calendar. Switching `api_base` to
+`https://graph.microsoft.com/v1.0` without arranging a different
+client (which would belong in owa-piggy, not here) returns 403.
 """
 import json
 import shutil
 import subprocess
 import sys
-import urllib.error
-import urllib.parse
-import urllib.request
 
-from . import config as config_mod
 from .jwt import token_minutes_remaining
-
-OUTLOOK_SCOPE = (
-    'https://outlook.office.com/Calendars.ReadWrite '
-    'openid profile offline_access'
-)
 
 
 def _owa_piggy_available():
@@ -102,43 +89,6 @@ def _check_owa_piggy_version():
     return True
 
 
-def refresh_via_app_registration(refresh_token, tenant_id, client_id):
-    """Call AAD v2 token endpoint with the app-registration client_id.
-
-    Returns the full response dict or None on failure (errors logged to
-    stderr, no exceptions raised).
-    """
-    url = f'https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token'
-    data = urllib.parse.urlencode({
-        'grant_type': 'refresh_token',
-        'client_id': client_id,
-        'refresh_token': refresh_token,
-        'scope': OUTLOOK_SCOPE,
-    }).encode('utf-8')
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={'Content-Type': 'application/x-www-form-urlencoded'},
-        method='POST',
-    )
-    try:
-        with urllib.request.urlopen(req) as resp:
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode('utf-8', errors='replace')
-        try:
-            err = json.loads(err_body)
-            code = err.get('error', '')
-            desc = err.get('error_description', '').split('\r\n')[0]
-            print(f'ERROR: {code}: {desc}', file=sys.stderr)
-        except Exception:
-            print(f'ERROR: HTTP {e.code}: {err_body[:200]}', file=sys.stderr)
-        return None
-    except urllib.error.URLError as e:
-        print(f'ERROR: {e.reason}', file=sys.stderr)
-        return None
-
-
 def _log_token_remaining(access, debug):
     """Debug-only: report the access token's remaining lifetime to stderr."""
     if not debug:
@@ -148,38 +98,13 @@ def _log_token_remaining(access, debug):
         print(f'DEBUG: token exchange ok ({remaining}min remaining)', file=sys.stderr)
 
 
-def _refresh_via_app_registration(config, debug=False):
-    refresh_token = config.get('OUTLOOK_REFRESH_TOKEN', '').strip()
-    tenant_id = config.get('OUTLOOK_TENANT_ID', '').strip()
-    client_id = config.get('OUTLOOK_APP_CLIENT_ID', '').strip()
-    if not refresh_token or not tenant_id:
-        return None
-    if debug:
-        print(f'DEBUG: auth via app registration ({client_id})', file=sys.stderr)
-    result = refresh_via_app_registration(refresh_token, tenant_id, client_id)
-    if not result:
-        return None
-    access = result.get('access_token')
-    if not access:
-        return None
-    new_refresh = result.get('refresh_token')
-    if new_refresh and new_refresh != refresh_token:
-        config['OUTLOOK_REFRESH_TOKEN'] = new_refresh
-        try:
-            config_mod.config_set('OUTLOOK_REFRESH_TOKEN', new_refresh)
-        except Exception as e:
-            print(f'WARN: failed to persist rotated refresh token: {e}', file=sys.stderr)
-    _log_token_remaining(access, debug)
-    return access
-
-
 def _refresh_via_owa_piggy(config, debug=False):
     """Shell out to `owa-piggy token --audience outlook --json [--profile <alias>]`.
 
     We deliberately do not import owa-piggy; treating it as a sibling
     POSIX util keeps the coupling loose and lets either tool be swapped
     independently. owa-piggy owns the token lifecycle - no refresh
-    token flows through owa-cal on this path.
+    token flows through owa-cal.
     """
     if not _owa_piggy_available():
         print(
@@ -229,48 +154,31 @@ def _refresh_via_owa_piggy(config, debug=False):
 
 
 def do_token_refresh(config, debug=False):
-    """Exchange credentials for a new access token.
+    """Exchange credentials for a new access token via owa-piggy.
 
-    Uses the app-registration path if OUTLOOK_APP_CLIENT_ID is set,
-    otherwise shells out to owa-piggy. Returns the access token on
-    success, None on failure.
+    Returns the access token on success, None on failure.
     """
-    if config.get('OUTLOOK_APP_CLIENT_ID'):
-        return _refresh_via_app_registration(config, debug=debug)
     return _refresh_via_owa_piggy(config, debug=debug)
 
 
 def setup_auth(config, debug=False):
     """Ensure we have a valid access token, or die.
 
-    Returns (access_token, api_base). Exits the process on missing
-    config or refresh failure - interactive CLI, so a clear error
-    message is the right thing.
+    Returns (access_token, api_base). Exits the process on failure -
+    interactive CLI, so a clear error message is the right thing.
     """
-    if config.get('OUTLOOK_APP_CLIENT_ID'):
-        if not config.get('OUTLOOK_REFRESH_TOKEN') or not config.get('OUTLOOK_TENANT_ID'):
-            print(
-                'ERROR: app-registration path needs OUTLOOK_REFRESH_TOKEN '
-                'and OUTLOOK_TENANT_ID in ~/.config/owa-cal/config.',
-                file=sys.stderr,
-            )
-            sys.exit(1)
     access = do_token_refresh(config, debug=debug)
     if not access:
-        if config.get('OUTLOOK_APP_CLIENT_ID'):
-            print(
-                'ERROR: token refresh failed. Run `owa-cal config` to '
-                'inspect settings.',
-                file=sys.stderr,
-            )
-        else:
-            profile = (config.get('owa_piggy_profile') or '').strip()
-            hint = f' --profile {profile}' if profile else ''
-            print(
-                f'ERROR: token refresh failed. Re-seed via '
-                f'`owa-piggy setup{hint}`'
-                + (f' or adjust the profile with `owa-cal config --profile <alias>`.' if profile else '.'),
-                file=sys.stderr,
-            )
+        profile = (config.get('owa_piggy_profile') or '').strip()
+        hint = f' --profile {profile}' if profile else ''
+        suffix = (
+            f' or adjust the profile with `owa-cal config --profile <alias>`.'
+            if profile else '.'
+        )
+        print(
+            f'ERROR: token refresh failed. Re-seed via '
+            f'`owa-piggy setup{hint}`{suffix}',
+            file=sys.stderr,
+        )
         sys.exit(1)
     return access, 'https://outlook.office.com/api/v2.0'
