@@ -22,3 +22,31 @@ def token_minutes_remaining(access_token):
         return int((exp - time.time()) / 60)
     except Exception:
         return None
+
+
+def scopes_in_token(access_token):
+    """Return the set of delegated scopes the JWT carries, or an empty
+    set on any parse failure.
+
+    AAD puts delegated scopes in the `scp` claim as a space-separated
+    string ("Mail.Read User.Read"). App-only tokens use `roles` (a list)
+    instead - we accept both shapes since the scope-hint feature is
+    advisory rather than authoritative.
+    """
+    try:
+        payload = decode_jwt_segment(access_token.split('.')[1])
+        scopes = set()
+        scp = payload.get('scp')
+        if isinstance(scp, str):
+            scopes.update(s for s in scp.split() if s)
+        roles = payload.get('roles')
+        if isinstance(roles, list):
+            scopes.update(r for r in roles if isinstance(r, str))
+        return scopes
+    except Exception:
+        return set()
+
+
+def scope_in_token(access_token, scope):
+    """Cheap predicate: is `scope` carried by the token?"""
+    return scope in scopes_in_token(access_token)
