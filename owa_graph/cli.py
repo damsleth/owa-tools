@@ -19,7 +19,9 @@ from . import config as config_mod
 from . import ctx as ctx_mod
 from . import emit as emit_mod
 from . import format as format_mod
+from . import jwt as jwt_mod
 from . import resources as resources_mod
+from . import scopes as scopes_mod
 
 HTTP_VERBS = {'GET', 'POST', 'PATCH', 'PUT', 'DELETE'}
 RESERVED_SUBCOMMANDS = {'refresh', 'config', 'batch', 'help'}
@@ -149,6 +151,37 @@ Examples:
   owa-graph refresh""")
 
 
+def _emit_scope_hint(method, path, audience, access_token):
+    """Pre-flight advisory: warn if the request's required scopes aren't
+    in the JWT. Always best-effort - silently no-ops on any failure so
+    the hint can't break a working call.
+
+    Suppressed when:
+      * audience is not 'graph' (manifest only covers Graph paths),
+      * OWA_GRAPH_NO_SCOPE_HINTS=1 in the env (CI/scripted use),
+      * the manifest has no entry for (path, verb) - common for paths
+        we haven't curated yet.
+    """
+    if audience != 'graph':
+        return
+    if os.environ.get('OWA_GRAPH_NO_SCOPE_HINTS') == '1':
+        return
+    required = scopes_mod.required_scopes(method, path)
+    if not required:
+        return
+    have = jwt_mod.scopes_in_token(access_token)
+    missing = [s for s in required if s not in have]
+    if not missing:
+        return
+    miss = ', '.join(missing)
+    print(
+        f'warn: this call requires {miss}; your token does not carry it. '
+        f'Likely 403. Set GRAPH_APP_CLIENT_ID for broader scope, or set '
+        f'OWA_GRAPH_NO_SCOPE_HINTS=1 to silence this warning.',
+        file=sys.stderr,
+    )
+
+
 def _resolve_body(arg):
     """Returns (body_value, is_file_ref). body_value is the JSON-decoded
     object for literal/stdin input, or the raw string for @file-refs
@@ -272,6 +305,12 @@ def cmd_request(method, path, args, config):
     access_token, api_base = auth_mod.setup_auth(
         config, audience=audience, beta=beta, debug=debug,
     )
+
+    # Pre-flight scope hint. Skip in emit mode - the user is asking for
+    # a curl/az command to share or pipe, not actually calling Graph
+    # right now, so a warning isn't useful.
+    if emit_mode is None:
+        _emit_scope_hint(method, path, audience, access_token)
 
     url = api_mod.build_url(api_base, path, query_pairs)
 
