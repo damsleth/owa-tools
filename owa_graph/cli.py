@@ -12,6 +12,7 @@ import json
 import os
 import sys
 
+from . import __version__
 from . import api as api_mod
 from . import auth as auth_mod
 from . import config as config_mod
@@ -513,6 +514,9 @@ def main():
 
     if not argv or argv[0] in ('help', '--help', '-h'):
         print_help()
+        return 0
+    if argv[0] == '--version':
+        print(f'owa-graph {__version__}')
         return 0
 
     is_config_cmd = _first_nonglobal(argv) == 'config'
