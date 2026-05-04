@@ -16,8 +16,10 @@ from . import __version__
 from . import api as api_mod
 from . import auth as auth_mod
 from . import config as config_mod
+from . import ctx as ctx_mod
 from . import emit as emit_mod
 from . import format as format_mod
+from . import resources as resources_mod
 
 HTTP_VERBS = {'GET', 'POST', 'PATCH', 'PUT', 'DELETE'}
 RESERVED_SUBCOMMANDS = {'refresh', 'config', 'batch', 'help'}
@@ -43,15 +45,24 @@ def _require_value(flag, args):
 
 
 def print_help():
+    groups_block_lines = [
+        f"  {name:<10}  {resources_mod.GROUP_DESCRIPTIONS.get(name, '')}"
+        for name in resources_mod.known_groups()
+    ]
+    groups_block = '\n'.join(groups_block_lines)
     print("""owa-graph - Microsoft Graph CLI for one-off queries
 
 Usage: owa-graph <METHOD> <path> [options]
+       owa-graph <group> <shortcut> [options]
        owa-graph batch <file|-> [--pretty] [--retry]
        owa-graph refresh
        owa-graph config [--profile <alias>] [--app-client-id <id>] [--audience <name>]
 
 METHOD: GET | POST | PATCH | PUT | DELETE  (case-insensitive)
 path:   /me, /users, '/users?$top=5', me/messages/<id>  (leading slash optional)
+
+Resource groups (run `owa-graph <group>` for shortcuts):
+""" + groups_block + """
 
 Per-call options:
   --body <json|@file|->     Request body. Literal JSON, @path-to-file,
@@ -491,6 +502,80 @@ def cmd_config(args, config):
     return 0
 
 
+def _print_group_help(group_name, group_module):
+    """Pretty-print the shortcut table for `owa-graph <group>` (no args
+    or `help`/`--help`). Plan v0.3 keeps per-shortcut --help out of v0.3."""
+    desc = resources_mod.GROUP_DESCRIPTIONS.get(group_name, '')
+    print(f'owa-graph {group_name} - {desc}' if desc else f'owa-graph {group_name}')
+    print()
+    print('Shortcuts:')
+    width = max(len(k) for k in group_module.COMMANDS) if group_module.COMMANDS else 0
+    for name, entry in group_module.COMMANDS.items():
+        help_text = entry[1]
+        print(f'  {name:<{width}}  {help_text}')
+    print()
+    print('Common flags accepted by every shortcut:')
+    print('  --pretty   Human-readable output (table for known shapes, indented JSON otherwise)')
+    print('  --ndjson   Stream collection items one JSON object per line')
+    print('  --retry    Honor Retry-After once on 429/503')
+
+
+def _dispatch_resource_group(group_name, args, config):
+    """Route `owa-graph <group> <shortcut> [args]` to a resource handler.
+
+    Strips the cross-cutting emit flags (--pretty/--ndjson/--retry) before
+    handing argv to the per-shortcut handler so handler-side _argv.parse
+    only sees its own flags. Each handler is 5-15 LOC; the dispatcher
+    owns the auth + RequestContext setup so the per-handler code stays
+    flat.
+    """
+    try:
+        group_module = resources_mod.load_group(group_name)
+    except KeyError:
+        _error(f'unknown resource group: {group_name!r}')
+        return 1
+
+    if not args or args[0] in ('help', '--help', '-h'):
+        _print_group_help(group_name, group_module)
+        return 0
+
+    shortcut, rest = args[0], args[1:]
+    if shortcut not in group_module.COMMANDS:
+        _error(
+            f"unknown {group_name} shortcut: {shortcut!r}. "
+            f"Try `owa-graph {group_name}` for the list."
+        )
+        return 1
+
+    pretty = ndjson = retry = False
+    handler_args = []
+    for a in rest:
+        if a == '--pretty':
+            pretty = True
+        elif a == '--ndjson':
+            ndjson = True
+        elif a == '--retry':
+            retry = True
+        else:
+            handler_args.append(a)
+
+    debug = _debug_enabled(config)
+    audience = config.get('default_audience') or 'graph'
+    access_token, api_base = auth_mod.setup_auth(
+        config, audience=audience, debug=debug,
+    )
+    ctx = ctx_mod.RequestContext(
+        config=config, access_token=access_token, api_base=api_base,
+        debug=debug, pretty=pretty, ndjson=ndjson, retry=retry,
+    )
+    handler = group_module.COMMANDS[shortcut][0]
+    try:
+        return handler(handler_args, ctx)
+    except ValueError as e:
+        _error(str(e))
+        return 1
+
+
 def _first_nonglobal(argv):
     """Return the first argv token that isn't a global flag or its
     value. Used to decide whether `--profile` later in argv is the
@@ -564,6 +649,9 @@ def main():
     if head in ('help', '--help', '-h'):
         print_help()
         return 0
+
+    if head in resources_mod.known_groups():
+        return _dispatch_resource_group(head, rest, config)
 
     method = head.upper()
     if method not in HTTP_VERBS:
