@@ -41,5 +41,10 @@ def format_events_pretty(events):
             loc_str = f'{loc}  ' if loc else ''
             cat_str = f'[{", ".join(cats)}]' if cats else ''
             out.append(f'  {start}-{end}  {subj}{loc_str}{cat_str}')
+            body = (e.get('body') or '').strip()
+            if body:
+                for line in body.splitlines():
+                    if line.strip():
+                        out.append(f'      {line}')
         out.append('')
     return '\n'.join(out)

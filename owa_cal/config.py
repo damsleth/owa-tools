@@ -19,6 +19,7 @@ ALLOWED_KEYS = (
     'owa_piggy_profile',
     'default_timezone',
     'debug',
+    'webcal_url',
 )
 
 DEFAULT_TIMEZONE = 'W. Europe Standard Time'

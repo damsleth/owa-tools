@@ -19,6 +19,7 @@ from . import api as api_mod
 from . import auth as auth_mod
 from . import config as config_mod
 from . import events as events_mod
+from . import ics as ics_mod
 from .dates import (
     current_iso_week,
     iso_week_range,
@@ -111,6 +112,9 @@ Environment:
   OWA_TENANT_ID       can mint tokens with no on-disk config. Enables
                       `uvx owa-cal events` against a fresh machine
                       (see README -> Single-line uvx)
+  OWA_CAL_WEBCAL_URL  Use a webcal/iCal feed instead of OAuth. Read-only:
+                      `events` works, `create`/`update`/`delete` fail
+                      cleanly. Overrides webcal_url in the config file.
 
 Commands:
   refresh             Force a token refresh and verify auth
@@ -159,6 +163,12 @@ Categories options:
 
 Config options:
   --profile <alias>   Pin an owa-piggy profile alias (owa_piggy_profile)
+  --webcal <url>      Use a read-only webcal/iCal feed (no OAuth, no
+                      Microsoft). The URL is a bearer secret; stored
+                      in the config file with 0600 perms. While set,
+                      `events` reads the feed and write commands are
+                      rejected.
+  --clear-webcal      Remove webcal_url and return to the OAuth path
 
 Auth:
   owa-cal shells out to owa-piggy for a fresh access token on every
@@ -200,6 +210,74 @@ def _require_int(flag, args):
 # Subcommands
 # ---------------------------------------------------------------------------
 
+def _resolve_event_window(date_, from_, to_, week, year):
+    if week:
+        year = year or current_iso_week()[1]
+        from_, to_ = iso_week_range(week, year)
+    elif date_:
+        from_ = to_ = date_
+    elif not from_:
+        from_ = to_ = today()
+    if not to_:
+        to_ = from_
+    return from_, to_
+
+
+def cmd_events_webcal(args, config):
+    """Read-only events listing from a webcal/iCal feed.
+
+    Accepts the same range/search/pretty flags as `cmd_events` but
+    talks to a published feed instead of Outlook REST. Filters are
+    applied client-side after fetch (a small feed makes this cheap;
+    `--limit` is also enforced here).
+    """
+    date_ = from_ = to_ = search = ''
+    week = year = 0
+    pretty = False
+    limit = 50
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--date':
+            v, args = _require_value(flag, args); date_ = resolve_date(v)
+        elif flag == '--from':
+            v, args = _require_value(flag, args); from_ = resolve_date(v)
+        elif flag == '--to':
+            v, args = _require_value(flag, args); to_ = resolve_date(v)
+        elif flag == '--week':
+            week, args = _require_int(flag, args)
+        elif flag == '--year':
+            year, args = _require_int(flag, args)
+        elif flag == '--search':
+            search, args = _require_value(flag, args)
+        elif flag == '--pretty':
+            pretty = True
+        elif flag == '--limit':
+            limit, args = _require_int(flag, args)
+        else:
+            _error(f'Unknown flag: {flag}'); sys.exit(1)
+
+    from_, to_ = _resolve_event_window(date_, from_, to_, week, year)
+
+    debug = _debug_enabled(config)
+    url = (config.get('webcal_url') or '').strip()
+    if debug:
+        print(f'DEBUG: webcal events {from_} to {to_} <- {url}', file=sys.stderr)
+    try:
+        events = ics_mod.fetch_and_normalize(url)
+    except ics_mod.FetchError as exc:
+        _error(f'failed to fetch webcal feed: {exc}')
+        return 1
+    events = ics_mod.filter_by_range(events, from_, to_)
+    events = ics_mod.filter_by_subject(events, search)
+    events.sort(key=lambda e: e.get('start') or '')
+    events = events[:limit]
+    if pretty:
+        print(format_events_pretty(events))
+    else:
+        print(json.dumps(events))
+    return 0
+
+
 def cmd_events(args, config, access_token, api_base):
     date_ = from_ = to_ = search = ''
     week = year = 0
@@ -227,15 +305,7 @@ def cmd_events(args, config, access_token, api_base):
         else:
             _error(f'Unknown flag: {flag}'); sys.exit(1)
 
-    if week:
-        year = year or current_iso_week()[1]
-        from_, to_ = iso_week_range(week, year)
-    elif date_:
-        from_ = to_ = date_
-    elif not from_:
-        from_ = to_ = today()
-    if not to_:
-        to_ = from_
+    from_, to_ = _resolve_event_window(date_, from_, to_, week, year)
 
     start_dt = f'{from_}T00:00:00'
     end_dt = f'{to_}T23:59:59'
@@ -521,10 +591,15 @@ def cmd_config(args, config):
     """Handled specially: no auth required, so this does not call
     setup_auth - the dispatcher routes `config` here before auth."""
     profile = ''
+    webcal = None
     while args:
         flag, args = args[0], args[1:]
         if flag == '--profile':
             profile, args = _require_value(flag, args)
+        elif flag == '--webcal':
+            webcal, args = _require_value(flag, args)
+        elif flag == '--clear-webcal':
+            webcal = ''
         else:
             _error(f'Unknown flag: {flag}'); sys.exit(1)
 
@@ -533,12 +608,25 @@ def cmd_config(args, config):
         _info(f'owa-piggy profile saved: {profile}')
         return 0
 
+    if webcal is not None:
+        # The URL is a bearer secret - persist with the config file's
+        # 0600 perms (already enforced by save_config) and treat it as
+        # the read-only source for this profile from now on.
+        config_mod.config_set('webcal_url', webcal)
+        if webcal:
+            _info('webcal_url saved (read-only source enabled)')
+        else:
+            _info('webcal_url cleared')
+        return 0
+
     _info(f'Config file: {config_mod.CONFIG_PATH}')
     if config.get('owa_piggy_profile'):
         _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
     else:
         _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
     _info(f"  default_timezone={config.get('default_timezone')}")
+    if config.get('webcal_url'):
+        _info('  webcal_url=(set - read-only feed mode)')
     return 0
 
 
@@ -568,6 +656,22 @@ def cmd_refresh(args, config):
 # ---------------------------------------------------------------------------
 
 AUTHED_COMMANDS = {'events', 'create', 'update', 'delete', 'categories'}
+
+# Commands the webcal/iCal source supports. The feed is read-only and
+# carries no category metadata, so write commands and `categories` are
+# rejected with a clear error before auth or HTTP is touched.
+WEBCAL_READ_COMMANDS = {'events'}
+WEBCAL_REJECTED_COMMANDS = {'create', 'update', 'delete', 'categories'}
+
+
+def _resolve_webcal_url(config):
+    """Webcal source URL precedence: env > config file. Empty string
+    means 'no webcal source' and the caller should fall through to the
+    Outlook REST path."""
+    env = (os.environ.get('OWA_CAL_WEBCAL_URL') or '').strip()
+    if env:
+        return env
+    return (config.get('webcal_url') or '').strip()
 
 
 def main():
@@ -627,6 +731,23 @@ def main():
     if cmd not in AUTHED_COMMANDS:
         _error(f"Unknown command: {cmd}. Run 'owa-cal help' for usage.")
         return 1
+
+    # Webcal/iCal source short-circuits before auth: no token refresh,
+    # no Outlook REST. Read commands route to the iCal reader; write
+    # commands and `categories` are rejected with a clear message
+    # because the feed is read-only and carries no category metadata.
+    webcal_url = _resolve_webcal_url(config)
+    if webcal_url:
+        if cmd in WEBCAL_REJECTED_COMMANDS:
+            _error(
+                f"'{cmd}' is not supported on a webcal source "
+                f"(read-only feed). Unset webcal_url or "
+                f"OWA_CAL_WEBCAL_URL to use the Outlook REST path."
+            )
+            return 2
+        if cmd in WEBCAL_READ_COMMANDS:
+            config['webcal_url'] = webcal_url
+            return cmd_events_webcal(rest, config)
 
     access_token, api_base = auth_mod.setup_auth(
         config, debug=_debug_enabled(config)

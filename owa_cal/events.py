@@ -186,7 +186,13 @@ def to_local(dt_str, tz_name=''):
 
 
 def normalize_event(event):
-    """Flatten an Outlook REST event (PascalCase) into owa-cal's wire shape."""
+    """Flatten an Outlook REST event (PascalCase) into owa-cal's wire shape.
+
+    The wire shape is also produced by the webcal/iCal path in `ics.py`,
+    which populates the optional `body` field from DESCRIPTION. Outlook
+    REST `calendarView` does not return Body by default and the field is
+    omitted here to keep the JSON compact.
+    """
     s = event.get('Start') or {}
     en = event.get('End') or {}
     loc = event.get('Location') or {}
