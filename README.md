@@ -127,6 +127,59 @@ which v0.3 shortcuts work on the default path. Set
 or use the audience-specific siblings (`owa-cal`, `owa-mail`) which
 target the Outlook REST audience instead.
 
+## Scope hint (v0.5+)
+
+Before sending the request, `owa-graph` decodes the JWT's `scp` claim
+and matches the request `(path, verb)` against a curated manifest at
+`owa_graph/data/scopes.json`. If the scope your call needs isn't in
+the token, you get an advisory warning on stderr:
+
+```
+$ owa-graph GET /me/contacts
+warn: this call requires Contacts.Read; your token does not carry it.
+      Likely 403. Set GRAPH_APP_CLIENT_ID for broader scope, or set
+      OWA_GRAPH_NO_SCOPE_HINTS=1 to silence this warning.
+ERROR: access denied (403). Check permissions/scopes.
+```
+
+The warning never blocks the call - it converts an opaque server-side
+`403` into an actionable client-side diagnostic. Suppression:
+
+- `OWA_GRAPH_NO_SCOPE_HINTS=1` for CI / scripted use
+- `--audience <other>`: hint only fires for `graph` (other audiences
+  use different scope namespaces the manifest doesn't cover)
+- uncurated paths stay quiet (no false positives)
+
+The manifest is hand-curated and intentionally sparse; see
+`owa_graph/data/scopes.json` to extend coverage.
+
+## Shell completion (v0.5+)
+
+Hand-written completion scripts ship under `completions/`. No
+`argcomplete` dependency.
+
+```sh
+# Bash (macOS Homebrew)
+ln -s "$(brew --prefix owa-graph)/completions/owa-graph.bash" \
+      "$(brew --prefix)/etc/bash_completion.d/owa-graph"
+
+# Zsh (anywhere on $fpath named exactly _owa-graph)
+cp completions/owa-graph.zsh "$(brew --prefix)/share/zsh/site-functions/_owa-graph"
+
+# Fish
+cp completions/owa-graph.fish ~/.config/fish/completions/owa-graph.fish
+```
+
+Coverage:
+
+- HTTP verbs, resource groups, and reserved subcommands at the top level
+- per-group shortcuts after `owa-graph mail <TAB>` etc.
+- `--audience <TAB>` lists the 13 known FOCI audiences
+- the full flag set is suggested anywhere a flag can appear
+
+Path completion (`owa-graph GET <TAB>` resolving to known Graph paths)
+lands in v0.6 with the CSDL-derived path manifest.
+
 ## Development
 
 ```sh

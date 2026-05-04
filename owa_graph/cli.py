@@ -113,6 +113,10 @@ Environment:
   GRAPH_APP_CLIENT_ID,      App-registration path: bypass owa-piggy and call
   GRAPH_REFRESH_TOKEN,      AAD directly. Useful when you need broader Graph
   GRAPH_TENANT_ID           scopes than the OWA first-party SPA carries.
+  OWA_GRAPH_NO_SCOPE_HINTS=1
+                            Suppress the pre-flight scope-mismatch warning
+                            that fires before a request whose scope isn't in
+                            the JWT. Useful for CI / scripted use.
 
 Auth:
   Default path: owa-graph shells out to owa-piggy for a fresh access
