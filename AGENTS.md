@@ -16,9 +16,13 @@ owns the refresh token, owa-cal stores only an optional profile alias
 (`owa_piggy_profile`). Alternative path: set `OUTLOOK_APP_CLIENT_ID`
 (plus `OUTLOOK_REFRESH_TOKEN` / `OUTLOOK_TENANT_ID` in the config
 file) to use a user-owned app registration directly. Third path:
-`webcal_url` (or `OWA_CAL_WEBCAL_URL`) points at a published iCal
-feed with a secret token in the URL - no OAuth, no Microsoft,
-read-only. While set, write commands are rejected before auth runs.
+named webcal/iCal profiles managed via `owa-cal profiles add <alias>
+--webcal <url>`, stored at `~/.config/owa-cal/profiles.json` (0600).
+`--profile <alias>` resolves locally first ("closest profile wins"):
+local webcal hit -> read-only feed; otherwise forwarded to owa-piggy.
+On collision the resolver warns to stderr and keeps using owa-cal.
+`OWA_CAL_WEBCAL_URL` is the unnamed escape hatch for one-shot scripts
+and only kicks in when no profile name is set.
 
 ## Ground rules
 
@@ -59,6 +63,7 @@ owa_cal/
   auth.py            # do_token_refresh (app-reg path + owa-piggy bridge)
   api.py             # Outlook REST HTTP helper (urllib)
   ics.py             # webcal/iCal reader (read-only, no auth)
+  profiles.py        # local webcal profile JSON store + piggy alias listing
   jwt.py             # token_minutes_remaining (no signature validation)
 scripts/
   add-to-path.sh     # pipx-based installer shim

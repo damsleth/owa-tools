@@ -15,6 +15,32 @@ def tmp_config(tmp_path, monkeypatch):
 
 
 @pytest.fixture
+def tmp_profiles(tmp_path, monkeypatch):
+    """Redirect owa_cal.profiles.PROFILES_PATH to a path under tmp_path
+    so add/delete/load operations don't touch the user's real file."""
+    fake_path = tmp_path / 'owa-cal' / 'profiles.json'
+    from owa_cal import profiles as profiles_mod
+    monkeypatch.setattr(profiles_mod, 'PROFILES_PATH', fake_path)
+    return fake_path
+
+
+@pytest.fixture
+def stub_piggy_aliases(monkeypatch):
+    """Pin the (aliases, default) tuple returned by the piggy lister
+    so tests don't shell out to a real owa-piggy. Returns a setter."""
+    from owa_cal import profiles as profiles_mod
+
+    def _set(aliases, default=''):
+        monkeypatch.setattr(
+            profiles_mod, 'piggy_aliases',
+            lambda: (set(aliases), default),
+        )
+
+    _set([], '')
+    return _set
+
+
+@pytest.fixture
 def clean_env(monkeypatch):
     """Strip OUTLOOK_* env vars so tests start from a known state."""
     for key in (

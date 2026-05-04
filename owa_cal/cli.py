@@ -20,6 +20,7 @@ from . import auth as auth_mod
 from . import config as config_mod
 from . import events as events_mod
 from . import ics as ics_mod
+from . import profiles as profiles_mod
 from .dates import (
     current_iso_week,
     iso_week_range,
@@ -98,9 +99,11 @@ Usage: owa-cal <command> [options]
 Global options:
   --debug, --verbose  Print HTTP requests and response bodies on errors
                       (also: CAL_DEBUG=1)
-  --profile <alias>   Forward to owa-piggy as --profile <alias> for
-                      this invocation (overrides owa_piggy_profile in
-                      the config file, and OWA_PROFILE in the env)
+  --profile <alias>   Profile alias for this invocation. Resolves to a
+                      local webcal source first (see `profiles add`),
+                      else forwarded to owa-piggy as --profile <alias>.
+                      Overrides owa_piggy_profile in the config file
+                      and OWA_PROFILE in the env.
 
 Environment:
   CAL_DEBUG=1         Same as --debug
@@ -112,9 +115,9 @@ Environment:
   OWA_TENANT_ID       can mint tokens with no on-disk config. Enables
                       `uvx owa-cal events` against a fresh machine
                       (see README -> Single-line uvx)
-  OWA_CAL_WEBCAL_URL  Use a webcal/iCal feed instead of OAuth. Read-only:
-                      `events` works, `create`/`update`/`delete` fail
-                      cleanly. Overrides webcal_url in the config file.
+  OWA_CAL_WEBCAL_URL  Ad-hoc webcal/iCal source (no profile). Used only
+                      when no --profile name is set. Read-only: `events`
+                      works, write commands fail cleanly.
 
 Commands:
   refresh             Force a token refresh and verify auth
@@ -123,6 +126,8 @@ Commands:
   update              Update an existing event
   delete              Delete an event
   categories          List or add master categories
+  profiles            List/add/delete calendar profiles (merged with
+                      owa-piggy profiles)
   config              View or update configuration
   help                Show this help
 
@@ -161,14 +166,18 @@ Categories options:
   --pretty            Human-readable table (default: JSON)
   (no flags)          List all categories as JSON
 
+Profiles options:
+  profiles                       List all profiles as JSON (owa-cal +
+                                 owa-piggy, with shadow markers)
+  profiles --pretty              Human-readable listing
+  profiles add <alias> --webcal <url>
+                                 Save a webcal/iCal source under <alias>.
+                                 The URL is a bearer secret stored at
+                                 ~/.config/owa-cal/profiles.json (0600).
+  profiles delete <alias>        Remove an owa-cal profile
+
 Config options:
-  --profile <alias>   Pin an owa-piggy profile alias (owa_piggy_profile)
-  --webcal <url>      Use a read-only webcal/iCal feed (no OAuth, no
-                      Microsoft). The URL is a bearer secret; stored
-                      in the config file with 0600 perms. While set,
-                      `events` reads the feed and write commands are
-                      rejected.
-  --clear-webcal      Remove webcal_url and return to the OAuth path
+  --profile <alias>   Pin a default profile alias (owa_piggy_profile)
 
 Auth:
   owa-cal shells out to owa-piggy for a fresh access token on every
@@ -187,7 +196,10 @@ Examples:
   owa-cal create --subject "Standup" --date tomorrow --start 09:00 --end 09:30
   owa-cal update --id AAMkAG... --category "ProjectX"
   owa-cal delete --id AAMkAG...
-  owa-cal categories""")
+  owa-cal categories
+  owa-cal profiles --pretty
+  owa-cal profiles add brkh --webcal 'https://example.invalid/feed?key=...'
+  owa-cal --profile brkh events --pretty""")
 
 
 def _require_value(flag, args):
@@ -589,34 +601,24 @@ def cmd_categories(args, config, access_token, api_base):
 
 def cmd_config(args, config):
     """Handled specially: no auth required, so this does not call
-    setup_auth - the dispatcher routes `config` here before auth."""
+    setup_auth - the dispatcher routes `config` here before auth.
+
+    Webcal sources are managed through `owa-cal profiles add/delete`,
+    not this command - they live in their own JSON store with secret
+    handling, and conflating them with the flat KV config file made
+    the data model harder to reason about.
+    """
     profile = ''
-    webcal = None
     while args:
         flag, args = args[0], args[1:]
         if flag == '--profile':
             profile, args = _require_value(flag, args)
-        elif flag == '--webcal':
-            webcal, args = _require_value(flag, args)
-        elif flag == '--clear-webcal':
-            webcal = ''
         else:
             _error(f'Unknown flag: {flag}'); sys.exit(1)
 
     if profile:
         config_mod.config_set('owa_piggy_profile', profile)
-        _info(f'owa-piggy profile saved: {profile}')
-        return 0
-
-    if webcal is not None:
-        # The URL is a bearer secret - persist with the config file's
-        # 0600 perms (already enforced by save_config) and treat it as
-        # the read-only source for this profile from now on.
-        config_mod.config_set('webcal_url', webcal)
-        if webcal:
-            _info('webcal_url saved (read-only source enabled)')
-        else:
-            _info('webcal_url cleared')
+        _info(f'default profile saved: {profile}')
         return 0
 
     _info(f'Config file: {config_mod.CONFIG_PATH}')
@@ -625,8 +627,6 @@ def cmd_config(args, config):
     else:
         _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
     _info(f"  default_timezone={config.get('default_timezone')}")
-    if config.get('webcal_url'):
-        _info('  webcal_url=(set - read-only feed mode)')
     return 0
 
 
@@ -664,14 +664,199 @@ WEBCAL_READ_COMMANDS = {'events'}
 WEBCAL_REJECTED_COMMANDS = {'create', 'update', 'delete', 'categories'}
 
 
-def _resolve_webcal_url(config):
-    """Webcal source URL precedence: env > config file. Empty string
-    means 'no webcal source' and the caller should fall through to the
-    Outlook REST path."""
-    env = (os.environ.get('OWA_CAL_WEBCAL_URL') or '').strip()
-    if env:
-        return env
-    return (config.get('webcal_url') or '').strip()
+def _resolve_source(config):
+    """Resolve which calendar source this invocation should use.
+
+    Returns one of:
+        ('webcal', url)   - read from a webcal/iCal feed
+        ('oauth', alias)  - use owa-piggy with the given profile alias
+                            ('' meaning piggy's own default)
+
+    Order ("closest profile wins"):
+      1. A name set via --profile / config pin: if it matches a local
+         webcal profile -> webcal. If it ALSO matches an owa-piggy
+         profile, emit a stderr note - the user can run owa-piggy
+         directly to escape the shadow.
+      2. The named profile is not local -> forward to owa-piggy.
+      3. No name set, but `OWA_CAL_WEBCAL_URL` env present -> webcal
+         (ad-hoc, no name, useful for one-shot scripts).
+      4. Otherwise -> oauth with no alias (piggy default).
+    """
+    name = (config.get('owa_piggy_profile') or '').strip()
+    if name:
+        local = profiles_mod.load_local().get(name)
+        if isinstance(local, dict) and local.get('webcal_url'):
+            piggy_set, _piggy_default = profiles_mod.piggy_aliases()
+            if name in piggy_set:
+                _info(
+                    f"note: '{name}' is also an owa-piggy profile; "
+                    f"using owa-cal's webcal source. Run "
+                    f"`owa-piggy ... --profile {name}` directly to use "
+                    f"the OAuth path."
+                )
+            return ('webcal', local['webcal_url'])
+        return ('oauth', name)
+    env_url = (os.environ.get('OWA_CAL_WEBCAL_URL') or '').strip()
+    if env_url:
+        return ('webcal', env_url)
+    return ('oauth', '')
+
+
+def _format_profiles_pretty(local_profiles, piggy_set, piggy_default):
+    """Build the --pretty rendering of the merged profile listing.
+
+    owa-cal entries first ("closest profile wins"), then owa-piggy.
+    Shadow markers on both sides so the user can see the collision.
+    URLs are never printed - they are bearer secrets.
+    """
+    lines = []
+    if local_profiles:
+        lines.append('owa-cal (webcal):')
+        for alias in sorted(local_profiles):
+            tag = (
+                '  [also defined in owa-piggy; this wins]'
+                if alias in piggy_set else ''
+            )
+            lines.append(f'  {alias}{tag}')
+        lines.append('')
+    if piggy_set:
+        lines.append('owa-piggy (oauth):')
+        for alias in sorted(piggy_set):
+            markers = []
+            if alias in local_profiles:
+                markers.append('shadowed by owa-cal')
+            if alias == piggy_default:
+                markers.append('default')
+            tag = f'  [{"; ".join(markers)}]' if markers else ''
+            prefix = '* ' if alias == piggy_default else '  '
+            lines.append(f'{prefix}{alias}{tag}')
+    if not lines:
+        return 'No profiles configured.'
+    return '\n'.join(lines).rstrip()
+
+
+def _profiles_json(local_profiles, piggy_set, piggy_default):
+    """Build the JSON shape for `owa-cal profiles` (no --pretty).
+
+    Flat list, owa-cal entries first, with shadow markers on each
+    side. URLs are never included.
+    """
+    out = []
+    for alias in sorted(local_profiles):
+        out.append({
+            'alias': alias,
+            'source': 'owa-cal',
+            'kind': 'webcal',
+            'default': False,
+            'shadows_owa_piggy': alias in piggy_set,
+        })
+    for alias in sorted(piggy_set):
+        out.append({
+            'alias': alias,
+            'source': 'owa-piggy',
+            'kind': 'oauth',
+            'default': alias == piggy_default,
+            'shadowed_by_owa_cal': alias in local_profiles,
+        })
+    return out
+
+
+def cmd_profiles(args, config):
+    """List, add, or delete calendar profiles.
+
+    No auth - this command never reaches the network. The piggy
+    listing is best-effort: if owa-piggy is unavailable we just show
+    the local entries.
+    """
+    if not args or args[0].startswith('-'):
+        return _profiles_list(args)
+    sub, rest = args[0], args[1:]
+    if sub == 'list':
+        return _profiles_list(rest)
+    if sub == 'add':
+        return _profiles_add(rest)
+    if sub == 'delete':
+        return _profiles_delete(rest)
+    _error(f'Unknown subcommand: {sub}. Try: profiles [list|add|delete]')
+    return 1
+
+
+def _profiles_list(args):
+    pretty = False
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--pretty':
+            pretty = True
+        else:
+            _error(f'Unknown flag: {flag}'); sys.exit(1)
+    local = profiles_mod.load_local()
+    piggy_set, piggy_default = profiles_mod.piggy_aliases()
+    if pretty:
+        print(_format_profiles_pretty(local, piggy_set, piggy_default))
+    else:
+        print(json.dumps(_profiles_json(local, piggy_set, piggy_default)))
+    return 0
+
+
+def _profiles_add(args):
+    alias = ''
+    webcal = ''
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--webcal':
+            webcal, args = _require_value(flag, args)
+        elif flag.startswith('-'):
+            _error(f'Unknown flag: {flag}'); sys.exit(1)
+        elif not alias:
+            alias = flag
+        else:
+            _error(f'Unexpected argument: {flag}'); sys.exit(1)
+    if not alias:
+        _error('profiles add requires an <alias>')
+        return 1
+    if not webcal:
+        _error('profiles add requires --webcal <url>')
+        return 1
+    new = profiles_mod.add_local(alias, webcal)
+    piggy_set, _default = profiles_mod.piggy_aliases()
+    verb = 'created' if new else 'updated'
+    _info(f"profile '{alias}' {verb} (webcal source)")
+    if alias in piggy_set:
+        _info(
+            f"note: '{alias}' is also an owa-piggy profile. "
+            f"`owa-cal --profile {alias}` will now use the webcal source; "
+            f"run `owa-piggy ... --profile {alias}` directly for OAuth."
+        )
+    return 0
+
+
+def _profiles_delete(args):
+    alias = ''
+    while args:
+        flag, args = args[0], args[1:]
+        if flag.startswith('-'):
+            _error(f'Unknown flag: {flag}'); sys.exit(1)
+        elif not alias:
+            alias = flag
+        else:
+            _error(f'Unexpected argument: {flag}'); sys.exit(1)
+    if not alias:
+        _error('profiles delete requires an <alias>')
+        return 1
+    if profiles_mod.delete_local(alias):
+        _info(f"profile '{alias}' removed")
+        return 0
+    # The alias might be a piggy profile - point the user at the right
+    # tool rather than silently succeeding or failing.
+    piggy_set, _default = profiles_mod.piggy_aliases()
+    if alias in piggy_set:
+        _error(
+            f"'{alias}' is an owa-piggy profile, not an owa-cal profile. "
+            f"Run `owa-piggy profiles delete {alias}` to remove it."
+        )
+        return 2
+    _error(f"no owa-cal profile named '{alias}'")
+    return 1
 
 
 def main():
@@ -727,28 +912,34 @@ def main():
         return cmd_config(rest, config)
     if cmd == 'refresh':
         return cmd_refresh(rest, config)
+    if cmd == 'profiles':
+        return cmd_profiles(rest, config)
 
     if cmd not in AUTHED_COMMANDS:
         _error(f"Unknown command: {cmd}. Run 'owa-cal help' for usage.")
         return 1
 
-    # Webcal/iCal source short-circuits before auth: no token refresh,
-    # no Outlook REST. Read commands route to the iCal reader; write
-    # commands and `categories` are rejected with a clear message
+    # Source resolution short-circuits before auth: a named local
+    # webcal profile, or OWA_CAL_WEBCAL_URL, takes the iCal path. Write
+    # commands and `categories` are rejected against any webcal source
     # because the feed is read-only and carries no category metadata.
-    webcal_url = _resolve_webcal_url(config)
-    if webcal_url:
+    source, value = _resolve_source(config)
+    if source == 'webcal':
         if cmd in WEBCAL_REJECTED_COMMANDS:
             _error(
                 f"'{cmd}' is not supported on a webcal source "
-                f"(read-only feed). Unset webcal_url or "
+                f"(read-only feed). Use a different --profile or unset "
                 f"OWA_CAL_WEBCAL_URL to use the Outlook REST path."
             )
             return 2
         if cmd in WEBCAL_READ_COMMANDS:
-            config['webcal_url'] = webcal_url
+            config['webcal_url'] = value
             return cmd_events_webcal(rest, config)
 
+    # source == 'oauth': fall through to setup_auth. The resolver may
+    # have returned an explicit alias or '' (piggy default); we leave
+    # `config['owa_piggy_profile']` untouched - existing auth code reads
+    # it directly.
     access_token, api_base = auth_mod.setup_auth(
         config, debug=_debug_enabled(config)
     )

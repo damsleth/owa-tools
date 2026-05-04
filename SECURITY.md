@@ -36,14 +36,17 @@ user. Token acquisition is delegated: either to an app-registration
   owa-cal persists the rotated token back atomically (temp file +
   fsync + rename). A crash mid-exchange leaves either the old or the
   new token, never a truncated mix.
-- On the **webcal path** (`webcal_url` / `OWA_CAL_WEBCAL_URL`) the
-  URL itself is the credential: anyone who has it can read the feed
-  for as long as the publisher honours the token. Treat it like a
-  refresh token. owa-cal stores it in the same `0600` config file,
-  uses HTTPS for transport (the `webcal://` scheme is rewritten),
-  and does not log the URL except under `--debug`. The path is
+- On the **webcal path** (named profiles via `owa-cal profiles add`,
+  or the `OWA_CAL_WEBCAL_URL` escape hatch) the URL itself is the
+  credential: anyone who has it can read the feed for as long as the
+  publisher honours the token. Treat it like a refresh token. Named
+  profiles live at `~/.config/owa-cal/profiles.json` (mode `0600`,
+  parent dir `0700`); `OWA_CAL_WEBCAL_URL` is process-scoped only.
+  Transport is HTTPS (the `webcal://` scheme is rewritten before the
+  request). URLs are never echoed by `owa-cal profiles` (JSON or
+  `--pretty`); only the alias and shadow status appear. The path is
   read-only: `create`, `update`, `delete`, and `categories` refuse to
-  run while a webcal source is configured.
+  run while the resolved source is webcal.
 - Access tokens are held in memory only. They are not cached on
   disk; each CLI invocation fetches a fresh one. (`owa-piggy` does
   cache access tokens in its own process; see its SECURITY.md.)
