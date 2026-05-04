@@ -1,0 +1,75 @@
+{
+  "$schema_version": 1,
+  "$comment": "Hand-curated subset of Graph scope requirements. Best-effort - missing entries fall through silently. See SECURITY.md / owa_graph/scopes.py for the matcher contract. Path templates use {x} as wildcard.",
+  "scopes": [
+    {"path": "/me", "verb": "GET", "scopes": ["User.Read"]},
+    {"path": "/me", "verb": "PATCH", "scopes": ["User.ReadWrite"]},
+    {"path": "/me/photo/$value", "verb": "GET", "scopes": ["User.Read"]},
+    {"path": "/me/manager", "verb": "GET", "scopes": ["User.Read"]},
+    {"path": "/me/directReports", "verb": "GET", "scopes": ["User.Read"]},
+    {"path": "/me/presence", "verb": "GET", "scopes": ["Presence.Read"]},
+    {"path": "/me/joinedTeams", "verb": "GET", "scopes": ["Team.ReadBasic.All"]},
+
+    {"path": "/users", "verb": "GET", "scopes": ["User.Read.All"]},
+    {"path": "/users/{id}", "verb": "GET", "scopes": ["User.Read.All"]},
+    {"path": "/users/{id}/manager", "verb": "GET", "scopes": ["User.Read.All"]},
+    {"path": "/users/{id}/directReports", "verb": "GET", "scopes": ["User.Read.All"]},
+
+    {"path": "/me/messages", "verb": "GET", "scopes": ["Mail.Read"]},
+    {"path": "/me/messages/{id}", "verb": "GET", "scopes": ["Mail.Read"]},
+    {"path": "/me/messages/{id}", "verb": "PATCH", "scopes": ["Mail.ReadWrite"]},
+    {"path": "/me/messages/{id}", "verb": "DELETE", "scopes": ["Mail.ReadWrite"]},
+    {"path": "/me/sendMail", "verb": "POST", "scopes": ["Mail.Send"]},
+    {"path": "/me/mailFolders", "verb": "GET", "scopes": ["Mail.Read"]},
+    {"path": "/me/mailFolders/{id}/messages", "verb": "GET", "scopes": ["Mail.Read"]},
+
+    {"path": "/me/events", "verb": "GET", "scopes": ["Calendars.Read"]},
+    {"path": "/me/events", "verb": "POST", "scopes": ["Calendars.ReadWrite"]},
+    {"path": "/me/events/{id}", "verb": "GET", "scopes": ["Calendars.Read"]},
+    {"path": "/me/events/{id}", "verb": "PATCH", "scopes": ["Calendars.ReadWrite"]},
+    {"path": "/me/events/{id}", "verb": "DELETE", "scopes": ["Calendars.ReadWrite"]},
+    {"path": "/me/calendar", "verb": "GET", "scopes": ["Calendars.Read"]},
+    {"path": "/me/calendars", "verb": "GET", "scopes": ["Calendars.Read"]},
+
+    {"path": "/me/contacts", "verb": "GET", "scopes": ["Contacts.Read"]},
+    {"path": "/me/contacts/{id}", "verb": "GET", "scopes": ["Contacts.Read"]},
+
+    {"path": "/me/drive", "verb": "GET", "scopes": ["Files.Read"]},
+    {"path": "/me/drive/root", "verb": "GET", "scopes": ["Files.Read"]},
+    {"path": "/me/drive/root/children", "verb": "GET", "scopes": ["Files.Read"]},
+    {"path": "/me/drive/items/{id}", "verb": "GET", "scopes": ["Files.Read"]},
+    {"path": "/me/drives", "verb": "GET", "scopes": ["Files.Read"]},
+
+    {"path": "/me/todo/lists", "verb": "GET", "scopes": ["Tasks.Read"]},
+    {"path": "/me/todo/lists/{id}/tasks", "verb": "GET", "scopes": ["Tasks.Read"]},
+    {"path": "/me/planner/tasks", "verb": "GET", "scopes": ["Tasks.Read"]},
+    {"path": "/me/planner/plans", "verb": "GET", "scopes": ["Tasks.Read"]},
+
+    {"path": "/teams", "verb": "GET", "scopes": ["Team.ReadBasic.All"]},
+    {"path": "/teams/{id}", "verb": "GET", "scopes": ["Team.ReadBasic.All"]},
+    {"path": "/teams/{id}/channels", "verb": "GET", "scopes": ["Channel.ReadBasic.All"]},
+    {"path": "/teams/{id}/channels/{cid}/messages", "verb": "GET", "scopes": ["ChannelMessage.Read.All"]},
+
+    {"path": "/chats", "verb": "GET", "scopes": ["Chat.Read"]},
+    {"path": "/chats/{id}", "verb": "GET", "scopes": ["Chat.Read"]},
+    {"path": "/chats/{id}/messages", "verb": "GET", "scopes": ["Chat.Read"]},
+    {"path": "/chats/{id}/messages", "verb": "POST", "scopes": ["ChatMessage.Send"]},
+
+    {"path": "/groups", "verb": "GET", "scopes": ["Group.Read.All"]},
+    {"path": "/groups/{id}", "verb": "GET", "scopes": ["Group.Read.All"]},
+    {"path": "/groups/{id}/members", "verb": "GET", "scopes": ["GroupMember.Read.All"]},
+
+    {"path": "/sites", "verb": "GET", "scopes": ["Sites.Read.All"]},
+    {"path": "/sites/{id}", "verb": "GET", "scopes": ["Sites.Read.All"]},
+    {"path": "/sites/{id}/lists", "verb": "GET", "scopes": ["Sites.Read.All"]},
+
+    {"path": "/applications", "verb": "GET", "scopes": ["Application.Read.All"]},
+    {"path": "/applications/{id}", "verb": "GET", "scopes": ["Application.Read.All"]},
+    {"path": "/servicePrincipals", "verb": "GET", "scopes": ["Application.Read.All"]},
+
+    {"path": "/directoryRoles", "verb": "GET", "scopes": ["RoleManagement.Read.Directory"]},
+    {"path": "/directoryRoles/{id}/members", "verb": "GET", "scopes": ["RoleManagement.Read.Directory"]},
+    {"path": "/auditLogs/directoryAudits", "verb": "GET", "scopes": ["AuditLog.Read.All"]},
+    {"path": "/auditLogs/signIns", "verb": "GET", "scopes": ["AuditLog.Read.All"]}
+  ]
+}

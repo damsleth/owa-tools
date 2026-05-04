@@ -51,4 +51,7 @@ owa-graph = "owa_graph:main"
 test = ["pytest"]
 
 [tool.setuptools]
-packages = ["owa_graph"]
+packages = ["owa_graph", "owa_graph.data", "owa_graph.resources"]
+
+[tool.setuptools.package-data]
+"owa_graph.data" = ["*.json"]
