@@ -1,0 +1,96 @@
+# bash completion for owa-graph
+#
+# Install: source this file from your bashrc, or symlink into
+# /usr/local/etc/bash_completion.d/ (Homebrew) or
+# /etc/bash_completion.d/ (system).
+#
+# Sticks to bash 3 syntax for default-macOS compatibility - no
+# associative arrays, no compopt dependency on bash-completion v2.
+
+_owa_graph() {
+    local cur prev words cword
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    local verbs="GET POST PATCH PUT DELETE"
+    local reserved="refresh config batch help"
+    local groups="me mail calendar files users teams chats presence contacts groups planner todo sites directory"
+    local audiences="graph outlook outlook365 teams azure keyvault storage sql substrate manage powerbi flow devops"
+    local flags="--pretty --ndjson --retry --all --raw --curl --az --beta --debug --verbose --version --help --profile --body --header --query --select --top --filter --count --search --audience"
+
+    # Value-completing flags (next arg is a value, not another flag).
+    case "$prev" in
+        --audience)
+            COMPREPLY=( $(compgen -W "$audiences" -- "$cur") )
+            return 0
+            ;;
+        --profile|--body|--header|--query|--select|--top|--filter|--search)
+            # No useful static completion - leave to the user / their shell.
+            COMPREPLY=()
+            return 0
+            ;;
+    esac
+
+    # Resource-group shortcuts. Walk back through COMP_WORDS to find
+    # the last non-flag token; if it's a known group, complete that
+    # group's shortcuts.
+    local i group=""
+    for (( i=1; i<COMP_CWORD; i++ )); do
+        local w="${COMP_WORDS[i]}"
+        case "$w" in
+            -*) continue ;;
+        esac
+        case "$w" in
+            me|mail|calendar|files|users|teams|chats|presence|contacts|groups|planner|todo|sites|directory)
+                group="$w"
+                break
+                ;;
+            GET|POST|PATCH|PUT|DELETE|get|post|patch|put|delete|refresh|config|batch|help)
+                # User chose a non-group head - no shortcut completion.
+                break
+                ;;
+        esac
+    done
+
+    if [[ -n "$group" && "$cur" != -* ]]; then
+        # Only complete shortcut name in the slot immediately after the
+        # group token. Beyond that, fall through to flag completion.
+        if [[ ${COMP_CWORD} -eq $((i+1)) ]]; then
+            local shortcuts=""
+            case "$group" in
+                me)        shortcuts="whoami photo manager directreports help" ;;
+                mail)      shortcuts="list read send reply replyall forward move flag delete help" ;;
+                calendar)  shortcuts="events create update delete findtimes accept decline help" ;;
+                files)     shortcuts="list download upload share delete search help" ;;
+                users)     shortcuts="list find get manager directreports help" ;;
+                teams)     shortcuts="joined channels messages send members help" ;;
+                chats)     shortcuts="list messages send help" ;;
+                presence)  shortcuts="me set get help" ;;
+                contacts)  shortcuts="list find create delete help" ;;
+                groups)    shortcuts="list members add remove help" ;;
+                planner)   shortcuts="tasks complete plans buckets help" ;;
+                todo)      shortcuts="lists tasks add complete help" ;;
+                sites)     shortcuts="find lists items help" ;;
+                directory) shortcuts="roles auditlogs help" ;;
+            esac
+            COMPREPLY=( $(compgen -W "$shortcuts" -- "$cur") )
+            return 0
+        fi
+    fi
+
+    # First positional: verbs + groups + reserved.
+    if [[ ${COMP_CWORD} -eq 1 && "$cur" != -* ]]; then
+        COMPREPLY=( $(compgen -W "$verbs $reserved $groups" -- "$cur") )
+        return 0
+    fi
+
+    # Default: flag completion.
+    if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "$flags" -- "$cur") )
+        return 0
+    fi
+
+    COMPREPLY=()
+}
+
+complete -F _owa_graph owa-graph
