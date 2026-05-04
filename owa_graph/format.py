@@ -20,6 +20,40 @@ def _looks_like_users(items):
     return all(isinstance(i, dict) and ('displayName' in i or 'userPrincipalName' in i) for i in items)
 
 
+def _looks_like_groups(items):
+    # Groups carry `mailEnabled` (Boolean) which neither users, teams, nor
+    # channels have. Cheapest unambiguous discriminator.
+    return all(isinstance(i, dict) and 'mailEnabled' in i for i in items)
+
+
+def _looks_like_channels(items):
+    # Channels: displayName + a teams.microsoft.com web URL. The webUrl is
+    # how we tell channels apart from teams (which only sometimes carry
+    # webUrl, and never with that host).
+    if not items:
+        return False
+    for i in items:
+        if not (isinstance(i, dict) and 'displayName' in i):
+            return False
+        url = i.get('webUrl') or ''
+        if 'teams.microsoft.com' not in url:
+            return False
+    return True
+
+
+def _looks_like_teams(items):
+    # Teams: displayName + description, no mailEnabled (groups), no
+    # userPrincipalName (users), no teams.microsoft.com webUrl (channels).
+    return all(
+        isinstance(i, dict)
+        and 'displayName' in i
+        and 'description' in i
+        and 'mailEnabled' not in i
+        and 'userPrincipalName' not in i
+        for i in items
+    )
+
+
 def _looks_like_messages(items):
     return all(
         isinstance(i, dict) and 'subject' in i and ('from' in i or 'sender' in i)
@@ -64,6 +98,49 @@ def _format_messages(items):
     )
 
 
+def _format_groups(items):
+    rows = [(
+        i.get('displayName') or '',
+        i.get('mail') or '',
+        i.get('id') or '',
+    ) for i in items]
+    if not rows:
+        return '(no items)'
+    name_w = max(len(r[0]) for r in rows)
+    mail_w = max(len(r[1]) for r in rows)
+    return '\n'.join(
+        f'{_pad(n, name_w)}  {_pad(m, mail_w)}  {i}' for n, m, i in rows
+    )
+
+
+def _format_teams(items):
+    rows = [(
+        i.get('displayName') or '',
+        i.get('id') or '',
+    ) for i in items]
+    if not rows:
+        return '(no items)'
+    name_w = max(len(r[0]) for r in rows)
+    return '\n'.join(
+        f'{_pad(n, name_w)}  {i}' for n, i in rows
+    )
+
+
+def _format_channels(items):
+    rows = [(
+        i.get('displayName') or '',
+        i.get('membershipType') or '',
+        i.get('id') or '',
+    ) for i in items]
+    if not rows:
+        return '(no items)'
+    name_w = max(len(r[0]) for r in rows)
+    type_w = max(len(r[1]) for r in rows)
+    return '\n'.join(
+        f'{_pad(n, name_w)}  {_pad(t, type_w)}  {i}' for n, t, i in rows
+    )
+
+
 def _format_drive_items(items):
     rows = [(
         'd' if i.get('folder') else 'f',
@@ -85,6 +162,16 @@ def format_pretty(payload):
     if isinstance(payload, dict) and isinstance(payload.get('value'), list):
         items = payload['value']
         if items:
+            # Order matters: more specific shapes first. `mailEnabled`,
+            # `teams.microsoft.com` webUrl, and `description`-without-
+            # mailEnabled discriminate the new shapes from `_looks_like_users`,
+            # which would otherwise greedily match displayName-only items.
+            if _looks_like_groups(items):
+                return _format_groups(items)
+            if _looks_like_channels(items):
+                return _format_channels(items)
+            if _looks_like_teams(items):
+                return _format_teams(items)
             if _looks_like_users(items):
                 return _format_users(items)
             if _looks_like_messages(items):
