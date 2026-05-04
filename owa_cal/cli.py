@@ -14,6 +14,7 @@ import sys
 import urllib.parse
 from datetime import datetime, timedelta
 
+from . import __version__
 from . import api as api_mod
 from . import auth as auth_mod
 from . import config as config_mod
@@ -577,6 +578,9 @@ def main():
         return 0
     if argv[0] in ('help', '--help', '-h'):
         print_help()
+        return 0
+    if argv[0] == '--version':
+        print(f'owa-cal {__version__}')
         return 0
 
     debug_flag = False
