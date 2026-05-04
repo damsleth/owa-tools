@@ -54,6 +54,31 @@ def _looks_like_teams(items):
     )
 
 
+def _looks_like_planner_tasks(items):
+    # Every Planner task carries `percentComplete` (int 0-100). No other
+    # Graph shape we render uses that field.
+    return all(
+        isinstance(i, dict)
+        and 'title' in i
+        and isinstance(i.get('percentComplete'), int)
+        for i in items
+    )
+
+
+def _looks_like_todo_tasks(items):
+    # Microsoft To-Do task: `title` + a `status` enum ("notStarted",
+    # "inProgress", "completed", "waitingOnOthers", "deferred").
+    valid_status = {
+        'notStarted', 'inProgress', 'completed', 'waitingOnOthers', 'deferred',
+    }
+    return all(
+        isinstance(i, dict)
+        and 'title' in i
+        and i.get('status') in valid_status
+        for i in items
+    )
+
+
 def _looks_like_messages(items):
     return all(
         isinstance(i, dict) and 'subject' in i and ('from' in i or 'sender' in i)
@@ -141,6 +166,47 @@ def _format_channels(items):
     )
 
 
+def _format_planner_tasks(items):
+    rows = []
+    for i in items:
+        due = (i.get('dueDateTime') or '')[:10]
+        pct = i.get('percentComplete')
+        pct_s = '' if pct is None else f'{pct}%'
+        rows.append((
+            i.get('title') or '',
+            due,
+            pct_s,
+            i.get('id') or '',
+        ))
+    if not rows:
+        return '(no items)'
+    title_w = max(len(r[0]) for r in rows)
+    due_w = max(len(r[1]) for r in rows) or 10
+    pct_w = max(len(r[2]) for r in rows) or 4
+    return '\n'.join(
+        f'{_pad(t, title_w)}  {_pad(d, due_w)}  {_pad(p, pct_w)}  {i}'
+        for t, d, p, i in rows
+    )
+
+
+def _format_todo_tasks(items):
+    rows = []
+    for i in items:
+        due = ((i.get('dueDateTime') or {}).get('dateTime') or '')[:10]
+        rows.append((
+            i.get('title') or '',
+            i.get('status') or '',
+            due,
+        ))
+    if not rows:
+        return '(no items)'
+    title_w = max(len(r[0]) for r in rows)
+    status_w = max(len(r[1]) for r in rows)
+    return '\n'.join(
+        f'{_pad(t, title_w)}  {_pad(s, status_w)}  {d}' for t, s, d in rows
+    )
+
+
 def _format_drive_items(items):
     rows = [(
         'd' if i.get('folder') else 'f',
@@ -172,6 +238,10 @@ def format_pretty(payload):
                 return _format_channels(items)
             if _looks_like_teams(items):
                 return _format_teams(items)
+            if _looks_like_planner_tasks(items):
+                return _format_planner_tasks(items)
+            if _looks_like_todo_tasks(items):
+                return _format_todo_tasks(items)
             if _looks_like_users(items):
                 return _format_users(items)
             if _looks_like_messages(items):
