@@ -1,0 +1,29 @@
+{
+  "command": "",
+  "destructive": false,
+  "exit_code": null,
+  "flags": [
+    "--audience",
+    "--debug",
+    "--help",
+    "--no-tokens",
+    "--pretty",
+    "--profile",
+    "--verbose",
+    "--version"
+  ],
+  "help_exit": 0,
+  "help_text": "owa-doctor - health check for the owa-* suite\n\nUsage: owa-doctor [options]\n\nOptions:\n  --profile <alias>     Probe only this profile (default: all profiles\n                        owa-piggy knows about).\n  --audience <name>     Token audience to test (default: graph). Pass\n                        outlook to verify Outlook REST is reachable.\n  --no-tokens           Skip per-profile token probes; only check\n                        which CLIs are installed and what version.\n  --pretty              Human-readable output (default: JSON).\n  --debug, --verbose    Verbose logs to stderr.\n  --version             Print version and exit.\n  -h, --help            Show this help.\n\nExit codes:\n  0  all probed profiles ok\n  1  one or more profiles are near expiry (< 10 min remaining)\n  2  one or more profiles failed (or owa-piggy is missing)\n\nExamples:\n  owa-doctor --pretty\n  owa-doctor --profile swon --pretty\n  owa-doctor --no-tokens                # quick install check only\n  owa-doctor --audience outlook --pretty\n",
+  "installed": true,
+  "sample_json": null,
+  "schema_version": 1,
+  "subcommands": [
+    "probe"
+  ],
+  "subcommands_curated": [
+    "probe"
+  ],
+  "subcommands_parsed": [],
+  "tool": "owa-doctor",
+  "tool_version": "owa-doctor 0.1.0"
+}

@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# Root project metadata. Each tool has its own __version__ in its package
+# __init__.py and ships as a separate distribution. The root project here
+# is the dev-install entry point: `pip install -e .[dev]` makes every
+# tool importable and runnable.
+
+[project]
+name = "owa-tools"
+version = "0.0.0.dev0"
+description = "Monorepo workspace for owa-piggy consumer CLIs"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "Carl Joakim Damsleth" }]
+
+# Runtime deps: stdlib only at the per-tool level. The workspace install
+# pulls in every package as a local path during development.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7",
+  "ruff>=0.4",
+]
+
+[project.scripts]
+# Umbrella binary plus one console script per consumer tool. Each tool's
+# version lives in its package __init__.py.
+owa = "owa.cli:main"
+owa-cal = "owa_cal:main"
+owa-mail = "owa_mail:main"
+owa-graph = "owa_graph:main"
+owa-doctor = "owa_doctor:main"
+owa-people = "owa_people:main"
+owa-sched = "owa_sched:main"
+owa-drive = "owa_drive:main"
+
+[tool.setuptools]
+packages = [
+  "owa_core",
+  "owa",
+  "owa_cal",
+  "owa_mail",
+  "owa_graph",
+  "owa_graph.resources",
+  "owa_graph.data",
+  "owa_doctor",
+  "owa_people",
+  "owa_sched",
+  "owa_drive",
+]
+
+[tool.setuptools.package-data]
+owa_graph = ["data/*.json", "data/*.json.gz"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/compat", "tests/contract", "tests/integration", "owa_core/tests"]
+addopts = "-q"

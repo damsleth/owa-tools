@@ -1,0 +1,19 @@
+{
+  "command": "config",
+  "destructive": false,
+  "exit_code": null,
+  "flags": [
+    "--debug",
+    "--limit",
+    "--pretty",
+    "--profile",
+    "--verbose"
+  ],
+  "help_exit": 0,
+  "help_text": "owa-people - People/contacts CLI for Outlook / Microsoft 365\n\nUsage: owa-people <command> [options]\n\nGlobal options:\n  --debug, --verbose  Print HTTP requests and response bodies on errors\n                      (also: PEOPLE_DEBUG=1)\n  --profile <alias>   Forward to owa-piggy as --profile <alias> for\n                      this invocation. Overrides owa_piggy_profile in\n                      the config file.\n\nCommands:\n  find <query>        Search people you've recently interacted with\n                      (relevance-ranked: /me/people).\n  show <id-or-email>  Show full details for one person.\n  directory <query>   Search the company directory (/users).\n  me                  Show the authenticated user (/me).\n  contacts            List your personal contacts (/me/contacts).\n  refresh             Force a token refresh and verify auth.\n  config              View or update configuration.\n  help                Show this help.\n\nCommon options:\n  --pretty            Human-readable output (default: JSON).\n  --limit <n>         Max results (default: 25, max 100).\n\nExamples:\n  owa-people find \"vibeke\" --pretty\n  owa-people show user@example.invalid\n  owa-people directory \"norconsult\" --limit 50 --pretty\n  owa-people me --pretty\n  owa-people --profile crayon find \"ole kristian\"\n\n",
+  "sample_json": null,
+  "schema_version": 1,
+  "subcommands": [],
+  "tool": "owa-people",
+  "tool_version": "owa-people 0.1.0"
+}
