@@ -1,0 +1,21 @@
+{
+  "command": "presence",
+  "destructive": false,
+  "exit_code": null,
+  "flags": [
+    "--activity",
+    "--availability",
+    "--duration",
+    "--id",
+    "--ndjson",
+    "--pretty",
+    "--retry"
+  ],
+  "help_exit": 0,
+  "help_text": "owa-graph presence - Read or set your Teams presence\n\nShortcuts:\n  me   Show my presence\n  get  Show another user's presence (--id)\n  set  Set my presence (--availability [--activity] [--duration PT1H])\n\nCommon flags accepted by every shortcut:\n  --pretty   Human-readable output (table for known shapes, indented JSON otherwise)\n  --ndjson   Stream collection items one JSON object per line\n  --retry    Honor Retry-After once on 429/503\n",
+  "sample_json": null,
+  "schema_version": 1,
+  "subcommands": [],
+  "tool": "owa-graph",
+  "tool_version": "owa-graph 0.2.0"
+}
