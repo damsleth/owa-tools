@@ -124,20 +124,6 @@ def test_owa_piggy_version_unparseable_does_not_block(monkeypatch, clean_env):
     assert auth_mod._refresh_via_owa_piggy({}, debug=False) == 'fake-access-token-for-tests'
 
 
-def test_setup_auth_app_path_requires_refresh_token_and_tenant(
-    monkeypatch, capsys, clean_env,
-):
-    from owa_cal import auth as auth_mod
-
-    config = {'OUTLOOK_APP_CLIENT_ID': 'cid'}
-    with pytest.raises(SystemExit) as exc:
-        auth_mod.setup_auth(config, debug=False)
-    assert exc.value.code == 1
-    err = capsys.readouterr().err
-    assert 'OUTLOOK_REFRESH_TOKEN' in err
-    assert 'OUTLOOK_TENANT_ID' in err
-
-
 def test_setup_auth_owa_piggy_failure_includes_profile_hint(
     monkeypatch, capsys, clean_env,
 ):

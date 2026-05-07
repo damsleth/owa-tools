@@ -1,17 +1,11 @@
 """Tests covering CLI surface that the smoke/validation files don't hit:
-delete confirmation, config writes for --app-client-id, the --week
-range computation, the post-create duplicate warning, and the
+delete confirmation, profile config writes, the --week range
+computation, the post-create duplicate warning, and the
 categories --add POST shape.
 """
 import json
 
 import pytest
-
-
-def test_config_app_client_id_persists(tmp_config, clean_env):
-    from owa_cal.cli import cmd_config
-    cmd_config(['--app-client-id', 'cid-123'], {})
-    assert 'OUTLOOK_APP_CLIENT_ID="cid-123"' in tmp_config.read_text()
 
 
 def test_config_no_args_lists_state_to_stderr(tmp_config, clean_env, capsys):

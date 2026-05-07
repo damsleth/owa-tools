@@ -14,7 +14,7 @@ import pytest
 
 from owa_graph import resources as resources_mod
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 COMP = ROOT / 'completions'
 
 
