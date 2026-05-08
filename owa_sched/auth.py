@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import sys
 
-from .jwt import token_minutes_remaining
+from owa_core.jwt import token_minutes_remaining
 
 
 def _owa_piggy_available():

@@ -1,5 +1,7 @@
 """Minimal JWT helpers. We never validate signatures; these only read
-the payload to tell the user how long a token has left."""
+the payload to tell the user how long a token has left and which scopes
+it carries.
+"""
 import base64
 import json
 import time
@@ -20,6 +22,15 @@ def token_minutes_remaining(access_token):
         if not isinstance(exp, (int, float)):
             return None
         return int((exp - time.time()) / 60)
+    except Exception:
+        return None
+
+
+def decode_token_audience(access_token):
+    """Return the `aud` claim or None on parse failure."""
+    try:
+        payload = decode_jwt_segment(access_token.split('.')[1])
+        return payload.get('aud')
     except Exception:
         return None
 
@@ -48,5 +59,5 @@ def scopes_in_token(access_token):
 
 
 def scope_in_token(access_token, scope):
-    """Cheap predicate: is `scope` carried by the token?"""
+    """Convenience predicate: is `scope` present in the JWT's scope set."""
     return scope in scopes_in_token(access_token)

@@ -13,7 +13,7 @@ import re
 import shutil
 import subprocess
 
-from .jwt import decode_token_audience, token_minutes_remaining
+from owa_core.jwt import decode_token_audience, token_minutes_remaining
 
 
 SIBLINGS = ('owa-piggy', 'owa-cal', 'owa-mail', 'owa-graph',

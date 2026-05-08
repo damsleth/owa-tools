@@ -35,7 +35,7 @@ import urllib.parse
 import urllib.request
 
 from . import config as config_mod
-from .jwt import token_minutes_remaining
+from owa_core.jwt import token_minutes_remaining
 
 # Audience short name -> API base URL we issue requests against. Mirrors
 # owa-piggy/owa_piggy/scopes.py:KNOWN_AUDIENCES, but where that table
