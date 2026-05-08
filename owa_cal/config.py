@@ -1,10 +1,9 @@
 """Config file I/O for owa-cal.
 
 File format is KEY="VALUE" lines, shell-sourceable for symmetry with
-owa-mail and owa-piggy and backward compat with the old zsh script.
-owa-cal holds no secrets - only an optional profile alias and a
-default timezone. The on-disk file is chmod 0600 anyway as a hygiene
-default.
+owa-mail and owa-piggy. owa-cal holds no secrets - only an optional
+profile alias and a default timezone. The on-disk file is chmod 0600
+anyway as a hygiene default.
 """
 import os
 from pathlib import Path

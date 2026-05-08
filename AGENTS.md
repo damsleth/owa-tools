@@ -4,9 +4,9 @@ Ground rules for any contributor (human or model) working in `owa-tools`.
 
 ## Suite invariants
 
-- **Stdlib only at runtime.** No `requests`, `msal`, `pydantic`, `rich`, `click`, or Microsoft SDKs. The only allowed non-stdlib runtime imports are local suite packages: `owa_core`, the `owa_*` consumer packages in this repo, and `owa-piggy` via subprocess. Enforced by `tools/check_stdlib_only.py` in CI.
+- **Stdlib only at runtime.** No `requests`, `msal`, `pydantic`, `rich`, `click`, or Microsoft SDKs. The only allowed non-stdlib runtime imports are the `owa_*` consumer packages in this repo, and `owa-piggy` via subprocess. Enforced by `tools/check_stdlib_only.py` in CI.
 - **JSON on stdout, logs on stderr.** Every command emits machine-readable JSON to stdout by default. Diagnostics, prompts, and warnings go to stderr. `--pretty` switches stdout to a human render.
-- **Auth via `owa-piggy`.** No CLI in this suite stores a refresh token. Each invocation shells out to `owa-piggy token --json --audience <X>` through `owa_core.auth`.
+- **Auth via `owa-piggy`.** No CLI in this suite stores a refresh token. Each invocation shells out to `owa-piggy token --json --audience <X>`.
 - **Profiles are forwarded, not duplicated.** `--profile <alias>` resolves inside `owa-piggy`. Consumers know only the alias name.
 - **No telemetry.** No update checks. The only outbound HTTP is Microsoft Graph / Outlook REST, plus `login.microsoftonline.com` indirectly via `owa-piggy`.
 
@@ -14,13 +14,9 @@ Ground rules for any contributor (human or model) working in `owa-tools`.
 
 Every consumer CLI in this repo upholds the same machine contract:
 
-1. **Stdout = JSON by default.** Already the suite norm. Inviolable.
+1. **Stdout = JSON by default.** Inviolable.
 2. **Stderr is for humans and diagnostics only.** No JSON envelopes on stderr.
-3. **Structured errors are opt-in.** `--err-json` or `OWA_ERR_JSON=1` switches errors to:
-   ```json
-   {"error": {"code": "AUTH_EXPIRED", "message": "...", "hint": "...", "tool": "owa-cal", "command": "events", "exit_code": 11}}
-   ```
-4. **Stable exit-code taxonomy.**
+3. **Stable exit-code taxonomy.**
    - `0` success
    - `2` usage error
    - `10` network error
@@ -31,33 +27,19 @@ Every consumer CLI in this repo upholds the same machine contract:
    - `15` conflict / precondition failure
    - `20` internal error
    - Per-tool exceptions (e.g., `owa-doctor probe` `0/1/2`) are documented at the command level.
-5. **No prompts when stdin is not a TTY.** Destructive commands require explicit `--confirm` or `--yes` off-TTY. Otherwise exit `2` with a clear hint.
-6. **Schema export.** `<tool> schema [command]` and `<tool> --help --json` emit the same schema, generated from the `owa_core.dispatch` spec.
-7. **Agent envelope is opt-in.** `--agent` or `OWA_AGENT=1` wraps responses as:
-   ```json
-   {"_owa": {"tool": "owa-cal", "version": "0.6.2", "schema": 1}, "data": [...]}
-   ```
-   Default JSON output is unchanged. Compatibility is the rule.
-8. **Pagination metadata is agent-mode only.** `_truncated`, `_next` fields, and stderr truncation hints surface only in agent mode or human pretty/TTY mode. Legacy JSON callers see clean stderr on success.
-9. **Idempotency where the API supports it.** Document retry safety per command. Add `--idempotency-key` only where the backing API can honor it.
-10. **Schema versioning.** Additive fields keep `schema`. Renames, removals, type changes, and default-shape changes bump it. Bumps require a changelog entry and a fixture update in the same PR.
+4. **No prompts when stdin is not a TTY.** Destructive commands require explicit `--confirm` or `--yes` off-TTY. Otherwise exit `2` with a clear hint.
+5. **Idempotency where the API supports it.** Document retry safety per command. Add `--idempotency-key` only where the backing API can honor it.
 
 ## Coding style
 
-- Two-space indentation in shell. Four-space indentation in Python (project uses standard PEP 8).
-- No semicolons in JS/TS (not relevant in this repo, listed for cross-suite consistency).
-- Match Prettier conventions for any non-Python text.
+- Two-space indentation in shell and docs. Four-space indentation in Python (PEP 8).
+- No semicolons in JS/TS.
 - No emoji, no emdash. Use a regular dash.
 - Comments only when the *why* is non-obvious. Code comments should not narrate.
 
 ## Workflow rules
 
 - **Never modify `owa-piggy` from this repo.** It lives in its own repository.
-- **Compatibility snapshots gate behavior changes.** Before a PR can change a flag, command name, default output shape, or selected exit code, it must update `tests/compat/fixtures/` and add a changelog note.
 - **No new third-party runtime imports.** Period.
-- **Per-tool semver.** Tags are `<tool>-vX.Y.Z`. `owa-core` versions independently.
+- **Per-tool semver.** Tags are `<tool>-vX.Y.Z`.
 - **One package per PR where possible.** Keeps reviews scoped.
-
-## When in doubt
-
-Read `COMPAT.md`. The compatibility contract beats the agent contract during migration.
