@@ -10,5 +10,6 @@ dist/
 .coverage.*
 .DS_Store
 .tmp/
+.plans/
 .env
 *.swp
