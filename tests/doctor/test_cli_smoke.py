@@ -21,6 +21,18 @@ def test_help_subcommand():
     assert 'owa-doctor' in r.stdout
 
 
+def test_probe_subcommand_runs_without_owa_piggy(tmp_path):
+    env = {
+        'HOME': str(tmp_path),
+        'PATH': str(tmp_path / 'empty-bin'),
+    }
+    (tmp_path / 'empty-bin').mkdir()
+    r = _run(['probe', '--no-tokens'], env=env)
+    assert r.returncode == 2
+    payload = json.loads(r.stdout)
+    assert 'owa_piggy' in payload
+
+
 def test_version_flag():
     r = _run(['--version'])
     assert r.returncode == 0
@@ -31,6 +43,13 @@ def test_unknown_flag_fails():
     r = _run(['--frobnicate'])
     assert r.returncode == 2
     assert 'Unknown flag' in r.stderr
+    assert 'Traceback' not in r.stderr
+
+
+def test_unknown_command_fails():
+    r = _run(['frobnicate'])
+    assert r.returncode == 2
+    assert 'Unknown command' in r.stderr
     assert 'Traceback' not in r.stderr
 
 

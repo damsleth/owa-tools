@@ -23,6 +23,7 @@ def cmd_photo(args, ctx):
     via a direct call because the context emit path only does JSON.
     """
     import sys
+
     from .. import api as api_mod
     _argv.parse(args)
     url = api_mod.build_url(ctx.api_base, '/me/photo/$value')

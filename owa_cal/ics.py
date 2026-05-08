@@ -32,7 +32,6 @@ except ImportError:
 
 from . import __version__
 
-
 _FETCH_TIMEOUT = 30
 _USER_AGENT = f'owa-cal/{__version__}'
 

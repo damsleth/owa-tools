@@ -6,7 +6,6 @@ don't reach the network. The point is to lock the dispatch / flag
 loop semantics, not to retest the API helper.
 """
 import json
-import sys
 
 import pytest
 

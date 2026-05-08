@@ -43,8 +43,8 @@ def test_update_without_fields_returns_error(capsys, monkeypatch):
 
 
 def test_create_allday_uses_midnight_next_day(capsys, monkeypatch):
-    from owa_cal.cli import cmd_create
     import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_create
 
     captured = {}
 
@@ -76,8 +76,8 @@ def test_create_allday_uses_midnight_next_day(capsys, monkeypatch):
 
 
 def test_update_end_time_preserves_existing_end_date(monkeypatch, force_tz):
-    from owa_cal.cli import cmd_update
     import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_update
 
     force_tz('UTC')
     captured = {}
@@ -118,8 +118,8 @@ def test_update_end_time_preserves_existing_end_date(monkeypatch, force_tz):
 
 
 def test_update_date_preserves_all_day_end_delta(monkeypatch, force_tz):
-    from owa_cal.cli import cmd_update
     import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_update
 
     force_tz('UTC')
     captured = {}
@@ -159,8 +159,8 @@ def test_update_date_preserves_all_day_end_delta(monkeypatch, force_tz):
 
 
 def test_events_search_uses_calendar_view_range_and_filters(capsys, monkeypatch):
-    from owa_cal.cli import cmd_events
     import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_events
 
     captured = {}
 
@@ -198,9 +198,9 @@ def test_events_search_uses_calendar_view_range_and_filters(capsys, monkeypatch)
 
 
 def test_refresh_returns_error_when_verify_fails(capsys, monkeypatch):
-    from owa_cal.cli import cmd_refresh
     import owa_cal.api as api_mod
     import owa_cal.auth as auth_mod
+    from owa_cal.cli import cmd_refresh
 
     monkeypatch.setattr(auth_mod, 'do_token_refresh', lambda config, debug=False: 'tok')
     monkeypatch.setattr(api_mod, 'api_get', lambda *a, **k: None)
@@ -214,8 +214,8 @@ def test_refresh_returns_error_when_verify_fails(capsys, monkeypatch):
 def test_categories_json_by_default(capsys, monkeypatch):
     """Regression for the JSON-contract bug: `owa-cal categories` must
     emit JSON on stdout, not an aligned text table."""
-    from owa_cal.cli import cmd_categories
     import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_categories
     def fake_get(base, endpoint, token, debug=False):
         return {'value': [
             {'DisplayName': 'Alpha', 'Color': 'Preset0'},
@@ -233,8 +233,8 @@ def test_categories_json_by_default(capsys, monkeypatch):
 
 
 def test_categories_pretty_opt_in(capsys, monkeypatch):
-    from owa_cal.cli import cmd_categories
     import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_categories
     def fake_get(base, endpoint, token, debug=False):
         return {'value': [{'DisplayName': 'Alpha', 'Color': 'Preset0'}]}
     monkeypatch.setattr(api_mod, 'api_get', fake_get)

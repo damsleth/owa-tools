@@ -10,7 +10,6 @@ from pathlib import Path
 
 from owa_cal.cli import main
 
-
 FIXTURE = Path(__file__).parent / 'fixtures' / 'sample.ics'
 
 

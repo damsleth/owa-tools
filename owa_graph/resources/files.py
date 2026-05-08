@@ -13,8 +13,8 @@ from __future__ import annotations
 import os
 import sys
 
-from . import _argv
 from .. import api as api_mod
+from . import _argv
 
 
 def cmd_list(args, ctx):

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from . import _argv
 
-
 _LIST_FLAGS = ('--folder', '--top', '--select', '--filter')
 _LIST_BOOLS = ('--unread',)
 

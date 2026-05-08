@@ -1,18 +1,18 @@
 # Releasing
 
-Per-tool semver. Tags drive releases.
+Suite semver. Tags drive releases.
 
 ## Tag format
 
-- Consumer CLIs: `owa-cal-vX.Y.Z`, `owa-mail-vX.Y.Z`, ..., `owa-drive-vX.Y.Z`.
+- `vX.Y.Z`
 
-The release workflow keys off the tag prefix and publishes only the matching package.
+The release workflow builds the root `owa-tools` package. It contains the umbrella binary plus all consumer CLIs.
 
 ## Pre-release checklist
 
 1. `pytest -q` green.
 2. `python tools/check_stdlib_only.py` green.
-3. Changelog updated for the tool.
+3. Changelog updated for the suite version.
 4. Smoke test the wheel in a clean venv.
 
 ## Homebrew

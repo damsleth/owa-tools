@@ -39,7 +39,11 @@ Every consumer CLI in this repo upholds the same machine contract:
 
 ## Workflow rules
 
+- **Check `.plans/` before non-trivial work.** The directory is intentionally
+  gitignored and used as a local planning workspace. Treat any files there as
+  current operator context, but do not assume they are part of the repository
+  history unless the user explicitly asks to publish or commit them.
 - **Never modify `owa-piggy` from this repo.** It lives in its own repository.
 - **No new third-party runtime imports.** Period.
-- **Per-tool semver.** Tags are `<tool>-vX.Y.Z`.
-- **One package per PR where possible.** Keeps reviews scoped.
+- **Suite semver.** `owa-tools` ships as one distribution with tags `vX.Y.Z`.
+- **One domain per PR where possible.** Keeps reviews scoped.

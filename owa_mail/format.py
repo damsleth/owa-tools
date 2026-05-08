@@ -7,8 +7,10 @@ Two surfaces:
 Stdout-only output strings; callers decide whether to emit these or
 raw JSON.
 """
-from owa_core.format import date_part as _date_part, pad as _pad
-from owa_core.format import time_part as _time_part, truncate as _truncate
+from owa_core.format import date_part as _date_part
+from owa_core.format import pad as _pad
+from owa_core.format import time_part as _time_part
+from owa_core.format import truncate as _truncate
 
 
 def format_messages_pretty(messages):

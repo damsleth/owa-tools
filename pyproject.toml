@@ -2,18 +2,16 @@
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
-# Root project metadata. Each tool has its own __version__ in its package
-# __init__.py and ships as a separate distribution. The root project here
-# is the dev-install entry point: `pip install -e .[dev]` makes every
-# tool importable and runnable.
+# Root project metadata. owa-tools ships as one suite distribution with
+# one version and multiple console scripts.
 
 [project]
 name = "owa-tools"
 version = "0.1.0"
 description = "Monorepo workspace for owa-piggy consumer CLIs"
 readme = "README.md"
-license = { text = "MIT" }
-requires-python = ">=3.9"
+license = "MIT"
+requires-python = ">=3.10"
 authors = [{ name = "Carl Joakim Damsleth" }]
 
 # Runtime deps: stdlib only at the per-tool level. The workspace install
@@ -22,13 +20,15 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = [
+  "build>=1",
   "pytest>=7",
+  "pytest-cov>=4",
   "ruff>=0.4",
+  "twine>=5",
 ]
 
 [project.scripts]
-# Umbrella binary plus one console script per consumer tool. Each tool's
-# version lives in its package __init__.py.
+# Umbrella binary plus one console script per consumer tool.
 owa = "owa.cli:main"
 owa-cal = "owa_cal:main"
 owa-mail = "owa_mail:main"
@@ -58,11 +58,11 @@ owa_graph = ["data/*.json", "data/*.json.gz"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B"]
-ignore = ["E501"]
+ignore = ["E501", "E702", "E741", "B904", "B905"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

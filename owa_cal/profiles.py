@@ -25,7 +25,6 @@ import shutil
 import subprocess
 from pathlib import Path
 
-
 PROFILES_PATH = Path(
     os.environ.get('XDG_CONFIG_HOME') or str(Path.home() / '.config')
 ) / 'owa-cal' / 'profiles.json'

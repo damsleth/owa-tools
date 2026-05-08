@@ -5,7 +5,6 @@ Applications must dispatch before users since both shapes carry
 """
 from owa_graph import format as fmt
 
-
 # --- detectors -------------------------------------------------------------
 
 def test_uuid_shape_recognises_canonical():

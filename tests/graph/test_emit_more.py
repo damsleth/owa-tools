@@ -2,7 +2,6 @@
 short commands that skip continuation."""
 from owa_graph import emit
 
-
 URL = 'https://graph.microsoft.com/v1.0/me'
 TOKEN = 'eyJ0.PAY.SIG'
 

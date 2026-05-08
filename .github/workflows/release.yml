@@ -3,14 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'owa-core-v*'
-      - 'owa-cal-v*'
-      - 'owa-mail-v*'
-      - 'owa-graph-v*'
-      - 'owa-doctor-v*'
-      - 'owa-people-v*'
-      - 'owa-sched-v*'
-      - 'owa-drive-v*'
+      - 'v*'
 
 jobs:
   release:
@@ -20,20 +13,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Resolve package from tag
-        id: pkg
-        run: |
-          tag="${GITHUB_REF#refs/tags/}"
-          name="${tag%-v*}"          # owa-cal-v0.6.3 -> owa-cal
-          version="${tag##*-v}"      # owa-cal-v0.6.3 -> 0.6.3
-          pkg="${name//-/_}"         # owa-cal -> owa_cal
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "name=$name" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "pkg=$pkg" >> "$GITHUB_OUTPUT"
       - name: Build
         run: |
           python -m pip install --upgrade pip build
-          # Per-package build resolved by the package directory's own pyproject.
-          python -m build "${{ steps.pkg.outputs.pkg }}"
-      # Publish step omitted in this scaffold; wire to PyPI once owa-core stabilizes.
+          python -m build
+      # Publish step omitted in this scaffold; wire to PyPI once the release
+      # candidate loop is green.

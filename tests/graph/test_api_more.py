@@ -1,7 +1,6 @@
 """Additional api.py coverage: debug logging, base+endpoint joining,
 URLError, bytes body, extra_headers."""
 import io
-import json
 import urllib.error
 
 import pytest

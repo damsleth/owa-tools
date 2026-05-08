@@ -18,7 +18,6 @@ import json
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-
 _DATA_PATH = Path(__file__).resolve().parent / 'data' / 'scopes.json'
 
 # Cached manifest: list of (verb, segments, scopes) tuples after a
