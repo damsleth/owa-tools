@@ -1,11 +1,10 @@
 """Human-readable rendering for `--pretty`."""
+from owa_core.format import truncate as _truncate_unicode
 
 
 def _truncate(s, n):
-    s = s or ''
-    if len(s) <= n:
-        return s
-    return s[: n - 1] + '...'
+    # ASCII '...' marker matches the historical look of this tool.
+    return _truncate_unicode(s, n, suffix='...')
 
 
 def format_people_pretty(people):
