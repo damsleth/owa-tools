@@ -36,3 +36,5 @@ jobs:
         run: pytest -q tests/contract
       - name: Build package
         run: python -m build
+      - name: Artifact check
+        run: python tools/check_artifacts.py dist/*

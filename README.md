@@ -62,6 +62,7 @@ Test suite:
 .venv/bin/python -m pytest --cov=owa_core --cov-fail-under=95
 .venv/bin/python tools/check_stdlib_only.py
 .venv/bin/python tools/check_no_secrets.py
+.venv/bin/python tools/check_artifacts.py dist/*   # after build
 ```
 
 See `RELEASING.md` for the suite tag-and-publish flow.
