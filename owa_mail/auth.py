@@ -9,9 +9,11 @@ duplicated boilerplate rationale.
 """
 import shutil
 import subprocess  # noqa: F401
+import sys
 
 from owa_core import auth as _core
 from owa_core.auth import MIN_OWA_PIGGY_VERSION  # noqa: F401
+from owa_core.errors import OwaError, emit_error
 
 TOOL_NAME = 'owa-mail'
 AUDIENCE = 'outlook'
@@ -41,17 +43,14 @@ def _log_token_remaining(access, debug):
 
 
 def _refresh_via_owa_piggy(config, debug=False):
-    if not _owa_piggy_available():
-        import sys
-        print(
-            'ERROR: owa-piggy not found in $PATH. Install with: '
-            'brew install damsleth/tap/owa-piggy',
-            file=sys.stderr,
+    try:
+        token = _core.get_token_for_config(
+            config, tool_name=TOOL_NAME, audience=AUDIENCE, debug=debug,
         )
+    except OwaError as error:
+        emit_error(error)
         return None
-    if not _check_owa_piggy_version():
-        return None
-    return _core.run_piggy_token(config, AUDIENCE, debug=debug)
+    return token.access_token
 
 
 def do_token_refresh(config, debug=False):
@@ -59,5 +58,10 @@ def do_token_refresh(config, debug=False):
 
 
 def setup_auth(config, debug=False):
-    access = do_token_refresh(config, debug=debug)
-    return _core.setup_or_exit(access, config, TOOL_NAME, API_BASE)
+    try:
+        token = _core.get_token_for_config(
+            config, tool_name=TOOL_NAME, audience=AUDIENCE, debug=debug,
+        )
+    except OwaError as error:
+        sys.exit(emit_error(error))
+    return token.access_token, API_BASE
