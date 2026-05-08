@@ -14,7 +14,9 @@ import sys
 import urllib.parse
 from datetime import datetime, timedelta
 
+from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
+from owa_core.errors import emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -43,7 +45,7 @@ _EVENTS_ORDERBY = 'Start/DateTime'
 
 
 def _error(msg):
-    print(f'ERROR: {msg}', file=sys.stderr)
+    emit_message(msg)
 
 
 def _info(msg):
@@ -872,8 +874,7 @@ def _profiles_delete(args):
     return 1
 
 
-def main():
-    argv = sys.argv[1:]
+def _main(argv):
     handled = schema_mod.maybe_emit_schema(argv, tool='owa-cal', commands=COMMAND_SCHEMA)
     if handled is not None:
         return handled
@@ -973,3 +974,7 @@ def main():
 
     # Unreachable: AUTHED_COMMANDS guarded above.
     return 1
+
+
+def main():
+    return mode_mod.run_with_output_modes('owa-cal', sys.argv[1:], _main)
