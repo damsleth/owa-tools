@@ -38,6 +38,14 @@ class BrokerToken:
     raw: dict | None = None
 
 
+@dataclass(frozen=True)
+class BrokerProfile:
+    alias: str
+    default: bool
+    registered: bool
+    has_config: bool
+
+
 def parse_version(s):
     """Tolerant `X.Y.Z[-prerelease]` -> tuple(int, int, int) or None."""
     parts = s.strip().split('.')
@@ -161,6 +169,46 @@ def get_token_for_config(config, *, tool_name, audience, scope=None, debug=False
         scope=scope,
         debug=debug,
     )
+
+
+def get_profiles(*, tool_name, debug=False):
+    """Return broker profile registry rows or raise a typed OwaError."""
+    _ensure_broker_available(tool_name, MIN_JSON_BROKER_VERSION)
+    argv = ['owa-piggy', 'profiles', '--json']
+    if debug:
+        print(f'DEBUG: profiles via owa-piggy ({" ".join(argv)})', file=sys.stderr)
+    try:
+        proc = subprocess.run(
+            argv, capture_output=True, text=True, check=False, timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise AuthExpiredError('failed to run owa-piggy profiles', cause=exc)
+    if proc.returncode != 0:
+        message = redact((proc.stderr or '').strip()) or 'profile listing failed'
+        raise AuthExpiredError(message)
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        raise InternalError('owa-piggy profiles returned non-JSON output', cause=exc)
+    if not isinstance(payload, dict):
+        raise InternalError('owa-piggy profiles returned an invalid payload')
+    rows = payload.get('profiles')
+    if not isinstance(rows, list):
+        raise InternalError('owa-piggy profiles payload did not include profiles')
+    profiles = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        alias = row.get('alias')
+        if not isinstance(alias, str) or not alias:
+            continue
+        profiles.append(BrokerProfile(
+            alias=alias,
+            default=bool(row.get('default')),
+            registered=bool(row.get('registered')),
+            has_config=bool(row.get('has_config')),
+        ))
+    return profiles
 
 
 def log_token_remaining(access, debug):

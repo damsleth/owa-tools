@@ -1,6 +1,8 @@
 """Unit tests for probe functions. Stub subprocess so nothing real runs."""
 import subprocess
 
+from owa_core.auth import BrokerProfile, BrokerToken
+from owa_core.errors import AuthExpiredError
 from owa_doctor import probe as probe_mod
 
 
@@ -30,33 +32,31 @@ def test_probe_piggy_present(monkeypatch):
 
 
 def test_list_piggy_profiles_parses_default_marker(monkeypatch):
-    monkeypatch.setattr(probe_mod, '_which', lambda c: '/usr/bin/owa-piggy')
-    monkeypatch.setattr(
-        subprocess, 'run',
-        lambda *a, **kw: _FakeProc(stdout='   brkh\n   crayon\n * swon\n'),
-    )
+    monkeypatch.setattr(probe_mod.core_auth, 'get_profiles', lambda **kwargs: [
+        BrokerProfile('brkh', default=False, registered=True, has_config=True),
+        BrokerProfile('crayon', default=False, registered=True, has_config=True),
+        BrokerProfile('swon', default=True, registered=True, has_config=True),
+    ])
     aliases, default = probe_mod.list_piggy_profiles()
     assert aliases == ['brkh', 'crayon', 'swon']
     assert default == 'swon'
 
 
 def test_list_piggy_profiles_no_piggy(monkeypatch):
-    monkeypatch.setattr(probe_mod, '_which', lambda c: None)
+    def _raise(**kwargs):
+        raise AuthExpiredError('owa-piggy not found')
+
+    monkeypatch.setattr(probe_mod.core_auth, 'get_profiles', _raise)
     aliases, default = probe_mod.list_piggy_profiles()
     assert aliases == []
     assert default is None
 
 
 def test_probe_profile_token_failure_captures_aadsts(monkeypatch):
-    monkeypatch.setattr(probe_mod, '_which', lambda c: '/usr/bin/owa-piggy')
-    err = (
-        'WARN: refresh token rejected\n'
-        'ERROR: invalid_grant: AADSTS70043: refresh token expired\n'
-    )
-    monkeypatch.setattr(
-        subprocess, 'run',
-        lambda *a, **kw: _FakeProc(returncode=1, stderr=err),
-    )
+    def _raise(**kwargs):
+        raise AuthExpiredError('ERROR: invalid_grant: AADSTS70043: refresh token expired')
+
+    monkeypatch.setattr(probe_mod.core_auth, 'get_token', _raise)
     finding = probe_mod.probe_profile_token('crayon')
     assert finding['token_ok'] is False
     assert 'AADSTS70043' in finding['error']
@@ -83,12 +83,10 @@ def test_probe_profile_token_ok(monkeypatch):
         'sig',
     ))
 
-    monkeypatch.setattr(probe_mod, '_which', lambda c: '/usr/bin/owa-piggy')
     monkeypatch.setattr(
-        subprocess, 'run',
-        lambda *a, **kw: _FakeProc(
-            stdout=_json.dumps({'access_token': fake_jwt}),
-        ),
+        probe_mod.core_auth,
+        'get_token',
+        lambda **kwargs: BrokerToken(access_token=fake_jwt, audience='graph', profile='swon'),
     )
     finding = probe_mod.probe_profile_token('swon')
     assert finding['token_ok'] is True

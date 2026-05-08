@@ -4,6 +4,8 @@ import json
 import sys
 
 from owa_cal import profiles as profiles_mod
+from owa_core.auth import BrokerProfile
+from owa_core.errors import AuthExpiredError
 
 # ---------------------------------------------------------------------------
 # Local store
@@ -58,58 +60,53 @@ def test_load_local_tolerates_non_object_root(tmp_profiles):
 
 
 # ---------------------------------------------------------------------------
-# piggy_aliases parser
+# piggy_aliases broker bridge
 # ---------------------------------------------------------------------------
 
-def _fake_subprocess_run(monkeypatch, stdout, returncode=0):
-    class FakeProc:
-        pass
-
-    fp = FakeProc()
-    fp.stdout = stdout
-    fp.returncode = returncode
-
-    monkeypatch.setattr(profiles_mod.shutil, 'which', lambda _: '/usr/bin/owa-piggy')
-    monkeypatch.setattr(
-        profiles_mod.subprocess, 'run',
-        lambda *a, **kw: fp,
-    )
+def _stub_core_profiles(monkeypatch, rows):
+    monkeypatch.setattr(profiles_mod.core_auth, 'get_profiles', lambda **kwargs: rows)
 
 
-def test_piggy_aliases_parses_real_format(monkeypatch):
-    _fake_subprocess_run(monkeypatch, '   brkh\n   crayon\n   dno\n * swon\n')
+def test_piggy_aliases_uses_core_profile_contract(monkeypatch):
+    _stub_core_profiles(monkeypatch, [
+        BrokerProfile('brkh', default=False, registered=True, has_config=True),
+        BrokerProfile('crayon', default=False, registered=True, has_config=True),
+        BrokerProfile('dno', default=False, registered=True, has_config=True),
+        BrokerProfile('swon', default=True, registered=True, has_config=True),
+    ])
     aliases, default = profiles_mod.piggy_aliases()
     assert aliases == {'brkh', 'crayon', 'dno', 'swon'}
     assert default == 'swon'
 
 
 def test_piggy_aliases_no_default(monkeypatch):
-    _fake_subprocess_run(monkeypatch, '   alpha\n   beta\n')
+    _stub_core_profiles(monkeypatch, [
+        BrokerProfile('alpha', default=False, registered=True, has_config=True),
+        BrokerProfile('beta', default=False, registered=True, has_config=True),
+    ])
     aliases, default = profiles_mod.piggy_aliases()
     assert aliases == {'alpha', 'beta'}
     assert default == ''
 
 
 def test_piggy_aliases_returns_empty_when_owa_piggy_missing(monkeypatch):
-    monkeypatch.setattr(profiles_mod.shutil, 'which', lambda _: None)
+    def _raise(**kwargs):
+        raise AuthExpiredError('owa-piggy not found')
+
+    monkeypatch.setattr(profiles_mod.core_auth, 'get_profiles', _raise)
     aliases, default = profiles_mod.piggy_aliases()
     assert aliases == set()
     assert default == ''
 
 
 def test_piggy_aliases_returns_empty_on_error_exit(monkeypatch):
-    _fake_subprocess_run(monkeypatch, '', returncode=2)
+    def _raise(**kwargs):
+        raise AuthExpiredError('profile listing failed')
+
+    monkeypatch.setattr(profiles_mod.core_auth, 'get_profiles', _raise)
     aliases, default = profiles_mod.piggy_aliases()
     assert aliases == set()
     assert default == ''
-
-
-def test_piggy_aliases_skips_lines_with_spaces(monkeypatch):
-    """Lines that look like a banner / error sentence (multiple words)
-    are dropped - the parser only accepts bareword aliases."""
-    _fake_subprocess_run(monkeypatch, 'header line here\n   alpha\n')
-    aliases, _default = profiles_mod.piggy_aliases()
-    assert aliases == {'alpha'}
 
 
 # ---------------------------------------------------------------------------
