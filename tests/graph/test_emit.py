@@ -1,7 +1,6 @@
 """emit.py is pure - test the rendered command shapes directly."""
 from owa_graph import emit
 
-
 TOKEN = 'eyJ0eXAi.PAYLOAD.SIG'
 URL = 'https://graph.microsoft.com/v1.0/me'
 
@@ -53,7 +52,7 @@ def test_az_get():
     out = emit.render_az('GET', URL, TOKEN)
     assert 'az rest' in out
     assert '--method get' in out
-    assert f'--uri ' in out
+    assert '--uri ' in out
     assert f'Authorization=Bearer {TOKEN}' in out
 
 

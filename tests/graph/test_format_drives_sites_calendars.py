@@ -5,7 +5,6 @@ dispatcher checks `driveType` first to keep them separated.
 """
 from owa_graph import format as fmt
 
-
 # --- detectors -------------------------------------------------------------
 
 def test_drives_detected_by_drive_type():

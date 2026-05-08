@@ -1,13 +1,12 @@
 """Path manifest loader + the hidden `__complete` subcommand the
 completion scripts shell out to."""
-import gzip
 import io
-import json
 import sys
 
 import pytest
 
-from owa_graph import cli, paths as paths_mod
+from owa_graph import cli
+from owa_graph import paths as paths_mod
 
 
 @pytest.fixture(autouse=True)

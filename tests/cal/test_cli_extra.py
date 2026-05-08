@@ -18,8 +18,8 @@ def test_config_no_args_lists_state_to_stderr(tmp_config, clean_env, capsys):
 
 
 def test_delete_no_confirm_aborts_on_n(monkeypatch, capsys):
-    from owa_cal.cli import cmd_delete
     import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_delete
 
     api_calls = []
 
@@ -49,8 +49,8 @@ def test_delete_no_confirm_aborts_on_n(monkeypatch, capsys):
 
 
 def test_delete_with_confirm_skips_prompt(monkeypatch, capsys):
-    from owa_cal.cli import cmd_delete
     import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_delete
 
     captured = {}
 
@@ -78,8 +78,8 @@ def test_delete_with_confirm_skips_prompt(monkeypatch, capsys):
 
 
 def test_events_week_range_query(monkeypatch, capsys):
-    from owa_cal.cli import cmd_events
     import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_events
 
     captured = {}
 
@@ -100,8 +100,8 @@ def test_events_week_range_query(monkeypatch, capsys):
 
 
 def test_create_uses_default_timezone_from_config(monkeypatch, capsys):
-    from owa_cal.cli import cmd_create
     import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_create
 
     captured = {}
 
@@ -134,8 +134,8 @@ def test_create_warns_on_duplicate(monkeypatch, capsys):
     """Post-create dupe check: if another event with the same
     subject+start+end exists for that day, we warn on stderr without
     failing the command. Anchors the warning surface."""
-    from owa_cal.cli import cmd_create
     import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_create
 
     new_event = {
         'Id': 'evt-new',
@@ -173,8 +173,8 @@ def test_create_warns_on_duplicate(monkeypatch, capsys):
 
 
 def test_categories_add_posts_correct_body(monkeypatch, capsys):
-    from owa_cal.cli import cmd_categories
     import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_categories
 
     captured = {}
 
@@ -197,9 +197,9 @@ def test_categories_add_posts_correct_body(monkeypatch, capsys):
 
 
 def test_refresh_happy_path_prints_display_name(monkeypatch, capsys):
-    from owa_cal.cli import cmd_refresh
     import owa_cal.api as api_mod
     import owa_cal.auth as auth_mod
+    from owa_cal.cli import cmd_refresh
 
     monkeypatch.setattr(auth_mod, 'do_token_refresh', lambda c, debug=False: 'tok')
     monkeypatch.setattr(
@@ -214,8 +214,8 @@ def test_refresh_happy_path_prints_display_name(monkeypatch, capsys):
 
 
 def test_refresh_failure_returns_error(monkeypatch, capsys):
-    from owa_cal.cli import cmd_refresh
     import owa_cal.auth as auth_mod
+    from owa_cal.cli import cmd_refresh
 
     monkeypatch.setattr(auth_mod, 'do_token_refresh', lambda c, debug=False: None)
     rc = cmd_refresh([], {})

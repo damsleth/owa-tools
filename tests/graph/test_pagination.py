@@ -1,9 +1,6 @@
 """Pagination + retry coverage."""
 import io
-import json
 import urllib.error
-
-import pytest
 
 from owa_graph import api
 

@@ -11,13 +11,11 @@ We lock the contract here once.
 from __future__ import annotations
 
 import json
-import sys
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Mapping, Optional, Sequence, Tuple
+from typing import Any, Mapping, Optional, Sequence, Tuple
 
 from . import api as api_mod
 from . import format as format_mod
-
 
 QueryPairs = Sequence[Tuple[str, str]]
 

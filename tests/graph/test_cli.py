@@ -1,7 +1,6 @@
 """CLI-level tests: argv parsing, --curl/--az exit-before-HTTP,
 body resolution. We monkeypatch setup_auth so no real owa-piggy or
 network is touched."""
-import json
 import sys
 
 import pytest

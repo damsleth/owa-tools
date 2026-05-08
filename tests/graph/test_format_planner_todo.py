@@ -5,7 +5,6 @@ field: Planner uses `percentComplete` (int), To-Do uses `status` (enum).
 """
 from owa_graph import format as fmt
 
-
 # --- detectors -------------------------------------------------------------
 
 def test_planner_detected_by_percent_complete():

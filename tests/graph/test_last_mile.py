@@ -12,7 +12,6 @@ from owa_graph import config as config_mod
 from owa_graph import emit
 from owa_graph import format as format_mod
 
-
 # ---------------------------------------------------------------------------
 # auth: debug-on branches and result-None paths
 # ---------------------------------------------------------------------------

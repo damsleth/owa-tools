@@ -7,7 +7,6 @@ plus the columns the formatter prints.
 """
 from owa_graph import format as fmt
 
-
 # --- detector specificity --------------------------------------------------
 
 def test_groups_detected_by_mail_enabled():

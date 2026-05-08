@@ -7,13 +7,11 @@
 - global-flag handling: missing --profile value, debug flag wiring
 """
 import io
-import json
 import sys
 
 import pytest
 
 from owa_graph import cli
-
 
 # ---------------------------------------------------------------------------
 # Shared stubs: bypass setup_auth and api_request so tests focus on cli logic.

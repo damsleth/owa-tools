@@ -4,6 +4,8 @@ The `build_patch_json` tests anchor a load-bearing invariant: only
 provided fields land in the output. Regressing that silently clobbers
 untouched event fields.
 """
+from datetime import datetime
+
 from owa_cal.events import (
     build_event_json,
     build_patch_json,
@@ -12,7 +14,6 @@ from owa_cal.events import (
     normalize_events,
     to_local,
 )
-from datetime import datetime
 
 
 def test_normalize_event_pascal():

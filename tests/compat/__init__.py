@@ -1,0 +1,1 @@
+"""Release-contract compatibility tests."""

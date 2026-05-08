@@ -29,9 +29,12 @@ def _info(msg):
 def print_help():
     print("""owa-doctor - health check for the owa-* suite
 
-Usage: owa-doctor [options]
+Usage: owa-doctor [probe] [options]
 
-Options:
+Commands:
+  probe                 Run the health probe (default command).
+
+Probe options:
   --profile <alias>     Probe only this profile (default: all profiles
                         owa-piggy knows about).
   --audience <name>     Token audience to test (default: graph). Pass
@@ -50,6 +53,7 @@ Exit codes:
 
 Examples:
   owa-doctor --pretty
+  owa-doctor probe --pretty
   owa-doctor --profile swon --pretty
   owa-doctor --no-tokens                # quick install check only
   owa-doctor --audience outlook --pretty""")
@@ -150,6 +154,11 @@ def main():
     if argv and argv[0] == '--version':
         print(f'owa-doctor {__version__}')
         return 0
+    if argv and argv[0] == 'probe':
+        argv = argv[1:]
+    elif argv and not argv[0].startswith('-'):
+        _error(f"Unknown command: {argv[0]}. Run 'owa-doctor help' for usage.")
+        return 2
 
     profile, audience, no_tokens, pretty, debug = _parse_args(argv)
     report = build_report(

@@ -12,6 +12,8 @@ import json
 import os
 import sys
 
+from owa_core import jwt as jwt_mod
+
 from . import __version__
 from . import api as api_mod
 from . import auth as auth_mod
@@ -19,7 +21,6 @@ from . import config as config_mod
 from . import ctx as ctx_mod
 from . import emit as emit_mod
 from . import format as format_mod
-from owa_core import jwt as jwt_mod
 from . import paths as paths_mod
 from . import resources as resources_mod
 from . import scopes as scopes_mod

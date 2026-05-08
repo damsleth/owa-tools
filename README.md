@@ -6,16 +6,18 @@ The auth broker `owa-piggy` lives in its own repository. It is the only persiste
 
 ## Status
 
-| CLI | Current version | Status |
+`owa-tools` is currently unreleased and uses one suite version for all console scripts.
+
+| CLI | Status |
 |---|---|---|
-| `owa-cal` | 0.6.2 | beta |
-| `owa-mail` | 0.1.1 | beta |
-| `owa-graph` | 0.2.0 | beta |
-| `owa-doctor` | 0.1.0 | alpha |
-| `owa-people` | 0.1.0 | alpha |
-| `owa-sched` | 0.1.0 | alpha |
-| `owa-drive` | 0.1.0 | alpha |
-| `owa` | 0.0.0.dev0 | umbrella discovery binary |
+| `owa-cal` | beta |
+| `owa-mail` | beta |
+| `owa-graph` | beta |
+| `owa-doctor` | alpha |
+| `owa-people` | alpha |
+| `owa-sched` | alpha |
+| `owa-drive` | alpha |
+| `owa` | umbrella discovery binary |
 
 ## Layout
 
@@ -51,7 +53,7 @@ Wheel build:
 .venv/bin/python -m build --wheel
 ```
 
-The wheel contains all eight console scripts (`owa`, `owa-cal`, `owa-mail`, `owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`).
+The wheel contains all eight console scripts (`owa`, `owa-cal`, `owa-mail`, `owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`) and they all report the same `owa-tools` suite version.
 
 Test suite:
 
@@ -60,7 +62,7 @@ Test suite:
 .venv/bin/python tools/check_stdlib_only.py
 ```
 
-See `RELEASING.md` for the per-tool tag-and-publish flow.
+See `RELEASING.md` for the suite tag-and-publish flow.
 
 ## Conventions
 

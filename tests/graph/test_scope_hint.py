@@ -11,7 +11,8 @@ import sys
 
 import pytest
 
-from owa_graph import cli, scopes as scopes_mod
+from owa_graph import cli
+from owa_graph import scopes as scopes_mod
 
 
 def _make_token(scopes_str):

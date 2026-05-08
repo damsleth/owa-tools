@@ -15,7 +15,6 @@ import subprocess
 
 from owa_core.jwt import decode_token_audience, token_minutes_remaining
 
-
 SIBLINGS = ('owa-piggy', 'owa-cal', 'owa-mail', 'owa-graph',
             'owa-people', 'owa-sched', 'owa-drive', 'owa-doctor')
 

@@ -1,26 +1,28 @@
 # Changelog
 
-Per-tool changelog. Per-tool versions advance independently; the
-monorepo itself has no separate version.
+Suite changelog. `owa-tools` ships as one distribution, so all console
+scripts share one version.
 
-Format: append a `### vX.Y.Z` section under the relevant tool when
-tagging a release.
+Format: append a `## vX.Y.Z` section when tagging a release, then use
+per-tool subsections inside that release when useful.
 
-## owa-cal
+## v0.1.0 - unreleased
 
-## owa-mail
+### owa-cal
 
-## owa-graph
+### owa-mail
 
-## owa-doctor
+### owa-graph
 
-## owa-people
+### owa-doctor
 
-## owa-sched
+### owa-people
 
-## owa-drive
+### owa-sched
 
-## owa (umbrella)
+### owa-drive
+
+### owa (umbrella)
 
 Thin discovery binary. Subcommands:
 

@@ -17,8 +17,9 @@ def test_config_set_chmods_0600(tmp_config, clean_env):
 
 
 def test_config_set_rejects_unknown_key(tmp_config, clean_env):
-    from owa_people import config as config_mod
     import pytest
+
+    from owa_people import config as config_mod
     with pytest.raises(ValueError):
         config_mod.config_set('access_token', 'oops')
 
