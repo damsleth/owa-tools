@@ -103,7 +103,7 @@ def test_post_with_file_body_reads_file(monkeypatch, stub_auth, loaded_config, t
 def test_post_file_body_missing_exits(monkeypatch, stub_auth, loaded_config, tmp_path, capsys):
     monkeypatch.setattr(cli.api_mod, 'api_request', lambda *a, **k: {'ok': True})
     rc = _run(monkeypatch, 'POST', '/me/messages', '--body', f'@{tmp_path}/nonexistent')
-    assert rc == 1
+    assert rc == 2
     err = capsys.readouterr().err
     assert 'cannot read body file' in err
 
@@ -273,7 +273,7 @@ def test_query_missing_equals_returns_1(monkeypatch, stub_auth, loaded_config, c
 
 def test_missing_flag_value_exits(monkeypatch, stub_auth, loaded_config, capsys):
     rc = _run(monkeypatch, 'GET', '/me', '--top')
-    assert rc == 1
+    assert rc == 2
     assert '--top requires a value' in capsys.readouterr().err
 
 
@@ -355,7 +355,7 @@ def test_first_nonglobal_handles_dangling_profile():
 def test_invalid_stdin_body_exits(monkeypatch, stub_auth, loaded_config, capsys):
     monkeypatch.setattr(sys, 'stdin', io.StringIO('definitely not json'))
     rc = _run(monkeypatch, 'POST', '/me', '--body', '-', '--curl')
-    assert rc == 1
+    assert rc == 2
     assert 'stdin body is not valid JSON' in capsys.readouterr().err
 
 

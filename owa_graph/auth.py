@@ -7,7 +7,7 @@ audience as an argument and resolves the API base URL accordingly.
 import sys
 
 from owa_core import auth as _core
-from owa_core.errors import OwaError, emit_error
+from owa_core.errors import OwaError, UsageError, emit_error
 
 TOOL_NAME = 'owa-graph'
 
@@ -52,19 +52,14 @@ def resolve_api_base(audience, beta=False):
     """Audience short-name -> API base URL.
 
     `--beta` only flips Graph's base; it has no effect on other
-    audiences. Unknown audiences exit the process - typos here would
-    otherwise produce a confusing 401/404 against a hand-built URL.
+    audiences. Unknown audiences raise a usage error.
     """
     if audience == 'graph':
         return GRAPH_BETA_BASE if beta else AUDIENCE_API_BASE['graph']
     base = AUDIENCE_API_BASE.get(audience)
     if not base:
         known = ', '.join(sorted(AUDIENCE_API_BASE))
-        print(
-            f'ERROR: unknown audience {audience!r}. Known: {known}',
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        raise UsageError(f'unknown audience {audience!r}. Known: {known}')
     if beta:
         print(
             f'WARN: --beta has no effect on audience {audience!r}; ignoring',

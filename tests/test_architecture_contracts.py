@@ -1,5 +1,6 @@
 """Architecture guardrails for shared release contracts."""
 
+import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,4 +66,26 @@ def test_legacy_broker_shims_do_not_return():
         found = [name for name in forbidden if name in text]
         if found:
             offenders.append(f'{path.relative_to(ROOT)}: {", ".join(found)}')
+    assert offenders == []
+
+
+def test_sys_exit_only_in_entrypoints():
+    offenders = []
+    allowed = {'owa/cli.py'}
+    for path in _runtime_files():
+        rel = path.relative_to(ROOT).as_posix()
+        if path.name == '__main__.py' or rel in allowed:
+            continue
+        tree = ast.parse(path.read_text(), filename=rel)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if (
+                isinstance(func, ast.Attribute)
+                and func.attr == 'exit'
+                and isinstance(func.value, ast.Name)
+                and func.value.id == 'sys'
+            ):
+                offenders.append(f'{rel}:{node.lineno}')
     assert offenders == []

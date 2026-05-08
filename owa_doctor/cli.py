@@ -15,7 +15,7 @@ import sys
 
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
-from owa_core.errors import emit_message
+from owa_core.errors import UsageError, emit_message
 
 from . import __version__
 from . import probe as probe_mod
@@ -78,11 +78,11 @@ def _parse_args(argv):
         a, argv = argv[0], argv[1:]
         if a == '--profile':
             if not argv:
-                _error('--profile requires a value'); sys.exit(2)
+                raise UsageError('--profile requires a value')
             profile, argv = argv[0], argv[1:]
         elif a == '--audience':
             if not argv:
-                _error('--audience requires a value'); sys.exit(2)
+                raise UsageError('--audience requires a value')
             audience, argv = argv[0], argv[1:]
         elif a == '--no-tokens':
             no_tokens = True
@@ -91,7 +91,7 @@ def _parse_args(argv):
         elif a in ('--debug', '--verbose'):
             debug = True
         else:
-            _error(f'Unknown flag: {a}'); sys.exit(2)
+            raise UsageError(f'Unknown flag: {a}')
     return profile, audience, no_tokens, pretty, debug
 
 
@@ -120,11 +120,10 @@ def build_report(profile_filter='', audience='graph', no_tokens=False, debug=Fal
     aliases, default = probe_mod.list_piggy_profiles()
     if profile_filter:
         if profile_filter not in aliases:
-            _error(
+            raise UsageError(
                 f"profile '{profile_filter}' not found in owa-piggy "
                 f"(known: {', '.join(aliases) or 'none'})"
             )
-            sys.exit(2)
         aliases = [profile_filter]
 
     for alias in aliases:

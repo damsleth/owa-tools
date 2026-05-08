@@ -15,7 +15,7 @@ import sys
 from owa_core import jwt as jwt_mod
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
-from owa_core.errors import emit_message
+from owa_core.errors import UsageError, emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -57,8 +57,7 @@ def _debug_enabled(config):
 
 def _require_value(flag, args):
     if not args:
-        _error(f'{flag} requires a value')
-        sys.exit(1)
+        raise UsageError(f'{flag} requires a value')
     return args[0], args[1:]
 
 
@@ -219,16 +218,14 @@ def _resolve_body(arg):
         try:
             return json.loads(raw), False
         except json.JSONDecodeError as e:
-            _error(f'stdin body is not valid JSON: {e}')
-            sys.exit(1)
+            raise UsageError(f'stdin body is not valid JSON: {e}')
     if arg.startswith('@'):
         path = arg[1:]
         return path, True
     try:
         return json.loads(arg), False
     except json.JSONDecodeError as e:
-        _error(f'--body is not valid JSON: {e}')
-        sys.exit(1)
+        raise UsageError(f'--body is not valid JSON: {e}')
 
 
 def _read_file_body(path):
@@ -238,8 +235,7 @@ def _read_file_body(path):
         with open(path, 'rb') as f:
             return f.read()
     except OSError as e:
-        _error(f'cannot read body file {path!r}: {e}')
-        sys.exit(1)
+        raise UsageError(f'cannot read body file {path!r}: {e}')
 
 
 def cmd_request(method, path, args, config):

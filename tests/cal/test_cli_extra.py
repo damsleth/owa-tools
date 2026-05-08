@@ -7,6 +7,8 @@ import json
 
 import pytest
 
+from owa_core.errors import UsageError
+
 
 def test_config_no_args_lists_state_to_stderr(tmp_config, clean_env, capsys):
     from owa_cal.cli import cmd_config
@@ -243,7 +245,7 @@ def test_refresh_failure_returns_error(monkeypatch, capsys):
 
 def test_unknown_flag_on_events_exits_clean(capsys):
     from owa_cal.cli import cmd_events
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(UsageError) as exc:
         cmd_events(['--bogus'], {}, 'tok', 'https://example.invalid')
-    assert exc.value.code == 1
-    assert 'Unknown flag' in capsys.readouterr().err
+    assert exc.value.exit_code == 2
+    assert 'Unknown flag' in exc.value.message
