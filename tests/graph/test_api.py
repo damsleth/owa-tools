@@ -1,79 +1,69 @@
-"""api_request error-path coverage. We don't want a network call here,
-so urlopen is monkeypatched to a stub that raises HTTPError."""
-import io
-import json
-import urllib.error
-
+"""owa-graph API wrapper coverage."""
 import pytest
 
+from owa_core.errors import (
+    AuthExpiredError,
+    NotFoundError,
+    RateLimitedError,
+    ScopeInsufficientError,
+)
+from owa_core.http import Response
 from owa_graph import api
 
 
-class _FakeResp:
-    def __init__(self, payload):
-        self._payload = payload
-
-    def __enter__(self): return self
-    def __exit__(self, *a): return False
-
-    def read(self):
-        return self._payload
+def _response(payload=None, raw=b'{}'):
+    return Response(status=200, headers={}, json={} if payload is None else payload, bytes=raw)
 
 
 def test_get_2xx_returns_parsed_json(monkeypatch):
-    monkeypatch.setattr(
-        api.urllib.request, 'urlopen',
-        lambda req: _FakeResp(json.dumps({'displayName': 'kim'}).encode()),
-    )
-    out = api.api_get('https://graph.microsoft.com/v1.0', 'me', 't')
-    assert out == {'displayName': 'kim'}
+    monkeypatch.setattr(api.http, 'request', lambda *a, **k: _response({'displayName': 'kim'}))
+    assert api.api_get('https://graph.microsoft.com/v1.0', 'me', 't') == {'displayName': 'kim'}
 
 
-def test_2xx_empty_body_returns_empty_dict(monkeypatch):
-    monkeypatch.setattr(
-        api.urllib.request, 'urlopen', lambda req: _FakeResp(b''),
-    )
-    out = api.api_get('https://graph.microsoft.com/v1.0', 'me', 't')
-    assert out == {}
+def test_empty_body_returns_empty_dict(monkeypatch):
+    monkeypatch.setattr(api.http, 'request', lambda *a, **k: _response({}))
+    assert api.api_get('https://graph.microsoft.com/v1.0', 'me', 't') == {}
 
 
 def test_raw_returns_bytes(monkeypatch):
-    monkeypatch.setattr(
-        api.urllib.request, 'urlopen', lambda req: _FakeResp(b'\x00\x01\x02'),
-    )
+    monkeypatch.setattr(api.http, 'request', lambda *a, **k: _response(raw=b'\x00\x01\x02'))
     out = api.api_get('https://graph.microsoft.com/v1.0', 'me/photo/$value', 't', raw=True)
     assert out == b'\x00\x01\x02'
 
 
-def _raise_http(code):
-    def _fn(req):
-        raise urllib.error.HTTPError(
-            req.full_url, code, 'err', {}, io.BytesIO(b'{"error":{"code":"x"}}'),
-        )
-    return _fn
+def test_401_exits_with_auth_code(monkeypatch):
+    def fake_request(*args, **kwargs):
+        raise AuthExpiredError('auth expired (401)')
 
-
-def test_401_exits(monkeypatch):
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _raise_http(401))
+    monkeypatch.setattr(api.http, 'request', fake_request)
     with pytest.raises(SystemExit) as exc:
         api.api_get('https://graph.microsoft.com/v1.0', 'me', 't')
-    assert exc.value.code == 1
+    assert exc.value.code == 11
 
 
-def test_403_exits(monkeypatch):
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _raise_http(403))
+def test_403_exits_with_scope_code(monkeypatch):
+    def fake_request(*args, **kwargs):
+        raise ScopeInsufficientError('access denied (403)')
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
     with pytest.raises(SystemExit) as exc:
         api.api_get('https://graph.microsoft.com/v1.0', 'me', 't')
-    assert exc.value.code == 1
+    assert exc.value.code == 12
 
 
 def test_404_returns_none(monkeypatch):
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _raise_http(404))
+    def fake_request(*args, **kwargs):
+        raise NotFoundError('not found (404)')
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
     assert api.api_get('https://graph.microsoft.com/v1.0', 'missing', 't') is None
 
 
 def test_429_returns_none(monkeypatch):
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _raise_http(429))
+    def fake_request(*args, **kwargs):
+        raise RateLimitedError('rate limited (429)')
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
     assert api.api_get('https://graph.microsoft.com/v1.0', 'me', 't') is None
 
 

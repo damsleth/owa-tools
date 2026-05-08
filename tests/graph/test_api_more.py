@@ -1,145 +1,149 @@
-"""Additional api.py coverage: debug logging, base+endpoint joining,
-URLError, bytes body, extra_headers."""
-import io
-import urllib.error
-
+"""Additional owa_graph.api wrapper coverage."""
 import pytest
 
+from owa_core.errors import InternalError, NetworkError
+from owa_core.http import Response
 from owa_graph import api
 
 
-class _FakeResp:
-    def __init__(self, payload):
-        self._payload = payload
-    def __enter__(self): return self
-    def __exit__(self, *a): return False
-    def read(self):
-        return self._payload
+def _response(payload=None, raw=b'{}'):
+    return Response(status=200, headers={}, json={} if payload is None else payload, bytes=raw)
 
 
-def test_debug_logs_method_url_and_body(monkeypatch, capsys):
-    captured = {}
-    def _urlopen(req):
-        captured['url'] = req.full_url
-        captured['headers'] = dict(req.header_items())
-        return _FakeResp(b'{}')
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _urlopen)
-    api.api_request(
-        'POST', 'https://x/y', 'a/b', 't',
-        body={'k': 'v'}, debug=True,
-    )
-    err = capsys.readouterr().err
-    assert 'POST https://x/y/a/b' in err
-    assert '"k": "v"' in err
-    assert captured['headers'].get('Content-type') == 'application/json'
-
-
-def test_bytes_body_passes_through_unencoded(monkeypatch):
+def test_request_forwards_method_url_body_headers_and_debug(monkeypatch):
     seen = {}
-    def _urlopen(req):
-        seen['data'] = req.data
-        return _FakeResp(b'{}')
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _urlopen)
-    api.api_request('POST', 'https://x/y', 'z', 't', body=b'\x00raw\x01')
-    assert seen['data'] == b'\x00raw\x01'
 
+    def fake_request(method, url, **kwargs):
+        seen['method'] = method
+        seen['url'] = url
+        seen['kwargs'] = kwargs
+        return _response({'ok': True})
 
-def test_extra_headers_merged(monkeypatch):
-    seen = {}
-    def _urlopen(req):
-        seen['headers'] = dict(req.header_items())
-        return _FakeResp(b'{}')
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _urlopen)
-    api.api_request(
-        'GET', 'https://x/y', 'a', 't',
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    out = api.api_request(
+        'POST',
+        'https://x/y',
+        'a/b',
+        't',
+        body={'k': 'v'},
         extra_headers={'Prefer': 'foo'},
+        debug=True,
     )
-    # urllib title-cases header keys ('Prefer' -> 'Prefer').
-    assert 'Prefer' in seen['headers']
-    assert seen['headers']['Prefer'] == 'foo'
+    assert out == {'ok': True}
+    assert seen['method'] == 'POST'
+    assert seen['url'] == 'https://x/y/a/b'
+    assert seen['kwargs']['token'] == 't'
+    assert seen['kwargs']['body'] == {'k': 'v'}
+    assert seen['kwargs']['headers'] == {'Prefer': 'foo'}
+    assert seen['kwargs']['debug'] is True
 
 
-def test_url_error_returns_none(monkeypatch, capsys):
-    def _raise(req):
-        raise urllib.error.URLError('connection refused')
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _raise)
-    out = api.api_request('GET', 'https://x/y', 'a', 't')
-    assert out is None
-    assert 'connection refused' in capsys.readouterr().err
+def test_bytes_body_forwards_unchanged(monkeypatch):
+    seen = {}
 
+    def fake_request(method, url, **kwargs):
+        seen['body'] = kwargs['body']
+        return _response()
 
-def test_5xx_returns_none_with_debug_body(monkeypatch, capsys):
-    def _raise(req):
-        raise urllib.error.HTTPError(
-            req.full_url, 500, 'srv', {}, io.BytesIO(b'server boom'),
-        )
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _raise)
-    out = api.api_request('GET', 'https://x/y', 'a', 't', debug=True)
-    assert out is None
-    err = capsys.readouterr().err
-    assert 'HTTP 500' in err
-    assert 'server boom' in err
-
-
-def test_403_logs_body_in_debug(monkeypatch, capsys):
-    def _raise(req):
-        raise urllib.error.HTTPError(
-            req.full_url, 403, 'denied', {}, io.BytesIO(b'no scope'),
-        )
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _raise)
-    with pytest.raises(SystemExit):
-        api.api_request('GET', 'https://x/y', 'a', 't', debug=True)
-    err = capsys.readouterr().err
-    assert 'access denied' in err
-    assert 'no scope' in err
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    api.api_request('POST', 'https://x/y', 'z', 't', body=b'\x00raw\x01')
+    assert seen['body'] == b'\x00raw\x01'
 
 
 def test_endpoint_starting_with_http_overrides_base(monkeypatch):
     seen = {}
-    def _urlopen(req):
-        seen['url'] = req.full_url
-        return _FakeResp(b'{}')
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _urlopen)
-    api.api_request(
-        'GET', 'IGNORED', 'https://other.example/foo', 't',
-    )
+
+    def fake_request(method, url, **kwargs):
+        seen['url'] = url
+        return _response()
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    api.api_request('GET', 'IGNORED', 'https://other.example/foo', 't')
     assert seen['url'] == 'https://other.example/foo'
 
 
+def test_url_error_returns_none(monkeypatch, capsys):
+    def fake_request(*args, **kwargs):
+        raise NetworkError('network error: connection refused')
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    assert api.api_request('GET', 'https://x/y', 'a', 't') is None
+    assert 'connection refused' in capsys.readouterr().err
+
+
+def test_5xx_returns_none_with_debug_message(monkeypatch, capsys):
+    def fake_request(*args, **kwargs):
+        raise NetworkError('service unavailable (500): server boom')
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    assert api.api_request('GET', 'https://x/y', 'a', 't', debug=True) is None
+    err = capsys.readouterr().err
+    assert 'service unavailable' in err
+    assert 'server boom' in err
+
+
+def test_internal_error_returns_none(monkeypatch, capsys):
+    def fake_request(*args, **kwargs):
+        raise InternalError('HTTP response was not valid JSON')
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    assert api.api_request('GET', 'https://x/y', 'a', 't') is None
+    assert 'not valid JSON' in capsys.readouterr().err
+
+
 def test_url_error_retried_once_when_retry_true(monkeypatch, capsys):
-    """retry=True absorbs a single transport flake and retries once."""
     calls = []
-    def _flake(req):
-        calls.append(req.full_url)
+
+    def fake_request(method, url, **kwargs):
+        calls.append(kwargs.get('retry'))
         if len(calls) == 1:
-            raise urllib.error.URLError('connection reset')
-        return _FakeResp(b'{"ok":true}')
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _flake)
-    out = api.api_request('GET', 'https://x/y', 'a', 't', retry=True)
+            raise NetworkError('network error: connection reset')
+        return _response({'ok': True})
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    out = api.api_request('GET', 'https://x/y', 'a', 't', retry=True, debug=True)
     assert out == {'ok': True}
-    assert len(calls) == 2
+    assert calls == [1, 0]
+    assert 'retrying once' in capsys.readouterr().err
 
 
-def test_url_error_not_retried_when_retry_false(monkeypatch, capsys):
+def test_url_error_not_retried_when_retry_false(monkeypatch):
     calls = []
-    def _flake(req):
+
+    def fake_request(*args, **kwargs):
         calls.append(1)
-        raise urllib.error.URLError('reset')
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _flake)
-    out = api.api_request('GET', 'https://x/y', 'a', 't', retry=False)
-    assert out is None
+        raise NetworkError('network error: reset')
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    assert api.api_request('GET', 'https://x/y', 'a', 't', retry=False) is None
     assert len(calls) == 1
 
 
 def test_url_error_persistent_with_retry_surfaces_error(monkeypatch, capsys):
-    """If the second attempt also fails, give up and surface the error."""
     calls = []
-    def _flake(req):
+
+    def fake_request(*args, **kwargs):
         calls.append(1)
-        raise urllib.error.URLError('still reset')
-    monkeypatch.setattr(api.urllib.request, 'urlopen', _flake)
-    out = api.api_request('GET', 'https://x/y', 'a', 't', retry=True, debug=True)
-    assert out is None
+        raise NetworkError('network error: still reset')
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    assert api.api_request('GET', 'https://x/y', 'a', 't', retry=True, debug=True) is None
     assert len(calls) == 2
-    err = capsys.readouterr().err
-    assert 'still reset' in err
+    assert 'still reset' in capsys.readouterr().err
+
+
+def test_retry_auth_failure_exits(monkeypatch):
+    from owa_core.errors import AuthExpiredError
+
+    calls = []
+
+    def fake_request(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            raise NetworkError('network error: reset')
+        raise AuthExpiredError('auth expired (401)')
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    with pytest.raises(SystemExit) as exc:
+        api.api_request('GET', 'https://x/y', 'a', 't', retry=True)
+    assert exc.value.code == 11

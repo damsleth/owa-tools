@@ -166,6 +166,10 @@ def request(
                     sleep=sleep,
                     urlopen=urlopen,
                 )
+            raise RateLimitedError(
+                f'rate limited ({error.code}); server asked for {wait}s '
+                f'(>cap {RETRY_AFTER_CAP_SECONDS}s). Try again later.',
+            )
         _raise_for_http_error(error, debug=debug)
     except urllib.error.URLError as exc:
         raise NetworkError(f'network error: {exc.reason}', cause=exc)
