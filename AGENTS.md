@@ -30,6 +30,16 @@ Every consumer CLI in this repo upholds the same machine contract:
 4. **No prompts when stdin is not a TTY.** Destructive commands require explicit `--confirm` or `--yes` off-TTY. Otherwise exit `2` with a clear hint.
 5. **Idempotency where the API supports it.** Document retry safety per command. Add `--idempotency-key` only where the backing API can honor it.
 
+## Shared implementation contracts
+
+- New or migrated tools use `owa_core.errors` for expected CLI failures and
+  preserve the root exit-code taxonomy.
+- New or migrated auth paths use `owa_core.auth.get_token_for_config()` rather
+  than open-coding `owa-piggy` subprocess calls. The helper validates the JSON
+  broker contract and never exposes `refresh_token` to consumer tools.
+- Keep legacy helper behavior intact only while a tool is not migrated. This
+  suite is unreleased, so do not add compatibility shims for external users.
+
 ## Coding style
 
 - Two-space indentation in shell and docs. Four-space indentation in Python (PEP 8).
@@ -43,7 +53,9 @@ Every consumer CLI in this repo upholds the same machine contract:
   gitignored and used as a local planning workspace. Treat any files there as
   current operator context, but do not assume they are part of the repository
   history unless the user explicitly asks to publish or commit them.
-- **Never modify `owa-piggy` from this repo.** It lives in its own repository.
+- **Commit `owa-piggy` separately.** It lives in its own repository. Modify it
+  only when the operator explicitly authorizes sibling-repo changes, and keep
+  those changes in their own commits.
 - **No new third-party runtime imports.** Period.
 - **Suite semver.** `owa-tools` ships as one distribution with tags `vX.Y.Z`.
 - **One domain per PR where possible.** Keeps reviews scoped.
