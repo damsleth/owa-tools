@@ -21,9 +21,10 @@ Resolution order (the "closest profile wins" rule, see cli.py):
 """
 import json
 import os
-import shutil
-import subprocess
 from pathlib import Path
+
+from owa_core import auth as core_auth
+from owa_core.errors import OwaError
 
 PROFILES_PATH = Path(
     os.environ.get('XDG_CONFIG_HOME') or str(Path.home() / '.config')
@@ -81,39 +82,13 @@ def piggy_aliases():
     """Return (set_of_aliases, default_alias_or_empty).
 
     Best-effort: returns empty values when owa-piggy is not on PATH,
-    times out, or returns a non-zero exit. Callers use this for
-    collision detection and listings; they never block on it.
-
-    owa-piggy's `profiles` command emits a 5-line tabular format with
-    `*` prefixing the default. There is no JSON output today (verified
-    against owa-piggy 0.6.x), so we parse text. The format is stable
-    enough that a brittle parse fails loudly rather than silently
-    corrupts: a future change would yield zero aliases, not wrong ones.
+    times out, or returns invalid JSON. Callers use this for collision
+    detection and listings; they never block on it.
     """
-    if not shutil.which('owa-piggy'):
-        return set(), ''
     try:
-        proc = subprocess.run(
-            ['owa-piggy', 'profiles'],
-            capture_output=True, text=True, timeout=5, check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
+        profiles = core_auth.get_profiles(tool_name='owa-cal')
+    except OwaError:
         return set(), ''
-    if proc.returncode != 0:
-        return set(), ''
-    aliases = set()
-    default = ''
-    for line in proc.stdout.splitlines():
-        if not line.strip():
-            continue
-        is_default = line.lstrip().startswith('*')
-        token = line.lstrip().lstrip('*').strip()
-        # Defensive: drop anything that looks like a header / banner /
-        # error sentence rather than a single bareword alias. Aliases
-        # in the wild are short identifiers (no spaces).
-        if not token or ' ' in token:
-            continue
-        aliases.add(token)
-        if is_default:
-            default = token
+    aliases = {profile.alias for profile in profiles}
+    default = next((profile.alias for profile in profiles if profile.default), '')
     return aliases, default

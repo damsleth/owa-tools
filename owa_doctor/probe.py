@@ -4,15 +4,16 @@ Each probe is a pure-ish function returning a JSON-serialisable dict.
 The CLI composes them into a full report. No probe ever exits the
 process - failure cases produce structured findings instead.
 
-We talk to owa-piggy as a sibling POSIX util (subprocess + parse),
-not as a Python import. owa-piggy versions independently and may not
-even be in our import path.
+We call sibling CLIs for version checks. Token and profile broker calls
+go through owa_core.auth so the JSON contract and redaction behavior
+stay centralized.
 """
-import json
 import re
 import shutil
 import subprocess
 
+from owa_core import auth as core_auth
+from owa_core.errors import OwaError
 from owa_core.jwt import decode_token_audience, token_minutes_remaining
 
 SIBLINGS = ('owa-piggy', 'owa-cal', 'owa-mail', 'owa-graph',
@@ -74,35 +75,17 @@ def probe_siblings():
 
 
 def list_piggy_profiles():
-    """Run `owa-piggy profiles` and parse the alias listing.
+    """Return (aliases_list, default_alias_or_None).
 
-    The human output is one alias per line, with a leading `*` marker
-    on the default. Returns (aliases_list, default_alias_or_None).
+    This uses the broker JSON profile contract and degrades to an empty
+    list when the broker is unavailable.
     """
-    if not _which('owa-piggy'):
-        return [], None
     try:
-        proc = subprocess.run(
-            ['owa-piggy', 'profiles'],
-            capture_output=True, text=True, check=False, timeout=5,
-        )
-    except (OSError, subprocess.TimeoutExpired):
+        profiles = core_auth.get_profiles(tool_name='owa-doctor')
+    except OwaError:
         return [], None
-    if proc.returncode != 0:
-        return [], None
-    aliases = []
-    default = None
-    for line in proc.stdout.splitlines():
-        s = line.strip()
-        if not s:
-            continue
-        is_default = s.startswith('*')
-        alias = s.lstrip('* ').strip()
-        if not alias or ' ' in alias:
-            continue
-        aliases.append(alias)
-        if is_default:
-            default = alias
+    aliases = [profile.alias for profile in profiles]
+    default = next((profile.alias for profile in profiles if profile.default), None)
     return aliases, default
 
 
@@ -121,33 +104,17 @@ def probe_profile_token(alias, audience='graph'):
         'token_audience': None,
         'error': None,
     }
-    if not _which('owa-piggy'):
-        finding['error'] = 'owa-piggy not on PATH'
-        return finding
-    argv = ['owa-piggy', 'token', '--audience', audience, '--json',
-            '--profile', alias]
     try:
-        proc = subprocess.run(
-            argv, capture_output=True, text=True, check=False, timeout=15,
+        token = core_auth.get_token(
+            tool_name='owa-doctor',
+            audience=audience,
+            profile=alias,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        finding['error'] = f'owa-piggy invocation failed: {exc}'
-        return finding
-    if proc.returncode != 0:
-        # Capture the most useful line of stderr - typically AADSTS...
-        err = (proc.stderr or '').strip().splitlines()
-        finding['error'] = err[-1] if err else f'exit {proc.returncode}'
-        return finding
-    try:
-        payload = json.loads(proc.stdout)
-    except json.JSONDecodeError:
-        finding['error'] = 'owa-piggy returned non-JSON'
-        return finding
-    access = payload.get('access_token')
-    if not access:
-        finding['error'] = 'no access_token in piggy response'
+    except OwaError as error:
+        finding['error'] = error.message
         return finding
     finding['token_ok'] = True
+    access = token.access_token
     finding['minutes_remaining'] = token_minutes_remaining(access)
     finding['token_audience'] = decode_token_audience(access)
     return finding

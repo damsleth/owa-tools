@@ -1,5 +1,6 @@
 """Contract tests for the shared owa-piggy auth bridge."""
 import json
+import subprocess
 
 import pytest
 
@@ -262,3 +263,145 @@ def test_invalid_numeric_token_fields_become_none(monkeypatch):
     token = auth.get_token(tool_name='owa-people', audience='graph')
     assert token.expires_in is None
     assert token.expires_at is None
+
+
+def test_get_profiles_returns_profile_rows(monkeypatch):
+    _patch_available(monkeypatch)
+    calls = []
+
+    def fake_run(argv, *args, **kwargs):
+        calls.append(argv)
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy 0.7.1\n')
+        return FakeProc(stdout=json.dumps({
+            'default': 'work',
+            'profiles': [
+                {
+                    'alias': 'work',
+                    'default': True,
+                    'registered': True,
+                    'has_config': True,
+                },
+                {
+                    'alias': 'empty',
+                    'default': False,
+                    'registered': True,
+                    'has_config': False,
+                },
+            ],
+        }))
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    profiles = auth.get_profiles(tool_name='owa-cal')
+    assert calls == [['owa-piggy', '--version'], ['owa-piggy', 'profiles', '--json']]
+    assert [profile.alias for profile in profiles] == ['work', 'empty']
+    assert profiles[0].default is True
+    assert profiles[1].has_config is False
+
+
+def test_get_profiles_non_json_maps_to_internal(monkeypatch):
+    _patch_available(monkeypatch)
+
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy 0.7.1\n')
+        return FakeProc(stdout='not-json')
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    with pytest.raises(InternalError) as exc:
+        auth.get_profiles(tool_name='owa-cal')
+    assert 'profiles returned non-JSON' in exc.value.message
+
+
+def test_get_profiles_failure_redacts_stderr(monkeypatch):
+    _patch_available(monkeypatch)
+    access_token = '.'.join([
+        'eyJhbGciOiJIUzI1NiIs',
+        'eyJhdWQiOiJvd2EtdG9vbHMi',
+        'c2lnbmF0dXJlZm9ydGVzdHM',
+    ])
+
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy 0.7.1\n')
+        return FakeProc(returncode=1, stderr=f'ERROR: leaked {access_token}')
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    with pytest.raises(AuthExpiredError) as exc:
+        auth.get_profiles(tool_name='owa-cal')
+    assert access_token not in exc.value.message
+    assert '[redacted-secret]' in exc.value.message
+
+
+def test_get_profiles_debug_logs_argv(monkeypatch, capsys):
+    _patch_available(monkeypatch)
+
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy 0.7.1\n')
+        return FakeProc(stdout=json.dumps({'profiles': []}))
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    assert auth.get_profiles(tool_name='owa-cal', debug=True) == []
+    assert 'profiles via owa-piggy' in capsys.readouterr().err
+
+
+def test_get_profiles_subprocess_timeout_maps_to_auth(monkeypatch):
+    _patch_available(monkeypatch)
+
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy 0.7.1\n')
+        raise subprocess.TimeoutExpired(argv, timeout=5)
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    with pytest.raises(AuthExpiredError) as exc:
+        auth.get_profiles(tool_name='owa-cal')
+    assert 'failed to run owa-piggy profiles' in exc.value.message
+
+
+def test_get_profiles_invalid_payload_shape_maps_to_internal(monkeypatch):
+    _patch_available(monkeypatch)
+
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy 0.7.1\n')
+        return FakeProc(stdout=json.dumps(['not', 'object']))
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    with pytest.raises(InternalError) as exc:
+        auth.get_profiles(tool_name='owa-cal')
+    assert 'invalid payload' in exc.value.message
+
+
+def test_get_profiles_missing_profiles_key_maps_to_internal(monkeypatch):
+    _patch_available(monkeypatch)
+
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy 0.7.1\n')
+        return FakeProc(stdout=json.dumps({'default': None}))
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    with pytest.raises(InternalError) as exc:
+        auth.get_profiles(tool_name='owa-cal')
+    assert 'did not include profiles' in exc.value.message
+
+
+def test_get_profiles_skips_invalid_rows(monkeypatch):
+    _patch_available(monkeypatch)
+
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy 0.7.1\n')
+        return FakeProc(stdout=json.dumps({
+            'profiles': [
+                ['not', 'object'],
+                {'alias': ''},
+                {'alias': 'work'},
+            ],
+        }))
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    profiles = auth.get_profiles(tool_name='owa-cal')
+    assert [profile.alias for profile in profiles] == ['work']
