@@ -1,34 +1,36 @@
-"""HTTP helper for Microsoft Graph (and any other API behind an AAD
-audience).
-
-`api_request` returns parsed JSON or None for return-to-caller failures.
-For auth/permission failures we exit the process with a clear message -
-owa-graph is a CLI, not a library, and there is no recovery path for a
-401 except telling the user to re-run.
-"""
-import json
+"""HTTP helper for Microsoft Graph and other AAD-backed API audiences."""
 import sys
-import time
-import urllib.error
 import urllib.parse
-import urllib.request
 
-# Cap on Retry-After honoring. Servers can legitimately ask for hours;
-# a CLI invocation that sleeps that long is broken UX. We honor up to
-# this many seconds, then surface the rate-limit as a normal failure.
-RETRY_AFTER_CAP_SECONDS = 60
+from owa_core import http
+from owa_core.errors import (
+    AuthExpiredError,
+    ConflictError,
+    InternalError,
+    NetworkError,
+    NotFoundError,
+    OwaError,
+    RateLimitedError,
+    ScopeInsufficientError,
+    emit_error,
+)
+
+RETRY_AFTER_CAP_SECONDS = http.RETRY_AFTER_CAP_SECONDS
+_parse_retry_after = http._parse_retry_after
 
 
-def _parse_retry_after(value, default=2):
-    """Parse a Retry-After header. RFC 7231 allows seconds (`120`) or
-    HTTP-date (`Wed, 21 Oct 2026 07:28:00 GMT`). We honor seconds and
-    fall back to `default` for date form (rare on Graph)."""
-    if not value:
-        return default
-    try:
-        return max(0, int(value.strip()))
-    except (TypeError, ValueError):
-        return default
+def _run_request(method, url, access_token, *, body, extra_headers, debug, raw, retry):
+    response = http.request(
+        method,
+        url,
+        token=access_token,
+        body=body,
+        headers=extra_headers,
+        retry=retry,
+        raw=raw,
+        debug=debug,
+    )
+    return response.bytes if raw else response.json
 
 
 def api_request(method, base, endpoint, access_token, body=None,
@@ -36,100 +38,55 @@ def api_request(method, base, endpoint, access_token, body=None,
     """Issue a request against the API at `base`.
 
     - `base` and `endpoint` are joined with a single slash.
-    - `body` is dict-serialised to JSON when non-None; pass a `bytes`
-      object to send raw.
+    - `body` is dict-serialised to JSON when non-None; pass `bytes`
+      to send raw.
     - `extra_headers` is an optional dict of additional headers.
-    - `retry=True` honors `Retry-After` on a single 429/503; further
-      failures surface as None.
-    - Returns parsed JSON on 2xx (or raw bytes if raw=True),
-      None on 404/429 (caller decides), and exits on 401/403
-      (unrecoverable without reconfig).
+    - `retry=True` honors `Retry-After` on one 429/503 and retries one
+      transport failure.
+    - Returns parsed JSON on 2xx (or raw bytes if raw=True), None on
+      return-to-caller failures, and exits on auth/permission failures.
     """
     url = f'{base}/{endpoint}' if not endpoint.startswith('http') else endpoint
-    if debug:
-        print(f'DEBUG: {method} {url}', file=sys.stderr)
-        if body is not None and not isinstance(body, (bytes, bytearray)):
-            print(f'DEBUG: body: {json.dumps(body)[:500]}', file=sys.stderr)
-
-    data = None
-    headers = {'Authorization': f'Bearer {access_token}'}
-    if body is not None:
-        if isinstance(body, (bytes, bytearray)):
-            data = bytes(body)
-        else:
-            data = json.dumps(body).encode('utf-8')
-            headers['Content-Type'] = 'application/json'
-    if extra_headers:
-        for k, v in extra_headers.items():
-            headers[k] = v
-
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req) as resp:
-            payload = resp.read()
-            if raw:
-                return payload
-            if not payload:
-                return {}
-            return json.loads(payload.decode('utf-8', errors='replace'))
-    except urllib.error.HTTPError as e:
-        code = e.code
-        err_body = e.read().decode('utf-8', errors='replace')
-        if code == 401:
-            print('ERROR: auth expired (401). Run: owa-graph refresh', file=sys.stderr)
-            sys.exit(1)
-        if code == 403:
-            print('ERROR: access denied (403). Check permissions/scopes.', file=sys.stderr)
-            if debug:
-                print(err_body, file=sys.stderr)
-            sys.exit(1)
-        if code == 404:
-            print('ERROR: not found (404).', file=sys.stderr)
-            return None
-        if code in (429, 503) and retry:
-            wait = _parse_retry_after(e.headers.get('Retry-After'))
-            if wait > RETRY_AFTER_CAP_SECONDS:
-                print(
-                    f'ERROR: rate limited ({code}); server asked for {wait}s '
-                    f'(>cap {RETRY_AFTER_CAP_SECONDS}s). Try again later.',
-                    file=sys.stderr,
-                )
-                return None
-            if debug:
-                print(f'DEBUG: {code} - retrying in {wait}s', file=sys.stderr)
-            time.sleep(wait)
-            return api_request(
-                method, base, endpoint, access_token,
-                body=body, extra_headers=extra_headers,
-                debug=debug, raw=raw, retry=False,
-            )
-        if code == 429:
-            print('ERROR: rate limited (429). Try again later.', file=sys.stderr)
-            return None
-        if code == 503:
-            print('ERROR: service unavailable (503). Try again later.', file=sys.stderr)
-            return None
-        print(f'ERROR: HTTP {code}', file=sys.stderr)
-        if debug:
-            print(err_body, file=sys.stderr)
-        return None
-    except urllib.error.URLError as e:
+        return _run_request(
+            method,
+            url,
+            access_token,
+            body=body,
+            extra_headers=extra_headers,
+            debug=debug,
+            raw=raw,
+            retry=1 if retry else 0,
+        )
+    except (AuthExpiredError, ScopeInsufficientError) as error:
+        sys.exit(emit_error(error))
+    except NetworkError as error:
         if retry:
-            # Single retry on transport-level failures (e.g. connection
-            # reset between pages of a long --all walk). Bounded - we
-            # disable retry on the second attempt so a persistently
-            # broken host still surfaces as an error.
             if debug:
-                print(f'DEBUG: URLError {e.reason!r} - retrying once', file=sys.stderr)
+                print(f'DEBUG: {error.message} - retrying once', file=sys.stderr)
             try:
-                return api_request(
-                    method, base, endpoint, access_token,
-                    body=body, extra_headers=extra_headers,
-                    debug=debug, raw=raw, retry=False,
+                return _run_request(
+                    method,
+                    url,
+                    access_token,
+                    body=body,
+                    extra_headers=extra_headers,
+                    debug=debug,
+                    raw=raw,
+                    retry=0,
                 )
-            except Exception:  # pragma: no cover - defensive
-                pass
-        print(f'ERROR: {e.reason}', file=sys.stderr)
+            except (AuthExpiredError, ScopeInsufficientError) as retry_error:
+                sys.exit(emit_error(retry_error))
+            except OwaError as retry_error:
+                emit_error(retry_error)
+                return None
+        emit_error(error)
+        return None
+    except (ConflictError, InternalError, NotFoundError, RateLimitedError) as error:
+        emit_error(error)
+        return None
+    except OwaError as error:
+        emit_error(error)
         return None
 
 
@@ -141,9 +98,6 @@ def paginate(method, url, access_token, extra_headers=None,
     caller passes a fully-built first-page URL; subsequent URLs come
     from the server (skiptokens are opaque). Non-collection responses
     (a single entity) yield once and stop.
-
-    Yields one item at a time so callers can stream to stdout without
-    holding the full result set in memory.
     """
     pages = 0
     while url:
@@ -158,7 +112,6 @@ def paginate(method, url, access_token, extra_headers=None,
                 yield item
             url = page.get('@odata.nextLink')
         else:
-            # Single entity, not a collection - yield once and stop.
             yield page
             return
         pages += 1
