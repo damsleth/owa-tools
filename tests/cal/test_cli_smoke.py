@@ -95,7 +95,7 @@ def test_subprocess_inherits_env_for_uvx_one_liner(monkeypatch, tmp_path, clean_
         return FakeProc()
 
     monkeypatch.setattr(core_auth.shutil, 'which', lambda name: '/usr/bin/owa-piggy')
-    monkeypatch.setattr(auth_mod.subprocess, 'run', fake_run)
+    monkeypatch.setattr(core_auth.subprocess, 'run', fake_run)
     auth_mod._refresh_via_owa_piggy({}, debug=False)
 
     # The contract: no explicit env= means the child inherits the
@@ -131,7 +131,7 @@ def test_profile_flag_forwards_to_owa_piggy(monkeypatch, tmp_path, clean_env):
         return FakeProc()
 
     monkeypatch.setattr(core_auth.shutil, 'which', lambda name: '/usr/bin/owa-piggy')
-    monkeypatch.setattr(auth_mod.subprocess, 'run', fake_run)
+    monkeypatch.setattr(core_auth.subprocess, 'run', fake_run)
 
     result = auth_mod._refresh_via_owa_piggy(
         {'owa_piggy_profile': 'work'}, debug=False
@@ -161,7 +161,7 @@ def test_refresh_via_owa_piggy_no_profile(monkeypatch, clean_env):
         return FakeProc()
 
     monkeypatch.setattr(core_auth.shutil, 'which', lambda name: '/usr/bin/owa-piggy')
-    monkeypatch.setattr(auth_mod.subprocess, 'run', fake_run)
+    monkeypatch.setattr(core_auth.subprocess, 'run', fake_run)
     auth_mod._refresh_via_owa_piggy({}, debug=False)
     assert captured['argv'] == ['owa-piggy', 'token', '--audience', 'outlook', '--json']
 
