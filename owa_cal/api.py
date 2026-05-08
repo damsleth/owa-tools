@@ -5,7 +5,6 @@ return-to-caller failures). For auth/permission failures we exit the
 process with a clear message - owa-cal is a CLI, not a library, and
 there is no recovery path for a 401 except telling the user to re-run.
 """
-import sys
 import urllib.parse
 
 from owa_core import http
@@ -34,7 +33,7 @@ def api_request(method, base, endpoint, access_token, body=None, debug=False):
     try:
         return http.request(method, url, token=access_token, body=body, debug=debug).json
     except (AuthExpiredError, ScopeInsufficientError) as error:
-        sys.exit(emit_error(error))
+        raise error
     except (ConflictError, InternalError, NetworkError, NotFoundError, RateLimitedError) as error:
         emit_error(error)
         return None

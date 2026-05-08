@@ -79,10 +79,7 @@ def do_token_refresh(config, audience='graph', debug=False):
 
 def setup_auth(config, audience='graph', beta=False, debug=False):
     api_base = resolve_api_base(audience, beta=beta)
-    try:
-        token = _core.get_token_for_config(
-            config, tool_name=TOOL_NAME, audience=audience, debug=debug,
-        )
-    except OwaError as error:
-        sys.exit(emit_error(error))
+    token = _core.get_token_for_config(
+        config, tool_name=TOOL_NAME, audience=audience, debug=debug,
+    )
     return token.access_token, api_base

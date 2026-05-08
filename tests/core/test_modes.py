@@ -82,6 +82,16 @@ def test_non_agent_mode_catches_system_exit():
     assert modes.run_with_output_modes('owa-mail', ['config'], dispatch) == 7
 
 
+def test_non_agent_mode_renders_owa_error(capsys):
+    def dispatch(_argv):
+        raise AuthExpiredError('token expired')
+
+    rc = modes.run_with_output_modes('owa-mail', ['messages'], dispatch)
+
+    assert rc == 11
+    assert 'token expired' in capsys.readouterr().err
+
+
 def test_agent_mode_rejects_binary_stdout_without_out(capsys):
     rc = modes.run_with_output_modes(
         'owa-drive',

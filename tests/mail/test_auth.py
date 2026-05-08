@@ -4,7 +4,7 @@ import json
 import pytest
 
 from owa_core import auth as core_auth
-from owa_core.errors import ExitCode
+from owa_core.errors import AuthExpiredError, ExitCode
 
 
 class FakeProc:
@@ -97,13 +97,13 @@ def test_owa_piggy_version_unparseable_does_not_block(monkeypatch, clean_env):
     assert auth_mod._refresh_via_owa_piggy({}, debug=False) == 'fake-access-token-for-tests'
 
 
-def test_setup_auth_owa_piggy_failure_exits_with_auth_code(monkeypatch, clean_env):
+def test_setup_auth_owa_piggy_failure_raises_auth_error(monkeypatch, clean_env):
     from owa_mail import auth as auth_mod
 
     monkeypatch.setattr(core_auth.shutil, 'which', lambda name: None)
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(AuthExpiredError) as exc:
         auth_mod.setup_auth({'owa_piggy_profile': 'work'}, debug=False)
-    assert exc.value.code == ExitCode.AUTH_EXPIRED
+    assert exc.value.exit_code == ExitCode.AUTH_EXPIRED
 
 
 def test_setup_auth_returns_outlook_audience(monkeypatch, clean_env):

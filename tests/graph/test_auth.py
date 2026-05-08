@@ -4,7 +4,7 @@ import json
 import pytest
 
 from owa_core import auth as core_auth
-from owa_core.errors import ExitCode
+from owa_core.errors import AuthExpiredError, ExitCode
 from owa_graph import auth as auth_mod
 
 
@@ -173,8 +173,8 @@ def test_setup_auth_returns_token_and_base(monkeypatch):
     assert base == 'https://graph.microsoft.com/beta'
 
 
-def test_setup_auth_failure_exits_with_auth_code(monkeypatch):
+def test_setup_auth_failure_raises_auth_error(monkeypatch):
     _patch_owa_piggy(monkeypatch, fake_run=lambda *a, **k: FakeProc(), available=False)
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(AuthExpiredError) as exc:
         auth_mod.setup_auth({'owa_piggy_profile': 'work'})
-    assert exc.value.code == ExitCode.AUTH_EXPIRED
+    assert exc.value.exit_code == ExitCode.AUTH_EXPIRED

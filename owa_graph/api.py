@@ -59,7 +59,7 @@ def api_request(method, base, endpoint, access_token, body=None,
             retry=1 if retry else 0,
         )
     except (AuthExpiredError, ScopeInsufficientError) as error:
-        sys.exit(emit_error(error))
+        raise error
     except NetworkError as error:
         if retry:
             if debug:
@@ -76,7 +76,7 @@ def api_request(method, base, endpoint, access_token, body=None,
                     retry=0,
                 )
             except (AuthExpiredError, ScopeInsufficientError) as retry_error:
-                sys.exit(emit_error(retry_error))
+                raise retry_error
             except OwaError as retry_error:
                 emit_error(retry_error)
                 return None

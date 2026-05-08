@@ -132,7 +132,7 @@ def test_url_error_persistent_with_retry_surfaces_error(monkeypatch, capsys):
     assert 'still reset' in capsys.readouterr().err
 
 
-def test_retry_auth_failure_exits(monkeypatch):
+def test_retry_auth_failure_raises(monkeypatch):
     from owa_core.errors import AuthExpiredError
 
     calls = []
@@ -144,6 +144,6 @@ def test_retry_auth_failure_exits(monkeypatch):
         raise AuthExpiredError('auth expired (401)')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(AuthExpiredError) as exc:
         api.api_request('GET', 'https://x/y', 'a', 't', retry=True)
-    assert exc.value.code == 11
+    assert exc.value.exit_code == 11

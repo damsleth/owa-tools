@@ -31,24 +31,24 @@ def test_raw_returns_bytes(monkeypatch):
     assert out == b'\x00\x01\x02'
 
 
-def test_401_exits_with_auth_code(monkeypatch):
+def test_401_raises_auth_error(monkeypatch):
     def fake_request(*args, **kwargs):
         raise AuthExpiredError('auth expired (401)')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(AuthExpiredError) as exc:
         api.api_get('https://graph.microsoft.com/v1.0', 'me', 't')
-    assert exc.value.code == 11
+    assert exc.value.exit_code == 11
 
 
-def test_403_exits_with_scope_code(monkeypatch):
+def test_403_raises_scope_error(monkeypatch):
     def fake_request(*args, **kwargs):
         raise ScopeInsufficientError('access denied (403)')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(ScopeInsufficientError) as exc:
         api.api_get('https://graph.microsoft.com/v1.0', 'me', 't')
-    assert exc.value.code == 12
+    assert exc.value.exit_code == 12
 
 
 def test_404_returns_none(monkeypatch):
