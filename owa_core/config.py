@@ -51,6 +51,7 @@ def save_config(path, config):
     truncated mix."""
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(p.parent, 0o700)
     lines = []
     existing_keys = set()
     if p.exists():
