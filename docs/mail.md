@@ -130,6 +130,9 @@ owa-mail mark --id AAMkAG... --read
 owa-mail mark --id AAMkAG... --flag
 owa-mail move --id AAMkAG... --to Archive
 owa-mail delete --id AAMkAG... --confirm
+
+owa-mail refresh
+owa-mail config --profile work
 ```
 
 ### Folder names

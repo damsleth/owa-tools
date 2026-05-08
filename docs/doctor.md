@@ -51,6 +51,7 @@ owa-doctor --pretty                     # human-readable table
 owa-doctor --profile swon --pretty      # one profile only
 owa-doctor --no-tokens                  # quick install check, no token probes
 owa-doctor --audience outlook --pretty  # verify Outlook REST too
+owa-doctor probe --no-tokens            # explicit subcommand form
 ```
 
 `owa-doctor` shells out to `owa-piggy` and sibling CLIs. It owns no
