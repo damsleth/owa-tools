@@ -62,15 +62,28 @@ Test suite:
 .venv/bin/python -m pytest --cov=owa_core --cov-fail-under=95
 .venv/bin/python tools/check_stdlib_only.py
 .venv/bin/python tools/check_no_secrets.py
+.venv/bin/python tools/check_docs_sync.py
 .venv/bin/python tools/check_artifacts.py dist/*   # after build
+.venv/bin/python tools/check_console_smoke.py      # after build
 ```
 
 See `RELEASING.md` for the suite tag-and-publish flow.
+
+## More Docs
+
+- `docs/security.md` defines the token, config, redaction, and live-test
+  boundaries.
+- `docs/agent-integration.md` documents schema discovery, `--agent`, and
+  `--err-json`.
+- `docs/profile-model.md` explains how `owa-tools` profile aliases map to
+  `owa-piggy` profiles.
 
 ## Conventions
 
 - Stdlib only at runtime, except for the local suite packages and `owa-piggy`.
 - JSON on stdout, logs on stderr, `--pretty` for humans.
+- `--agent` wraps JSON-compatible output for automation; `--err-json` emits
+  structured stderr.
 - Auth via `owa-piggy` (subprocess, JSON contract).
 - For agents and contributors, start with `AGENTS.md`, then read the nearest
   local `AGENTS.md` for the package or directory being edited.
