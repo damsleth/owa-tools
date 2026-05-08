@@ -17,4 +17,5 @@ Verify:
 .venv/bin/ruff check tools tests
 .venv/bin/python tools/check_stdlib_only.py
 .venv/bin/python tools/check_no_secrets.py
+.venv/bin/python tools/check_artifacts.py dist/*
 ```
