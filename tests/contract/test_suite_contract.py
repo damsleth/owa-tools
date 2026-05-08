@@ -82,3 +82,32 @@ def test_owa_doctor_probe_no_tokens_is_json_without_broker(tmp_path):
     assert payload["owa_piggy"]["installed"] is False
     assert payload["profiles"] == []
     assert "Traceback" not in result.stderr
+
+
+def test_err_json_maps_auth_failure_to_structured_stderr(tmp_path):
+    empty_bin = tmp_path / "empty-bin"
+    empty_bin.mkdir()
+    result = _run_module(
+        "owa_mail",
+        "--err-json",
+        "messages",
+        env={"HOME": str(tmp_path), "PATH": str(empty_bin)},
+    )
+
+    assert result.returncode == 11
+    assert result.stdout == ""
+    payload = json.loads(result.stderr)
+    assert payload["error"]["code"] == "AUTH_EXPIRED"
+    assert payload["error"]["tool"] == "owa-mail"
+    assert payload["error"]["command"] == "messages"
+    assert "owa-piggy" in payload["error"]["message"]
+
+
+def test_agent_mode_wraps_successful_json_output():
+    result = _run_module("owa_mail", "--agent", "schema", "messages")
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["_owa"]["tool"] == "owa-mail"
+    assert payload["_owa"]["command"] == "schema"
+    assert payload["data"]["commands"][0]["name"] == "messages"

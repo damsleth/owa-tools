@@ -13,7 +13,9 @@ NOT prevent reporting on installed siblings - the user may run
 import json
 import sys
 
+from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
+from owa_core.errors import emit_message
 
 from . import __version__
 from . import probe as probe_mod
@@ -21,7 +23,7 @@ from .format import format_report_pretty
 
 
 def _error(msg):
-    print(f'ERROR: {msg}', file=sys.stderr)
+    emit_message(msg)
 
 
 def _info(msg):
@@ -153,8 +155,7 @@ def _exit_code_for(report):
     return 0
 
 
-def main():
-    argv = sys.argv[1:]
+def _main(argv):
     handled = schema_mod.maybe_emit_schema(argv, tool='owa-doctor', commands=COMMAND_SCHEMA)
     if handled is not None:
         return handled
@@ -183,3 +184,7 @@ def main():
         print(json.dumps(report))
 
     return _exit_code_for(report)
+
+
+def main():
+    return mode_mod.run_with_output_modes('owa-doctor', sys.argv[1:], _main)

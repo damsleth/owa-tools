@@ -12,7 +12,9 @@ import json
 import os
 import sys
 
+from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
+from owa_core.errors import emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -32,7 +34,7 @@ from .schedule import find_open_slots, normalize_attendee
 
 
 def _error(msg):
-    print(f'ERROR: {msg}', file=sys.stderr)
+    emit_message(msg)
 
 
 def _info(msg):
@@ -361,8 +363,7 @@ COMMAND_SCHEMA = [
 ]
 
 
-def main():
-    argv = sys.argv[1:]
+def _main(argv):
     handled = schema_mod.maybe_emit_schema(argv, tool='owa-sched', commands=COMMAND_SCHEMA)
     if handled is not None:
         return handled
@@ -429,3 +430,7 @@ def main():
         return cmd_find_time(rest, config, access_token, api_base)
 
     return 1
+
+
+def main():
+    return mode_mod.run_with_output_modes('owa-sched', sys.argv[1:], _main)

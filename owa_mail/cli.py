@@ -12,7 +12,9 @@ import json
 import os
 import sys
 
+from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
+from owa_core.errors import emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -29,7 +31,7 @@ from .format import (
 
 
 def _error(msg):
-    print(f'ERROR: {msg}', file=sys.stderr)
+    emit_message(msg)
 
 
 def _info(msg):
@@ -688,8 +690,7 @@ COMMAND_SCHEMA = [
 ]
 
 
-def main():
-    argv = sys.argv[1:]
+def _main(argv):
     handled = schema_mod.maybe_emit_schema(argv, tool='owa-mail', commands=COMMAND_SCHEMA)
     if handled is not None:
         return handled
@@ -735,3 +736,7 @@ def main():
         config, debug=_debug_enabled(config)
     )
     return handler(rest, config, access_token, api_base)
+
+
+def main():
+    return mode_mod.run_with_output_modes('owa-mail', sys.argv[1:], _main)

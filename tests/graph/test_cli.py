@@ -142,8 +142,9 @@ def test_body_stdin(monkeypatch, capsys):
 
 
 def test_invalid_body_json_exits(monkeypatch, capsys):
-    with pytest.raises(SystemExit):
-        _run(monkeypatch, 'POST', '/x', '--body', 'not-json', '--curl')
+    rc = _run(monkeypatch, 'POST', '/x', '--body', 'not-json', '--curl')
+    assert rc == 1
+    assert '--body is not valid JSON' in capsys.readouterr().err
 
 
 def test_unknown_flag_returns_error(monkeypatch, capsys):
