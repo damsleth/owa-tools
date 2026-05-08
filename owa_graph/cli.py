@@ -13,6 +13,7 @@ import os
 import sys
 
 from owa_core import jwt as jwt_mod
+from owa_core import schema as schema_mod
 
 from . import __version__
 from . import api as api_mod
@@ -27,6 +28,17 @@ from . import scopes as scopes_mod
 
 HTTP_VERBS = {'GET', 'POST', 'PATCH', 'PUT', 'DELETE'}
 RESERVED_SUBCOMMANDS = {'refresh', 'config', 'batch', 'help'}
+
+COMMAND_SCHEMA = [
+    schema_mod.command('GET', 'Issue a GET request', auth='graph'),
+    schema_mod.command('POST', 'Issue a POST request', auth='graph'),
+    schema_mod.command('PATCH', 'Issue a PATCH request', auth='graph'),
+    schema_mod.command('PUT', 'Issue a PUT request', auth='graph'),
+    schema_mod.command('DELETE', 'Issue a DELETE request', auth='graph'),
+    schema_mod.command('batch', 'Run a Graph batch request', auth='graph'),
+    schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
+    schema_mod.command('config', 'View or update configuration'),
+]
 
 
 def _error(msg):
@@ -641,6 +653,9 @@ def _first_nonglobal(argv):
 
 def main():
     argv = sys.argv[1:]
+    handled = schema_mod.maybe_emit_schema(argv, tool='owa-graph', commands=COMMAND_SCHEMA)
+    if handled is not None:
+        return handled
 
     if not argv or argv[0] in ('help', '--help', '-h'):
         print_help()

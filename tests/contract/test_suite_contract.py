@@ -38,6 +38,36 @@ def test_all_tools_expose_help_and_version():
     assert len(versions) == 1
 
 
+def test_all_tools_expose_schema_and_json_help():
+    for module in TOOLS:
+        schema_result = _run_module(module, "schema")
+        assert schema_result.returncode == 0
+        schema = json.loads(schema_result.stdout)
+        assert schema["suite"] == "owa-tools"
+        assert schema["commands"]
+        assert "Traceback" not in schema_result.stderr
+
+        help_json_result = _run_module(module, "--help", "--json")
+        assert help_json_result.returncode == 0
+        assert json.loads(help_json_result.stdout)["tool"] == schema["tool"]
+
+
+def test_schema_subcommand_filters_one_command():
+    result = _run_module("owa_mail", "schema", "messages")
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [command["name"] for command in payload["commands"]] == ["messages"]
+
+
+def test_umbrella_schema_has_real_tool_entries():
+    result = _run_module("owa", "schema", "--tool", "owa-mail")
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert len(payload) == 1
+    assert payload[0]["schema_supported"] is True
+    assert payload[0]["schema"]["tool"] == "owa-mail"
+
+
 def test_owa_doctor_probe_no_tokens_is_json_without_broker(tmp_path):
     empty_bin = tmp_path / "empty-bin"
     empty_bin.mkdir()

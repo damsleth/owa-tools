@@ -13,6 +13,8 @@ NOT prevent reporting on installed siblings - the user may run
 import json
 import sys
 
+from owa_core import schema as schema_mod
+
 from . import __version__
 from . import probe as probe_mod
 from .format import format_report_pretty
@@ -24,6 +26,11 @@ def _error(msg):
 
 def _info(msg):
     print(msg, file=sys.stderr)
+
+
+COMMAND_SCHEMA = [
+    schema_mod.command('probe', 'Run the health probe'),
+]
 
 
 def print_help():
@@ -148,6 +155,10 @@ def _exit_code_for(report):
 
 def main():
     argv = sys.argv[1:]
+    handled = schema_mod.maybe_emit_schema(argv, tool='owa-doctor', commands=COMMAND_SCHEMA)
+    if handled is not None:
+        return handled
+
     if argv and argv[0] in ('-h', '--help', 'help'):
         print_help()
         return 0

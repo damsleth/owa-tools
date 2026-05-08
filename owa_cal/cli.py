@@ -14,6 +14,8 @@ import sys
 import urllib.parse
 from datetime import datetime, timedelta
 
+from owa_core import schema as schema_mod
+
 from . import __version__
 from . import api as api_mod
 from . import auth as auth_mod
@@ -663,6 +665,17 @@ AUTHED_COMMANDS = {'events', 'create', 'update', 'delete', 'categories'}
 WEBCAL_READ_COMMANDS = {'events'}
 WEBCAL_REJECTED_COMMANDS = {'create', 'update', 'delete', 'categories'}
 
+COMMAND_SCHEMA = [
+    schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
+    schema_mod.command('events', 'List calendar events', auth='outlook'),
+    schema_mod.command('create', 'Create an event', auth='outlook'),
+    schema_mod.command('update', 'Update an event', auth='outlook'),
+    schema_mod.command('delete', 'Delete an event', auth='outlook'),
+    schema_mod.command('categories', 'List or add master categories', auth='outlook'),
+    schema_mod.command('profiles', 'List/add/delete calendar profiles'),
+    schema_mod.command('config', 'View or update configuration'),
+]
+
 
 def _resolve_source(config):
     """Resolve which calendar source this invocation should use.
@@ -861,6 +874,9 @@ def _profiles_delete(args):
 
 def main():
     argv = sys.argv[1:]
+    handled = schema_mod.maybe_emit_schema(argv, tool='owa-cal', commands=COMMAND_SCHEMA)
+    if handled is not None:
+        return handled
 
     if not argv:
         print_help()

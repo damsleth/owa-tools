@@ -12,6 +12,8 @@ import json
 import os
 import sys
 
+from owa_core import schema as schema_mod
+
 from . import __version__
 from . import api as api_mod
 from . import auth as auth_mod
@@ -670,9 +672,27 @@ AUTHED_HANDLERS = {
     'folders': cmd_folders,
 }
 
+COMMAND_SCHEMA = [
+    schema_mod.command('messages', 'List messages', auth='outlook'),
+    schema_mod.command('show', 'Show full message body', auth='outlook'),
+    schema_mod.command('send', 'Compose and send a message', auth='outlook'),
+    schema_mod.command('reply', 'Reply to a message', auth='outlook'),
+    schema_mod.command('reply-all', 'Reply-all to a message', auth='outlook'),
+    schema_mod.command('forward', 'Forward a message', auth='outlook'),
+    schema_mod.command('delete', 'Delete a message', auth='outlook'),
+    schema_mod.command('move', 'Move a message', auth='outlook'),
+    schema_mod.command('mark', 'Mark a message', auth='outlook'),
+    schema_mod.command('folders', 'List mail folders', auth='outlook'),
+    schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
+    schema_mod.command('config', 'View or update configuration'),
+]
+
 
 def main():
     argv = sys.argv[1:]
+    handled = schema_mod.maybe_emit_schema(argv, tool='owa-mail', commands=COMMAND_SCHEMA)
+    if handled is not None:
+        return handled
 
     if not argv:
         print_help()

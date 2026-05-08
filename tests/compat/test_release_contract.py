@@ -31,5 +31,7 @@ def test_umbrella_doctor_forwards_to_probe(tmp_path):
     empty_bin.mkdir()
     env = {"HOME": str(tmp_path), "PATH": str(empty_bin)}
     result = _run_owa("doctor", "--no-tokens", env=env)
-    assert result.returncode == 13
-    assert "owa-doctor not on PATH" in result.stderr
+    assert result.returncode == 2
+    payload = json.loads(result.stdout)
+    assert payload["owa_piggy"]["installed"] is False
+    assert "owa-doctor not on PATH" not in result.stderr

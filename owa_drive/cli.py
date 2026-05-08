@@ -12,6 +12,8 @@ import json
 import os
 import sys
 
+from owa_core import schema as schema_mod
+
 from . import __version__
 from . import api as api_mod
 from . import auth as auth_mod
@@ -344,8 +346,23 @@ def _command_name(argv):
     return ''
 
 
+COMMAND_SCHEMA = [
+    schema_mod.command('ls', 'List a folder', auth='graph'),
+    schema_mod.command('show', 'Show item metadata', auth='graph'),
+    schema_mod.command('get', 'Download file content', auth='graph', output='bytes'),
+    schema_mod.command('put', 'Upload a small file', auth='graph'),
+    schema_mod.command('rm', 'Delete an item', auth='graph'),
+    schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
+    schema_mod.command('config', 'View or update configuration'),
+]
+
+
 def main():
     argv = sys.argv[1:]
+    handled = schema_mod.maybe_emit_schema(argv, tool='owa-drive', commands=COMMAND_SCHEMA)
+    if handled is not None:
+        return handled
+
     if not argv:
         print_help()
         return 0

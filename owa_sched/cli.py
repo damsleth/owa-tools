@@ -12,6 +12,8 @@ import json
 import os
 import sys
 
+from owa_core import schema as schema_mod
+
 from . import __version__
 from . import api as api_mod
 from . import auth as auth_mod
@@ -351,8 +353,20 @@ def _command_name(argv):
     return ''
 
 
+COMMAND_SCHEMA = [
+    schema_mod.command('availability', 'List attendee free/busy windows', auth='graph'),
+    schema_mod.command('find-time', 'Find meeting slots', auth='graph'),
+    schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
+    schema_mod.command('config', 'View or update configuration'),
+]
+
+
 def main():
     argv = sys.argv[1:]
+    handled = schema_mod.maybe_emit_schema(argv, tool='owa-sched', commands=COMMAND_SCHEMA)
+    if handled is not None:
+        return handled
+
     if not argv:
         print_help()
         return 0
