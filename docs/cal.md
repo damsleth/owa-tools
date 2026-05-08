@@ -127,6 +127,10 @@ owa-cal delete --id <event-id>
 
 owa-cal categories                            # JSON
 owa-cal categories --pretty                   # aligned table
+
+owa-cal profiles list                         # local + broker profile view
+owa-cal refresh                               # force token refresh
+owa-cal config --profile work                 # pin a profile
 ```
 
 ---

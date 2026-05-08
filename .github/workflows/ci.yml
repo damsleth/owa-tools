@@ -28,6 +28,8 @@ jobs:
         run: python tools/check_stdlib_only.py
       - name: No-secret check
         run: python tools/check_no_secrets.py
+      - name: Docs sync check
+        run: python tools/check_docs_sync.py
       - name: Unit tests
         run: pytest -q --cov=owa_core --cov-fail-under=95
       - name: Compatibility snapshots

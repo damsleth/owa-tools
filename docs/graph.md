@@ -11,10 +11,14 @@ owa-graph GET /users --search 'displayName:Bob' --count
 owa-graph GET /me/messages --top 10 --select id,subject,from
 owa-graph POST /me/sendMail --body @mail.json
 owa-graph PATCH /me/messages/AAMk... --body '{"isRead":true}'
+owa-graph PUT /me/drive/root:/notes.txt:/content --body @notes.txt
+owa-graph DELETE /me/messages/AAMk...
 owa-graph GET /me/drive/root/children --beta
 owa-graph GET /me --curl | pbcopy
 owa-graph GET me/events --audience outlook --pretty
 owa-graph batch requests.json --pretty
+owa-graph refresh
+owa-graph config --profile work
 ```
 
 Or, since v0.3, with curated shortcuts:
