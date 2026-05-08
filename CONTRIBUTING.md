@@ -2,7 +2,7 @@
 
 ## Setup
 
-- Python 3.9+. The suite is stdlib-only at runtime, but tooling uses pytest and ruff.
+- Python 3.10+. The suite is stdlib-only at runtime, but tooling uses pytest and ruff.
 - Install in editable mode for development:
   ```
   pip install -e .[dev]
@@ -14,7 +14,10 @@
 ```
 pytest                                # all tests
 pytest tests/cal                      # one tool
+python tools/check_no_secrets.py      # secret-shape scanner
 ```
+
+Before editing, read root `AGENTS.md` and the nearest local `AGENTS.md`.
 
 ## Stdlib-only check
 
@@ -30,7 +33,7 @@ Any other import outside `tests/` and `tools/` fails the build.
 
 - One package per PR where practical.
 - Commit subject: `<package>: <imperative one-liner>` (e.g., `owa_cal: add --idempotency-key to create`).
-- Tag releases as `<tool>-vX.Y.Z` (e.g., `owa-cal-v0.6.3`).
+- Tag suite releases as `vX.Y.Z`.
 
 ## Code style
 
@@ -42,4 +45,4 @@ Any other import outside `tests/` and `tools/` fails the build.
 ## Don't
 
 - Don't add third-party runtime dependencies.
-- Don't modify `owa-piggy` from this repo.
+- Don't read `owa-piggy` config directly or import `owa_piggy`.

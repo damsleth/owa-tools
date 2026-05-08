@@ -9,7 +9,7 @@ The auth broker `owa-piggy` lives in its own repository. It is the only persiste
 `owa-tools` is currently unreleased and uses one suite version for all console scripts.
 
 | CLI | Status |
-|---|---|---|
+|---|---|
 | `owa-cal` | beta |
 | `owa-mail` | beta |
 | `owa-graph` | beta |
@@ -60,6 +60,7 @@ Test suite:
 ```bash
 .venv/bin/python -m pytest
 .venv/bin/python tools/check_stdlib_only.py
+.venv/bin/python tools/check_no_secrets.py
 ```
 
 See `RELEASING.md` for the suite tag-and-publish flow.
@@ -69,7 +70,8 @@ See `RELEASING.md` for the suite tag-and-publish flow.
 - Stdlib only at runtime, except for the local suite packages and `owa-piggy`.
 - JSON on stdout, logs on stderr, `--pretty` for humans.
 - Auth via `owa-piggy` (subprocess, JSON contract).
-- See `AGENTS.md` for the agent contract.
+- For agents and contributors, start with `AGENTS.md`, then read the nearest
+  local `AGENTS.md` for the package or directory being edited.
 
 ## License
 
