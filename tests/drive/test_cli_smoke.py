@@ -80,3 +80,17 @@ def test_rm_root_refused(monkeypatch, tmp_config, clean_env):
     monkeypatch.setattr(sys, 'argv', ['owa-drive', 'rm', '/', '--confirm'])
     rc = cli_mod.main()
     assert rc == 1
+
+
+def test_rm_no_confirm_non_tty_returns_usage(monkeypatch, tmp_config, clean_env, capsys):
+    from owa_drive import auth as auth_mod
+    from owa_drive import cli as cli_mod
+
+    monkeypatch.setattr(auth_mod, 'setup_auth',
+                        lambda config, debug=False: ('fake', 'http://x'))
+    monkeypatch.setattr(sys, 'argv', ['owa-drive', 'rm', '/Documents/old.txt'])
+
+    rc = cli_mod.main()
+
+    assert rc == 2
+    assert 'without --confirm' in capsys.readouterr().err

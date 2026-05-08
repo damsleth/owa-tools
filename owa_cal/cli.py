@@ -16,7 +16,8 @@ from datetime import datetime, timedelta
 
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
-from owa_core.errors import emit_message
+from owa_core import tty as tty_mod
+from owa_core.errors import UsageError, emit_error, emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -535,19 +536,17 @@ def cmd_delete(args, config, access_token, api_base):
     debug = _debug_enabled(config)
 
     if not confirm:
+        try:
+            tty_mod.require_confirm_or_tty(action='delete event')
+        except UsageError as error:
+            return emit_error(error)
         existing_raw = api_mod.api_get(api_base, _event_path(event_id), access_token, debug=debug)
         if not existing_raw:
             return 1
         existing = events_mod.normalize_event(existing_raw)
-        sys.stderr.write(
+        if not tty_mod.confirm(
             f"\033[33mDelete '{existing.get('subject','')}' ({existing.get('start','')})? (y/N): \033[0m"
-        )
-        sys.stderr.flush()
-        try:
-            answer = input().strip().lower()
-        except EOFError:
-            answer = ''
-        if answer not in ('y', 'yes'):
+        ):
             _info('Aborted.')
             return 0
 

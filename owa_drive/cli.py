@@ -14,7 +14,8 @@ import sys
 
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
-from owa_core.errors import emit_message
+from owa_core import tty as tty_mod
+from owa_core.errors import UsageError, emit_error, emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -262,15 +263,12 @@ def cmd_rm(args, config, access_token, api_base):
         return 1
 
     if not confirm:
-        _info(f'about to delete: {path}')
-        if not sys.stdin.isatty():
-            _error('rm refuses to run non-interactively without --confirm')
-            return 1
         try:
-            answer = input('type "yes" to proceed: ').strip().lower()
-        except EOFError:
-            answer = ''
-        if answer != 'yes':
+            tty_mod.require_confirm_or_tty(action='rm')
+        except UsageError as error:
+            return emit_error(error)
+        _info(f'about to delete: {path}')
+        if not tty_mod.confirm('type "yes" to proceed: ', accepted=('yes',)):
             _info('aborted')
             return 1
 
