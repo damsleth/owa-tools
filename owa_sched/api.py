@@ -1,61 +1,35 @@
 """Graph HTTP helper. Same shape as owa-people/owa-cal."""
-import json
 import sys
-import urllib.error
-import urllib.request
+
+from owa_core import http
+from owa_core.errors import (
+    AuthExpiredError,
+    ConflictError,
+    InternalError,
+    NetworkError,
+    NotFoundError,
+    OwaError,
+    RateLimitedError,
+    ScopeInsufficientError,
+    emit_error,
+)
 
 
 def api_request(method, base, endpoint, access_token, body=None,
                 extra_headers=None, debug=False):
     url = f'{base}/{endpoint.lstrip("/")}'
-    if debug:
-        print(f'DEBUG: {method} {url}', file=sys.stderr)
-        if body is not None:
-            print(f'DEBUG: body: {json.dumps(body)[:500]}', file=sys.stderr)
-
-    headers = {'Authorization': f'Bearer {access_token}'}
-    if extra_headers:
-        headers.update(extra_headers)
-    data = None
-    if body is not None:
-        data = json.dumps(body).encode('utf-8')
-        headers['Content-Type'] = 'application/json'
-
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    headers = dict(extra_headers or {})
     try:
-        with urllib.request.urlopen(req) as resp:
-            raw = resp.read()
-            if not raw:
-                return {}
-            return json.loads(raw.decode('utf-8', errors='replace'))
-    except urllib.error.HTTPError as e:
-        code = e.code
-        err_body = e.read().decode('utf-8', errors='replace')
-        if code == 401:
-            print('ERROR: auth expired (401). Run: owa-sched refresh', file=sys.stderr)
-            sys.exit(1)
-        if code == 403:
-            print(
-                'ERROR: access denied (403). The OWA SPA scopes may not '
-                'cover this endpoint, or the target attendee is outside '
-                'your tenant.',
-                file=sys.stderr,
-            )
-            if debug:
-                print(err_body, file=sys.stderr)
-            sys.exit(1)
-        if code == 404:
-            print('ERROR: not found (404).', file=sys.stderr)
-            return None
-        if code == 429:
-            print('ERROR: rate limited (429). Try again later.', file=sys.stderr)
-            return None
-        print(f'ERROR: HTTP {code}', file=sys.stderr)
-        if debug:
-            print(err_body, file=sys.stderr)
+        return http.request(
+            method, url, token=access_token, body=body, headers=headers, debug=debug,
+        ).json
+    except (AuthExpiredError, ScopeInsufficientError) as error:
+        sys.exit(emit_error(error))
+    except (ConflictError, InternalError, NetworkError, NotFoundError, RateLimitedError) as error:
+        emit_error(error)
         return None
-    except urllib.error.URLError as e:
-        print(f'ERROR: {e.reason}', file=sys.stderr)
+    except OwaError as error:
+        emit_error(error)
         return None
 
 
