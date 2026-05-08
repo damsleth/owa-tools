@@ -83,6 +83,7 @@ commit:
 .venv/bin/python -m compileall -q owa owa_core owa_cal owa_mail owa_graph owa_doctor owa_people owa_sched owa_drive tests tools
 .venv/bin/python tools/check_stdlib_only.py
 .venv/bin/python tools/check_no_secrets.py
+.venv/bin/python tools/check_docs_sync.py
 .venv/bin/python tools/check_artifacts.py dist/*   # after build
 .venv/bin/python -m pytest -q --cov=owa_core --cov-fail-under=95
 ```
