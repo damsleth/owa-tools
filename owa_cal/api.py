@@ -5,11 +5,21 @@ return-to-caller failures). For auth/permission failures we exit the
 process with a clear message - owa-cal is a CLI, not a library, and
 there is no recovery path for a 401 except telling the user to re-run.
 """
-import json
 import sys
-import urllib.error
 import urllib.parse
-import urllib.request
+
+from owa_core import http
+from owa_core.errors import (
+    AuthExpiredError,
+    ConflictError,
+    InternalError,
+    NetworkError,
+    NotFoundError,
+    OwaError,
+    RateLimitedError,
+    ScopeInsufficientError,
+    emit_error,
+)
 
 
 def api_request(method, base, endpoint, access_token, body=None, debug=False):
@@ -21,45 +31,15 @@ def api_request(method, base, endpoint, access_token, body=None, debug=False):
       and exits on 401/403 (unrecoverable without reconfig).
     """
     url = f'{base}/{endpoint}'
-    if debug:
-        print(f'DEBUG: {method} {url}', file=sys.stderr)
-        if body is not None:
-            print(f'DEBUG: body: {json.dumps(body)[:500]}', file=sys.stderr)
-
-    data = None
-    headers = {'Authorization': f'Bearer {access_token}'}
-    if body is not None:
-        data = json.dumps(body).encode('utf-8')
-        headers['Content-Type'] = 'application/json'
-
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req) as resp:
-            raw = resp.read()
-            if not raw:
-                return {}
-            return json.loads(raw.decode('utf-8', errors='replace'))
-    except urllib.error.HTTPError as e:
-        code = e.code
-        err_body = e.read().decode('utf-8', errors='replace')
-        if code == 401:
-            print('ERROR: auth expired (401). Run: owa-cal refresh', file=sys.stderr)
-            sys.exit(1)
-        if code == 403:
-            print('ERROR: access denied (403). Check permissions.', file=sys.stderr)
-            sys.exit(1)
-        if code == 404:
-            print('ERROR: not found (404).', file=sys.stderr)
-            return None
-        if code == 429:
-            print('ERROR: rate limited (429). Try again later.', file=sys.stderr)
-            return None
-        print(f'ERROR: HTTP {code}', file=sys.stderr)
-        if debug:
-            print(err_body, file=sys.stderr)
+        return http.request(method, url, token=access_token, body=body, debug=debug).json
+    except (AuthExpiredError, ScopeInsufficientError) as error:
+        sys.exit(emit_error(error))
+    except (ConflictError, InternalError, NetworkError, NotFoundError, RateLimitedError) as error:
+        emit_error(error)
         return None
-    except urllib.error.URLError as e:
-        print(f'ERROR: {e.reason}', file=sys.stderr)
+    except OwaError as error:
+        emit_error(error)
         return None
 
 

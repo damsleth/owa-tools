@@ -76,6 +76,7 @@ def test_subprocess_inherits_env_for_uvx_one_liner(monkeypatch, tmp_path, clean_
     the parent shell straight through to owa-piggy. If a future change
     starts setting env={...} explicitly, this test catches it."""
     from owa_cal import auth as auth_mod
+    from owa_core import auth as core_auth
 
     captured = {}
 
@@ -86,9 +87,14 @@ def test_subprocess_inherits_env_for_uvx_one_liner(monkeypatch, tmp_path, clean_
 
     def fake_run(argv, *args, **kwargs):
         captured['kwargs'] = kwargs
+        if argv == ['owa-piggy', '--version']:
+            proc = FakeProc()
+            proc.returncode = 0
+            proc.stdout = 'owa-piggy 0.7.1\n'
+            return proc
         return FakeProc()
 
-    monkeypatch.setattr(auth_mod, '_owa_piggy_available', lambda: True)
+    monkeypatch.setattr(core_auth.shutil, 'which', lambda name: '/usr/bin/owa-piggy')
     monkeypatch.setattr(auth_mod.subprocess, 'run', fake_run)
     auth_mod._refresh_via_owa_piggy({}, debug=False)
 
@@ -106,6 +112,7 @@ def test_profile_flag_forwards_to_owa_piggy(monkeypatch, tmp_path, clean_env):
     """`owa-cal --profile work events` must invoke
     `owa-piggy token --audience outlook --json --profile work`."""
     from owa_cal import auth as auth_mod
+    from owa_core import auth as core_auth
 
     captured = {}
 
@@ -115,10 +122,15 @@ def test_profile_flag_forwards_to_owa_piggy(monkeypatch, tmp_path, clean_env):
         stderr = 'fake error'
 
     def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            proc = FakeProc()
+            proc.returncode = 0
+            proc.stdout = 'owa-piggy 0.7.1\n'
+            return proc
         captured['argv'] = argv
         return FakeProc()
 
-    monkeypatch.setattr(auth_mod, '_owa_piggy_available', lambda: True)
+    monkeypatch.setattr(core_auth.shutil, 'which', lambda name: '/usr/bin/owa-piggy')
     monkeypatch.setattr(auth_mod.subprocess, 'run', fake_run)
 
     result = auth_mod._refresh_via_owa_piggy(
@@ -130,6 +142,7 @@ def test_profile_flag_forwards_to_owa_piggy(monkeypatch, tmp_path, clean_env):
 
 def test_refresh_via_owa_piggy_no_profile(monkeypatch, clean_env):
     from owa_cal import auth as auth_mod
+    from owa_core import auth as core_auth
 
     captured = {}
 
@@ -139,10 +152,15 @@ def test_refresh_via_owa_piggy_no_profile(monkeypatch, clean_env):
         stderr = ''
 
     def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            proc = FakeProc()
+            proc.returncode = 0
+            proc.stdout = 'owa-piggy 0.7.1\n'
+            return proc
         captured['argv'] = argv
         return FakeProc()
 
-    monkeypatch.setattr(auth_mod, '_owa_piggy_available', lambda: True)
+    monkeypatch.setattr(core_auth.shutil, 'which', lambda name: '/usr/bin/owa-piggy')
     monkeypatch.setattr(auth_mod.subprocess, 'run', fake_run)
     auth_mod._refresh_via_owa_piggy({}, debug=False)
     assert captured['argv'] == ['owa-piggy', 'token', '--audience', 'outlook', '--json']
