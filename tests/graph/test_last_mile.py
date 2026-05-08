@@ -7,6 +7,7 @@ import time
 
 import pytest
 
+from owa_core import auth as core_auth
 from owa_graph import auth as auth_mod
 from owa_graph import config as config_mod
 from owa_graph import emit
@@ -34,21 +35,21 @@ def test_log_token_remaining_silent_when_remaining_none(capsys):
     assert capsys.readouterr().err == ''
 
 
-@pytest.fixture
-def _reset_version_cache():
-    auth_mod._owa_piggy_version_checked = False
-    yield
-    auth_mod._owa_piggy_version_checked = False
+def test_refresh_via_owa_piggy_debug_logs_argv(monkeypatch, capsys):
+    monkeypatch.setattr(core_auth.shutil, 'which', lambda _: '/usr/bin/owa-piggy')
 
-
-def test_refresh_via_owa_piggy_debug_logs_argv(monkeypatch, capsys, _reset_version_cache):
-    monkeypatch.setattr(auth_mod.shutil, 'which', lambda _: '/usr/bin/owa-piggy')
-    monkeypatch.setattr(auth_mod, '_check_owa_piggy_version', lambda: True)
     class _Proc:
-        returncode = 0
-        stdout = json.dumps({'access_token': _make_token(600)})
-        stderr = ''
-    monkeypatch.setattr(auth_mod.subprocess, 'run', lambda *a, **k: _Proc())
+        def __init__(self, returncode=0, stdout='', stderr=''):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    def _run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return _Proc(returncode=0, stdout='owa-piggy 0.7.1\n')
+        return _Proc(stdout=json.dumps({'access_token': _make_token(600)}))
+
+    monkeypatch.setattr(core_auth.subprocess, 'run', _run)
     auth_mod._refresh_via_owa_piggy({}, audience='graph', debug=True)
     err = capsys.readouterr().err
     assert 'auth via owa-piggy' in err

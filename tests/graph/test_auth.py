@@ -1,26 +1,28 @@
-"""Token acquisition via owa-piggy.
-
-We don't make real network or subprocess calls; subprocess.run is
-monkeypatched. The tests guard the contract: audience -> base URL,
-version-check semantics, and the various error messages.
-"""
+"""Token acquisition via the shared owa-piggy broker contract."""
 import json
 
 import pytest
 
+from owa_core import auth as core_auth
+from owa_core.errors import ExitCode
 from owa_graph import auth as auth_mod
 
 
-@pytest.fixture(autouse=True)
-def _reset_version_cache():
-    auth_mod._owa_piggy_version_checked = False
-    yield
-    auth_mod._owa_piggy_version_checked = False
+class FakeProc:
+    def __init__(self, returncode=0, stdout='', stderr=''):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
 
 
-# ---------------------------------------------------------------------------
-# resolve_api_base
-# ---------------------------------------------------------------------------
+def _patch_owa_piggy(monkeypatch, fake_run, available=True):
+    monkeypatch.setattr(core_auth.shutil, 'which', lambda name: '/usr/bin/owa-piggy' if available else None)
+    monkeypatch.setattr(core_auth.subprocess, 'run', fake_run)
+
+
+def _version_ok():
+    return FakeProc(stdout='owa-piggy 0.7.1\n')
+
 
 def test_resolve_api_base_graph_default():
     assert auth_mod.resolve_api_base('graph') == 'https://graph.microsoft.com/v1.0'
@@ -40,224 +42,139 @@ def test_resolve_api_base_unknown_audience_exits(capsys):
     assert exc.value.code == 1
     err = capsys.readouterr().err
     assert 'unknown audience' in err
-    assert 'graph' in err  # known list mentioned
+    assert 'graph' in err
 
 
 def test_resolve_api_base_beta_warns_for_non_graph(capsys):
     base = auth_mod.resolve_api_base('outlook', beta=True)
     assert base == 'https://outlook.office.com/api/v2.0'
-    err = capsys.readouterr().err
-    assert '--beta has no effect' in err
+    assert '--beta has no effect' in capsys.readouterr().err
 
 
-# ---------------------------------------------------------------------------
-# _parse_version + _check_owa_piggy_version
-# ---------------------------------------------------------------------------
-
-def test_parse_version_three_digits():
-    assert auth_mod._parse_version('0.6.0') == (0, 6, 0)
-
-
-def test_parse_version_strips_prerelease_suffix():
-    assert auth_mod._parse_version('1.2.3-beta') == (1, 2, 3)
-
-
-def test_parse_version_garbage_returns_none():
-    assert auth_mod._parse_version('not a version') is None
-    assert auth_mod._parse_version('1.2') is None
-
-
-def test_check_owa_piggy_version_passes_when_recent(monkeypatch):
-    class _Proc:
-        returncode = 0
-        stdout = 'owa-piggy 0.7.0\n'
-        stderr = ''
-    monkeypatch.setattr(auth_mod.subprocess, 'run', lambda *a, **k: _Proc())
-    assert auth_mod._check_owa_piggy_version() is True
-
-
-def test_check_owa_piggy_version_fails_when_old(monkeypatch, capsys):
-    class _Proc:
-        returncode = 0
-        stdout = 'owa-piggy 0.5.0\n'
-        stderr = ''
-    monkeypatch.setattr(auth_mod.subprocess, 'run', lambda *a, **k: _Proc())
-    assert auth_mod._check_owa_piggy_version() is False
-    err = capsys.readouterr().err
-    assert 'too old' in err
-
-
-def test_check_owa_piggy_version_tolerant_on_unparseable(monkeypatch):
-    class _Proc:
-        returncode = 0
-        stdout = 'owa-piggy something-unparseable\n'
-        stderr = ''
-    monkeypatch.setattr(auth_mod.subprocess, 'run', lambda *a, **k: _Proc())
-    # Don't fail closed on a parse quirk.
-    assert auth_mod._check_owa_piggy_version() is True
-
-
-def test_check_owa_piggy_version_tolerant_on_oserror(monkeypatch):
-    def _raise(*a, **k):
-        raise OSError('exec failed')
-    monkeypatch.setattr(auth_mod.subprocess, 'run', _raise)
-    assert auth_mod._check_owa_piggy_version() is True
-
-
-def test_check_owa_piggy_version_tolerant_on_nonzero_rc(monkeypatch):
-    class _Proc:
-        returncode = 1
-        stdout = ''
-        stderr = 'usage: owa-piggy [-h]'
-    monkeypatch.setattr(auth_mod.subprocess, 'run', lambda *a, **k: _Proc())
-    assert auth_mod._check_owa_piggy_version() is True
-
-
-def test_check_owa_piggy_version_caches_result(monkeypatch):
-    calls = {'n': 0}
-    class _Proc:
-        returncode = 0
-        stdout = 'owa-piggy 0.7.0\n'
-        stderr = ''
-    def _run(*a, **k):
-        calls['n'] += 1
-        return _Proc()
-    monkeypatch.setattr(auth_mod.subprocess, 'run', _run)
-    auth_mod._check_owa_piggy_version()
-    auth_mod._check_owa_piggy_version()
-    assert calls['n'] == 1
-
-
-# (app-registration auth path removed - owa-piggy is the only token source)
-
-
-# ---------------------------------------------------------------------------
-# _refresh_via_owa_piggy
-# ---------------------------------------------------------------------------
-
-def test__refresh_via_owa_piggy_missing_binary(monkeypatch, capsys):
-    monkeypatch.setattr(auth_mod.shutil, 'which', lambda _: None)
+def test_refresh_via_owa_piggy_missing_binary(monkeypatch, capsys):
+    _patch_owa_piggy(monkeypatch, fake_run=lambda *a, **k: FakeProc(), available=False)
     assert auth_mod._refresh_via_owa_piggy({}) is None
-    assert 'owa-piggy not found' in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert 'owa-piggy not found' in err
+    assert 'damsleth/tap/owa-piggy' in err
 
 
-def test__refresh_via_owa_piggy_happy_path(monkeypatch):
-    monkeypatch.setattr(auth_mod.shutil, 'which', lambda _: '/usr/bin/owa-piggy')
-    monkeypatch.setattr(auth_mod, '_check_owa_piggy_version', lambda: True)
+def test_refresh_via_owa_piggy_happy_path_forwards_audience_and_profile(monkeypatch):
+    captured = []
 
-    captured_argv = []
-    class _Proc:
-        returncode = 0
-        stdout = json.dumps({'access_token': 'AT'})
-        stderr = ''
-    def _run(argv, **k):
-        captured_argv.append(argv)
-        return _Proc()
-    monkeypatch.setattr(auth_mod.subprocess, 'run', _run)
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return _version_ok()
+        captured.append(argv)
+        return FakeProc(stdout=json.dumps({'access_token': 'AT'}))
 
-    config = {'owa_piggy_profile': 'work'}
-    out = auth_mod._refresh_via_owa_piggy(config, audience='graph')
+    _patch_owa_piggy(monkeypatch, fake_run)
+    out = auth_mod._refresh_via_owa_piggy({'owa_piggy_profile': 'work'}, audience='graph')
     assert out == 'AT'
-    assert captured_argv[0] == [
+    assert captured == [[
         'owa-piggy', 'token', '--audience', 'graph', '--json',
         '--profile', 'work',
-    ]
+    ]]
 
 
-def test__refresh_via_owa_piggy_no_profile_when_none(monkeypatch):
-    monkeypatch.setattr(auth_mod.shutil, 'which', lambda _: '/usr/bin/owa-piggy')
-    monkeypatch.setattr(auth_mod, '_check_owa_piggy_version', lambda: True)
+def test_refresh_via_owa_piggy_no_profile_when_none(monkeypatch):
     captured = []
-    class _Proc:
-        returncode = 0
-        stdout = json.dumps({'access_token': 'AT'})
-        stderr = ''
-    def _run(argv, **k):
+
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return _version_ok()
         captured.append(argv)
-        return _Proc()
-    monkeypatch.setattr(auth_mod.subprocess, 'run', _run)
-    auth_mod._refresh_via_owa_piggy({}, audience='outlook')
-    assert '--profile' not in captured[0]
-    assert '--audience' in captured[0]
-    assert 'outlook' in captured[0]
+        return FakeProc(stdout=json.dumps({'access_token': 'AT'}))
+
+    _patch_owa_piggy(monkeypatch, fake_run)
+    assert auth_mod._refresh_via_owa_piggy({}, audience='outlook') == 'AT'
+    assert captured == [['owa-piggy', 'token', '--audience', 'outlook', '--json']]
 
 
-def test__refresh_via_owa_piggy_old_version_blocks(monkeypatch):
-    monkeypatch.setattr(auth_mod.shutil, 'which', lambda _: '/usr/bin/owa-piggy')
-    monkeypatch.setattr(auth_mod, '_check_owa_piggy_version', lambda: False)
+def test_refresh_via_owa_piggy_old_json_broker_blocks(monkeypatch, capsys):
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy 0.7.0\n')
+        raise AssertionError('token call should be blocked')
+
+    _patch_owa_piggy(monkeypatch, fake_run)
     assert auth_mod._refresh_via_owa_piggy({}) is None
+    assert 'too old' in capsys.readouterr().err
 
 
-def test__refresh_via_owa_piggy_oserror_on_subprocess(monkeypatch, capsys):
-    monkeypatch.setattr(auth_mod.shutil, 'which', lambda _: '/usr/bin/owa-piggy')
-    monkeypatch.setattr(auth_mod, '_check_owa_piggy_version', lambda: True)
-    def _raise(*a, **k):
+def test_refresh_via_owa_piggy_unparseable_version_does_not_block(monkeypatch):
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy something-unparseable\n')
+        return FakeProc(stdout=json.dumps({'access_token': 'AT'}))
+
+    _patch_owa_piggy(monkeypatch, fake_run)
+    assert auth_mod._refresh_via_owa_piggy({}) == 'AT'
+
+
+def test_refresh_via_owa_piggy_oserror_on_subprocess(monkeypatch, capsys):
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return _version_ok()
         raise OSError('no such file')
-    monkeypatch.setattr(auth_mod.subprocess, 'run', _raise)
+
+    _patch_owa_piggy(monkeypatch, fake_run)
     assert auth_mod._refresh_via_owa_piggy({}) is None
-    assert 'failed to run owa-piggy' in capsys.readouterr().err
+    assert 'failed to run owa-piggy token' in capsys.readouterr().err
 
 
-def test__refresh_via_owa_piggy_nonzero_rc_passes_stderr(monkeypatch, capsys):
-    monkeypatch.setattr(auth_mod.shutil, 'which', lambda _: '/usr/bin/owa-piggy')
-    monkeypatch.setattr(auth_mod, '_check_owa_piggy_version', lambda: True)
-    class _Proc:
-        returncode = 1
-        stdout = ''
-        stderr = 'ERROR: refresh expired'
-    monkeypatch.setattr(auth_mod.subprocess, 'run', lambda *a, **k: _Proc())
+def test_refresh_via_owa_piggy_nonzero_rc_passes_stderr(monkeypatch, capsys):
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return _version_ok()
+        return FakeProc(returncode=1, stderr='ERROR: refresh expired')
+
+    _patch_owa_piggy(monkeypatch, fake_run)
     assert auth_mod._refresh_via_owa_piggy({}) is None
     assert 'refresh expired' in capsys.readouterr().err
 
 
-def test__refresh_via_owa_piggy_non_json_output(monkeypatch, capsys):
-    monkeypatch.setattr(auth_mod.shutil, 'which', lambda _: '/usr/bin/owa-piggy')
-    monkeypatch.setattr(auth_mod, '_check_owa_piggy_version', lambda: True)
-    class _Proc:
-        returncode = 0
-        stdout = 'not-json'
-        stderr = ''
-    monkeypatch.setattr(auth_mod.subprocess, 'run', lambda *a, **k: _Proc())
+def test_refresh_via_owa_piggy_non_json_output(monkeypatch, capsys):
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return _version_ok()
+        return FakeProc(stdout='not-json')
+
+    _patch_owa_piggy(monkeypatch, fake_run)
     assert auth_mod._refresh_via_owa_piggy({}) is None
     assert 'non-JSON' in capsys.readouterr().err
 
 
-def test__refresh_via_owa_piggy_missing_access_token(monkeypatch):
-    monkeypatch.setattr(auth_mod.shutil, 'which', lambda _: '/usr/bin/owa-piggy')
-    monkeypatch.setattr(auth_mod, '_check_owa_piggy_version', lambda: True)
-    class _Proc:
-        returncode = 0
-        stdout = json.dumps({})
-        stderr = ''
-    monkeypatch.setattr(auth_mod.subprocess, 'run', lambda *a, **k: _Proc())
+def test_refresh_via_owa_piggy_missing_access_token(monkeypatch, capsys):
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return _version_ok()
+        return FakeProc(stdout=json.dumps({}))
+
+    _patch_owa_piggy(monkeypatch, fake_run)
     assert auth_mod._refresh_via_owa_piggy({}) is None
+    assert 'access_token' in capsys.readouterr().err
 
 
-# ---------------------------------------------------------------------------
-# do_token_refresh dispatch
-# ---------------------------------------------------------------------------
-
-def test_do_token_refresh_uses_piggy(monkeypatch):
+def test_do_token_refresh_uses_graph_broker(monkeypatch):
     monkeypatch.setattr(auth_mod, '_refresh_via_owa_piggy', lambda *a, **k: 'PIGGY_AT')
-    out = auth_mod.do_token_refresh({}, audience='graph')
-    assert out == 'PIGGY_AT'
+    assert auth_mod.do_token_refresh({}, audience='graph') == 'PIGGY_AT'
 
-
-# ---------------------------------------------------------------------------
-# setup_auth (process-exit boundary)
-# ---------------------------------------------------------------------------
 
 def test_setup_auth_returns_token_and_base(monkeypatch):
-    monkeypatch.setattr(auth_mod, 'do_token_refresh', lambda *a, **k: 'AT')
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return _version_ok()
+        return FakeProc(stdout=json.dumps({'access_token': 'AT'}))
+
+    _patch_owa_piggy(monkeypatch, fake_run)
     access, base = auth_mod.setup_auth({}, audience='graph', beta=True)
     assert access == 'AT'
     assert base == 'https://graph.microsoft.com/beta'
 
 
-def test_setup_auth_failure_exits_with_piggy_message(monkeypatch, capsys):
-    monkeypatch.setattr(auth_mod, 'do_token_refresh', lambda *a, **k: None)
-    with pytest.raises(SystemExit):
+def test_setup_auth_failure_exits_with_auth_code(monkeypatch):
+    _patch_owa_piggy(monkeypatch, fake_run=lambda *a, **k: FakeProc(), available=False)
+    with pytest.raises(SystemExit) as exc:
         auth_mod.setup_auth({'owa_piggy_profile': 'work'})
-    err = capsys.readouterr().err
-    assert 'owa-piggy setup' in err
-    assert '--profile work' in err
+    assert exc.value.code == ExitCode.AUTH_EXPIRED
