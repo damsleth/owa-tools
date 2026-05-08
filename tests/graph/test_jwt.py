@@ -4,7 +4,7 @@ import base64
 import json
 import time
 
-from owa_graph import jwt as jwt_mod
+from owa_core import jwt as jwt_mod
 
 
 def _make_token(exp_offset_seconds):

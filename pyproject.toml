@@ -41,6 +41,7 @@ owa-drive = "owa_drive:main"
 [tool.setuptools]
 packages = [
   "owa",
+  "owa_core",
   "owa_cal",
   "owa_mail",
   "owa_graph",
