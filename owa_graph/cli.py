@@ -111,22 +111,15 @@ Environment:
   OWA_REFRESH_TOKEN,        Env-only mode: passed through to owa-piggy so it
   OWA_TENANT_ID             can mint tokens with no on-disk config. Enables
                             single-line uvx (`uvx owa-graph GET /me`).
-  GRAPH_APP_CLIENT_ID,      App-registration path: bypass owa-piggy and call
-  GRAPH_REFRESH_TOKEN,      AAD directly. Useful when you need broader Graph
-  GRAPH_TENANT_ID           scopes than the OWA first-party SPA carries.
   OWA_GRAPH_NO_SCOPE_HINTS=1
                             Suppress the pre-flight scope-mismatch warning
                             that fires before a request whose scope isn't in
                             the JWT. Useful for CI / scripted use.
 
 Auth:
-  Default path: owa-graph shells out to owa-piggy for a fresh access
-  token on every call. owa-piggy owns the refresh token; owa-graph
-  stores only an optional profile alias and a default audience.
-
-  App-registration path: set GRAPH_APP_CLIENT_ID (plus GRAPH_REFRESH_TOKEN
-  and GRAPH_TENANT_ID) in ~/.config/owa-graph/config and owa-graph talks
-  to the AAD token endpoint directly with `.default` scope.
+  owa-graph shells out to owa-piggy for a fresh access token on every
+  call. owa-piggy owns the refresh token; owa-graph stores only an
+  optional profile alias and a default audience.
 
   Quickstart:
     brew install damsleth/tap/owa-piggy
@@ -136,10 +129,9 @@ Scope caveat:
   The OWA first-party SPA client owa-piggy borrows does NOT carry full
   Graph permissions. Reads on /me, /users, /me/joinedTeams, /groups,
   /planner, /me/drive and directory work; mail/calendar/contacts/todo/
-  sites/presence shortcuts return 403 on this path. Set
-  GRAPH_APP_CLIENT_ID to broaden scope, or use the audience-specific
-  siblings (owa-cal, owa-mail) which target the Outlook REST audience.
-  See README.md "Scope matrix" for per-shortcut details.
+  sites/presence shortcuts return 403 on this path. Use the audience-
+  specific siblings (owa-cal, owa-mail) which target the Outlook REST
+  audience. See README.md "Scope matrix" for per-shortcut details.
 
 Examples:
   owa-graph GET /me
@@ -181,8 +173,7 @@ def _emit_scope_hint(method, path, audience, access_token):
     miss = ', '.join(missing)
     print(
         f'warn: this call requires {miss}; your token does not carry it. '
-        f'Likely 403. Set GRAPH_APP_CLIENT_ID for broader scope, or set '
-        f'OWA_GRAPH_NO_SCOPE_HINTS=1 to silence this warning.',
+        f'Likely 403. Set OWA_GRAPH_NO_SCOPE_HINTS=1 to silence this warning.',
         file=sys.stderr,
     )
 
@@ -527,13 +518,11 @@ def cmd_refresh(args, config):
 
 def cmd_config(args, config):
     """Handled specially: no auth required."""
-    profile = app_client_id = audience = ''
+    profile = audience = ''
     while args:
         flag, args = args[0], args[1:]
         if flag == '--profile':
             profile, args = _require_value(flag, args)
-        elif flag == '--app-client-id':
-            app_client_id, args = _require_value(flag, args)
         elif flag == '--audience':
             audience, args = _require_value(flag, args)
         else:
@@ -543,9 +532,6 @@ def cmd_config(args, config):
     if profile:
         config_mod.config_set('owa_piggy_profile', profile)
         _info(f'owa-piggy profile saved: {profile}'); wrote = True
-    if app_client_id:
-        config_mod.config_set('GRAPH_APP_CLIENT_ID', app_client_id)
-        _info('App client ID saved'); wrote = True
     if audience:
         config_mod.config_set('default_audience', audience)
         _info(f'Default audience saved: {audience}'); wrote = True
@@ -556,10 +542,6 @@ def cmd_config(args, config):
             _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
         else:
             _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
-        if config.get('GRAPH_APP_CLIENT_ID'):
-            _info(f"  GRAPH_APP_CLIENT_ID={config.get('GRAPH_APP_CLIENT_ID')} (app registration)")
-        else:
-            _info('  GRAPH_APP_CLIENT_ID=(not set - using owa-piggy)')
         _info(f"  default_audience={config.get('default_audience')}")
     return 0
 

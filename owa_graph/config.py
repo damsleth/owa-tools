@@ -1,10 +1,8 @@
 """Config file I/O for owa-graph.
 
-File format is KEY="VALUE" lines, shell-sourceable. On the
-app-registration path refresh tokens rotate on every exchange, so a
-partial write here would corrupt the only live token; all writes go
-through a temp file + fsync + rename. On the owa-piggy path owa-graph
-holds no secrets, just an optional profile alias and a default audience.
+File format is KEY="VALUE" lines, shell-sourceable. owa-graph holds no
+secrets - just an optional profile alias and a default audience. All
+writes go through a temp file + fsync + rename for atomicity.
 """
 import os
 import tempfile
@@ -17,9 +15,6 @@ CONFIG_PATH = Path(
 # Keys we recognise. Parsing an unknown key out of the file is fine (we
 # preserve it verbatim), but we never write unknown keys from user input.
 ALLOWED_KEYS = (
-    'GRAPH_REFRESH_TOKEN',
-    'GRAPH_TENANT_ID',
-    'GRAPH_APP_CLIENT_ID',
     'owa_piggy_profile',
     'default_audience',
     'debug',
@@ -53,20 +48,14 @@ def parse_kv_stream(text):
 
 
 def load_config():
-    """Returns a dict merging the on-disk config with env-var overrides.
+    """Read the on-disk config and apply defaults.
 
-    Precedence: environment variables > on-disk config > defaults. Only
-    the app-registration client_id is env-overrideable; the refresh
-    token and tenant id on the app-reg path live exclusively in the
-    config file. The owa-piggy path reads no secrets out of the
-    environment (OWA_PROFILE reaches owa-piggy directly via inherited
-    env).
+    owa-graph holds no secrets. OWA_PROFILE reaches owa-piggy directly
+    via inherited env, not through this layer.
     """
     config = {}
     if CONFIG_PATH.exists():
         config.update(_parse_lines(CONFIG_PATH.read_text()))
-    if os.environ.get('GRAPH_APP_CLIENT_ID'):
-        config['GRAPH_APP_CLIENT_ID'] = os.environ['GRAPH_APP_CLIENT_ID']
     config.setdefault('default_audience', DEFAULT_AUDIENCE)
     return config
 

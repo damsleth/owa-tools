@@ -212,14 +212,12 @@ def test_config_shows_pinned_profile(monkeypatch, capsys):
         lambda: {
             'default_audience': 'graph',
             'owa_piggy_profile': 'work',
-            'GRAPH_APP_CLIENT_ID': 'cid-xxx',
         },
     )
     rc = _run(monkeypatch, 'config')
     err = capsys.readouterr().err
     assert rc == 0
     assert 'owa_piggy_profile=work' in err
-    assert 'GRAPH_APP_CLIENT_ID=cid-xxx' in err
 
 
 def test_config_writes_profile(monkeypatch, loaded_config, capsys):
@@ -235,7 +233,7 @@ def test_config_writes_profile(monkeypatch, loaded_config, capsys):
     assert 'profile saved' in err
 
 
-def test_config_writes_all_three(monkeypatch, loaded_config, capsys):
+def test_config_writes_profile_and_audience(monkeypatch, loaded_config, capsys):
     written = {}
     monkeypatch.setattr(
         cli.config_mod, 'config_set',
@@ -244,13 +242,11 @@ def test_config_writes_all_three(monkeypatch, loaded_config, capsys):
     rc = _run(
         monkeypatch, 'config',
         '--profile', 'work',
-        '--app-client-id', 'cid',
         '--audience', 'outlook',
     )
     assert rc == 0
     assert written == {
         'owa_piggy_profile': 'work',
-        'GRAPH_APP_CLIENT_ID': 'cid',
         'default_audience': 'outlook',
     }
 

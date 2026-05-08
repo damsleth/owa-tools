@@ -42,36 +42,6 @@ def _reset_version_cache():
     auth_mod._owa_piggy_version_checked = False
 
 
-def test_refresh_via_app_reg_debug_logs(monkeypatch, capsys):
-    monkeypatch.setattr(
-        auth_mod, 'refresh_via_app_registration',
-        lambda *a, **k: {'access_token': _make_token(600)},
-    )
-    config = {
-        'GRAPH_REFRESH_TOKEN': 'rt',
-        'GRAPH_TENANT_ID': 'tid',
-        'GRAPH_APP_CLIENT_ID': 'cid-debug',
-    }
-    out = auth_mod._refresh_via_app_registration(config, debug=True)
-    assert out is not None
-    err = capsys.readouterr().err
-    assert 'auth via app registration (cid-debug)' in err
-    assert 'token exchange ok' in err
-
-
-def test_refresh_via_app_reg_returns_none_when_no_access_token(monkeypatch):
-    monkeypatch.setattr(
-        auth_mod, 'refresh_via_app_registration',
-        lambda *a, **k: {'refresh_token': 'rt2'},  # no access_token
-    )
-    config = {
-        'GRAPH_REFRESH_TOKEN': 'rt',
-        'GRAPH_TENANT_ID': 'tid',
-        'GRAPH_APP_CLIENT_ID': 'cid',
-    }
-    assert auth_mod._refresh_via_app_registration(config) is None
-
-
 def test_refresh_via_owa_piggy_debug_logs_argv(monkeypatch, capsys, _reset_version_cache):
     monkeypatch.setattr(auth_mod.shutil, 'which', lambda _: '/usr/bin/owa-piggy')
     monkeypatch.setattr(auth_mod, '_check_owa_piggy_version', lambda: True)
