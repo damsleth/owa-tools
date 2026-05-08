@@ -39,12 +39,11 @@ def test_api_request_not_found_preserves_none_contract(monkeypatch, capsys):
     assert 'not found' in capsys.readouterr().err
 
 
-def test_api_request_auth_failure_exits_with_typed_code(monkeypatch, capsys):
+def test_api_request_auth_failure_raises_typed_error(monkeypatch):
     def fake_request(method, url, **kwargs):
         raise AuthExpiredError('auth expired (401)')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(AuthExpiredError) as exc:
         api.api_request('GET', 'https://graph.microsoft.com/v1.0', '/me', 'fake')
-    assert exc.value.code == 11
-    assert 'auth expired' in capsys.readouterr().err
+    assert exc.value.exit_code == 11

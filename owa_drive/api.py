@@ -25,7 +25,7 @@ UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024
 
 def _handle_owa_error(error):
     if isinstance(error, (AuthExpiredError, ScopeInsufficientError)):
-        sys.exit(emit_error(error))
+        raise error
     if isinstance(error, (ConflictError, InternalError, NetworkError, NotFoundError, RateLimitedError)):
         emit_error(error)
         return None

@@ -4,7 +4,7 @@ import json
 import pytest
 
 from owa_core import auth as core_auth
-from owa_core.errors import ExitCode
+from owa_core.errors import AuthExpiredError, ExitCode
 from owa_sched import auth
 
 
@@ -29,12 +29,12 @@ def test_setup_auth_returns_graph_api_base(monkeypatch):
     assert base == 'https://graph.microsoft.com/v1.0'
 
 
-def test_setup_auth_missing_broker_exits_with_auth_code(monkeypatch, capsys):
+def test_setup_auth_missing_broker_raises_auth_error(monkeypatch):
     monkeypatch.setattr(core_auth.shutil, 'which', lambda name: None)
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(AuthExpiredError) as exc:
         auth.setup_auth({}, debug=False)
-    assert exc.value.code == ExitCode.AUTH_EXPIRED
-    assert 'owa-piggy not found' in capsys.readouterr().err
+    assert exc.value.exit_code == ExitCode.AUTH_EXPIRED
+    assert 'owa-piggy not found' in exc.value.message
 
 
 def test_do_token_refresh_preserves_legacy_none_contract(monkeypatch):

@@ -5,7 +5,7 @@ import json
 import os
 import sys
 
-from .errors import UsageError, emit_error
+from .errors import OwaError, UsageError, emit_error
 from .schema import SCHEMA_VERSION
 from .version import suite_version
 
@@ -102,6 +102,8 @@ def run_with_output_modes(tool, argv, dispatch, *, binary_stdout_commands=()):
         if not agent:
             try:
                 return int(dispatch(filtered) or 0)
+            except OwaError as error:
+                return emit_error(error)
             except SystemExit as exc:
                 return int(exc.code or 0)
 
@@ -109,6 +111,8 @@ def run_with_output_modes(tool, argv, dispatch, *, binary_stdout_commands=()):
         try:
             with contextlib.redirect_stdout(captured):
                 rc = int(dispatch(filtered) or 0)
+        except OwaError as error:
+            rc = emit_error(error)
         except SystemExit as exc:
             rc = int(exc.code or 0)
 

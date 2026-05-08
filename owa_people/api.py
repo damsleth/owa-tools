@@ -5,7 +5,6 @@ return-to-caller failures. For 401/403 we exit with a clear message
 - owa-people is a CLI, not a library, and there is no recovery path
 for an auth failure except telling the user to re-run.
 """
-import sys
 import urllib.parse
 
 from owa_core import http
@@ -31,7 +30,7 @@ def api_request(method, base, endpoint, access_token, body=None,
             method, url, token=access_token, body=body, headers=headers, debug=debug,
         ).json
     except (AuthExpiredError, ScopeInsufficientError) as error:
-        sys.exit(emit_error(error))
+        raise error
     except (ConflictError, InternalError, NetworkError, NotFoundError, RateLimitedError) as error:
         emit_error(error)
         return None
