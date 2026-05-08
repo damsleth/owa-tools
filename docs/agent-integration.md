@@ -16,7 +16,8 @@ owa schema --tool owa-mail
 ```
 
 The schema includes the suite version, schema version, command names, basic
-auth audience metadata, output type, and declared flags.
+auth audience metadata, output type, declared flags, and mutation metadata.
+Destructive commands declare `destructive: true` and their confirmation flag.
 
 ## Success Output
 

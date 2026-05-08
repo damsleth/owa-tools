@@ -17,6 +17,22 @@ def test_command_builds_minimal_contract():
     assert row['flags'] == ['--pretty']
 
 
+def test_command_can_declare_mutation_metadata():
+    row = schema.command(
+        'delete',
+        'Delete item',
+        mutates=True,
+        destructive=True,
+        confirmation=True,
+        idempotent=False,
+    )
+
+    assert row['mutates'] is True
+    assert row['destructive'] is True
+    assert row['confirmation'] == {'flag': '--confirm'}
+    assert row['idempotent'] is False
+
+
 def test_schema_for_wraps_suite_metadata():
     payload = schema.schema_for('owa-test', COMMANDS)
     assert payload['tool'] == 'owa-test'

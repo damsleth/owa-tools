@@ -336,7 +336,7 @@ COMMAND_SCHEMA = [
     schema_mod.command('me', 'Show authenticated user', auth='graph'),
     schema_mod.command('contacts', 'List personal contacts', auth='graph'),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
-    schema_mod.command('config', 'View or update configuration'),
+    schema_mod.command('config', 'View or update configuration', mutates=True),
 ]
 
 

@@ -350,10 +350,18 @@ COMMAND_SCHEMA = [
     schema_mod.command('ls', 'List a folder', auth='graph'),
     schema_mod.command('show', 'Show item metadata', auth='graph'),
     schema_mod.command('get', 'Download file content', auth='graph', output='bytes'),
-    schema_mod.command('put', 'Upload a small file', auth='graph'),
-    schema_mod.command('rm', 'Delete an item', auth='graph'),
+    schema_mod.command('put', 'Upload a small file', auth='graph', mutates=True),
+    schema_mod.command(
+        'rm',
+        'Delete an item',
+        auth='graph',
+        mutates=True,
+        destructive=True,
+        confirmation=True,
+        idempotent=False,
+    ),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
-    schema_mod.command('config', 'View or update configuration'),
+    schema_mod.command('config', 'View or update configuration', mutates=True),
 ]
 
 

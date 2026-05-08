@@ -674,16 +674,24 @@ AUTHED_HANDLERS = {
 COMMAND_SCHEMA = [
     schema_mod.command('messages', 'List messages', auth='outlook'),
     schema_mod.command('show', 'Show full message body', auth='outlook'),
-    schema_mod.command('send', 'Compose and send a message', auth='outlook'),
-    schema_mod.command('reply', 'Reply to a message', auth='outlook'),
-    schema_mod.command('reply-all', 'Reply-all to a message', auth='outlook'),
-    schema_mod.command('forward', 'Forward a message', auth='outlook'),
-    schema_mod.command('delete', 'Delete a message', auth='outlook'),
-    schema_mod.command('move', 'Move a message', auth='outlook'),
-    schema_mod.command('mark', 'Mark a message', auth='outlook'),
+    schema_mod.command('send', 'Compose and send a message', auth='outlook', mutates=True, idempotent=False),
+    schema_mod.command('reply', 'Reply to a message', auth='outlook', mutates=True, idempotent=False),
+    schema_mod.command('reply-all', 'Reply-all to a message', auth='outlook', mutates=True, idempotent=False),
+    schema_mod.command('forward', 'Forward a message', auth='outlook', mutates=True, idempotent=False),
+    schema_mod.command(
+        'delete',
+        'Delete a message',
+        auth='outlook',
+        mutates=True,
+        destructive=True,
+        confirmation=True,
+        idempotent=False,
+    ),
+    schema_mod.command('move', 'Move a message', auth='outlook', mutates=True),
+    schema_mod.command('mark', 'Mark a message', auth='outlook', mutates=True),
     schema_mod.command('folders', 'List mail folders', auth='outlook'),
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
-    schema_mod.command('config', 'View or update configuration'),
+    schema_mod.command('config', 'View or update configuration', mutates=True),
 ]
 
 
