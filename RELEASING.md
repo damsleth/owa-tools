@@ -10,10 +10,13 @@ The release workflow builds the root `owa-tools` package. It contains the umbrel
 
 ## Pre-release checklist
 
-1. `pytest -q` green.
-2. `python tools/check_stdlib_only.py` green.
-3. Changelog updated for the suite version.
-4. Smoke test the wheel in a clean venv.
+1. `pytest -q --cov=owa_core --cov-fail-under=95` green.
+2. `python tools/check_stdlib_only.py`, `python tools/check_no_secrets.py`,
+   and `python tools/check_docs_sync.py` green.
+3. `python -m build`, `python -m twine check dist/*`, and
+   `python tools/check_artifacts.py dist/*` green.
+4. `python tools/check_console_smoke.py` green.
+5. Changelog updated for the suite version.
 
 ## Homebrew
 

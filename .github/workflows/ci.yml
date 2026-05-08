@@ -38,5 +38,9 @@ jobs:
         run: pytest -q tests/contract
       - name: Build package
         run: python -m build
+      - name: Metadata check
+        run: python -m twine check dist/*
       - name: Artifact check
         run: python tools/check_artifacts.py dist/*
+      - name: Console smoke
+        run: python tools/check_console_smoke.py
