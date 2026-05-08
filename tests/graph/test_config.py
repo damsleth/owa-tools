@@ -10,29 +10,28 @@ def tmp_config(monkeypatch, tmp_path):
     """Redirect CONFIG_PATH to a temp dir for the duration of one test."""
     target = tmp_path / 'owa-graph' / 'config'
     monkeypatch.setattr(config_mod, 'CONFIG_PATH', target)
-    monkeypatch.delenv('GRAPH_APP_CLIENT_ID', raising=False)
     return target
 
 
 def test_parse_lines_handles_quoted_and_bare(tmp_config):
     text = '''
-GRAPH_TENANT_ID="abc-def"
+default_audience='graph'
 owa_piggy_profile=work
 # comment
-default_audience='graph'
+debug="true"
 malformed line
 '''
     out = config_mod._parse_lines(text)
     assert out == {
-        'GRAPH_TENANT_ID': 'abc-def',
-        'owa_piggy_profile': 'work',
         'default_audience': 'graph',
+        'owa_piggy_profile': 'work',
+        'debug': 'true',
     }
 
 
 def test_parse_kv_stream_drops_unknown_keys(tmp_config):
-    text = 'GRAPH_TENANT_ID="x"\nUNKNOWN_KEY="y"\n'
-    assert config_mod.parse_kv_stream(text) == {'GRAPH_TENANT_ID': 'x'}
+    text = 'owa_piggy_profile="work"\nUNKNOWN_KEY="y"\n'
+    assert config_mod.parse_kv_stream(text) == {'owa_piggy_profile': 'work'}
 
 
 def test_load_config_default_audience_when_no_file(tmp_config):
@@ -42,19 +41,10 @@ def test_load_config_default_audience_when_no_file(tmp_config):
 
 def test_load_config_reads_file(tmp_config):
     tmp_config.parent.mkdir(parents=True, exist_ok=True)
-    tmp_config.write_text('owa_piggy_profile="work"\nGRAPH_TENANT_ID="t1"\n')
+    tmp_config.write_text('owa_piggy_profile="work"\ndefault_audience="outlook"\n')
     cfg = config_mod.load_config()
     assert cfg['owa_piggy_profile'] == 'work'
-    assert cfg['GRAPH_TENANT_ID'] == 't1'
-    assert cfg['default_audience'] == 'graph'
-
-
-def test_load_config_env_overrides_file(tmp_config, monkeypatch):
-    tmp_config.parent.mkdir(parents=True, exist_ok=True)
-    tmp_config.write_text('GRAPH_APP_CLIENT_ID="from-file"\n')
-    monkeypatch.setenv('GRAPH_APP_CLIENT_ID', 'from-env')
-    cfg = config_mod.load_config()
-    assert cfg['GRAPH_APP_CLIENT_ID'] == 'from-env'
+    assert cfg['default_audience'] == 'outlook'
 
 
 def test_save_config_writes_atomically_with_0600(tmp_config):
@@ -70,7 +60,7 @@ def test_save_config_preserves_existing_lines(tmp_config):
     tmp_config.parent.mkdir(parents=True, exist_ok=True)
     tmp_config.write_text(
         '# pinned comment\n'
-        'GRAPH_TENANT_ID="t1"\n'
+        'default_audience="graph"\n'
         'unknown_key="kept"\n'
     )
     config_mod.save_config({'owa_piggy_profile': 'new'})
@@ -82,10 +72,10 @@ def test_save_config_preserves_existing_lines(tmp_config):
 
 def test_save_config_overwrites_existing_key_in_place(tmp_config):
     tmp_config.parent.mkdir(parents=True, exist_ok=True)
-    tmp_config.write_text('GRAPH_TENANT_ID="old"\n')
-    config_mod.save_config({'GRAPH_TENANT_ID': 'new'})
-    assert 'GRAPH_TENANT_ID="new"' in tmp_config.read_text()
-    assert 'old' not in tmp_config.read_text()
+    tmp_config.write_text('default_audience="graph"\n')
+    config_mod.save_config({'default_audience': 'outlook'})
+    assert 'default_audience="outlook"' in tmp_config.read_text()
+    assert 'graph' not in tmp_config.read_text()
 
 
 def test_config_set_rejects_unknown_key(tmp_config):
@@ -95,10 +85,10 @@ def test_config_set_rejects_unknown_key(tmp_config):
 
 def test_config_set_persists_value(tmp_config):
     config_mod.config_set('owa_piggy_profile', 'work')
-    config_mod.config_set('GRAPH_APP_CLIENT_ID', 'abc')
+    config_mod.config_set('default_audience', 'outlook')
     cfg = config_mod.load_config()
     assert cfg['owa_piggy_profile'] == 'work'
-    assert cfg['GRAPH_APP_CLIENT_ID'] == 'abc'
+    assert cfg['default_audience'] == 'outlook'
 
 
 def test_save_config_creates_parent_dir(tmp_config):

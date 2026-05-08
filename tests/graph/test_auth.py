@@ -1,13 +1,10 @@
-"""Token acquisition - both paths.
+"""Token acquisition via owa-piggy.
 
-We don't make real network or subprocess calls; urlopen and
-subprocess.run are monkeypatched. The tests guard the contract:
-audience -> base URL, app-reg vs owa-piggy fallback, refresh-token
-rotation, version-check semantics, and the various error messages.
+We don't make real network or subprocess calls; subprocess.run is
+monkeypatched. The tests guard the contract: audience -> base URL,
+version-check semantics, and the various error messages.
 """
-import io
 import json
-import urllib.error
 
 import pytest
 
@@ -131,123 +128,7 @@ def test_check_owa_piggy_version_caches_result(monkeypatch):
     assert calls['n'] == 1
 
 
-# ---------------------------------------------------------------------------
-# refresh_via_app_registration (the low-level wrapper)
-# ---------------------------------------------------------------------------
-
-def _fake_resp(payload):
-    class _R:
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
-        def read(self_inner):
-            return json.dumps(payload).encode()
-    return _R()
-
-
-def test_refresh_via_app_registration_returns_token(monkeypatch):
-    monkeypatch.setattr(
-        auth_mod.urllib.request, 'urlopen',
-        lambda req: _fake_resp({'access_token': 'AT', 'refresh_token': 'RT2'}),
-    )
-    out = auth_mod.refresh_via_app_registration('rt1', 'tid', 'cid')
-    assert out['access_token'] == 'AT'
-    assert out['refresh_token'] == 'RT2'
-
-
-def test_refresh_via_app_registration_logs_aad_error(monkeypatch, capsys):
-    body = json.dumps({
-        'error': 'invalid_grant',
-        'error_description': 'AADSTS70008: refresh token expired\r\nTrace: x',
-    }).encode()
-    def _raise(req):
-        raise urllib.error.HTTPError(
-            req.full_url, 400, 'bad', {}, io.BytesIO(body),
-        )
-    monkeypatch.setattr(auth_mod.urllib.request, 'urlopen', _raise)
-    out = auth_mod.refresh_via_app_registration('rt', 'tid', 'cid')
-    assert out is None
-    err = capsys.readouterr().err
-    assert 'invalid_grant' in err
-    assert 'refresh token expired' in err
-    # First-line only - the trace shouldn't leak.
-    assert 'Trace: x' not in err
-
-
-def test_refresh_via_app_registration_handles_non_json_error(monkeypatch, capsys):
-    def _raise(req):
-        raise urllib.error.HTTPError(
-            req.full_url, 500, 'srv', {}, io.BytesIO(b'plain text'),
-        )
-    monkeypatch.setattr(auth_mod.urllib.request, 'urlopen', _raise)
-    assert auth_mod.refresh_via_app_registration('rt', 'tid', 'cid') is None
-    assert 'HTTP 500' in capsys.readouterr().err
-
-
-def test_refresh_via_app_registration_handles_url_error(monkeypatch, capsys):
-    def _raise(req):
-        raise urllib.error.URLError('connection refused')
-    monkeypatch.setattr(auth_mod.urllib.request, 'urlopen', _raise)
-    assert auth_mod.refresh_via_app_registration('rt', 'tid', 'cid') is None
-    assert 'connection refused' in capsys.readouterr().err
-
-
-# ---------------------------------------------------------------------------
-# _refresh_via_app_registration (config-aware)
-# ---------------------------------------------------------------------------
-
-def test__refresh_via_app_registration_returns_none_when_config_empty():
-    assert auth_mod._refresh_via_app_registration({}) is None
-
-
-def test__refresh_via_app_registration_persists_rotated_refresh(monkeypatch):
-    monkeypatch.setattr(
-        auth_mod.urllib.request, 'urlopen',
-        lambda req: _fake_resp({'access_token': 'AT', 'refresh_token': 'RT2'}),
-    )
-    persisted = {}
-    def _set(k, v):
-        persisted[k] = v
-    monkeypatch.setattr(auth_mod.config_mod, 'config_set', _set)
-    config = {
-        'GRAPH_REFRESH_TOKEN': 'RT1',
-        'GRAPH_TENANT_ID': 'tid',
-        'GRAPH_APP_CLIENT_ID': 'cid',
-    }
-    assert auth_mod._refresh_via_app_registration(config) == 'AT'
-    assert persisted['GRAPH_REFRESH_TOKEN'] == 'RT2'
-    # In-memory config also updated.
-    assert config['GRAPH_REFRESH_TOKEN'] == 'RT2'
-
-
-def test__refresh_via_app_registration_swallows_persist_failures(monkeypatch, capsys):
-    monkeypatch.setattr(
-        auth_mod.urllib.request, 'urlopen',
-        lambda req: _fake_resp({'access_token': 'AT', 'refresh_token': 'RT2'}),
-    )
-    def _boom(*a, **k):
-        raise OSError('disk full')
-    monkeypatch.setattr(auth_mod.config_mod, 'config_set', _boom)
-    config = {
-        'GRAPH_REFRESH_TOKEN': 'RT1',
-        'GRAPH_TENANT_ID': 'tid',
-        'GRAPH_APP_CLIENT_ID': 'cid',
-    }
-    out = auth_mod._refresh_via_app_registration(config)
-    assert out == 'AT'
-    assert 'failed to persist rotated refresh token' in capsys.readouterr().err
-
-
-def test__refresh_via_app_registration_returns_none_on_aad_failure(monkeypatch):
-    monkeypatch.setattr(
-        auth_mod, 'refresh_via_app_registration',
-        lambda *a, **k: None,
-    )
-    config = {
-        'GRAPH_REFRESH_TOKEN': 'rt',
-        'GRAPH_TENANT_ID': 'tid',
-        'GRAPH_APP_CLIENT_ID': 'cid',
-    }
-    assert auth_mod._refresh_via_app_registration(config) is None
+# (app-registration auth path removed - owa-piggy is the only token source)
 
 
 # ---------------------------------------------------------------------------
@@ -356,23 +237,7 @@ def test__refresh_via_owa_piggy_missing_access_token(monkeypatch):
 # do_token_refresh dispatch
 # ---------------------------------------------------------------------------
 
-def test_do_token_refresh_uses_app_reg_for_graph(monkeypatch):
-    monkeypatch.setattr(auth_mod, '_refresh_via_app_registration', lambda c, debug=False: 'APP_AT')
-    monkeypatch.setattr(auth_mod, '_refresh_via_owa_piggy', lambda *a, **k: 'PIGGY_AT')
-    out = auth_mod.do_token_refresh({'GRAPH_APP_CLIENT_ID': 'cid'}, audience='graph')
-    assert out == 'APP_AT'
-
-
-def test_do_token_refresh_falls_back_to_piggy_for_non_graph(monkeypatch):
-    monkeypatch.setattr(auth_mod, '_refresh_via_app_registration', lambda c, debug=False: 'APP_AT')
-    monkeypatch.setattr(auth_mod, '_refresh_via_owa_piggy', lambda c, audience='graph', debug=False: f'PIGGY_{audience}')
-    out = auth_mod.do_token_refresh(
-        {'GRAPH_APP_CLIENT_ID': 'cid'}, audience='outlook',
-    )
-    assert out == 'PIGGY_outlook'
-
-
-def test_do_token_refresh_uses_piggy_when_no_app_reg(monkeypatch):
+def test_do_token_refresh_uses_piggy(monkeypatch):
     monkeypatch.setattr(auth_mod, '_refresh_via_owa_piggy', lambda *a, **k: 'PIGGY_AT')
     out = auth_mod.do_token_refresh({}, audience='graph')
     assert out == 'PIGGY_AT'
@@ -382,33 +247,11 @@ def test_do_token_refresh_uses_piggy_when_no_app_reg(monkeypatch):
 # setup_auth (process-exit boundary)
 # ---------------------------------------------------------------------------
 
-def test_setup_auth_app_reg_missing_required_fields_exits(capsys):
-    with pytest.raises(SystemExit) as exc:
-        auth_mod.setup_auth({'GRAPH_APP_CLIENT_ID': 'cid'})
-    assert exc.value.code == 1
-    err = capsys.readouterr().err
-    assert 'GRAPH_REFRESH_TOKEN' in err
-    assert 'GRAPH_TENANT_ID' in err
-
-
 def test_setup_auth_returns_token_and_base(monkeypatch):
     monkeypatch.setattr(auth_mod, 'do_token_refresh', lambda *a, **k: 'AT')
     access, base = auth_mod.setup_auth({}, audience='graph', beta=True)
     assert access == 'AT'
     assert base == 'https://graph.microsoft.com/beta'
-
-
-def test_setup_auth_failure_exits_with_app_reg_message(monkeypatch, capsys):
-    monkeypatch.setattr(auth_mod, 'do_token_refresh', lambda *a, **k: None)
-    config = {
-        'GRAPH_APP_CLIENT_ID': 'cid',
-        'GRAPH_REFRESH_TOKEN': 'rt',
-        'GRAPH_TENANT_ID': 'tid',
-    }
-    with pytest.raises(SystemExit):
-        auth_mod.setup_auth(config, audience='graph')
-    err = capsys.readouterr().err
-    assert 'inspect settings' in err
 
 
 def test_setup_auth_failure_exits_with_piggy_message(monkeypatch, capsys):
