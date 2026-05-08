@@ -29,7 +29,7 @@ jobs:
       - name: No-secret check
         run: python tools/check_no_secrets.py
       - name: Unit tests
-        run: pytest -q
+        run: pytest -q --cov=owa_core --cov-fail-under=95
       - name: Compatibility snapshots
         run: pytest -q tests/compat
       - name: Contract tests

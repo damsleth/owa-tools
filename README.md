@@ -59,6 +59,7 @@ Test suite:
 
 ```bash
 .venv/bin/python -m pytest
+.venv/bin/python -m pytest --cov=owa_core --cov-fail-under=95
 .venv/bin/python tools/check_stdlib_only.py
 .venv/bin/python tools/check_no_secrets.py
 ```

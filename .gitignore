@@ -8,6 +8,8 @@ dist/
 .pytest_cache/
 .coverage
 .coverage.*
+coverage.json
+htmlcov/
 .DS_Store
 .tmp/
 .plans/

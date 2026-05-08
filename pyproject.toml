@@ -67,3 +67,11 @@ ignore = ["E501", "E702", "E741", "B904", "B905"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.coverage.run]
+branch = true
+source = ["owa_core"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

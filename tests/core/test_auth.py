@@ -115,6 +115,46 @@ def test_old_owa_piggy_version_maps_to_auth_exit(monkeypatch):
     assert 'too old' in exc.value.message
 
 
+def test_unparseable_owa_piggy_version_does_not_block(monkeypatch):
+    _patch_available(monkeypatch)
+    calls = []
+
+    def fake_run(argv, *args, **kwargs):
+        calls.append(argv)
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='not-a-version\n')
+        return FakeProc(stdout=json.dumps({'access_token': 'fake'}))
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    token = auth.get_token(tool_name='owa-people', audience='graph')
+    assert token.access_token == 'fake'
+    assert calls[0] == ['owa-piggy', '--version']
+
+
+def test_owa_piggy_version_command_failures_map_to_auth(monkeypatch):
+    _patch_available(monkeypatch)
+    monkeypatch.setattr(
+        auth.subprocess,
+        'run',
+        lambda argv, *args, **kwargs: FakeProc(returncode=2, stderr='boom'),
+    )
+    with pytest.raises(AuthExpiredError) as exc:
+        auth.get_token(tool_name='owa-people', audience='graph')
+    assert 'version failed' in exc.value.message
+
+
+def test_owa_piggy_version_oserror_maps_to_auth(monkeypatch):
+    _patch_available(monkeypatch)
+
+    def fake_run(argv, *args, **kwargs):
+        raise OSError('blocked')
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    with pytest.raises(AuthExpiredError) as exc:
+        auth.get_token(tool_name='owa-people', audience='graph')
+    assert 'failed to run owa-piggy --version' in exc.value.message
+
+
 def test_token_command_failure_uses_broker_stderr(monkeypatch):
     _patch_available(monkeypatch)
 
@@ -164,6 +204,20 @@ def test_non_json_token_payload_maps_to_internal(monkeypatch):
     assert 'non-JSON' in exc.value.message
 
 
+def test_non_object_token_payload_maps_to_internal(monkeypatch):
+    _patch_available(monkeypatch)
+
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy 0.7.1\n')
+        return FakeProc(stdout=json.dumps(['not', 'an', 'object']))
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    with pytest.raises(InternalError) as exc:
+        auth.get_token(tool_name='owa-people', audience='graph')
+    assert 'invalid token payload' in exc.value.message
+
+
 def test_missing_access_token_maps_to_internal(monkeypatch):
     _patch_available(monkeypatch)
 
@@ -176,3 +230,35 @@ def test_missing_access_token_maps_to_internal(monkeypatch):
     with pytest.raises(InternalError) as exc:
         auth.get_token(tool_name='owa-people', audience='graph')
     assert 'access_token' in exc.value.message
+
+
+def test_token_subprocess_oserror_maps_to_auth(monkeypatch):
+    _patch_available(monkeypatch)
+
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy 0.7.1\n')
+        raise OSError('blocked')
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    with pytest.raises(AuthExpiredError) as exc:
+        auth.get_token(tool_name='owa-people', audience='graph')
+    assert 'failed to run owa-piggy token' in exc.value.message
+
+
+def test_invalid_numeric_token_fields_become_none(monkeypatch):
+    _patch_available(monkeypatch)
+
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy 0.7.1\n')
+        return FakeProc(stdout=json.dumps({
+            'access_token': 'fake',
+            'expires_in': 'not-an-int',
+            'expires_at': object(),
+        }, default=str))
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    token = auth.get_token(tool_name='owa-people', audience='graph')
+    assert token.expires_in is None
+    assert token.expires_at is None

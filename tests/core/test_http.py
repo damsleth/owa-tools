@@ -90,6 +90,25 @@ def test_request_raw_returns_bytes_without_json_decode():
     assert response.bytes == b'file-bytes'
 
 
+def test_request_bytes_body_does_not_force_json_content_type():
+    seen = {}
+
+    def fake_urlopen(req, timeout):
+        seen['data'] = req.data
+        seen['content_type'] = req.get_header('Content-type')
+        return FakeResp(b'{}')
+
+    response = http.request(
+        'PUT',
+        'https://graph.example.test/content',
+        token='fake-token',
+        body=b'abc',
+        urlopen=fake_urlopen,
+    )
+    assert response.json == {}
+    assert seen == {'data': b'abc', 'content_type': None}
+
+
 def test_request_empty_body_returns_empty_object():
     response = http.request(
         'DELETE',
@@ -138,6 +157,16 @@ def test_http_error_debug_body_is_redacted():
     assert '[redacted-secret]' in exc.value.message
 
 
+def test_unknown_http_error_includes_request_id_without_debug_body():
+    def fake_urlopen(req, timeout):
+        raise _http_error(418, b'body', headers={'Request-Id': 'rid-2'})
+
+    with pytest.raises(InternalError) as exc:
+        http.request('GET', 'https://graph.example.test/me', token='fake', urlopen=fake_urlopen)
+    assert 'request_id=rid-2' in exc.value.message
+    assert 'body' not in exc.value.message
+
+
 def test_rate_limit_retry_honors_retry_after_then_succeeds():
     calls = {'n': 0}
     sleeps = []
@@ -159,6 +188,35 @@ def test_rate_limit_retry_honors_retry_after_then_succeeds():
     assert response.json == {'ok': True}
     assert sleeps == [3]
     assert calls['n'] == 2
+
+
+def test_retry_after_defaults_for_missing_or_invalid_values():
+    assert http._parse_retry_after(None) == 2
+    assert http._parse_retry_after('not-a-number') == 2
+
+
+def test_503_retry_can_succeed_with_debug_log(capsys):
+    calls = {'n': 0}
+    sleeps = []
+
+    def fake_urlopen(req, timeout):
+        calls['n'] += 1
+        if calls['n'] == 1:
+            raise _http_error(503, headers={'Retry-After': '0'})
+        return FakeResp(json.dumps({'ok': True}).encode())
+
+    response = http.request(
+        'GET',
+        'https://graph.example.test/me',
+        token='fake',
+        retry=1,
+        debug=True,
+        sleep=sleeps.append,
+        urlopen=fake_urlopen,
+    )
+    assert response.json == {'ok': True}
+    assert sleeps == [0]
+    assert 'retrying in 0s' in capsys.readouterr().err
 
 
 def test_retry_after_over_cap_maps_to_rate_limited_without_sleep():
@@ -211,6 +269,14 @@ def test_paginate_yields_collection_items_and_follows_next_link():
     items = list(http.paginate('https://graph.example.test/page1', token='fake', urlopen=fake_urlopen))
     assert items == [{'id': '1'}, {'id': '2'}]
     assert seen == ['https://graph.example.test/page1', 'https://graph.example.test/page2']
+
+
+def test_paginate_yields_single_entity_and_stops():
+    def fake_urlopen(req, timeout):
+        return FakeResp(json.dumps({'id': 'me'}).encode())
+
+    items = list(http.paginate('https://graph.example.test/me', token='fake', urlopen=fake_urlopen))
+    assert items == [{'id': 'me'}]
 
 
 def test_paginate_honors_max_pages():
