@@ -40,7 +40,6 @@ owa-drive = "owa_drive:main"
 
 [tool.setuptools]
 packages = [
-  "owa_core",
   "owa",
   "owa_cal",
   "owa_mail",
@@ -65,5 +64,5 @@ select = ["E", "F", "W", "I", "B"]
 ignore = ["E501"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests/compat", "tests/contract", "tests/integration", "owa_core/tests"]
+testpaths = ["tests"]
 addopts = "-q"
