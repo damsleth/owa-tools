@@ -667,12 +667,20 @@ WEBCAL_REJECTED_COMMANDS = {'create', 'update', 'delete', 'categories'}
 COMMAND_SCHEMA = [
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
     schema_mod.command('events', 'List calendar events', auth='outlook'),
-    schema_mod.command('create', 'Create an event', auth='outlook'),
-    schema_mod.command('update', 'Update an event', auth='outlook'),
-    schema_mod.command('delete', 'Delete an event', auth='outlook'),
-    schema_mod.command('categories', 'List or add master categories', auth='outlook'),
-    schema_mod.command('profiles', 'List/add/delete calendar profiles'),
-    schema_mod.command('config', 'View or update configuration'),
+    schema_mod.command('create', 'Create an event', auth='outlook', mutates=True, idempotent=False),
+    schema_mod.command('update', 'Update an event', auth='outlook', mutates=True),
+    schema_mod.command(
+        'delete',
+        'Delete an event',
+        auth='outlook',
+        mutates=True,
+        destructive=True,
+        confirmation=True,
+        idempotent=False,
+    ),
+    schema_mod.command('categories', 'List or add master categories', auth='outlook', mutates=True),
+    schema_mod.command('profiles', 'List/add/delete calendar profiles', mutates=True),
+    schema_mod.command('config', 'View or update configuration', mutates=True),
 ]
 
 

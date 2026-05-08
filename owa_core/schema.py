@@ -7,7 +7,17 @@ from .version import suite_version
 SCHEMA_VERSION = 1
 
 
-def command(name, summary='', auth=None, output='json', flags=None):
+def command(
+    name,
+    summary='',
+    auth=None,
+    output='json',
+    flags=None,
+    mutates=False,
+    destructive=False,
+    confirmation=False,
+    idempotent=None,
+):
     row = {
         'name': name,
         'summary': summary,
@@ -16,6 +26,14 @@ def command(name, summary='', auth=None, output='json', flags=None):
     }
     if auth:
         row['auth'] = {'audience': auth}
+    if mutates:
+        row['mutates'] = True
+    if destructive:
+        row['destructive'] = True
+    if confirmation:
+        row['confirmation'] = {'flag': '--confirm'}
+    if idempotent is not None:
+        row['idempotent'] = bool(idempotent)
     return row
 
 

@@ -359,7 +359,7 @@ COMMAND_SCHEMA = [
     schema_mod.command('availability', 'List attendee free/busy windows', auth='graph'),
     schema_mod.command('find-time', 'Find meeting slots', auth='graph'),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
-    schema_mod.command('config', 'View or update configuration'),
+    schema_mod.command('config', 'View or update configuration', mutates=True),
 ]
 
 

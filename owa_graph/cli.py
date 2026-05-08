@@ -33,13 +33,20 @@ RESERVED_SUBCOMMANDS = {'refresh', 'config', 'batch', 'help'}
 
 COMMAND_SCHEMA = [
     schema_mod.command('GET', 'Issue a GET request', auth='graph'),
-    schema_mod.command('POST', 'Issue a POST request', auth='graph'),
-    schema_mod.command('PATCH', 'Issue a PATCH request', auth='graph'),
-    schema_mod.command('PUT', 'Issue a PUT request', auth='graph'),
-    schema_mod.command('DELETE', 'Issue a DELETE request', auth='graph'),
-    schema_mod.command('batch', 'Run a Graph batch request', auth='graph'),
+    schema_mod.command('POST', 'Issue a POST request', auth='graph', mutates=True, idempotent=False),
+    schema_mod.command('PATCH', 'Issue a PATCH request', auth='graph', mutates=True),
+    schema_mod.command('PUT', 'Issue a PUT request', auth='graph', mutates=True),
+    schema_mod.command(
+        'DELETE',
+        'Issue a DELETE request',
+        auth='graph',
+        mutates=True,
+        destructive=True,
+        idempotent=False,
+    ),
+    schema_mod.command('batch', 'Run a Graph batch request', auth='graph', mutates=True),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
-    schema_mod.command('config', 'View or update configuration'),
+    schema_mod.command('config', 'View or update configuration', mutates=True),
 ]
 
 

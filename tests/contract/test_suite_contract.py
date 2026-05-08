@@ -59,6 +59,24 @@ def test_schema_subcommand_filters_one_command():
     assert [command["name"] for command in payload["commands"]] == ["messages"]
 
 
+def test_destructive_commands_declare_confirmation_metadata():
+    expected = {
+        "owa_cal": {"delete"},
+        "owa_mail": {"delete"},
+        "owa_drive": {"rm"},
+    }
+    for module, command_names in expected.items():
+        result = _run_module(module, "schema")
+        assert result.returncode == 0
+        commands = {row["name"]: row for row in json.loads(result.stdout)["commands"]}
+        for name in command_names:
+            row = commands[name]
+            assert row["mutates"] is True
+            assert row["destructive"] is True
+            assert row["confirmation"] == {"flag": "--confirm"}
+            assert row["idempotent"] is False
+
+
 def test_umbrella_schema_has_real_tool_entries():
     result = _run_module("owa", "schema", "--tool", "owa-mail")
     assert result.returncode == 0
