@@ -30,7 +30,12 @@ CONSUMERS = (
 
 
 def _which(name: str) -> str | None:
-    for base in (Path(sys.argv[0]).resolve().parent, Path(sys.executable).resolve().parent):
+    for base in (
+        Path(sys.argv[0]).parent,
+        Path(sys.argv[0]).resolve().parent,
+        Path(sys.executable).parent,
+        Path(sys.executable).resolve().parent,
+    ):
         candidate = base / name
         if candidate.exists():
             return str(candidate)
