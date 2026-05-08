@@ -8,12 +8,7 @@ nicer than the default single-line output.
 """
 import json
 
-
-def _pad(s, width):
-    s = str(s) if s is not None else ''
-    if len(s) >= width:
-        return s
-    return s + ' ' * (width - len(s))
+from owa_core.format import pad as _pad  # noqa: F401  (used throughout)
 
 
 def _looks_like_users(items):

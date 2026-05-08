@@ -7,26 +7,8 @@ Two surfaces:
 Stdout-only output strings; callers decide whether to emit these or
 raw JSON.
 """
-
-
-def _date_part(iso):
-    return iso.split('T')[0] if iso else ''
-
-
-def _time_part(iso):
-    if not iso or 'T' not in iso:
-        return ''
-    return ':'.join(iso.split('T')[1].split(':')[:2])
-
-
-def _truncate(s, n):
-    s = str(s or '')
-    return s if len(s) <= n else s[: n - 1] + '…'
-
-
-def _pad(s, n):
-    s = str(s or '')
-    return s + ' ' * (n - len(s)) if len(s) < n else s
+from owa_core.format import date_part as _date_part, pad as _pad
+from owa_core.format import time_part as _time_part, truncate as _truncate
 
 
 def format_messages_pretty(messages):
