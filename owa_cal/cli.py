@@ -209,8 +209,7 @@ Examples:
 
 def _require_value(flag, args):
     if not args:
-        _error(f'{flag} requires a value')
-        sys.exit(1)
+        raise UsageError(f'{flag} requires a value')
     return args[0], args[1:]
 
 
@@ -219,8 +218,7 @@ def _require_int(flag, args):
     try:
         return int(v), args
     except ValueError:
-        _error(f'{flag} requires an integer, got: {v}')
-        sys.exit(1)
+        raise UsageError(f'{flag} requires an integer, got: {v}')
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +269,7 @@ def cmd_events_webcal(args, config):
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
 
     from_, to_ = _resolve_event_window(date_, from_, to_, week, year)
 
@@ -320,7 +318,7 @@ def cmd_events(args, config, access_token, api_base):
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
 
     from_, to_ = _resolve_event_window(date_, from_, to_, week, year)
 
@@ -383,10 +381,10 @@ def cmd_create(args, config, access_token, api_base):
         elif flag == '--showas':
             showas, args = _require_value(flag, args)
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
 
     if not subject:
-        _error('--subject is required'); sys.exit(1)
+        raise UsageError('--subject is required')
     date_ = date_ or today()
     if allday:
         start_dt = make_datetime(date_, '00:00')
@@ -469,10 +467,10 @@ def cmd_update(args, config, access_token, api_base):
         elif flag == '--end':
             end_time, args = _require_value(flag, args)
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
 
     if not event_id:
-        _error('--id is required'); sys.exit(1)
+        raise UsageError('--id is required')
 
     debug = _debug_enabled(config)
 
@@ -529,9 +527,9 @@ def cmd_delete(args, config, access_token, api_base):
         elif flag == '--confirm':
             confirm = True
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
     if not event_id:
-        _error('--id is required'); sys.exit(1)
+        raise UsageError('--id is required')
 
     debug = _debug_enabled(config)
 
@@ -567,7 +565,7 @@ def cmd_categories(args, config, access_token, api_base):
         elif flag == '--pretty':
             pretty = True
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
 
     debug = _debug_enabled(config)
     # Outlook REST v2.0 exposes master categories at `me/MasterCategories`.
@@ -617,7 +615,7 @@ def cmd_config(args, config):
         if flag == '--profile':
             profile, args = _require_value(flag, args)
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
 
     if profile:
         config_mod.config_set('owa_piggy_profile', profile)
@@ -635,7 +633,7 @@ def cmd_config(args, config):
 
 def cmd_refresh(args, config):
     if args:
-        _error(f'Unknown flag: {args[0]}'); sys.exit(1)
+        raise UsageError(f'Unknown flag: {args[0]}')
     _info('Refreshing token...')
     access = auth_mod.do_token_refresh(config, debug=_debug_enabled(config))
     if not access:
@@ -802,7 +800,7 @@ def _profiles_list(args):
         if flag == '--pretty':
             pretty = True
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
     local = profiles_mod.load_local()
     piggy_set, piggy_default = profiles_mod.piggy_aliases()
     if pretty:
@@ -820,11 +818,11 @@ def _profiles_add(args):
         if flag == '--webcal':
             webcal, args = _require_value(flag, args)
         elif flag.startswith('-'):
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
         elif not alias:
             alias = flag
         else:
-            _error(f'Unexpected argument: {flag}'); sys.exit(1)
+            raise UsageError(f'Unexpected argument: {flag}')
     if not alias:
         _error('profiles add requires an <alias>')
         return 1
@@ -849,11 +847,11 @@ def _profiles_delete(args):
     while args:
         flag, args = args[0], args[1:]
         if flag.startswith('-'):
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
         elif not alias:
             alias = flag
         else:
-            _error(f'Unexpected argument: {flag}'); sys.exit(1)
+            raise UsageError(f'Unexpected argument: {flag}')
     if not alias:
         _error('profiles delete requires an <alias>')
         return 1

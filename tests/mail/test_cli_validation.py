@@ -9,6 +9,8 @@ import json
 
 import pytest
 
+from owa_core.errors import UsageError
+
 
 def _fake_token():
     return 'fake-access', 'https://outlook.office.com/api/v2.0'
@@ -26,7 +28,7 @@ def test_messages_search_with_filter_is_rejected(monkeypatch, capsys):
 
 def test_messages_unknown_flag_exits(monkeypatch):
     from owa_mail.cli import cmd_messages
-    with pytest.raises(SystemExit):
+    with pytest.raises(UsageError):
         cmd_messages(['--bogus'], {}, *_fake_token())
 
 
@@ -335,13 +337,13 @@ def test_forward_requires_to_when_sending(capsys):
 
 def test_forward_rejects_cc(monkeypatch):
     from owa_mail.cli import cmd_forward
-    with pytest.raises(SystemExit):
+    with pytest.raises(UsageError):
         cmd_forward(['--id', 'X', '--to', 'a@b.c', '--cc', 'c@d.e', '--body', 'fyi'], {}, *_fake_token())
 
 
 def test_reply_rejects_importance(monkeypatch):
     from owa_mail.cli import cmd_reply
-    with pytest.raises(SystemExit):
+    with pytest.raises(UsageError):
         cmd_reply(['--id', 'X', '--body', 'hi', '--importance', 'high'], {}, *_fake_token())
 
 

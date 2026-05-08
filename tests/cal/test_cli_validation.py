@@ -7,24 +7,23 @@ import json
 
 import pytest
 
+from owa_core.errors import UsageError
+
 
 def test_events_limit_non_integer_exits_clean(capsys):
     from owa_cal.cli import cmd_events
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(UsageError) as exc:
         cmd_events(['--limit', 'nope'], {}, 'tok', 'https://example.invalid')
-    assert exc.value.code == 1
-    err = capsys.readouterr().err
-    assert 'ERROR:' in err
-    assert 'integer' in err.lower()
+    assert exc.value.exit_code == 2
+    assert 'integer' in exc.value.message.lower()
 
 
 def test_events_week_non_integer_exits_clean(capsys):
     from owa_cal.cli import cmd_events
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(UsageError) as exc:
         cmd_events(['--week', 'nope'], {}, 'tok', 'https://example.invalid')
-    assert exc.value.code == 1
-    err = capsys.readouterr().err
-    assert 'ERROR:' in err
+    assert exc.value.exit_code == 2
+    assert '--week' in exc.value.message
 
 
 def test_update_without_fields_returns_error(capsys, monkeypatch):

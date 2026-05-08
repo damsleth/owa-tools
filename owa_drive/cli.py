@@ -40,7 +40,7 @@ def _debug_enabled(config):
 
 def _require_value(flag, args):
     if not args:
-        _error(f'{flag} requires a value'); sys.exit(1)
+        raise UsageError(f'{flag} requires a value')
     return args[0], args[1:]
 
 
@@ -97,11 +97,11 @@ def cmd_ls(args, config, access_token, api_base):
         if flag == '--pretty':
             pretty = True
         elif flag.startswith('-'):
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
         elif not path:
             path = flag
         else:
-            _error(f'Unexpected argument: {flag}'); sys.exit(1)
+            raise UsageError(f'Unexpected argument: {flag}')
 
     endpoint = paths_mod.children_endpoint(path)
     payload = api_mod.api_request(
@@ -127,11 +127,11 @@ def cmd_show(args, config, access_token, api_base):
         if flag == '--pretty':
             pretty = True
         elif flag.startswith('-'):
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
         elif not path:
             path = flag
         else:
-            _error(f'Unexpected argument: {flag}'); sys.exit(1)
+            raise UsageError(f'Unexpected argument: {flag}')
 
     if not path:
         _error('show requires a path')
@@ -159,11 +159,11 @@ def cmd_get(args, config, access_token, api_base):
         if flag == '--out':
             out_path, args = _require_value(flag, args)
         elif flag.startswith('-') and flag != '-':
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
         elif not path:
             path = flag
         else:
-            _error(f'Unexpected argument: {flag}'); sys.exit(1)
+            raise UsageError(f'Unexpected argument: {flag}')
 
     if not path:
         _error('get requires a path')
@@ -199,13 +199,13 @@ def cmd_put(args, config, access_token, api_base):
     while args:
         flag, args = args[0], args[1:]
         if flag.startswith('-') and flag != '-':
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
         elif not local:
             local = flag
         elif not remote:
             remote = flag
         else:
-            _error(f'Unexpected argument: {flag}'); sys.exit(1)
+            raise UsageError(f'Unexpected argument: {flag}')
 
     if not local or not remote:
         _error('put requires <local> and <remote-path>')
@@ -246,11 +246,11 @@ def cmd_rm(args, config, access_token, api_base):
         if flag == '--confirm':
             confirm = True
         elif flag.startswith('-'):
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
         elif not path:
             path = flag
         else:
-            _error(f'Unexpected argument: {flag}'); sys.exit(1)
+            raise UsageError(f'Unexpected argument: {flag}')
 
     if not path:
         _error('rm requires a path')
@@ -289,7 +289,7 @@ def cmd_config(args, config):
         if flag == '--profile':
             profile, args = _require_value(flag, args)
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
 
     if profile:
         config_mod.config_set('owa_piggy_profile', profile)
@@ -306,7 +306,7 @@ def cmd_config(args, config):
 
 def cmd_refresh(args, config):
     if args:
-        _error(f'Unknown flag: {args[0]}'); sys.exit(1)
+        raise UsageError(f'Unknown flag: {args[0]}')
     _info('Refreshing token...')
     access = auth_mod.do_token_refresh(config, debug=_debug_enabled(config))
     if not access:

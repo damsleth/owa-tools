@@ -4,7 +4,7 @@ import json
 import pytest
 
 from owa_core import auth as core_auth
-from owa_core.errors import AuthExpiredError, ExitCode
+from owa_core.errors import AuthExpiredError, ExitCode, UsageError
 from owa_graph import auth as auth_mod
 
 
@@ -36,13 +36,12 @@ def test_resolve_api_base_outlook():
     assert auth_mod.resolve_api_base('outlook') == 'https://outlook.office.com/api/v2.0'
 
 
-def test_resolve_api_base_unknown_audience_exits(capsys):
-    with pytest.raises(SystemExit) as exc:
+def test_resolve_api_base_unknown_audience_raises_usage_error():
+    with pytest.raises(UsageError) as exc:
         auth_mod.resolve_api_base('frobnicate')
-    assert exc.value.code == 1
-    err = capsys.readouterr().err
-    assert 'unknown audience' in err
-    assert 'graph' in err
+    assert exc.value.exit_code == 2
+    assert 'unknown audience' in exc.value.message
+    assert 'graph' in exc.value.message
 
 
 def test_resolve_api_base_beta_warns_for_non_graph(capsys):

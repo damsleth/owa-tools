@@ -181,8 +181,7 @@ Examples:
 
 def _require_value(flag, args):
     if not args:
-        _error(f'{flag} requires a value')
-        sys.exit(1)
+        raise UsageError(f'{flag} requires a value')
     return args[0], args[1:]
 
 
@@ -191,8 +190,7 @@ def _require_int(flag, args):
     try:
         return int(v), args
     except ValueError:
-        _error(f'{flag} requires an integer, got: {v}')
-        sys.exit(1)
+        raise UsageError(f'{flag} requires an integer, got: {v}')
 
 
 def _read_body(value):
@@ -233,7 +231,7 @@ def cmd_messages(args, config, access_token, api_base):
         elif flag == '--pretty':
             pretty = True
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
 
     if limit < 1:
         _error('--limit must be >= 1'); return 1
@@ -274,7 +272,7 @@ def cmd_show(args, config, access_token, api_base):
         elif flag == '--pretty':
             pretty = True
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
     if not message_id:
         _error('--id is required'); return 1
 
@@ -335,7 +333,7 @@ def _parse_send_flags(args, allow_to=True, allow_cc_bcc=True, allow_importance=T
         elif flag == '--importance' and allow_importance:
             out['importance'], args = _require_value(flag, args)
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
     return out
 
 
@@ -483,7 +481,7 @@ def cmd_delete(args, config, access_token, api_base):
         elif flag == '--confirm':
             confirm = True
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
     if not message_id:
         _error('--id is required'); return 1
 
@@ -527,7 +525,7 @@ def cmd_move(args, config, access_token, api_base):
         elif flag == '--to':
             destination, args = _require_value(flag, args)
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
     if not message_id:
         _error('--id is required'); return 1
     if not destination:
@@ -569,7 +567,7 @@ def cmd_mark(args, config, access_token, api_base):
                 _error('--flag and --unflag are mutually exclusive'); return 1
             flag_state = False
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
     if not message_id:
         _error('--id is required'); return 1
     if read is None and flag_state is None:
@@ -594,7 +592,7 @@ def cmd_folders(args, config, access_token, api_base):
         if flag == '--pretty':
             pretty = True
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
 
     debug = _debug_enabled(config)
     q = api_mod.build_query({
@@ -620,7 +618,7 @@ def cmd_config(args, config):
         if flag == '--profile':
             profile, args = _require_value(flag, args)
         else:
-            _error(f'Unknown flag: {flag}'); sys.exit(1)
+            raise UsageError(f'Unknown flag: {flag}')
 
     if profile:
         config_mod.config_set('owa_piggy_profile', profile)
@@ -637,7 +635,7 @@ def cmd_config(args, config):
 
 def cmd_refresh(args, config):
     if args:
-        _error(f'Unknown flag: {args[0]}'); sys.exit(1)
+        raise UsageError(f'Unknown flag: {args[0]}')
     _info('Refreshing token...')
     access = auth_mod.do_token_refresh(config, debug=_debug_enabled(config))
     if not access:
