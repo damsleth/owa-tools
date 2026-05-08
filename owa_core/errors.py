@@ -7,6 +7,8 @@ stderr and return integers until they are migrated.
 import sys
 from enum import IntEnum
 
+from .secrets import redact
+
 
 class ExitCode(IntEnum):
     SUCCESS = 0
@@ -67,7 +69,7 @@ class InternalError(OwaError):
 def emit_error(error, *, stream=None):
     """Print one human-readable error to stderr and return its exit code."""
     stream = stream or sys.stderr
-    print(f'ERROR: {error.message}', file=stream)
+    print(f'ERROR: {redact(error.message)}', file=stream)
     if error.remediation:
-        print(f'hint: {error.remediation}', file=stream)
+        print(f'hint: {redact(error.remediation)}', file=stream)
     return int(error.exit_code)

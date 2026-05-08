@@ -129,6 +129,26 @@ def test_token_command_failure_uses_broker_stderr(monkeypatch):
     assert 'profile not found' in exc.value.message
 
 
+def test_token_command_failure_redacts_broker_stderr(monkeypatch):
+    _patch_available(monkeypatch)
+    access_token = '.'.join([
+        'eyJhbGciOiJIUzI1NiIs',
+        'eyJhdWQiOiJvd2EtdG9vbHMi',
+        'c2lnbmF0dXJlZm9ydGVzdHM',
+    ])
+
+    def fake_run(argv, *args, **kwargs):
+        if argv == ['owa-piggy', '--version']:
+            return FakeProc(stdout='owa-piggy 0.7.1\n')
+        return FakeProc(returncode=1, stderr=f'ERROR: leaked {access_token}')
+
+    monkeypatch.setattr(auth.subprocess, 'run', fake_run)
+    with pytest.raises(AuthExpiredError) as exc:
+        auth.get_token(tool_name='owa-people', audience='graph')
+    assert access_token not in exc.value.message
+    assert '[redacted-secret]' in exc.value.message
+
+
 def test_non_json_token_payload_maps_to_internal(monkeypatch):
     _patch_available(monkeypatch)
 

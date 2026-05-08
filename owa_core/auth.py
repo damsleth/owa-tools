@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 from .errors import AuthExpiredError, InternalError
 from .jwt import token_minutes_remaining
+from .secrets import redact
 
 MIN_OWA_PIGGY_VERSION = (0, 6, 0)
 MIN_JSON_BROKER_VERSION = (0, 7, 1)
@@ -168,7 +169,7 @@ def get_token(
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise AuthExpiredError('failed to run owa-piggy token', cause=exc)
     if proc.returncode != 0:
-        message = (proc.stderr or '').strip() or 'token refresh failed'
+        message = redact((proc.stderr or '').strip()) or 'token refresh failed'
         raise AuthExpiredError(message)
     try:
         result = json.loads(proc.stdout)
@@ -234,7 +235,7 @@ def run_piggy_token(config, audience, debug=False):
     if proc.returncode != 0:
         stderr = proc.stderr.strip()
         if stderr:
-            print(stderr, file=sys.stderr)
+            print(redact(stderr), file=sys.stderr)
         return None
     try:
         result = json.loads(proc.stdout)
