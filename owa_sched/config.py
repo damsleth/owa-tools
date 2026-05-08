@@ -2,10 +2,15 @@
 
 KEY="VALUE" lines, shell-sourceable. Stores only an optional
 `owa_piggy_profile` alias and a default work-day window. The on-disk
-file is chmod 0600 anyway as a hygiene default.
+file is chmod 0600.
+
+Mechanics live in owa_core.config; this file just declares the
+per-tool path, allowlist, and defaults.
 """
 import os
 from pathlib import Path
+
+from owa_core import config as _core
 
 CONFIG_PATH = Path(
     os.environ.get('XDG_CONFIG_HOME') or str(Path.home() / '.config')
@@ -25,27 +30,15 @@ DEFAULT_WORK_END = '17:00'
 
 
 def _parse_lines(text):
-    out = {}
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith('#') or '=' not in line:
-            continue
-        k, _, v = line.partition('=')
-        k = k.strip()
-        v = v.strip().strip('"').strip("'")
-        if k and v:
-            out[k] = v
-    return out
+    return _core.parse_lines(text)
 
 
 def parse_kv_stream(text):
-    return {k: v for k, v in _parse_lines(text).items() if k in ALLOWED_KEYS}
+    return _core.parse_kv_stream(text, ALLOWED_KEYS)
 
 
 def load_config():
-    config = {}
-    if CONFIG_PATH.exists():
-        config.update(_parse_lines(CONFIG_PATH.read_text()))
+    config = _core.load_config_file(CONFIG_PATH)
     config.setdefault('default_timezone', DEFAULT_TIMEZONE)
     config.setdefault('default_work_start', DEFAULT_WORK_START)
     config.setdefault('default_work_end', DEFAULT_WORK_END)
@@ -53,32 +46,8 @@ def load_config():
 
 
 def save_config(config):
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    lines = []
-    existing_keys = set()
-    if CONFIG_PATH.exists():
-        for line in CONFIG_PATH.read_text().splitlines():
-            stripped = line.strip()
-            if stripped and not stripped.startswith('#') and '=' in stripped:
-                k = stripped.split('=', 1)[0].strip()
-                if k in config:
-                    lines.append(f'{k}="{config[k]}"')
-                    existing_keys.add(k)
-                    continue
-            lines.append(line)
-    for k, v in config.items():
-        if k not in existing_keys:
-            lines.append(f'{k}="{v}"')
-    payload = '\n'.join(lines) + '\n'
-    CONFIG_PATH.write_text(payload)
-    CONFIG_PATH.chmod(0o600)
+    _core.save_config(CONFIG_PATH, config)
 
 
 def config_set(key, value):
-    if key not in ALLOWED_KEYS:
-        raise ValueError(f'unknown config key: {key}')
-    current = {}
-    if CONFIG_PATH.exists():
-        current = parse_kv_stream(CONFIG_PATH.read_text())
-    current[key] = value
-    save_config(current)
+    _core.config_set(CONFIG_PATH, ALLOWED_KEYS, key, value)
