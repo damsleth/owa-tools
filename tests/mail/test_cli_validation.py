@@ -202,6 +202,21 @@ def test_delete_requires_id(capsys):
     assert rc == 1
 
 
+def test_delete_no_confirm_non_tty_returns_usage(monkeypatch, capsys):
+    from owa_mail import api as api_mod
+    from owa_mail.cli import cmd_delete
+
+    def fail_get(*args, **kwargs):
+        raise AssertionError('non-TTY refusal should happen before lookup')
+
+    monkeypatch.setattr(api_mod, 'api_get', fail_get)
+
+    rc = cmd_delete(['--id', 'MSG1'], {}, *_fake_token())
+
+    assert rc == 2
+    assert 'without --confirm' in capsys.readouterr().err
+
+
 # ----- move -----
 
 def test_move_requires_id_and_to(capsys):

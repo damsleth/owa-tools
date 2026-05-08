@@ -14,7 +14,8 @@ import sys
 
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
-from owa_core.errors import emit_message
+from owa_core import tty as tty_mod
+from owa_core.errors import UsageError, emit_error, emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -488,6 +489,10 @@ def cmd_delete(args, config, access_token, api_base):
 
     debug = _debug_enabled(config)
     if not confirm:
+        try:
+            tty_mod.require_confirm_or_tty(action='delete message')
+        except UsageError as error:
+            return emit_error(error)
         existing = api_mod.api_get(
             api_base,
             f'{messages_mod.message_path(message_id)}?{api_mod.build_query({"$select":"Id,Subject,From,ReceivedDateTime"})}',
@@ -496,16 +501,10 @@ def cmd_delete(args, config, access_token, api_base):
         if existing is None:
             return 1
         flat = messages_mod.normalize_message(existing)
-        sys.stderr.write(
+        if not tty_mod.confirm(
             f"\033[33mDelete '{flat.get('subject','')}' "
             f"from {flat.get('from','')} ({flat.get('received','')})? (y/N): \033[0m"
-        )
-        sys.stderr.flush()
-        try:
-            answer = input().strip().lower()
-        except EOFError:
-            answer = ''
-        if answer not in ('y', 'yes'):
+        ):
             _info('Aborted.')
             return 0
 

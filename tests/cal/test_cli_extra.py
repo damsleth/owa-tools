@@ -18,6 +18,8 @@ def test_config_no_args_lists_state_to_stderr(tmp_config, clean_env, capsys):
 
 
 def test_delete_no_confirm_aborts_on_n(monkeypatch, capsys):
+    import io
+
     import owa_cal.api as api_mod
     from owa_cal.cli import cmd_delete
 
@@ -38,7 +40,8 @@ def test_delete_no_confirm_aborts_on_n(monkeypatch, capsys):
 
     monkeypatch.setattr(api_mod, 'api_get', fake_get)
     monkeypatch.setattr(api_mod, 'api_request', fake_request)
-    monkeypatch.setattr('builtins.input', lambda: 'n')
+    monkeypatch.setattr('owa_core.tty.is_interactive', lambda stdin=None, stderr=None: True)
+    monkeypatch.setattr('sys.stdin', io.StringIO('n\n'))
 
     rc = cmd_delete(['--id', 'evt-1'], {}, 'tok', 'https://example.invalid')
     assert rc == 0
@@ -46,6 +49,21 @@ def test_delete_no_confirm_aborts_on_n(monkeypatch, capsys):
     assert all(call[0] != 'DELETE' for call in api_calls)
     err = capsys.readouterr().err
     assert 'Aborted' in err
+
+
+def test_delete_no_confirm_non_tty_returns_usage(monkeypatch, capsys):
+    import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_delete
+
+    def fail_get(*args, **kwargs):
+        raise AssertionError('non-TTY refusal should happen before lookup')
+
+    monkeypatch.setattr(api_mod, 'api_get', fail_get)
+
+    rc = cmd_delete(['--id', 'evt-1'], {}, 'tok', 'https://example.invalid')
+
+    assert rc == 2
+    assert 'without --confirm' in capsys.readouterr().err
 
 
 def test_delete_with_confirm_skips_prompt(monkeypatch, capsys):
