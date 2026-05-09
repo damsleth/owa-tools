@@ -31,7 +31,9 @@ jobs:
       - name: Docs sync check
         run: python tools/check_docs_sync.py
       - name: Unit tests
-        run: pytest -q --cov=owa_core --cov-fail-under=95
+        run: coverage run --source=owa_core -m pytest -q && coverage report --fail-under=95
+      - name: Runtime coverage
+        run: pytest -q --cov --cov-fail-under=90
       - name: Compatibility snapshots
         run: pytest -q tests/compat
       - name: Contract tests

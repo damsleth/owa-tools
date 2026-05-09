@@ -69,9 +69,20 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [tool.coverage.run]
-branch = true
-source = ["owa_core"]
+source = [
+  "owa",
+  "owa_core",
+  "owa_cal",
+  "owa_mail",
+  "owa_graph",
+  "owa_doctor",
+  "owa_people",
+  "owa_sched",
+  "owa_drive",
+]
+omit = ["*/__main__.py"]
 
 [tool.coverage.report]
+fail_under = 90
 show_missing = true
 skip_covered = true

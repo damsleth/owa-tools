@@ -334,3 +334,31 @@ def test_users_handlers(ctx, capsys):
     assert users.cmd_directreports(["user-1"], ctx) == 0
     assert ctx.calls[-1][1] == "/users/user-1/directReports"
     assert users.cmd_directreports([], ctx) == 1
+
+
+def test_mail_resource_remaining_handlers(ctx, capsys):
+    from owa_graph.resources import mail
+
+    assert mail.cmd_read(["m1"], ctx) == 0
+    assert ctx.calls[-1][1] == "/me/messages/m1"
+    assert mail.cmd_read([], ctx) == 1
+    assert "read requires" in capsys.readouterr().out
+
+    assert mail.cmd_reply(["m1", "--comment", "thanks"], ctx) == 0
+    assert ctx.calls[-1] == ("POST", "/me/messages/m1/reply", {"comment": "thanks"}, None, None)
+    assert mail.cmd_replyall(["m1"], ctx) == 0
+    assert ctx.calls[-1][1] == "/me/messages/m1/replyAll"
+    assert mail.cmd_forward(["m1", "--to", "a@example.com,b@example.com", "--comment", "fyi"], ctx) == 0
+    assert ctx.calls[-1][1] == "/me/messages/m1/forward"
+    assert [r["emailAddress"]["address"] for r in ctx.calls[-1][2]["toRecipients"]] == [
+        "a@example.com",
+        "b@example.com",
+    ]
+    assert mail.cmd_forward(["m1"], ctx) == 1
+    assert "forward requires" in capsys.readouterr().out
+
+    assert mail.cmd_move(["m1", "--to", "Archive"], ctx) == 0
+    assert ctx.calls[-1] == ("POST", "/me/messages/m1/move", {"destinationId": "Archive"}, None, None)
+    assert mail.cmd_move(["m1"], ctx) == 1
+    assert mail.cmd_flag(["m1", "--status", "complete"], ctx) == 0
+    assert ctx.calls[-1] == ("PATCH", "/me/messages/m1", {"flag": {"flagStatus": "complete"}}, None, None)
