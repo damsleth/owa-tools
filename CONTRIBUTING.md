@@ -28,6 +28,20 @@ pytest -q --cov --cov-fail-under=90
 The first enforces 95%+ on `owa_core` only; the second enforces 90%+ across
 the full runtime surface configured in `pyproject.toml`.
 
+## Build and packaging checks
+
+After `python -m build`, verify the artifacts:
+
+```
+python -m twine check dist/*
+python tools/check_artifacts.py dist/*
+python tools/check_console_smoke.py
+```
+
+`check_console_smoke.py` installs the wheel into a throwaway venv and runs
+`--version` on every console script, so it catches packaging regressions
+before they reach a tag.
+
 Before editing, read root `AGENTS.md` and the nearest local `AGENTS.md`.
 
 ## Stdlib-only check

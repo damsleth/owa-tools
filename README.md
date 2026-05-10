@@ -1,96 +1,130 @@
 # owa-tools
 
-Monorepo for the seven `owa-piggy` consumer CLIs: `owa-cal`, `owa-mail`, `owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`. Plus the umbrella `owa` discovery binary.
+Pipe-friendly CLI suite for Outlook and Microsoft 365. Calendar, mail, Graph,
+OneDrive, scheduling, people lookup, health checks - all from your terminal,
+all returning JSON by default.
 
-The auth broker `owa-piggy` lives in its own repository. It is the only persistent-secret holder in the suite.
+[![PyPI](https://img.shields.io/pypi/v/owa-tools.svg)](https://pypi.org/project/owa-tools/)
+[![GitHub release](https://img.shields.io/github/v/release/damsleth/owa-tools.svg)](https://github.com/damsleth/owa-tools/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Status
+No Azure AD app registration. No third-party runtime dependencies. Auth piggybacks
+on the OWA browser session via [`owa-piggy`](https://github.com/damsleth/owa-piggy)
+- separate package, separate token store, never imported.
 
-`owa-tools` is currently unreleased and uses one suite version for all console scripts.
+## Install
 
-| CLI | Status |
+Homebrew (recommended):
+
+```bash
+brew install damsleth/tap/owa-piggy damsleth/tap/owa-tools
+```
+
+PyPI:
+
+```bash
+pipx install owa-piggy && pipx install owa-tools
+```
+
+Either path lands eight binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
+`owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`) plus the
+`owa-piggy` auth broker.
+
+## Quickstart
+
+```bash
+# 1. One-time auth setup (opens Edge, signs you in, captures a refresh token)
+owa-piggy setup --profile work --email you@yourcompany.com
+
+# 2. Verify everything's healthy
+owa doctor
+
+# 3. Try it
+owa-cal events --pretty                          # today's calendar
+owa-mail folders                                 # mail folders
+owa-graph me whoami                              # who am I
+owa-drive ls                                     # OneDrive root
+owa-people search "ola nordmann"                 # directory lookup
+owa-sched availability --who you@example.com --date today
+```
+
+Every binary supports `--help` and `<binary> help` for the full command surface.
+JSON on stdout, logs on stderr, `--pretty` when you want a human-readable table.
+
+## What's in the box
+
+| CLI | What it does |
 |---|---|
-| `owa-cal` | beta |
-| `owa-mail` | beta |
-| `owa-graph` | beta |
-| `owa-doctor` | alpha |
-| `owa-people` | alpha |
-| `owa-sched` | alpha |
-| `owa-drive` | alpha |
-| `owa` | umbrella discovery binary |
+| `owa-cal` | Calendar CRUD over Outlook REST. Events, categories, recurrence. |
+| `owa-mail` | Mail CRUD: messages, send, reply, forward, folders. |
+| `owa-graph` | Microsoft Graph CLI: verb-first plus 14 resource shortcut groups. |
+| `owa-people` | People, directory, and contacts via Graph. |
+| `owa-sched` | Free/busy and slot finding for one or many attendees. |
+| `owa-drive` | OneDrive CRUD plus binary up/download. |
+| `owa-doctor` | Health check across the suite, all profiles, all audiences. |
+| `owa` | Umbrella discovery binary: `owa list`, `owa schema`, `owa doctor`, `owa version`. |
 
-## Layout
+## Multi-account / profiles
 
-```
-owa-tools/
-├── owa_cal/         calendar CRUD over Outlook REST
-├── owa_mail/        mail CRUD over Outlook REST
-├── owa_graph/       Microsoft Graph CLI (verb-first + 14 resource shortcut groups)
-├── owa_doctor/      health check across the suite
-├── owa_people/      people, directory, contacts (Graph)
-├── owa_sched/       free/busy and slot finding (Graph)
-├── owa_drive/       OneDrive CRUD (Graph)
-├── owa/             umbrella `owa` binary (list, schema, doctor, version)
-├── tools/           CI helpers (stdlib check)
-├── tests/           per-tool test suites
-├── completions/     bash, zsh, fish
-└── docs/            per-tool docs
-```
-
-## Running
-
-Local dev install:
+Each tool delegates auth to `owa-piggy` and inherits its profile model. Pin a
+profile for a tool, switch per call, or set it via env:
 
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install -e .[dev]
-.venv/bin/owa list
+owa-cal --profile crayon events --pretty         # one call
+OWA_PROFILE=crayon owa-cal events --pretty       # one shell session
+owa-cal config --profile crayon                  # persistent for owa-cal
 ```
 
-Wheel build:
+See [`docs/profile-model.md`](docs/profile-model.md) for the full precedence
+rules.
+
+## Migrating from the old per-tool installs
+
+If you used the legacy standalone `owa-cal` / `owa-mail` / `owa-graph` packages,
+the binary names and command surface haven't changed. Swap the install and
+keep going:
 
 ```bash
-.venv/bin/python -m build --wheel
+# Homebrew
+brew uninstall owa-cal owa-mail owa-graph 2>/dev/null
+brew install damsleth/tap/owa-tools
+
+# pipx
+pipx uninstall owa-cal owa-mail owa-graph 2>/dev/null
+pipx install owa-tools
 ```
 
-The wheel contains all eight console scripts (`owa`, `owa-cal`, `owa-mail`, `owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`) and they all report the same `owa-tools` suite version.
+Full guide: [`docs/migrating-from-individual-installs.md`](docs/migrating-from-individual-installs.md).
 
-Test suite:
+## For agents and automation
 
-```bash
-.venv/bin/python -m pytest
-.venv/bin/coverage run --source=owa_core -m pytest -q
-.venv/bin/coverage report --fail-under=95
-.venv/bin/python -m pytest --cov --cov-fail-under=90
-.venv/bin/python tools/check_stdlib_only.py
-.venv/bin/python tools/check_no_secrets.py
-.venv/bin/python tools/check_docs_sync.py
-.venv/bin/python tools/check_artifacts.py dist/*   # after build
-.venv/bin/python tools/check_console_smoke.py      # after build
-```
+- JSON on stdout by default. `--pretty` is the human opt-in.
+- `--agent` wraps output for automation tooling; `--err-json` emits structured
+  stderr.
+- `owa schema` aggregates per-tool schemas for discovery.
+- Exit code taxonomy is shared across the suite (`docs/agent-integration.md`).
 
-See `RELEASING.md` for the suite tag-and-publish flow.
+## Docs
 
-## More Docs
+- [`docs/security.md`](docs/security.md) - token, redaction, and live-test boundaries
+- [`docs/agent-integration.md`](docs/agent-integration.md) - schema discovery, `--agent`, `--err-json`
+- [`docs/profile-model.md`](docs/profile-model.md) - profiles and audiences
+- [`docs/migrating-from-individual-installs.md`](docs/migrating-from-individual-installs.md) - upgrade guide
+- Per-tool: [`cal`](docs/cal.md) | [`mail`](docs/mail.md) | [`graph`](docs/graph.md) | [`doctor`](docs/doctor.md) | [`people`](docs/people.md) | [`sched`](docs/sched.md) | [`drive`](docs/drive.md)
 
-- `docs/security.md` defines the token, config, redaction, and live-test
-  boundaries.
-- `docs/agent-integration.md` documents schema discovery, `--agent`, and
-  `--err-json`.
-- `docs/profile-model.md` explains how `owa-tools` profile aliases map to
-  `owa-piggy` profiles.
-- `docs/migrating-from-individual-installs.md` walks existing users from
-  the legacy per-tool installs to the `owa-tools` suite.
+## Releases
 
-## Conventions
+- PyPI: <https://pypi.org/project/owa-tools/>
+- GitHub Releases: <https://github.com/damsleth/owa-tools/releases>
+- Homebrew tap: <https://github.com/damsleth/homebrew-tap>
+- Changelog: [`CHANGELOG.md`](CHANGELOG.md)
 
-- Stdlib only at runtime, except for the local suite packages and `owa-piggy`.
-- JSON on stdout, logs on stderr, `--pretty` for humans.
-- `--agent` wraps JSON-compatible output for automation; `--err-json` emits
-  structured stderr.
-- Auth via `owa-piggy` (subprocess, JSON contract).
-- For agents and contributors, start with `AGENTS.md`, then read the nearest
-  local `AGENTS.md` for the package or directory being edited.
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, tests, coverage gates,
+commit conventions, and code style. The release flow lives in
+[`RELEASING.md`](RELEASING.md), and architecture/agent guidance lives in
+[`AGENTS.md`](AGENTS.md).
 
 ## License
 
