@@ -85,7 +85,9 @@ commit:
 .venv/bin/python tools/check_no_secrets.py
 .venv/bin/python tools/check_docs_sync.py
 .venv/bin/python tools/check_artifacts.py dist/*   # after build
-.venv/bin/python -m pytest -q --cov=owa_core --cov-fail-under=95
+.venv/bin/coverage run --source=owa_core -m pytest -q
+.venv/bin/coverage report --fail-under=95
+.venv/bin/python -m pytest -q --cov --cov-fail-under=90
 ```
 
 For release or packaging changes also run:
@@ -103,3 +105,99 @@ For release or packaging changes also run:
   only when sibling-repo changes are explicitly authorized.
 - Keep changes scoped. One domain per commit is preferred.
 - Do not commit build artifacts, virtualenvs, caches, local config, or `.plans/`.
+
+## Cutting a release (only when the user asks)
+
+The whole suite ships from one distribution (`owa-tools`) on PyPI and from one
+Homebrew formula in the `damsleth/homebrew-tap`. `owa-piggy` is released
+separately from its own repo. PyPI uploads happen **locally** with `uv publish`
+reading `UV_PUBLISH_TOKEN` from `./.env`. The GitHub Actions release workflow
+runs gates, builds artifacts, and creates the GitHub Release with the wheel
+and sdist attached - it does **not** publish to PyPI.
+
+When the user says "cut a release" / "new patch version" / "ship it":
+
+1. Pick the bump. Patch (`0.1.0 -> 0.1.1`) for bug fixes, doc corrections,
+   small UX polish. Minor (`0.1.1 -> 0.2.0`) for new flags, new behaviors,
+   anything a user might notice. Never bump major without explicit
+   instruction - the suite is 0.x by design.
+2. Commit feature work separately from the version bump. Keep one
+   `release: vX.Y.Z` commit on top of the feature commits so `git log`
+   reads cleanly.
+3. Update `pyproject.toml` `version = "X.Y.Z"`. No other file tracks the
+   version today.
+4. Update `CHANGELOG.md` for the new version.
+5. Run all gates locally (these are also the gates the release workflow
+   re-runs):
+   ```bash
+   .venv/bin/ruff check .
+   .venv/bin/python tools/check_stdlib_only.py
+   .venv/bin/python tools/check_no_secrets.py
+   .venv/bin/python tools/check_docs_sync.py
+   .venv/bin/coverage run --source=owa_core -m pytest -q
+   .venv/bin/coverage report --fail-under=95
+   .venv/bin/python -m pytest -q --cov --cov-fail-under=90
+   ```
+6. Push `main`, then create an **annotated** tag whose message is the
+   release notes (short prose summary + bullet list of user-visible
+   changes since the previous tag):
+   ```
+   git tag -a vX.Y.Z -m "vX.Y.Z - <one-line headline>
+
+   <optional prose paragraph>
+
+   - bullet: user-visible change
+   - bullet: breaking change (call out explicitly)
+   - bullet: internal refactor worth noting
+   "
+   git push origin vX.Y.Z
+   ```
+   Never retag a public version - PyPI rejects re-uploads and Homebrew
+   users cache the tarball by sha. Lightweight tags (`git tag vX.Y.Z`)
+   should not be used.
+7. Build sdist + wheel and verify metadata:
+   ```bash
+   rm -rf dist build
+   .venv/bin/python -m build
+   .venv/bin/python -m twine check dist/*
+   .venv/bin/python tools/check_artifacts.py dist/*
+   .venv/bin/python tools/check_console_smoke.py
+   ```
+8. Publish to PyPI with `uv publish`, which reads `UV_PUBLISH_TOKEN`
+   from `./.env` (gitignored - never commit it):
+   ```
+   set -a && . ./.env && set +a && uv publish dist/owa_tools-X.Y.Z*
+   ```
+   PyPI's JSON index (`/pypi/owa-tools/json`) lags by minutes after
+   upload. If `uv publish` reports "File already exists" on a retry but
+   `pypi.org/pypi/owa-tools/X.Y.Z/json` returns 200, the upload
+   succeeded and the index is just stale. Don't re-tag or re-build to
+   "fix" it.
+9. Wait for the tag-triggered release workflow to finish. It re-runs the
+   same gates, rebuilds the artifacts in CI, and creates the GitHub
+   Release at the tag with the wheel and sdist attached. The workflow
+   does not touch PyPI.
+10. Bump the Homebrew tap. Fetch the GitHub-generated tarball, compute
+    its sha256, and update the formula:
+    ```
+    curl -sL https://github.com/damsleth/owa-tools/archive/refs/tags/vX.Y.Z.tar.gz \
+      -o /tmp/owa-tools-X.Y.Z.tar.gz
+    shasum -a 256 /tmp/owa-tools-X.Y.Z.tar.gz
+    ```
+    Edit `~/Code/homebrew-tap/Formula/owa-tools.rb` - bump the `url`
+    tag, the `sha256`, and `version`. Use
+    `packaging/homebrew/owa-tools.rb` from this repo as the source of
+    truth for formula structure. Commit the tap with message
+    `owa-tools X.Y.Z` (matches existing tap convention) and push.
+11. `brew upgrade owa-tools` on the dev machine to actually pull the
+    new formula locally - the tap push only updates metadata; nothing
+    on disk changes until brew refetches.
+
+If any step fails midway (tag push rejected, sha mismatch, tap push
+rejected, PyPI 4xx that isn't "File already exists"), stop and surface
+the error. Do not force-push tags. Do not bump the patch version a
+second time to work around an already-published file. A bad release is
+fixed by publishing a higher version, not by rewriting history.
+
+`RELEASING.md` is the long-form companion to this section: pre-release
+checklist, deferred-work list, and detailed rollback steps.
