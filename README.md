@@ -78,24 +78,6 @@ owa-cal config --profile crayon                  # persistent for owa-cal
 See [`docs/profile-model.md`](docs/profile-model.md) for the full precedence
 rules.
 
-## Migrating from the old per-tool installs
-
-If you used the legacy standalone `owa-cal` / `owa-mail` / `owa-graph` packages,
-the binary names and command surface haven't changed. Swap the install and
-keep going:
-
-```bash
-# Homebrew
-brew uninstall owa-cal owa-mail owa-graph 2>/dev/null
-brew install damsleth/tap/owa-tools
-
-# pipx
-pipx uninstall owa-cal owa-mail owa-graph 2>/dev/null
-pipx install owa-tools
-```
-
-Full guide: [`docs/migrating-from-individual-installs.md`](docs/migrating-from-individual-installs.md).
-
 ## For agents and automation
 
 - JSON on stdout by default. `--pretty` is the human opt-in.
@@ -109,7 +91,6 @@ Full guide: [`docs/migrating-from-individual-installs.md`](docs/migrating-from-i
 - [`docs/security.md`](docs/security.md) - token, redaction, and live-test boundaries
 - [`docs/agent-integration.md`](docs/agent-integration.md) - schema discovery, `--agent`, `--err-json`
 - [`docs/profile-model.md`](docs/profile-model.md) - profiles and audiences
-- [`docs/migrating-from-individual-installs.md`](docs/migrating-from-individual-installs.md) - upgrade guide
 - Per-tool: [`cal`](docs/cal.md) | [`mail`](docs/mail.md) | [`graph`](docs/graph.md) | [`doctor`](docs/doctor.md) | [`people`](docs/people.md) | [`sched`](docs/sched.md) | [`drive`](docs/drive.md)
 
 ## Releases
