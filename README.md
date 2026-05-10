@@ -59,7 +59,9 @@ Test suite:
 
 ```bash
 .venv/bin/python -m pytest
-.venv/bin/python -m pytest --cov=owa_core --cov-fail-under=95
+.venv/bin/coverage run --source=owa_core -m pytest -q
+.venv/bin/coverage report --fail-under=95
+.venv/bin/python -m pytest --cov --cov-fail-under=90
 .venv/bin/python tools/check_stdlib_only.py
 .venv/bin/python tools/check_no_secrets.py
 .venv/bin/python tools/check_docs_sync.py
@@ -77,6 +79,8 @@ See `RELEASING.md` for the suite tag-and-publish flow.
   `--err-json`.
 - `docs/profile-model.md` explains how `owa-tools` profile aliases map to
   `owa-piggy` profiles.
+- `docs/migrating-from-individual-installs.md` walks existing users from
+  the legacy per-tool installs to the `owa-tools` suite.
 
 ## Conventions
 

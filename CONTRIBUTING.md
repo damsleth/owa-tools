@@ -17,6 +17,17 @@ pytest tests/cal                      # one tool
 python tools/check_no_secrets.py      # secret-shape scanner
 ```
 
+Coverage gates (matching CI):
+
+```
+coverage run --source=owa_core -m pytest -q
+coverage report --fail-under=95
+pytest -q --cov --cov-fail-under=90
+```
+
+The first enforces 95%+ on `owa_core` only; the second enforces 90%+ across
+the full runtime surface configured in `pyproject.toml`.
+
 Before editing, read root `AGENTS.md` and the nearest local `AGENTS.md`.
 
 ## Stdlib-only check
