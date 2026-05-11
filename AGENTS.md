@@ -57,21 +57,21 @@ command-specific exception.
 |---|---|
 | `.plans/` | checking local implementation plans, if present |
 | `.github/AGENTS.md` | changing CI or release workflows |
-| `owa_core/AGENTS.md` | changing shared auth, HTTP, error, config, version, or secret contracts |
-| `owa/AGENTS.md` | changing the umbrella discovery binary |
-| `owa_cal/AGENTS.md` | changing calendar or webcal behavior |
-| `owa_mail/AGENTS.md` | changing mail behavior |
-| `owa_graph/AGENTS.md` | changing raw Graph requests, shortcuts, schema hints, or token-emitting helpers |
-| `owa_doctor/AGENTS.md` | changing health checks |
-| `owa_people/AGENTS.md` | changing people, contacts, or directory behavior |
-| `owa_sched/AGENTS.md` | changing scheduling or availability behavior |
-| `owa_drive/AGENTS.md` | changing OneDrive behavior or binary transfers |
-| `tests/AGENTS.md` | adding or changing tests |
-| `tests/contract/AGENTS.md` | changing machine contract tests |
-| `tests/compat/AGENTS.md` | changing release-contract compatibility snapshots |
-| `tests/security/AGENTS.md` | changing secret or security tests |
+| `src/owa_core/AGENTS.md` | changing shared auth, HTTP, error, config, version, or secret contracts |
+| `src/owa/AGENTS.md` | changing the umbrella discovery binary |
+| `src/owa_cal/AGENTS.md` | changing calendar or webcal behavior |
+| `src/owa_mail/AGENTS.md` | changing mail behavior |
+| `src/owa_graph/AGENTS.md` | changing raw Graph requests, shortcuts, schema hints, or token-emitting helpers |
+| `src/owa_doctor/AGENTS.md` | changing health checks |
+| `src/owa_people/AGENTS.md` | changing people, contacts, or directory behavior |
+| `src/owa_sched/AGENTS.md` | changing scheduling or availability behavior |
+| `src/owa_drive/AGENTS.md` | changing OneDrive behavior or binary transfers |
+| `src/tests/AGENTS.md` | adding or changing tests |
+| `src/tests/contract/AGENTS.md` | changing machine contract tests |
+| `src/tests/compat/AGENTS.md` | changing release-contract compatibility snapshots |
+| `src/tests/security/AGENTS.md` | changing secret or security tests |
 | `docs/AGENTS.md` | changing user documentation |
-| `tools/AGENTS.md` | changing maintenance scripts |
+| `src/scripts/AGENTS.md` | changing maintenance scripts |
 
 ## Verification
 
@@ -80,11 +80,11 @@ commit:
 
 ```bash
 .venv/bin/ruff check .
-.venv/bin/python -m compileall -q owa owa_core owa_cal owa_mail owa_graph owa_doctor owa_people owa_sched owa_drive tests tools
-.venv/bin/python tools/check_stdlib_only.py
-.venv/bin/python tools/check_no_secrets.py
-.venv/bin/python tools/check_docs_sync.py
-.venv/bin/python tools/check_artifacts.py dist/*   # after build
+.venv/bin/python -m compileall -q src
+.venv/bin/python src/scripts/check_stdlib_only.py
+.venv/bin/python src/scripts/check_no_secrets.py
+.venv/bin/python src/scripts/check_docs_sync.py
+.venv/bin/python src/scripts/check_artifacts.py dist/*   # after build
 .venv/bin/coverage run --source=owa_core -m pytest -q
 .venv/bin/coverage report --fail-under=95
 .venv/bin/python -m pytest -q --cov --cov-fail-under=90
@@ -131,9 +131,9 @@ When the user says "cut a release" / "new patch version" / "ship it":
    re-runs):
    ```bash
    .venv/bin/ruff check .
-   .venv/bin/python tools/check_stdlib_only.py
-   .venv/bin/python tools/check_no_secrets.py
-   .venv/bin/python tools/check_docs_sync.py
+   .venv/bin/python src/scripts/check_stdlib_only.py
+   .venv/bin/python src/scripts/check_no_secrets.py
+   .venv/bin/python src/scripts/check_docs_sync.py
    .venv/bin/coverage run --source=owa_core -m pytest -q
    .venv/bin/coverage report --fail-under=95
    .venv/bin/python -m pytest -q --cov --cov-fail-under=90
@@ -160,8 +160,8 @@ When the user says "cut a release" / "new patch version" / "ship it":
    rm -rf dist build
    .venv/bin/python -m build
    .venv/bin/python -m twine check dist/*
-   .venv/bin/python tools/check_artifacts.py dist/*
-   .venv/bin/python tools/check_console_smoke.py
+   .venv/bin/python src/scripts/check_artifacts.py dist/*
+   .venv/bin/python src/scripts/check_console_smoke.py
    ```
 8. Publish to PyPI with `uv publish`, which reads `UV_PUBLISH_TOKEN`
    from `./.env` (gitignored - never commit it):
@@ -186,7 +186,7 @@ When the user says "cut a release" / "new patch version" / "ship it":
     ```
     Edit `~/Code/homebrew-tap/Formula/owa-tools.rb` - bump the `url`
     tag, the `sha256`, and `version`. Use
-    `packaging/homebrew/owa-tools.rb` from this repo as the source of
+    `src/packaging/homebrew/owa-tools.rb` from this repo as the source of
     truth for formula structure. Commit the tap with message
     `owa-tools X.Y.Z` (matches existing tap convention) and push.
 11. `brew upgrade owa-tools` on the dev machine to actually pull the

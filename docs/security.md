@@ -53,8 +53,8 @@ The scanner and artifact checks reject token-shaped content in source, tests,
 wheels, and sdists:
 
 ```bash
-.venv/bin/python tools/check_no_secrets.py
-.venv/bin/python tools/check_artifacts.py dist/*
+.venv/bin/python src/scripts/check_no_secrets.py
+.venv/bin/python src/scripts/check_artifacts.py dist/*
 ```
 
 Use obvious fake values in tests: `fake-access-token`, `fake-refresh-token`,

@@ -9,12 +9,12 @@ GitHub workflows for CI and release automation live here.
 - Workflow logs must not print tokens, Authorization headers, or broker output.
 - Add checks here only when the corresponding local command exists.
 
-Nearest tests: `tests/contract/`, `tests/security/`, and packaging smoke tests
+Nearest tests: `src/tests/contract/`, `src/tests/security/`, and packaging smoke tests
 when present.
 
 Verify:
 
 ```bash
 .venv/bin/ruff check .
-.venv/bin/python -m pytest -q tests/contract tests/security
+.venv/bin/python -m pytest -q src/tests/contract tests/security
 ```

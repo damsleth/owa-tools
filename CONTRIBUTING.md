@@ -13,8 +13,8 @@
 
 ```
 pytest                                # all tests
-pytest tests/cal                      # one tool
-python tools/check_no_secrets.py      # secret-shape scanner
+pytest src/tests/cal                  # one tool
+python src/scripts/check_no_secrets.py      # secret-shape scanner
 ```
 
 Coverage gates (matching CI):
@@ -34,8 +34,8 @@ After `python -m build`, verify the artifacts:
 
 ```
 python -m twine check dist/*
-python tools/check_artifacts.py dist/*
-python tools/check_console_smoke.py
+python src/scripts/check_artifacts.py dist/*
+python src/scripts/check_console_smoke.py
 ```
 
 `check_console_smoke.py` installs the wheel into a throwaway venv and runs
@@ -46,13 +46,13 @@ Before editing, read root `AGENTS.md` and the nearest local `AGENTS.md`.
 
 ## Stdlib-only check
 
-`tools/check_stdlib_only.py` runs in CI. Allowed runtime imports:
+`src/scripts/check_stdlib_only.py` runs in CI. Allowed runtime imports:
 
 - Python stdlib
 - The `owa_*` packages in this repo
 - `owa-piggy` (subprocess only)
 
-Any other import outside `tests/` and `tools/` fails the build.
+Any other import outside `src/tests/` and `src/scripts/` fails the build.
 
 ## Commit and PR conventions
 

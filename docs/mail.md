@@ -212,9 +212,9 @@ optionally override the Python interpreter used for `-m owa_mail`:
 
 ```sh
 OWA_MAIL_LIVE=1 OWA_MAIL_LIVE_PROFILE=work OWA_MAIL_LIVE_TO=me@example.com \
-  python -m pytest -q tests/test_live.py
+  python -m pytest -q src/tests/mail/test_live.py
 OWA_MAIL_LIVE=1 OWA_MAIL_LIVE_PROFILE=work OWA_MAIL_LIVE_TO=me@example.com \
-  OWA_MAIL_LIVE_PYTHON=python3 python -m pytest -q tests/test_live.py
+  OWA_MAIL_LIVE_PYTHON=python3 python -m pytest -q src/tests/mail/test_live.py
 ```
 
 See [`AGENTS.md`](AGENTS.md) for repo layout and ground rules.
