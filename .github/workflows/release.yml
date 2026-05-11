@@ -32,21 +32,21 @@ jobs:
       - name: Lint
         run: ruff check .
       - name: Compile
-        run: python -m compileall -q owa owa_core owa_cal owa_mail owa_graph owa_doctor owa_people owa_sched owa_drive
+        run: python -m compileall -q src
       - name: Stdlib-only check
-        run: python tools/check_stdlib_only.py
+        run: python src/scripts/check_stdlib_only.py
       - name: No-secret check
-        run: python tools/check_no_secrets.py
+        run: python src/scripts/check_no_secrets.py
       - name: Docs sync check
-        run: python tools/check_docs_sync.py
+        run: python src/scripts/check_docs_sync.py
       - name: Unit tests (owa_core 95% gate)
         run: coverage run --source=owa_core -m pytest -q && coverage report --fail-under=95
       - name: Runtime coverage (90% gate)
         run: pytest -q --cov --cov-fail-under=90
       - name: Compatibility snapshots
-        run: pytest -q tests/compat
+        run: pytest -q src/tests/compat
       - name: Contract tests
-        run: pytest -q tests/contract
+        run: pytest -q src/tests/contract
 
   build:
     needs: gates
@@ -73,9 +73,9 @@ jobs:
       - name: Twine metadata check
         run: python -m twine check dist/*
       - name: Artifact check
-        run: python tools/check_artifacts.py dist/*
+        run: python src/scripts/check_artifacts.py dist/*
       - name: Console smoke
-        run: python tools/check_console_smoke.py
+        run: python src/scripts/check_console_smoke.py
       - name: Upload built distributions
         uses: actions/upload-artifact@v4
         with:

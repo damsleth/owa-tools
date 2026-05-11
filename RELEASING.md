@@ -21,11 +21,11 @@ umbrella `owa` binary plus all consumer CLIs.
    Both must be green. The first enforces 95%+ on `owa_core`; the second
    enforces 90%+ across the full runtime surface configured in
    `pyproject.toml`.
-2. `python tools/check_stdlib_only.py`, `python tools/check_no_secrets.py`,
-   and `python tools/check_docs_sync.py` green.
+2. `python src/scripts/check_stdlib_only.py`, `python src/scripts/check_no_secrets.py`,
+   and `python src/scripts/check_docs_sync.py` green.
 3. `python -m build`, `python -m twine check dist/*`, and
-   `python tools/check_artifacts.py dist/*` green.
-4. `python tools/check_console_smoke.py` green.
+   `python src/scripts/check_artifacts.py dist/*` green.
+4. `python src/scripts/check_console_smoke.py` green.
 5. Changelog updated for the suite version.
 6. Migration notes in `docs/migrating-from-individual-installs.md` reflect
    anything that changed for users coming from the old per-tool installs.
@@ -35,7 +35,7 @@ umbrella `owa` binary plus all consumer CLIs.
 Decision recorded here so it does not drift across docs.
 
 - The first `owa-tools` release ships with the existing
-  `tests/compat/` and `tests/contract/` suites only. The richer snapshot
+  `src/tests/compat/` and `src/tests/contract/` suites only. The richer snapshot
   system from the original implementation plan
   (`tools/snapshot_cli.py`, versioned fixture format,
   scrubbed sandbox captures replayed against mocked HTTP) is **deferred**.
@@ -89,8 +89,8 @@ git push origin vX.Y.Z
 rm -rf dist build
 .venv/bin/python -m build
 .venv/bin/python -m twine check dist/*
-.venv/bin/python tools/check_artifacts.py dist/*
-.venv/bin/python tools/check_console_smoke.py
+.venv/bin/python src/scripts/check_artifacts.py dist/*
+.venv/bin/python src/scripts/check_console_smoke.py
 set -a && . ./.env && set +a && uv publish dist/owa_tools-X.Y.Z*
 ```
 
@@ -113,7 +113,7 @@ and the index is just stale.
 - `owa-tools` formula installs all seven consumer binaries plus the
   umbrella `owa` binary.
 - `owa-piggy` formula stays standalone in the same tap.
-- A draft formula lives at `packaging/homebrew/owa-tools.rb`. It is the
+- A draft formula lives at `src/packaging/homebrew/owa-tools.rb`. It is the
   starting point to copy into the Homebrew tap repository at release
   time. Update `url`, `sha256`, and `version` to match the published
   sdist on PyPI.
@@ -182,7 +182,7 @@ Tracked here so it does not get lost between releases. None of these
 block the first preview release.
 
 - **Compatibility snapshots:** `tools/snapshot_cli.py`, versioned fixture
-  format, `tests/compat/fixtures/`, scrubbed sandbox captures replayed
+  format, `src/tests/compat/fixtures/`, scrubbed sandbox captures replayed
   against mocked HTTP. Required before swapping in for legacy per-tool
   installs at general-availability.
 - **Pagination/truncation metadata:** complete the agent-mode contract

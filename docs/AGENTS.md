@@ -13,12 +13,12 @@ User documentation lives here.
 - Update `docs/agent-integration.md` when schema, `--agent`, `--err-json`, or
   exit-code behavior changes.
 
-Nearest tests: `tests/contract/`, `tests/compat/`.
+Nearest tests: `src/tests/contract/`, `src/tests/compat/`.
 
 Verify:
 
 ```bash
-.venv/bin/python -m pytest -q tests/contract tests/compat
-.venv/bin/python tools/check_no_secrets.py
-.venv/bin/python tools/check_docs_sync.py
+.venv/bin/python -m pytest -q src/tests/contract src/tests/compat
+.venv/bin/python src/scripts/check_no_secrets.py
+.venv/bin/python src/scripts/check_docs_sync.py
 ```

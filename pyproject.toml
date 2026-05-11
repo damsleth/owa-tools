@@ -39,6 +39,7 @@ owa-sched = "owa_sched:main"
 owa-drive = "owa_drive:main"
 
 [tool.setuptools]
+package-dir = { "" = "src" }
 packages = [
   "owa",
   "owa_core",
@@ -65,7 +66,7 @@ select = ["E", "F", "W", "I", "B"]
 ignore = ["E501", "E702", "E741", "B904", "B905"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["src/tests"]
 addopts = "-q"
 
 [tool.coverage.run]

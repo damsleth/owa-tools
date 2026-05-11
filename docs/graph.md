@@ -159,7 +159,7 @@ The manifest is hand-curated and intentionally sparse; see
 
 ## Shell completion (v0.5+)
 
-Hand-written completion scripts ship under `completions/`. No
+Hand-written completion scripts ship under `src/completions/`. No
 `argcomplete` dependency.
 
 ```sh
@@ -168,10 +168,10 @@ ln -s "$(brew --prefix owa-graph)/completions/owa-graph.bash" \
       "$(brew --prefix)/etc/bash_completion.d/owa-graph"
 
 # Zsh (anywhere on $fpath named exactly _owa-graph)
-cp completions/owa-graph.zsh "$(brew --prefix)/share/zsh/site-functions/_owa-graph"
+cp src/completions/owa-graph.zsh "$(brew --prefix)/share/zsh/site-functions/_owa-graph"
 
 # Fish
-cp completions/owa-graph.fish ~/.config/fish/completions/owa-graph.fish
+cp src/completions/owa-graph.fish ~/.config/fish/src/completions/owa-graph.fish
 ```
 
 Coverage:
