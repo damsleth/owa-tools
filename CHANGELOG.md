@@ -6,6 +6,22 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## v0.1.1 - 2026-05-11
+
+Internal repo restructure. No user-visible behavior change: the wheel,
+console scripts, import paths, and distribution metadata are identical
+to v0.1.0.
+
+- Collapse top-level layout under `src/`. All runtime packages
+  (`owa`, `owa_cal`, `owa_core`, `owa_doctor`, `owa_drive`, `owa_graph`,
+  `owa_mail`, `owa_people`, `owa_sched`) plus `tests/`, `completions/`,
+  `packaging/`, and the former `tools/` (renamed to `scripts/`) now live
+  under `src/`. The repo root keeps only `docs/`, `src/`, dotfolders,
+  and top-level markdown so the README sits higher on GitHub.
+- `pyproject.toml` switches to src-layout via `package-dir`. CI
+  workflows, helper scripts, AGENTS.md mesh, and contributor docs
+  retargeted accordingly.
+
 ## v0.1.0 - 2026-05-10
 
 First public suite release. `owa-tools` consolidates the seven legacy per-tool
