@@ -103,8 +103,8 @@ def test_emit_data_error_defaults_to_stdout():
   one discriminator (`ok` reserved key). This overrides the
   owa-tools house "errors to stderr" rule for structured envelopes
   only - free-text errors still belong on stderr."""
-  import sys
   import io
+  import sys
   buf = io.StringIO()
   saved = sys.stdout
   sys.stdout = buf

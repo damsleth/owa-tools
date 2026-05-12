@@ -6,6 +6,42 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## v0.1.2 - 2026-05-12
+
+Adds the mnem CLI contract surface across the suite and fixes a batch of
+contract-drift bugs caught by self-review. No breaking changes to the
+0/2/10-20 exit-code taxonomy; the `--doctor` 0-5 taxonomy is a documented
+carve-out.
+
+- New: every `owa-*` binary now accepts a top-level `--doctor` flag that
+  emits the shared mnem doctor payload (tool, suite version, findings).
+  `owa doctor` still shells out to `owa-doctor` for back-compat.
+- New: `owa_core.conventions` ports the mnem contract helpers
+  (`action_envelope`, `data_error`, `DoctorPayload`, `DoctorFinding`,
+  `EXIT_*` constants) and re-exports `owa_core.secrets.redact`.
+- Fix: 43 sites across 12 `owa-graph` resource modules were emitting
+  usage errors to stdout, corrupting JSON pipelines (`jq`, `--agent`
+  mode, CI consumers). All now raise `UsageError`, hit stderr, and exit
+  with code 2.
+- Fix: webcal bearer-URL writes in `owa_cal/profiles.py` now use
+  `mkstemp` + `fchmod(0o600)` + `fsync` + `os.replace`, closing a
+  TOCTOU window where the secret was briefly world-readable.
+- Fix: `owa-graph files search` now URL-encodes the OData term and
+  escapes single quotes, so names like `O'Brien` no longer break the
+  request.
+- Fix: `owa_drive` `api_put_binary` raises `UsageError` on the 4MB
+  guard, so callers exit 2 instead of 1.
+- Contract: structured failure envelopes from `emit_data_error` now go
+  to stdout (matching the mnem CONVENTIONS one-stream rule that
+  `gh api`, `aws`, `kubectl -o json`, and `terraform output -json` also
+  follow). Free-text errors, tracebacks, and progress still go to
+  stderr.
+- Tests: moved a hidden test file from `src/owa_core/tests/` into
+  `src/tests/core/` so pytest's `testpaths` discovers it. Coverage
+  jumped from 84% to 97% on `owa_core`.
+- Docs: README points at the mnem suite. `AGENTS.md` documents the
+  `--doctor` 0-5 carve-out alongside the main exit-code taxonomy.
+
 ## v0.1.1 - 2026-05-11
 
 Internal repo restructure. No user-visible behavior change: the wheel,
