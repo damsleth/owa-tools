@@ -16,6 +16,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from owa_core.modes import is_doctor_invocation
+
 from . import __version__
 
 CONSUMERS = (
@@ -182,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
     # Top-level --doctor per mnem CONVENTIONS.md. The `owa doctor`
     # subcommand stays for back-compat (delegates to owa-doctor binary);
     # the flag form is the contract surface mnem doctor depends on.
-    if "--doctor" in argv:
+    if is_doctor_invocation(argv):
         from owa_core.conventions import emit_doctor
         return emit_doctor("owa", "--json" in argv)
     if not argv:
