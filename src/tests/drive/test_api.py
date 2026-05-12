@@ -1,7 +1,7 @@
 """owa-drive API wrapper tests."""
 import pytest
 
-from owa_core.errors import AuthExpiredError, ConflictError
+from owa_core.errors import AuthExpiredError, ConflictError, UsageError
 from owa_core.http import Response
 from owa_drive import api
 
@@ -56,15 +56,14 @@ def test_api_put_binary_uses_octet_stream(monkeypatch):
     }
 
 
-def test_api_put_binary_preserves_size_guard(capsys):
-    out = api.api_put_binary(
-        'https://graph.microsoft.com/v1.0',
-        '/content',
-        'fake',
-        b'x' * (api.UPLOAD_LIMIT_BYTES + 1),
-    )
-    assert out is None
-    assert 'simple upload path is limited' in capsys.readouterr().err
+def test_api_put_binary_preserves_size_guard():
+    with pytest.raises(UsageError, match='simple upload path is limited'):
+        api.api_put_binary(
+            'https://graph.microsoft.com/v1.0',
+            '/content',
+            'fake',
+            b'x' * (api.UPLOAD_LIMIT_BYTES + 1),
+        )
 
 
 def test_api_request_conflict_preserves_none_contract(monkeypatch, capsys):

@@ -13,6 +13,8 @@ Shortcuts:
 """
 from __future__ import annotations
 
+from owa_core.errors import UsageError
+
 from . import _argv
 
 _LIST_FLAGS = ('--folder', '--top', '--select', '--filter')
@@ -41,7 +43,7 @@ def cmd_read(args, ctx):
     parsed, pos = _argv.parse(args, flags=('--id',))
     msg_id = parsed.get('--id') or (pos[0] if pos else None)
     if not msg_id:
-        print('ERROR: read requires --id <message-id>'); return 1
+        raise UsageError('read requires --id <message-id>')
     return ctx.get(f'/me/messages/{msg_id}', pretty_shape='messages')
 
 
@@ -53,7 +55,7 @@ def _recipients(value):
 def cmd_send(args, ctx):
     parsed, _ = _argv.parse(args, flags=('--subject', '--to', '--cc', '--body'))
     if not parsed.get('--to') or not parsed.get('--subject'):
-        print('ERROR: send requires --subject and --to'); return 1
+        raise UsageError('send requires --subject and --to')
     msg = {
         'subject': parsed['--subject'],
         'body': {'contentType': 'Text',
@@ -69,7 +71,7 @@ def _reply_like(args, ctx, action):
     parsed, pos = _argv.parse(args, flags=('--id', '--comment'))
     msg_id = parsed.get('--id') or (pos[0] if pos else None)
     if not msg_id:
-        print(f'ERROR: {action} requires --id <message-id>'); return 1
+        raise UsageError(f'{action} requires --id <message-id>')
     body = {'comment': parsed.get('--comment', '')}
     return ctx.post(f'/me/messages/{msg_id}/{action}', body)
 
@@ -86,7 +88,7 @@ def cmd_forward(args, ctx):
     parsed, pos = _argv.parse(args, flags=('--id', '--to', '--comment'))
     msg_id = parsed.get('--id') or (pos[0] if pos else None)
     if not msg_id or not parsed.get('--to'):
-        print('ERROR: forward requires --id and --to'); return 1
+        raise UsageError('forward requires --id and --to')
     return ctx.post(f'/me/messages/{msg_id}/forward', {
         'comment': parsed.get('--comment', ''),
         'toRecipients': _recipients(parsed['--to']),
@@ -98,7 +100,7 @@ def cmd_move(args, ctx):
     msg_id = parsed.get('--id') or (pos[0] if pos else None)
     dest = parsed.get('--to')
     if not msg_id or not dest:
-        print('ERROR: move requires --id and --to <folder-id-or-name>'); return 1
+        raise UsageError('move requires --id and --to <folder-id-or-name>')
     return ctx.post(f'/me/messages/{msg_id}/move', {'destinationId': dest})
 
 
@@ -106,7 +108,7 @@ def cmd_flag(args, ctx):
     parsed, pos = _argv.parse(args, flags=('--id', '--status'))
     msg_id = parsed.get('--id') or (pos[0] if pos else None)
     if not msg_id:
-        print('ERROR: flag requires --id'); return 1
+        raise UsageError('flag requires --id')
     status = parsed.get('--status', 'flagged')
     return ctx.patch(f'/me/messages/{msg_id}',
                      {'flag': {'flagStatus': status}})
@@ -116,7 +118,7 @@ def cmd_delete(args, ctx):
     parsed, pos = _argv.parse(args, flags=('--id',))
     msg_id = parsed.get('--id') or (pos[0] if pos else None)
     if not msg_id:
-        print('ERROR: delete requires --id'); return 1
+        raise UsageError('delete requires --id')
     return ctx.delete(f'/me/messages/{msg_id}')
 
 

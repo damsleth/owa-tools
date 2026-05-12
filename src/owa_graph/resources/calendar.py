@@ -11,6 +11,8 @@ Shortcuts:
 """
 from __future__ import annotations
 
+from owa_core.errors import UsageError
+
 from . import _argv
 
 
@@ -35,7 +37,7 @@ def cmd_create(args, ctx):
         args,
         flags=('--subject', '--start', '--end', '--attendees', '--body', '--tz'))
     if not all(parsed.get(k) for k in ('--subject', '--start', '--end')):
-        print('ERROR: create requires --subject, --start, --end'); return 1
+        raise UsageError('create requires --subject, --start, --end')
     tz = parsed.get('--tz', 'UTC')
     body = {
         'subject': parsed['--subject'],
@@ -56,14 +58,14 @@ def cmd_update(args, ctx):
     parsed, pos = _argv.parse(args, flags=('--id', '--subject', '--body'))
     ev_id = parsed.get('--id') or (pos[0] if pos else None)
     if not ev_id:
-        print('ERROR: update requires --id'); return 1
+        raise UsageError('update requires --id')
     patch = {}
     if parsed.get('--subject'):
         patch['subject'] = parsed['--subject']
     if parsed.get('--body'):
         patch['body'] = {'contentType': 'Text', 'content': parsed['--body']}
     if not patch:
-        print('ERROR: update needs at least one of --subject, --body'); return 1
+        raise UsageError('update needs at least one of --subject, --body')
     return ctx.patch(f'/me/events/{ev_id}', patch)
 
 
@@ -71,14 +73,14 @@ def cmd_delete(args, ctx):
     parsed, pos = _argv.parse(args, flags=('--id',))
     ev_id = parsed.get('--id') or (pos[0] if pos else None)
     if not ev_id:
-        print('ERROR: delete requires --id'); return 1
+        raise UsageError('delete requires --id')
     return ctx.delete(f'/me/events/{ev_id}')
 
 
 def cmd_findtimes(args, ctx):
     parsed, _ = _argv.parse(args, flags=('--attendees', '--duration'))
     if not parsed.get('--attendees'):
-        print('ERROR: findtimes requires --attendees a@x.com,b@x.com'); return 1
+        raise UsageError('findtimes requires --attendees a@x.com,b@x.com')
     body = {
         'attendees': [
             {'emailAddress': {'address': a.strip()}, 'type': 'required'}
@@ -93,7 +95,7 @@ def _rsvp(args, ctx, action):
     parsed, pos = _argv.parse(args, flags=('--id', '--comment'))
     ev_id = parsed.get('--id') or (pos[0] if pos else None)
     if not ev_id:
-        print(f'ERROR: {action} requires --id'); return 1
+        raise UsageError(f'{action} requires --id')
     return ctx.post(f'/me/events/{ev_id}/{action}',
                     {'comment': parsed.get('--comment', ''),
                      'sendResponse': True})

@@ -1,6 +1,8 @@
 """``owa-graph presence`` - Teams presence."""
 from __future__ import annotations
 
+from owa_core.errors import UsageError
+
 from . import _argv
 
 
@@ -13,7 +15,7 @@ def cmd_get(args, ctx):
     parsed, pos = _argv.parse(args, flags=('--id',))
     user_id = parsed.get('--id') or (pos[0] if pos else None)
     if not user_id:
-        print('ERROR: get requires a user id'); return 1
+        raise UsageError('get requires a user id')
     return ctx.get(f'/users/{user_id}/presence')
 
 
@@ -21,8 +23,8 @@ def cmd_set(args, ctx):
     parsed, _ = _argv.parse(
         args, flags=('--availability', '--activity', '--duration', '--app'))
     if not parsed.get('--availability'):
-        print('ERROR: set requires --availability (Available|Busy|DoNotDisturb|Away)')
-        return 1
+        raise UsageError(
+            'set requires --availability (Available|Busy|DoNotDisturb|Away)')
     body = {
         'sessionId': parsed.get('--app', '00000000-0000-0000-0000-000000000000'),
         'availability': parsed['--availability'],

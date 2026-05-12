@@ -17,6 +17,7 @@ from owa_core.errors import (
     OwaError,
     RateLimitedError,
     ScopeInsufficientError,
+    UsageError,
     emit_error,
 )
 
@@ -68,13 +69,11 @@ def api_put_binary(base, endpoint, access_token, content_bytes, debug=False):
             file=sys.stderr,
         )
     if len(content_bytes) > UPLOAD_LIMIT_BYTES:
-        print(
-            f'ERROR: file is {len(content_bytes)} bytes; the simple '
-            f'upload path is limited to {UPLOAD_LIMIT_BYTES} bytes. '
-            'Larger files need an upload session (not implemented).',
-            file=sys.stderr,
+        raise UsageError(
+            f'file is {len(content_bytes)} bytes; the simple upload path is '
+            f'limited to {UPLOAD_LIMIT_BYTES} bytes. Larger files need an '
+            'upload session (not implemented).',
         )
-        return None
     try:
         return http.request(
             'PUT',

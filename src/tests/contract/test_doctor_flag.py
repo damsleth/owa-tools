@@ -13,7 +13,6 @@ import sys
 
 import pytest
 
-
 # Each entry is (package_module, expected_tool_name).
 # Use the package __main__ (python -m owa_cal), not the cli submodule,
 # so the binary's own entry-point setup runs.

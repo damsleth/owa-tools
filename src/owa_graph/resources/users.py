@@ -1,6 +1,8 @@
 """``owa-graph users`` - directory users."""
 from __future__ import annotations
 
+from owa_core.errors import UsageError
+
 from . import _argv
 
 
@@ -18,7 +20,7 @@ def cmd_find(args, ctx):
     parsed, pos = _argv.parse(args, flags=('--q', '--top'))
     term = parsed.get('--q') or (pos[0] if pos else None)
     if not term:
-        print('ERROR: find requires a search term'); return 1
+        raise UsageError('find requires a search term')
     query = [('$search', f'"displayName:{term}" OR "mail:{term}"'),
              ('$top', parsed.get('--top', '10'))]
     headers = {'ConsistencyLevel': 'eventual'}
@@ -29,7 +31,7 @@ def cmd_get(args, ctx):
     parsed, pos = _argv.parse(args, flags=('--id',))
     user_id = parsed.get('--id') or (pos[0] if pos else None)
     if not user_id:
-        print('ERROR: get requires a user id (positional or --id)'); return 1
+        raise UsageError('get requires a user id (positional or --id)')
     return ctx.get(f'/users/{user_id}', pretty_shape='users')
 
 
@@ -37,7 +39,7 @@ def cmd_manager(args, ctx):
     parsed, pos = _argv.parse(args, flags=('--id',))
     user_id = parsed.get('--id') or (pos[0] if pos else None)
     if not user_id:
-        print('ERROR: manager requires a user id'); return 1
+        raise UsageError('manager requires a user id')
     return ctx.get(f'/users/{user_id}/manager', pretty_shape='users')
 
 
@@ -45,7 +47,7 @@ def cmd_directreports(args, ctx):
     parsed, pos = _argv.parse(args, flags=('--id',))
     user_id = parsed.get('--id') or (pos[0] if pos else None)
     if not user_id:
-        print('ERROR: directreports requires a user id'); return 1
+        raise UsageError('directreports requires a user id')
     return ctx.get(f'/users/{user_id}/directReports', pretty_shape='users')
 
 

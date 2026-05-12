@@ -42,6 +42,21 @@ interfaces. Prefer direct migrations to the release contract.
 `owa-doctor probe` has documented health-check exit codes and is the main
 command-specific exception.
 
+The shared `--doctor` surface emitted by `owa_core.conventions.emit_doctor()`
+is a second carve-out. It uses the mnem 0-5 taxonomy that yaams/conventions.py
+and ledger/conventions.py also mirror, distinct from the main taxonomy above:
+
+- `0` ok (no findings, or only `info`/`warning`)
+- `1` user error (one or more `error` findings)
+- `2` transient failure
+- `3` auth failure
+- `4` not found
+- `5` partial success
+
+Anything not invoked through `--doctor` should raise an `owa_core.errors`
+subclass instead of returning a `conventions.EXIT_*` constant - this keeps
+the main `0/2/10-15/20` contract intact for normal command paths.
+
 ## Shared Contracts
 
 - New or migrated tools use `owa_core.errors` for expected failures.
