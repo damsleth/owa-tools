@@ -134,8 +134,8 @@ def test_mail_send_missing_required_fails(monkeypatch, capsys):
     _capture_request(monkeypatch)
     rc = _run(monkeypatch, 'mail', 'send', '--to', 'a@x')
     captured = capsys.readouterr()
-    assert rc == 1
-    assert 'requires --subject and --to' in (captured.out + captured.err)
+    assert rc == 2
+    assert 'requires --subject and --to' in captured.err
 
 
 def test_mail_flag_patches(monkeypatch):

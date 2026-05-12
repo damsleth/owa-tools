@@ -1,6 +1,8 @@
 """``owa-graph planner`` - Planner tasks, plans, buckets."""
 from __future__ import annotations
 
+from owa_core.errors import InternalError, UsageError
+
 from . import _argv
 
 
@@ -18,7 +20,7 @@ def cmd_buckets(args, ctx):
     parsed, pos = _argv.parse(args, flags=('--plan',))
     plan = parsed.get('--plan') or (pos[0] if pos else None)
     if not plan:
-        print('ERROR: buckets requires --plan <plan-id>'); return 1
+        raise UsageError('buckets requires --plan <plan-id>')
     return ctx.get(f'/planner/plans/{plan}/buckets')
 
 
@@ -32,7 +34,7 @@ def cmd_complete(args, ctx):
     parsed, pos = _argv.parse(args, flags=('--id',))
     task_id = parsed.get('--id') or (pos[0] if pos else None)
     if not task_id:
-        print('ERROR: complete requires --id'); return 1
+        raise UsageError('complete requires --id')
     from .. import api as api_mod
     url = api_mod.build_url(ctx.api_base, f'/planner/tasks/{task_id}')
     current = api_mod.api_request(
@@ -43,7 +45,7 @@ def cmd_complete(args, ctx):
         return 1
     etag = current.get('@odata.etag')
     if not etag:
-        print('ERROR: planner task has no etag; cannot PATCH'); return 1
+        raise InternalError('planner task has no etag; cannot PATCH')
     return ctx.patch(f'/planner/tasks/{task_id}',
                      {'percentComplete': 100},
                      headers={'If-Match': etag})

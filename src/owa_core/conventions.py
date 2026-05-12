@@ -10,6 +10,14 @@ rest mirrors yaams/conventions.py and ledger/conventions.py so the
 eventual extraction into a shared mnem-conventions package is a
 clean copy.
 
+The EXIT_* constants here intentionally use the mnem 0-5 taxonomy
+(see CONVENTIONS.md in the mnem repo). That range is distinct from
+the main owa-tools exit-code taxonomy (0/2/10-15/20 defined in
+owa_core.errors.ExitCode) and applies only to the --doctor surface
+emitted by emit_doctor(). AGENTS.md documents the carve-out under
+"Exit Codes". Tools that need the main taxonomy should raise an
+OwaError subclass instead of returning one of these constants.
+
 See https://github.com/damsleth/mnem/blob/main/CONVENTIONS.md.
 """
 
@@ -25,15 +33,17 @@ from owa_core.version import suite_version
 
 
 def _resolve_version(_tool: str | None = None) -> str:
-  """Return the suite semver. Doctor/envelope consumers expect a
-  bare version string, not the binary-prefixed form
-  ``binary_version()`` returns."""
-  try:
-    return suite_version()
-  except Exception:
-    return "0.0.0"
+    """Return the suite semver. Doctor/envelope consumers expect a
+    bare version string, not the binary-prefixed form
+    ``binary_version()`` returns."""
+    try:
+        return suite_version()
+    except Exception:
+        return "0.0.0"
 
 
+# mnem --doctor exit-code range. See module docstring; not the main
+# owa-tools taxonomy in owa_core.errors.ExitCode.
 EXIT_OK = 0
 EXIT_USER_ERROR = 1
 EXIT_TRANSIENT = 2
@@ -43,183 +53,185 @@ EXIT_PARTIAL = 5
 
 
 __all__ = [
-  "EXIT_OK",
-  "EXIT_USER_ERROR",
-  "EXIT_TRANSIENT",
-  "EXIT_AUTH",
-  "EXIT_NOT_FOUND",
-  "EXIT_PARTIAL",
-  "redact",
-  "action_envelope",
-  "emit_action",
-  "data_error",
-  "emit_data_error",
-  "DoctorFinding",
-  "DoctorPayload",
-  "emit_doctor",
+    "EXIT_OK",
+    "EXIT_USER_ERROR",
+    "EXIT_TRANSIENT",
+    "EXIT_AUTH",
+    "EXIT_NOT_FOUND",
+    "EXIT_PARTIAL",
+    "redact",
+    "action_envelope",
+    "emit_action",
+    "data_error",
+    "emit_data_error",
+    "DoctorFinding",
+    "DoctorPayload",
+    "emit_doctor",
 ]
 
 
 def action_envelope(
-  *,
-  tool: str,
-  command: str,
-  ok: bool,
-  stats=None,
-  warnings=None,
-  error=None,
-  duration_ms=None,
+    *,
+    tool: str,
+    command: str,
+    ok: bool,
+    stats=None,
+    warnings=None,
+    error=None,
+    duration_ms=None,
 ) -> dict:
-  return {
-    "tool": tool,
-    "version": _resolve_version(tool),
-    "command": command,
-    "ok": bool(ok),
-    "duration_ms": float(duration_ms) if duration_ms is not None else 0.0,
-    "stats": dict(stats or {}),
-    "warnings": list(warnings or []),
-    "error": dict(error) if error else None,
-  }
+    return {
+        "tool": tool,
+        "version": _resolve_version(tool),
+        "command": command,
+        "ok": bool(ok),
+        "duration_ms": float(duration_ms) if duration_ms is not None else 0.0,
+        "stats": dict(stats or {}),
+        "warnings": list(warnings or []),
+        "error": dict(error) if error else None,
+    }
 
 
 def emit_action(envelope, stream=None) -> None:
-  stream = stream if stream is not None else sys.stdout
-  stream.write(json.dumps(envelope, ensure_ascii=False) + "\n")
-  stream.flush()
+    stream = stream if stream is not None else sys.stdout
+    stream.write(json.dumps(envelope, ensure_ascii=False) + "\n")
+    stream.flush()
 
 
 def data_error(
-  *,
-  tool: str,
-  command: str,
-  code: str,
-  message: str,
-  hint: str | None = None,
+    *,
+    tool: str,
+    command: str,
+    code: str,
+    message: str,
+    hint: str | None = None,
 ) -> dict:
-  err: dict[str, Any] = {"code": code, "message": message}
-  if hint:
-    err["hint"] = hint
-  return {
-    "tool": tool,
-    "version": _resolve_version(tool),
-    "command": command,
-    "ok": False,
-    "error": err,
-  }
+    err: dict[str, Any] = {"code": code, "message": message}
+    if hint:
+        err["hint"] = hint
+    return {
+        "tool": tool,
+        "version": _resolve_version(tool),
+        "command": command,
+        "ok": False,
+        "error": err,
+    }
 
 
 def emit_data_error(envelope, stream=None) -> None:
-  stream = stream if stream is not None else sys.stdout
-  stream.write(json.dumps(envelope, ensure_ascii=False) + "\n")
-  stream.flush()
+    """Write an error envelope. Errors are diagnostics: per AGENTS.md
+    they belong on stderr, not stdout."""
+    stream = stream if stream is not None else sys.stderr
+    stream.write(json.dumps(envelope, ensure_ascii=False) + "\n")
+    stream.flush()
 
 
 @dataclass
 class DoctorFinding:
-  id: str
-  severity: str
-  message: str
-  hint: str | None = None
+    id: str
+    severity: str
+    message: str
+    hint: str | None = None
 
-  def to_dict(self) -> dict:
-    out: dict[str, Any] = {
-      "id": self.id,
-      "severity": self.severity,
-      "message": self.message,
-    }
-    if self.hint:
-      out["hint"] = self.hint
-    return out
+    def to_dict(self) -> dict:
+        out: dict[str, Any] = {
+            "id": self.id,
+            "severity": self.severity,
+            "message": self.message,
+        }
+        if self.hint:
+            out["hint"] = self.hint
+        return out
 
 
 @dataclass
 class DoctorPayload:
-  tool: str
-  config_path: str | None = None
-  data_path: str | None = None
-  auth: dict | None = None
-  findings: list = field(default_factory=list)
+    tool: str
+    config_path: str | None = None
+    data_path: str | None = None
+    auth: dict | None = None
+    findings: list = field(default_factory=list)
 
-  def to_dict(self) -> dict:
-    out: dict[str, Any] = {"tool": self.tool, "version": _resolve_version(self.tool)}
-    if self.config_path is not None:
-      out["config_path"] = self.config_path
-    if self.data_path is not None:
-      out["data_path"] = self.data_path
-    if self.auth is not None:
-      out["auth"] = self.auth
-    out["findings"] = [f.to_dict() for f in self.findings]
-    return out
+    def to_dict(self) -> dict:
+        out: dict[str, Any] = {"tool": self.tool, "version": _resolve_version(self.tool)}
+        if self.config_path is not None:
+            out["config_path"] = self.config_path
+        if self.data_path is not None:
+            out["data_path"] = self.data_path
+        if self.auth is not None:
+            out["auth"] = self.auth
+        out["findings"] = [f.to_dict() for f in self.findings]
+        return out
 
-  def exit_code(self) -> int:
-    severities = {f.severity for f in self.findings}
-    if "error" in severities:
-      return EXIT_USER_ERROR
-    return EXIT_OK
+    def exit_code(self) -> int:
+        severities = {f.severity for f in self.findings}
+        if "error" in severities:
+            return EXIT_USER_ERROR
+        return EXIT_OK
 
 
 def _run_default_doctor(tool: str) -> DoctorPayload:
-  """Default per-binary doctor: redaction-sentinel check + config probe.
+    """Default per-binary doctor: redaction-sentinel check + config probe.
 
-  Each binary can extend by appending findings before calling
-  emit_doctor(). For mnem's fan-out only the shape is contractual.
-  """
-  payload = DoctorPayload(tool=tool)
+    Each binary can extend by appending findings before calling
+    emit_doctor(). For mnem's fan-out only the shape is contractual.
+    """
+    payload = DoctorPayload(tool=tool)
 
-  # Redaction-sentinel smoke test using the same redact() the rest of
-  # the tool uses for logging.
-  try:
-    sentinel = "CANARY_SECRET_xxxx"
-    jwt_like = "eyJalg." + sentinel + ".sig-padding-123"
-    out = redact(f"Authorization: Bearer {jwt_like}")
-    if sentinel in out:
-      payload.findings.append(DoctorFinding(
-        id="redact_sentinel_leak",
-        severity="error",
-        message="Redaction sentinel leaked through redact()",
-        hint="owa_core.secrets.redact() is not catching expected patterns",
-      ))
-  except Exception as exc:
-    payload.findings.append(DoctorFinding(
-      id="redact_unavailable",
-      severity="error",
-      message=f"redact() is not callable: {exc}",
-    ))
+    # Redaction-sentinel smoke test using the same redact() the rest of
+    # the tool uses for logging.
+    try:
+        sentinel = "CANARY_SECRET_xxxx"
+        jwt_like = "eyJalg." + sentinel + ".sig-padding-123"
+        out = redact(f"Authorization: Bearer {jwt_like}")
+        if sentinel in out:
+            payload.findings.append(DoctorFinding(
+                id="redact_sentinel_leak",
+                severity="error",
+                message="Redaction sentinel leaked through redact()",
+                hint="owa_core.secrets.redact() is not catching expected patterns",
+            ))
+    except Exception as exc:
+        payload.findings.append(DoctorFinding(
+            id="redact_unavailable",
+            severity="error",
+            message=f"redact() is not callable: {exc}",
+        ))
 
-  return payload
+    return payload
 
 
 def emit_doctor(tool: str, as_json: bool, *, extra_findings=None) -> int:
-  """Emit the standard --doctor surface for a given binary.
+    """Emit the standard --doctor surface for a given binary.
 
-  ``extra_findings`` lets a binary append checks beyond the
-  defaults (e.g. owa-mail can probe a mailbox, owa-cal can probe
-  calendar access).
-  """
-  payload = _run_default_doctor(tool)
-  if extra_findings:
-    payload.findings.extend(extra_findings)
-  if as_json:
-    sys.stdout.write(json.dumps(payload.to_dict(), ensure_ascii=False) + "\n")
-    sys.stdout.flush()
-  else:
-    _print_doctor_human(payload)
-  return payload.exit_code()
+    ``extra_findings`` lets a binary append checks beyond the
+    defaults (e.g. owa-mail can probe a mailbox, owa-cal can probe
+    calendar access).
+    """
+    payload = _run_default_doctor(tool)
+    if extra_findings:
+        payload.findings.extend(extra_findings)
+    if as_json:
+        sys.stdout.write(json.dumps(payload.to_dict(), ensure_ascii=False) + "\n")
+        sys.stdout.flush()
+    else:
+        _print_doctor_human(payload)
+    return payload.exit_code()
 
 
 def _print_doctor_human(payload: DoctorPayload) -> None:
-  data = payload.to_dict()
-  print(f"{payload.tool} doctor (v{data['version']})")
-  if payload.config_path:
-    print(f"  config: {payload.config_path}")
-  if payload.auth:
-    print(f"  auth:   {payload.auth}")
-  if not payload.findings:
-    print("  status: ok")
-    return
-  print(f"  findings: {len(payload.findings)}")
-  for f in payload.findings:
-    marker = {"error": "x", "warning": "!", "info": "."}.get(f.severity, ".")
-    print(f"    {marker} [{f.severity}] {f.id}: {f.message}")
-    if f.hint:
-      print(f"        hint: {f.hint}")
+    data = payload.to_dict()
+    print(f"{payload.tool} doctor (v{data['version']})")
+    if payload.config_path:
+        print(f"  config: {payload.config_path}")
+    if payload.auth:
+        print(f"  auth:   {payload.auth}")
+    if not payload.findings:
+        print("  status: ok")
+        return
+    print(f"  findings: {len(payload.findings)}")
+    for f in payload.findings:
+        marker = {"error": "x", "warning": "!", "info": "."}.get(f.severity, ".")
+        print(f"    {marker} [{f.severity}] {f.id}: {f.message}")
+        if f.hint:
+            print(f"        hint: {f.hint}")
