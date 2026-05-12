@@ -119,9 +119,22 @@ def data_error(
 
 
 def emit_data_error(envelope, stream=None) -> None:
-    """Write an error envelope. Errors are diagnostics: per AGENTS.md
-    they belong on stderr, not stdout."""
-    stream = stream if stream is not None else sys.stderr
+    """Write a data-class error envelope on stdout.
+
+    Per mnem CONVENTIONS.md, structured JSON output - including
+    failure envelopes - travels on stdout so consumers parse one
+    stream with one discriminator (the reserved-key `ok` field).
+    This is a deliberate carve-out from the owa-tools house rule
+    "errors are diagnostics, send to stderr" because that rule
+    assumes human-readable error text; once the error is structured
+    JSON, sharing the stream with success output gives the cleanest
+    contract (`cmd | jq` works on both paths, suite-wide consumers
+    never need to interleave streams).
+
+    Free-text human errors and unstructured tracebacks still belong
+    on stderr - this only governs the structured envelope.
+    """
+    stream = stream if stream is not None else sys.stdout
     stream.write(json.dumps(envelope, ensure_ascii=False) + "\n")
     stream.flush()
 
