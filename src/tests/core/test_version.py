@@ -33,4 +33,4 @@ def test_binary_version_includes_binary_name(monkeypatch):
 
 
 def test_root_pyproject_version_parser_reads_current_project():
-    assert version_mod._version_from_root_pyproject() == '0.1.1'
+    assert version_mod._version_from_root_pyproject() == '0.1.2'
