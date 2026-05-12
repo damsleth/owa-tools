@@ -97,12 +97,24 @@ def test_exit_constants():
   assert EXIT_PARTIAL == 5
 
 
-def test_emit_data_error_defaults_to_stderr(capsys):
-  """AGENTS.md: errors must go to stderr, not stdout."""
-  emit_data_error(data_error(tool="owa-cal", command="x", code="c", message="m"))
-  captured = capsys.readouterr()
-  assert captured.out == ""
-  assert json.loads(captured.err)["ok"] is False
+def test_emit_data_error_defaults_to_stdout():
+  """mnem CONVENTIONS.md: structured JSON (success AND failure)
+  travels on stdout so suite-wide consumers parse one stream with
+  one discriminator (`ok` reserved key). This overrides the
+  owa-tools house "errors to stderr" rule for structured envelopes
+  only - free-text errors still belong on stderr."""
+  import sys
+  import io
+  buf = io.StringIO()
+  saved = sys.stdout
+  sys.stdout = buf
+  try:
+    emit_data_error(data_error(tool="owa-cal", command="x", code="c", message="m"))
+  finally:
+    sys.stdout = saved
+  payload = json.loads(buf.getvalue())
+  assert payload["ok"] is False
+  assert payload["tool"] == "owa-cal"
 
 
 def test_doctor_payload_optional_fields_in_dict():
