@@ -87,6 +87,13 @@ def run_with_output_modes(tool, argv, dispatch, *, binary_stdout_commands=()):
     integer exit code. In agent mode, successful JSON stdout is wrapped in a
     stable envelope for automation consumers.
     """
+    # Top-level --doctor per mnem CONVENTIONS.md. Intercept before
+    # the legacy dispatcher so every owa-* binary picks it up via the
+    # shared entry point. --json flips it to machine mode.
+    if '--doctor' in argv:
+        from owa_core.conventions import emit_doctor
+        return emit_doctor(tool, '--json' in argv)
+
     agent, err_json, filtered = split_mode_flags(argv)
     command = command_name(filtered)
 
