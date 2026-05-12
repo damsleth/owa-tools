@@ -54,6 +54,18 @@ def envelope(tool, command, data):
     return {'_owa': meta, 'data': data}
 
 
+def is_doctor_invocation(argv):
+    """Return True only for the top-level mnem --doctor surface.
+
+    Command-specific arguments may legitimately contain the literal
+    string ``--doctor`` as a value. Treat it as doctor mode only when
+    the whole invocation is the doctor flag plus its output-mode flag.
+    """
+    return bool(argv) and '--doctor' in argv and all(
+        arg in ('--doctor', '--json') for arg in argv
+    )
+
+
 @contextlib.contextmanager
 def _mode_environment(tool, command, err_json):
     previous = {
@@ -90,7 +102,7 @@ def run_with_output_modes(tool, argv, dispatch, *, binary_stdout_commands=()):
     # Top-level --doctor per mnem CONVENTIONS.md. Intercept before
     # the legacy dispatcher so every owa-* binary picks it up via the
     # shared entry point. --json flips it to machine mode.
-    if '--doctor' in argv:
+    if is_doctor_invocation(argv):
         from owa_core.conventions import emit_doctor
         return emit_doctor(tool, '--json' in argv)
 

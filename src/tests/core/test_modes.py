@@ -148,6 +148,31 @@ def test_envelope_includes_profile_from_env(monkeypatch):
     assert payload['_owa']['profile'] == 'work'
 
 
+def test_doctor_invocation_only_matches_top_level_flags():
+    assert modes.is_doctor_invocation(['--doctor'])
+    assert modes.is_doctor_invocation(['--doctor', '--json'])
+    assert modes.is_doctor_invocation(['--json', '--doctor'])
+    assert not modes.is_doctor_invocation(['GET', '/me', '--header', '--doctor'])
+    assert not modes.is_doctor_invocation(['--doctor', '--pretty'])
+
+
+def test_doctor_value_position_reaches_dispatch():
+    seen = {}
+
+    def dispatch(argv):
+        seen['argv'] = argv
+        return 7
+
+    rc = modes.run_with_output_modes(
+        'owa-graph',
+        ['GET', '/me', '--header', '--doctor'],
+        dispatch,
+    )
+
+    assert rc == 7
+    assert seen['argv'] == ['GET', '/me', '--header', '--doctor']
+
+
 def test_mode_environment_is_restored(monkeypatch):
     monkeypatch.setenv('OWA_TOOL', 'before')
     monkeypatch.delenv('OWA_ERR_JSON_ACTIVE', raising=False)

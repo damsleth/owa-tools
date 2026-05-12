@@ -21,6 +21,7 @@ _BINARIES = [
   ("owa_cal", "owa-cal"),
   ("owa_mail", "owa-mail"),
   ("owa_graph", "owa-graph"),
+  ("owa_doctor", "owa-doctor"),
   ("owa_people", "owa-people"),
   ("owa_sched", "owa-sched"),
   ("owa_drive", "owa-drive"),
@@ -64,3 +65,9 @@ def test_doctor_exit_code_well_defined(module, tool):
   result = _run(module, "--doctor", "--json")
   # Either 0 (clean) or 1 (user-fixable). Should not be a crash.
   assert result.returncode in (0, 1)
+
+
+def test_doctor_flag_in_value_position_is_not_intercepted():
+  result = _run("owa_graph", "GET", "/me", "--header", "--doctor")
+  assert "doctor" not in result.stdout
+  assert "--header expects K=V" in result.stderr
