@@ -355,11 +355,41 @@ def _command_name(argv):
     return ''
 
 
+_AVAILABILITY_FLAGS = [
+    schema_mod.flag('--who', value='<addr[,addr]>', summary='Comma-separated attendee emails', required=True),
+    schema_mod.flag('--date', value='<date>', summary='Specific day (YYYY-MM-DD, today, tomorrow, yesterday)'),
+    schema_mod.flag('--from', value='<date>', summary='Start of range'),
+    schema_mod.flag('--to', value='<date>', summary='End of range'),
+    schema_mod.flag('--week', value='<n>', summary='ISO week number'),
+    schema_mod.flag('--year', value='<n>', summary='Year (default: current)'),
+    schema_mod.flag('--start', value='<HH:MM>', summary='Work-day start (default 08:00)'),
+    schema_mod.flag('--end', value='<HH:MM>', summary='Work-day end (default 17:00)'),
+    schema_mod.flag('--interval', value='<min>', summary='Resolution in minutes (default 30)'),
+    schema_mod.flag('--pretty', summary='Human-readable view (default: JSON)'),
+]
+
+_FIND_TIME_FLAGS = [
+    schema_mod.flag('--who', value='<addr[,addr]>', summary='Comma-separated attendee emails', required=True),
+    schema_mod.flag('--duration', value='<min>', summary='Meeting length in minutes (default 30)'),
+    schema_mod.flag('--date', value='<date>', summary='Specific day'),
+    schema_mod.flag('--from', value='<date>', summary='Start of range'),
+    schema_mod.flag('--to', value='<date>', summary='End of range'),
+    schema_mod.flag('--week', value='<n>', summary='ISO week number'),
+    schema_mod.flag('--year', value='<n>', summary='Year (default: current)'),
+    schema_mod.flag('--start', value='<HH:MM>', summary='Work-day start (default: default_work_start)'),
+    schema_mod.flag('--end', value='<HH:MM>', summary='Work-day end (default: default_work_end)'),
+    schema_mod.flag('--pretty', summary='Human-readable view (default: JSON)'),
+]
+
+_CONFIG_FLAGS = [
+    schema_mod.flag('--profile', value='<alias>', summary='Pin a default profile alias (owa_piggy_profile)'),
+]
+
 COMMAND_SCHEMA = [
-    schema_mod.command('availability', 'List attendee free/busy windows', auth='graph'),
-    schema_mod.command('find-time', 'Find meeting slots', auth='graph'),
+    schema_mod.command('availability', 'List attendee free/busy windows', auth='graph', flags=_AVAILABILITY_FLAGS),
+    schema_mod.command('find-time', 'Find meeting slots', auth='graph', flags=_FIND_TIME_FLAGS),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
-    schema_mod.command('config', 'View or update configuration', mutates=True),
+    schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
 ]
 
 
@@ -403,6 +433,12 @@ def _main(argv):
         return 0
 
     cmd, rest = argv[0], argv[1:]
+
+    help_rc = schema_mod.maybe_emit_subcommand_help(
+        cmd, rest, tool='owa-sched', commands=COMMAND_SCHEMA,
+    )
+    if help_rc is not None:
+        return help_rc
 
     config = config_mod.load_config()
     if debug_flag:

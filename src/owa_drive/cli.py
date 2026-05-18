@@ -346,11 +346,40 @@ def _command_name(argv):
     return ''
 
 
+_LS_FLAGS = [
+    schema_mod.flag('<path>', summary='Folder path (positional, defaults to drive root)'),
+    schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
+]
+
+_SHOW_FLAGS = [
+    schema_mod.flag('<path>', summary='Item path (positional)', required=True),
+    schema_mod.flag('--pretty', summary='Human-readable view (default: JSON)'),
+]
+
+_GET_FLAGS = [
+    schema_mod.flag('<path>', summary='Remote item path (positional)', required=True),
+    schema_mod.flag('--out', value='<local-path>', summary='Write to file instead of stdout'),
+]
+
+_PUT_FLAGS = [
+    schema_mod.flag('<local>', summary='Local file path or - to read stdin (positional)', required=True),
+    schema_mod.flag('<remote-path>', summary='Destination path on the drive (positional)', required=True),
+]
+
+_RM_FLAGS = [
+    schema_mod.flag('<path>', summary='Item path (positional)', required=True),
+    schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
+]
+
+_CONFIG_FLAGS = [
+    schema_mod.flag('--profile', value='<alias>', summary='Pin a default profile alias (owa_piggy_profile)'),
+]
+
 COMMAND_SCHEMA = [
-    schema_mod.command('ls', 'List a folder', auth='graph'),
-    schema_mod.command('show', 'Show item metadata', auth='graph'),
-    schema_mod.command('get', 'Download file content', auth='graph', output='bytes'),
-    schema_mod.command('put', 'Upload a small file', auth='graph', mutates=True),
+    schema_mod.command('ls', 'List a folder', auth='graph', flags=_LS_FLAGS),
+    schema_mod.command('show', 'Show item metadata', auth='graph', flags=_SHOW_FLAGS),
+    schema_mod.command('get', 'Download file content', auth='graph', output='bytes', flags=_GET_FLAGS),
+    schema_mod.command('put', 'Upload a small file', auth='graph', mutates=True, flags=_PUT_FLAGS),
     schema_mod.command(
         'rm',
         'Delete an item',
@@ -359,9 +388,10 @@ COMMAND_SCHEMA = [
         destructive=True,
         confirmation=True,
         idempotent=False,
+        flags=_RM_FLAGS,
     ),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
-    schema_mod.command('config', 'View or update configuration', mutates=True),
+    schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
 ]
 
 
@@ -405,6 +435,12 @@ def _main(argv):
         return 0
 
     cmd, rest = argv[0], argv[1:]
+
+    help_rc = schema_mod.maybe_emit_subcommand_help(
+        cmd, rest, tool='owa-drive', commands=COMMAND_SCHEMA,
+    )
+    if help_rc is not None:
+        return help_rc
 
     config = config_mod.load_config()
     if debug_flag:

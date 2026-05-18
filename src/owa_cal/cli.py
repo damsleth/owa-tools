@@ -664,11 +664,67 @@ AUTHED_COMMANDS = {'events', 'create', 'update', 'delete', 'categories'}
 WEBCAL_READ_COMMANDS = {'events'}
 WEBCAL_REJECTED_COMMANDS = {'create', 'update', 'delete', 'categories'}
 
+_EVENTS_FLAGS = [
+    schema_mod.flag('--date', value='<date>', summary='Specific day (YYYY-MM-DD, today, tomorrow, yesterday)'),
+    schema_mod.flag('--from', value='<date>', summary='Start of range'),
+    schema_mod.flag('--to', value='<date>', summary='End of range'),
+    schema_mod.flag('--week', value='<n>', summary='ISO week number'),
+    schema_mod.flag('--year', value='<n>', summary='Year (default: current)'),
+    schema_mod.flag('--search', value='<term>', summary='Search events by subject'),
+    schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
+    schema_mod.flag('--limit', value='<n>', summary='Max results (default: 50)'),
+]
+
+_CREATE_FLAGS = [
+    schema_mod.flag('--subject', value='<title>', summary='Event title', required=True),
+    schema_mod.flag('--date', value='<date>', summary='Date (default: today)'),
+    schema_mod.flag('--start', value='<HH:MM>', summary='Start time (default: 09:00)'),
+    schema_mod.flag('--end', value='<HH:MM>', summary='End time (default: 10:00)'),
+    schema_mod.flag('--category', value='<name>', summary='Category name'),
+    schema_mod.flag('--location', value='<place>', summary='Location'),
+    schema_mod.flag('--body', value='<text>', summary='Description'),
+    schema_mod.flag('--allday', summary='All-day event'),
+    schema_mod.flag('--showas', value='<status>', summary='busy, free, tentative, oof'),
+]
+
+_UPDATE_FLAGS = [
+    schema_mod.flag('--id', value='<event-id>', summary='Event ID', required=True),
+    schema_mod.flag('--subject', value='<title>', summary='New event title'),
+    schema_mod.flag('--date', value='<date>', summary='New date'),
+    schema_mod.flag('--start', value='<HH:MM>', summary='New start time'),
+    schema_mod.flag('--end', value='<HH:MM>', summary='New end time'),
+    schema_mod.flag('--category', value='<name>', summary='New category'),
+    schema_mod.flag('--location', value='<place>', summary='New location'),
+    schema_mod.flag('--body', value='<text>', summary='New description'),
+    schema_mod.flag('--showas', value='<status>', summary='busy, free, tentative, oof'),
+]
+
+_DELETE_FLAGS = [
+    schema_mod.flag('--id', value='<event-id>', summary='Event ID', required=True),
+    schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
+]
+
+_CATEGORIES_FLAGS = [
+    schema_mod.flag('--add', value='<name>', summary='Add a new master category'),
+    schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
+]
+
+_PROFILES_FLAGS = [
+    schema_mod.flag('list', summary='List all profiles (owa-cal + owa-piggy)'),
+    schema_mod.flag('add <alias>', value='--webcal <url>', summary='Add a local webcal/iCal profile'),
+    schema_mod.flag('delete <alias>', summary='Remove an owa-cal profile'),
+    schema_mod.flag('--pretty', summary='Human-readable listing'),
+]
+
+_CONFIG_FLAGS = [
+    schema_mod.flag('--profile', value='<alias>', summary='Pin a default profile alias (owa_piggy_profile)'),
+]
+
 COMMAND_SCHEMA = [
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
-    schema_mod.command('events', 'List calendar events', auth='outlook'),
-    schema_mod.command('create', 'Create an event', auth='outlook', mutates=True, idempotent=False),
-    schema_mod.command('update', 'Update an event', auth='outlook', mutates=True),
+    schema_mod.command('events', 'List calendar events', auth='outlook', flags=_EVENTS_FLAGS),
+    schema_mod.command('create', 'Create an event', auth='outlook', mutates=True, idempotent=False, flags=_CREATE_FLAGS),
+    schema_mod.command('update', 'Update an event', auth='outlook', mutates=True, flags=_UPDATE_FLAGS),
     schema_mod.command(
         'delete',
         'Delete an event',
@@ -677,10 +733,11 @@ COMMAND_SCHEMA = [
         destructive=True,
         confirmation=True,
         idempotent=False,
+        flags=_DELETE_FLAGS,
     ),
-    schema_mod.command('categories', 'List or add master categories', auth='outlook', mutates=True),
-    schema_mod.command('profiles', 'List/add/delete calendar profiles', mutates=True),
-    schema_mod.command('config', 'View or update configuration', mutates=True),
+    schema_mod.command('categories', 'List or add master categories', auth='outlook', mutates=True, flags=_CATEGORIES_FLAGS),
+    schema_mod.command('profiles', 'List/add/delete calendar profiles', mutates=True, flags=_PROFILES_FLAGS),
+    schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
 ]
 
 
@@ -922,6 +979,12 @@ def _main(argv):
         return 0
 
     cmd, rest = argv[0], argv[1:]
+
+    help_rc = schema_mod.maybe_emit_subcommand_help(
+        cmd, rest, tool='owa-cal', commands=COMMAND_SCHEMA,
+    )
+    if help_rc is not None:
+        return help_rc
 
     config = config_mod.load_config()
     if debug_flag:
