@@ -6,6 +6,14 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## v0.1.3 - 2026-05-18
+
+Improves the agent-facing CLI contract by adding per-subcommand help across the suite.
+
+- New: every command in the per-tool schemas now supports `<tool> <command> --help` and `-h` without triggering auth, broker, or network setup.
+- New: schema flags can describe values, required markers, and repeatability, so generated help explains the expected invocation shape.
+- Tests: contract coverage now asserts every schema command renders subcommand help successfully.
+
 ## v0.1.2 - 2026-05-12
 
 Adds the mnem CLI contract surface across the suite and fixes a batch of
