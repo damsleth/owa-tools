@@ -671,13 +671,85 @@ AUTHED_HANDLERS = {
     'folders': cmd_folders,
 }
 
+_MESSAGES_FLAGS = [
+    schema_mod.flag('--folder', value='<name|id>', summary='Inbox|Drafts|SentItems|DeletedItems|Junk|Archive'),
+    schema_mod.flag('--unread', summary='Only unread messages'),
+    schema_mod.flag('--from', value='<addr>', summary='Sender substring filter'),
+    schema_mod.flag('--subject', value='<text>', summary='Subject substring filter'),
+    schema_mod.flag('--search', value='<kql>', summary='KQL search (mutually exclusive with filters)'),
+    schema_mod.flag('--since', value='<date>', summary='ReceivedDateTime >= date'),
+    schema_mod.flag('--until', value='<date>', summary='ReceivedDateTime <= date'),
+    schema_mod.flag('--limit', value='<n>', summary='Max results (default 25, cap 200)'),
+    schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
+]
+
+_SHOW_FLAGS = [
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--pretty', summary='Human-readable header block + body'),
+]
+
+_SEND_FLAGS = [
+    schema_mod.flag('--to', value='<addr[,addr]>', summary='One or more recipients', required=True),
+    schema_mod.flag('--cc', value='<addr[,addr]>', summary='Cc recipients'),
+    schema_mod.flag('--bcc', value='<addr[,addr]>', summary='Bcc recipients'),
+    schema_mod.flag('--subject', value='<text>', summary='Subject', required=True),
+    schema_mod.flag('--body', value='<text>', summary='Body content (use - to read from stdin)'),
+    schema_mod.flag('--html', summary='Treat --body as HTML'),
+    schema_mod.flag('--send-at', value='<iso>', summary='Schedule deferred delivery (ISO datetime, UTC if naive)'),
+    schema_mod.flag('--save-draft', summary='Save as Draft instead of sending'),
+    schema_mod.flag('--importance', value='<lvl>', summary='low|normal|high'),
+]
+
+_REPLY_FLAGS = [
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--body', value='<text>', summary='Reply text (use - to read from stdin)'),
+    schema_mod.flag('--html', summary='Treat --body as HTML'),
+    schema_mod.flag('--send-at', value='<iso>', summary='Schedule deferred delivery'),
+    schema_mod.flag('--save-draft', summary='Save as Draft instead of sending'),
+]
+
+_FORWARD_FLAGS = [
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--to', value='<addr[,addr]>', summary='Forward recipients', required=True),
+    schema_mod.flag('--body', value='<text>', summary='Forward note (use - to read from stdin)'),
+    schema_mod.flag('--html', summary='Treat --body as HTML'),
+    schema_mod.flag('--send-at', value='<iso>', summary='Schedule deferred delivery'),
+    schema_mod.flag('--save-draft', summary='Save as Draft instead of sending'),
+]
+
+_DELETE_FLAGS = [
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
+]
+
+_MOVE_FLAGS = [
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--to', value='<folder>', summary='Well-known name or folder id', required=True),
+]
+
+_MARK_FLAGS = [
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--read', summary='Mark as read'),
+    schema_mod.flag('--unread', summary='Mark as unread'),
+    schema_mod.flag('--flag', summary='Set FlagStatus'),
+    schema_mod.flag('--unflag', summary='Clear FlagStatus'),
+]
+
+_FOLDERS_FLAGS = [
+    schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
+]
+
+_CONFIG_FLAGS = [
+    schema_mod.flag('--profile', value='<alias>', summary='Pin an owa-piggy profile alias (owa_piggy_profile)'),
+]
+
 COMMAND_SCHEMA = [
-    schema_mod.command('messages', 'List messages', auth='outlook'),
-    schema_mod.command('show', 'Show full message body', auth='outlook'),
-    schema_mod.command('send', 'Compose and send a message', auth='outlook', mutates=True, idempotent=False),
-    schema_mod.command('reply', 'Reply to a message', auth='outlook', mutates=True, idempotent=False),
-    schema_mod.command('reply-all', 'Reply-all to a message', auth='outlook', mutates=True, idempotent=False),
-    schema_mod.command('forward', 'Forward a message', auth='outlook', mutates=True, idempotent=False),
+    schema_mod.command('messages', 'List messages', auth='outlook', flags=_MESSAGES_FLAGS),
+    schema_mod.command('show', 'Show full message body', auth='outlook', flags=_SHOW_FLAGS),
+    schema_mod.command('send', 'Compose and send a message', auth='outlook', mutates=True, idempotent=False, flags=_SEND_FLAGS),
+    schema_mod.command('reply', 'Reply to a message', auth='outlook', mutates=True, idempotent=False, flags=_REPLY_FLAGS),
+    schema_mod.command('reply-all', 'Reply-all to a message', auth='outlook', mutates=True, idempotent=False, flags=_REPLY_FLAGS),
+    schema_mod.command('forward', 'Forward a message', auth='outlook', mutates=True, idempotent=False, flags=_FORWARD_FLAGS),
     schema_mod.command(
         'delete',
         'Delete a message',
@@ -686,12 +758,13 @@ COMMAND_SCHEMA = [
         destructive=True,
         confirmation=True,
         idempotent=False,
+        flags=_DELETE_FLAGS,
     ),
-    schema_mod.command('move', 'Move a message', auth='outlook', mutates=True),
-    schema_mod.command('mark', 'Mark a message', auth='outlook', mutates=True),
-    schema_mod.command('folders', 'List mail folders', auth='outlook'),
+    schema_mod.command('move', 'Move a message', auth='outlook', mutates=True, flags=_MOVE_FLAGS),
+    schema_mod.command('mark', 'Mark a message', auth='outlook', mutates=True, flags=_MARK_FLAGS),
+    schema_mod.command('folders', 'List mail folders', auth='outlook', flags=_FOLDERS_FLAGS),
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
-    schema_mod.command('config', 'View or update configuration', mutates=True),
+    schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
 ]
 
 
@@ -719,6 +792,12 @@ def _main(argv):
         return 0
 
     cmd, rest = argv[0], argv[1:]
+
+    help_rc = schema_mod.maybe_emit_subcommand_help(
+        cmd, rest, tool='owa-mail', commands=COMMAND_SCHEMA,
+    )
+    if help_rc is not None:
+        return help_rc
 
     config = config_mod.load_config()
     if debug_flag:

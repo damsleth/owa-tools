@@ -30,8 +30,16 @@ def _info(msg):
     print(msg, file=sys.stderr)
 
 
+_PROBE_FLAGS = [
+    schema_mod.flag('--profile', value='<alias>', summary='Probe only this profile (default: all profiles)'),
+    schema_mod.flag('--audience', value='<name>', summary='Token audience to test (default: graph)'),
+    schema_mod.flag('--no-tokens', summary='Skip per-profile token probes; only check installs'),
+    schema_mod.flag('--pretty', summary='Human-readable output (default: JSON)'),
+    schema_mod.flag('--debug', summary='Verbose logs to stderr (alias: --verbose)'),
+]
+
 COMMAND_SCHEMA = [
-    schema_mod.command('probe', 'Run the health probe'),
+    schema_mod.command('probe', 'Run the health probe', flags=_PROBE_FLAGS),
 ]
 
 
@@ -167,6 +175,11 @@ def _main(argv):
         return 0
     if argv and argv[0] == 'probe':
         argv = argv[1:]
+        help_rc = schema_mod.maybe_emit_subcommand_help(
+            'probe', argv, tool='owa-doctor', commands=COMMAND_SCHEMA,
+        )
+        if help_rc is not None:
+            return help_rc
     elif argv and not argv[0].startswith('-'):
         _error(f"Unknown command: {argv[0]}. Run 'owa-doctor help' for usage.")
         return 2

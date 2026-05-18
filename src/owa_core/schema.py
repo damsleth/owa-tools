@@ -6,6 +6,34 @@ from .version import suite_version
 
 SCHEMA_VERSION = 1
 
+HELP_TOKENS = ('--help', '-h')
+
+
+def flag(name, *, value=None, summary='', required=False, repeatable=False):
+    """Build a single flag spec for a command's `flags` list.
+
+    Args:
+        name: Flag name as shown on the command line (e.g. '--pretty', '--id').
+        value: Placeholder for the value an arg-taking flag expects
+               (e.g. '<event-id>'). None for boolean flags.
+        summary: One-line human description.
+        required: True if the subcommand rejects invocations without it.
+        repeatable: True if the flag may be passed multiple times.
+
+    Strings are still accepted directly in `command(flags=[...])` for
+    backwards compatibility with the original minimal contract.
+    """
+    row = {'name': name}
+    if value is not None:
+        row['value'] = value
+    if summary:
+        row['summary'] = summary
+    if required:
+        row['required'] = True
+    if repeatable:
+        row['repeatable'] = True
+    return row
+
 
 def command(
     name,
@@ -74,3 +102,104 @@ def maybe_emit_schema(argv, *, tool, commands):
             return 2
         schema = {**schema, 'commands': matched}
     return emit_json(schema)
+
+
+def _flag_left(entry):
+    """Render the left column for a flag entry.
+
+    Accepts both dict specs from `flag()` and bare strings.
+    """
+    if isinstance(entry, str):
+        return entry
+    name = entry.get('name', '')
+    value = entry.get('value')
+    return f'{name} {value}' if value else name
+
+
+def _flag_right(entry):
+    """Render the right column (summary + required marker)."""
+    if isinstance(entry, str):
+        return ''
+    parts = []
+    summary = entry.get('summary') or ''
+    if summary:
+        parts.append(summary)
+    if entry.get('required'):
+        parts.append('(required)')
+    if entry.get('repeatable'):
+        parts.append('(repeatable)')
+    return ' '.join(parts)
+
+
+def render_command_help(tool, cmd_dict, *, stream=None):
+    """Write per-subcommand help to `stream` (default stdout).
+
+    Output shape:
+
+        Usage: <tool> <cmd> [options]
+
+          <summary>
+
+        Flags:
+          --id <event-id>   Event ID (required)
+          --pretty          Human-readable table
+    """
+    stream = stream or sys.stdout
+    name = cmd_dict.get('name', '')
+    summary = cmd_dict.get('summary') or ''
+    flags = cmd_dict.get('flags') or []
+
+    stream.write(f'Usage: {tool} {name} [options]\n')
+    if summary:
+        stream.write(f'\n  {summary}\n')
+    if flags:
+        rows = [(_flag_left(f), _flag_right(f)) for f in flags]
+        width = max(len(left) for left, _ in rows)
+        stream.write('\nFlags:\n')
+        for left, right in rows:
+            if right:
+                stream.write(f'  {left:<{width}}  {right}\n')
+            else:
+                stream.write(f'  {left}\n')
+    else:
+        stream.write('\n  (no flags)\n')
+
+    notes = []
+    if cmd_dict.get('mutates'):
+        notes.append('mutates state')
+    if cmd_dict.get('destructive'):
+        notes.append('destructive')
+    if cmd_dict.get('confirmation'):
+        confirm_flag = cmd_dict['confirmation'].get('flag', '--confirm')
+        notes.append(f'requires {confirm_flag} or interactive TTY')
+    if cmd_dict.get('idempotent') is False:
+        notes.append('not idempotent')
+    auth = cmd_dict.get('auth') or {}
+    if auth.get('audience'):
+        notes.append(f"auth audience: {auth['audience']}")
+    if notes:
+        stream.write('\nNotes:\n')
+        for note in notes:
+            stream.write(f'  - {note}\n')
+
+    return 0
+
+
+def is_help_token(token):
+    return token in HELP_TOKENS
+
+
+def maybe_emit_subcommand_help(cmd, rest, *, tool, commands):
+    """If `rest` is an explicit help request for a known command,
+    write per-command help to stdout and return 0. Otherwise return None.
+
+    Intended to short-circuit before auth or HTTP setup. Only a single
+    `--help` or `-h` token is treated as help; free-text commands and
+    value-taking flags must be able to accept values such as "help".
+    """
+    if len(rest) != 1 or not is_help_token(rest[0]):
+        return None
+    matched = next((c for c in commands if c.get('name') == cmd), None)
+    if matched is None:
+        return None
+    return render_command_help(tool, matched)

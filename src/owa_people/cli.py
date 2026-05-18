@@ -329,14 +329,45 @@ def _command_name(argv):
     return ''
 
 
+_FIND_FLAGS = [
+    schema_mod.flag('<query>', summary='Search query (positional, free text)', required=True),
+    schema_mod.flag('--limit', value='<n>', summary='Max results (default 25, cap 100)'),
+    schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
+]
+
+_DIRECTORY_FLAGS = [
+    schema_mod.flag('<query>', summary='Search query (positional, free text)', required=True),
+    schema_mod.flag('--limit', value='<n>', summary='Max results (default 25, cap 100)'),
+    schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
+]
+
+_SHOW_FLAGS = [
+    schema_mod.flag('<id-or-email>', summary='Object id or email (positional)', required=True),
+    schema_mod.flag('--pretty', summary='Human-readable card (default: JSON)'),
+]
+
+_ME_FLAGS = [
+    schema_mod.flag('--pretty', summary='Human-readable card (default: JSON)'),
+]
+
+_CONTACTS_FLAGS = [
+    schema_mod.flag('--search', value='<term>', summary='Search contacts'),
+    schema_mod.flag('--limit', value='<n>', summary='Max results (default 50, cap 100)'),
+    schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
+]
+
+_CONFIG_FLAGS = [
+    schema_mod.flag('--profile', value='<alias>', summary='Pin a default profile alias (owa_piggy_profile)'),
+]
+
 COMMAND_SCHEMA = [
-    schema_mod.command('find', 'Search recent people', auth='graph'),
-    schema_mod.command('show', 'Show one person', auth='graph'),
-    schema_mod.command('directory', 'Search company directory', auth='graph'),
-    schema_mod.command('me', 'Show authenticated user', auth='graph'),
-    schema_mod.command('contacts', 'List personal contacts', auth='graph'),
+    schema_mod.command('find', 'Search recent people', auth='graph', flags=_FIND_FLAGS),
+    schema_mod.command('show', 'Show one person', auth='graph', flags=_SHOW_FLAGS),
+    schema_mod.command('directory', 'Search company directory', auth='graph', flags=_DIRECTORY_FLAGS),
+    schema_mod.command('me', 'Show authenticated user', auth='graph', flags=_ME_FLAGS),
+    schema_mod.command('contacts', 'List personal contacts', auth='graph', flags=_CONTACTS_FLAGS),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
-    schema_mod.command('config', 'View or update configuration', mutates=True),
+    schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
 ]
 
 
@@ -380,6 +411,12 @@ def _main(argv):
         return 0
 
     cmd, rest = argv[0], argv[1:]
+
+    help_rc = schema_mod.maybe_emit_subcommand_help(
+        cmd, rest, tool='owa-people', commands=COMMAND_SCHEMA,
+    )
+    if help_rc is not None:
+        return help_rc
 
     config = config_mod.load_config()
     if debug_flag:

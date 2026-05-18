@@ -77,6 +77,50 @@ def test_destructive_commands_declare_confirmation_metadata():
             assert row["idempotent"] is False
 
 
+def test_every_subcommand_supports_dash_dash_help():
+    """Every command in COMMAND_SCHEMA must respond to `--help` with exit 0
+    and stdout that mentions the command name. Per-subcommand help is the
+    agent-facing surface most reach for first (`<tool> <cmd> --help`) and
+    used to silently fail with `Unknown flag: --help`.
+    """
+    for module in TOOLS:
+        schema = json.loads(_run_module(module, "schema").stdout)
+        for command in schema["commands"]:
+            name = command["name"]
+            result = _run_module(module, name, "--help")
+            assert result.returncode == 0, (
+                f"{module} {name} --help failed: {result.stderr!r}"
+            )
+            assert "Traceback" not in result.stderr
+            assert f"{schema['tool']} {name}" in result.stdout, (
+                f"{module} {name} --help missing usage line: {result.stdout!r}"
+            )
+
+
+def test_subcommand_help_works_with_short_form():
+    """`<tool> <cmd> -h` should match `--help`."""
+    for tool, cmd in (("owa_cal", "events"), ("owa_mail", "messages")):
+        long = _run_module(tool, cmd, "--help")
+        short = _run_module(tool, cmd, "-h")
+        assert long.returncode == 0
+        assert short.returncode == 0
+        assert long.stdout == short.stdout
+
+
+def test_subcommand_help_renders_required_flag_marker():
+    result = _run_module("owa_cal", "create", "--help")
+    assert result.returncode == 0
+    assert "--subject" in result.stdout
+    assert "(required)" in result.stdout
+
+
+def test_subcommand_help_renders_destructive_notes():
+    result = _run_module("owa_drive", "rm", "--help")
+    assert result.returncode == 0
+    assert "destructive" in result.stdout
+    assert "--confirm" in result.stdout
+
+
 def test_umbrella_schema_has_real_tool_entries():
     result = _run_module("owa", "schema", "--tool", "owa-mail")
     assert result.returncode == 0

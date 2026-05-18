@@ -31,11 +31,43 @@ from . import scopes as scopes_mod
 HTTP_VERBS = {'GET', 'POST', 'PATCH', 'PUT', 'DELETE'}
 RESERVED_SUBCOMMANDS = {'refresh', 'config', 'batch', 'help'}
 
+_VERB_FLAGS = [
+    schema_mod.flag('<path>', summary='Graph path (positional, leading / optional)', required=True),
+    schema_mod.flag('--body', value='<json|@file|->', summary='Request body. Literal JSON, @path-to-file, or - to read from stdin'),
+    schema_mod.flag('--header', value='K=V', summary='Extra header', repeatable=True),
+    schema_mod.flag('--query', value='K=V', summary='OData query parameter (URL-encoded)', repeatable=True),
+    schema_mod.flag('--select', value='F1,F2', summary="Shortcut for --query '$select=F1,F2'"),
+    schema_mod.flag('--top', value='<n>', summary="Shortcut for --query '$top=N'"),
+    schema_mod.flag('--filter', value='<expr>', summary="Shortcut for --query '$filter=EXPR'"),
+    schema_mod.flag('--count', summary='Shortcut for $count=true (sets ConsistencyLevel: eventual)'),
+    schema_mod.flag('--search', value='<expr>', summary='Shortcut for $search="EXPR" (sets ConsistencyLevel: eventual)'),
+    schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
+    schema_mod.flag('--ndjson', summary='Stream items one per line (jq-friendly)'),
+    schema_mod.flag('--retry', summary='Honor Retry-After once on 429/503 (capped at 60s)'),
+    schema_mod.flag('--beta', summary='Use https://graph.microsoft.com/beta (graph audience only)'),
+    schema_mod.flag('--audience', value='<name>', summary='Forward to owa-piggy. Default: graph'),
+    schema_mod.flag('--pretty', summary='Human-readable output'),
+    schema_mod.flag('--raw', summary='Print raw response bytes (no JSON parsing)'),
+    schema_mod.flag('--curl', summary='Print equivalent curl command and exit'),
+    schema_mod.flag('--az', summary='Print equivalent `az rest` command and exit'),
+]
+
+_BATCH_FLAGS = [
+    schema_mod.flag('<file|->', summary='JSON-batch body (file path, @path, or - for stdin)', required=True),
+    schema_mod.flag('--pretty', summary='Render per-request status table'),
+    schema_mod.flag('--retry', summary='Honor Retry-After once on 429/503'),
+]
+
+_CONFIG_FLAGS = [
+    schema_mod.flag('--profile', value='<alias>', summary='Pin an owa-piggy profile alias (owa_piggy_profile)'),
+    schema_mod.flag('--audience', value='<name>', summary='Pin a default audience'),
+]
+
 COMMAND_SCHEMA = [
-    schema_mod.command('GET', 'Issue a GET request', auth='graph'),
-    schema_mod.command('POST', 'Issue a POST request', auth='graph', mutates=True, idempotent=False),
-    schema_mod.command('PATCH', 'Issue a PATCH request', auth='graph', mutates=True),
-    schema_mod.command('PUT', 'Issue a PUT request', auth='graph', mutates=True),
+    schema_mod.command('GET', 'Issue a GET request', auth='graph', flags=_VERB_FLAGS),
+    schema_mod.command('POST', 'Issue a POST request', auth='graph', mutates=True, idempotent=False, flags=_VERB_FLAGS),
+    schema_mod.command('PATCH', 'Issue a PATCH request', auth='graph', mutates=True, flags=_VERB_FLAGS),
+    schema_mod.command('PUT', 'Issue a PUT request', auth='graph', mutates=True, flags=_VERB_FLAGS),
     schema_mod.command(
         'DELETE',
         'Issue a DELETE request',
@@ -43,10 +75,11 @@ COMMAND_SCHEMA = [
         mutates=True,
         destructive=True,
         idempotent=False,
+        flags=_VERB_FLAGS,
     ),
-    schema_mod.command('batch', 'Run a Graph batch request', auth='graph', mutates=True),
+    schema_mod.command('batch', 'Run a Graph batch request', auth='graph', mutates=True, flags=_BATCH_FLAGS),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
-    schema_mod.command('config', 'View or update configuration', mutates=True),
+    schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
 ]
 
 
@@ -703,6 +736,16 @@ def _main(argv):
 
     head = argv[0]
     rest = argv[1:]
+
+    # Per-subcommand --help. Verbs may be lowercase on the command line
+    # (`get`, `post`) but COMMAND_SCHEMA stores them uppercase; normalize
+    # for the lookup so `owa-graph get --help` works alongside `GET`.
+    help_lookup = head.upper() if head.upper() in HTTP_VERBS else head
+    help_rc = schema_mod.maybe_emit_subcommand_help(
+        help_lookup, rest, tool='owa-graph', commands=COMMAND_SCHEMA,
+    )
+    if help_rc is not None:
+        return help_rc
 
     if head == 'config':
         return cmd_config(rest, config)
