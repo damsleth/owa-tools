@@ -1,4 +1,4 @@
-"""owa-tools implementation of the mnem suite CLI contract.
+"""owa-tools implementation of the hugr suite CLI contract.
 
 Shared across all eight owa-* binaries (owa, owa-cal, owa-mail,
 owa-graph, owa-doctor, owa-people, owa-sched, owa-drive). Each
@@ -7,18 +7,18 @@ once.
 
 Reuses owa_core.secrets.redact() as the redaction primitive; the
 rest mirrors yaams/conventions.py and ledger/conventions.py so the
-eventual extraction into a shared mnem-conventions package is a
+eventual extraction into a shared hugr-conventions package is a
 clean copy.
 
-The EXIT_* constants here intentionally use the mnem 0-5 taxonomy
-(see CONVENTIONS.md in the mnem repo). That range is distinct from
+The EXIT_* constants here intentionally use the hugr 0-5 taxonomy
+(see CONVENTIONS.md in the hugr repo). That range is distinct from
 the main owa-tools exit-code taxonomy (0/2/10-15/20 defined in
 owa_core.errors.ExitCode) and applies only to the --doctor surface
 emitted by emit_doctor(). AGENTS.md documents the carve-out under
 "Exit Codes". Tools that need the main taxonomy should raise an
 OwaError subclass instead of returning one of these constants.
 
-See https://github.com/damsleth/mnem/blob/main/CONVENTIONS.md.
+See https://github.com/damsleth/hugr/blob/main/CONVENTIONS.md.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def _resolve_version(_tool: str | None = None) -> str:
         return "0.0.0"
 
 
-# mnem --doctor exit-code range. See module docstring; not the main
+# hugr --doctor exit-code range. See module docstring; not the main
 # owa-tools taxonomy in owa_core.errors.ExitCode.
 EXIT_OK = 0
 EXIT_USER_ERROR = 1
@@ -121,7 +121,7 @@ def data_error(
 def emit_data_error(envelope, stream=None) -> None:
     """Write a data-class error envelope on stdout.
 
-    Per mnem CONVENTIONS.md, structured JSON output - including
+    Per hugr CONVENTIONS.md, structured JSON output - including
     failure envelopes - travels on stdout so consumers parse one
     stream with one discriminator (the reserved-key `ok` field).
     This is a deliberate carve-out from the owa-tools house rule
@@ -187,7 +187,7 @@ def _run_default_doctor(tool: str) -> DoctorPayload:
     """Default per-binary doctor: redaction-sentinel check + config probe.
 
     Each binary can extend by appending findings before calling
-    emit_doctor(). For mnem's fan-out only the shape is contractual.
+    emit_doctor(). For hugr's fan-out only the shape is contractual.
     """
     payload = DoctorPayload(tool=tool)
 

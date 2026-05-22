@@ -43,7 +43,7 @@ interfaces. Prefer direct migrations to the release contract.
 command-specific exception.
 
 The shared `--doctor` surface emitted by `owa_core.conventions.emit_doctor()`
-is a second carve-out. It uses the mnem 0-5 taxonomy that yaams/conventions.py
+is a second carve-out. It uses the hugr 0-5 taxonomy that yaams/conventions.py
 and ledger/conventions.py also mirror, distinct from the main taxonomy above:
 
 - `0` ok (no findings, or only `info`/`warning`)
