@@ -55,7 +55,7 @@ def envelope(tool, command, data):
 
 
 def is_doctor_invocation(argv):
-    """Return True only for the top-level mnem --doctor surface.
+    """Return True only for the top-level hugr --doctor surface.
 
     Command-specific arguments may legitimately contain the literal
     string ``--doctor`` as a value. Treat it as doctor mode only when
@@ -99,7 +99,7 @@ def run_with_output_modes(tool, argv, dispatch, *, binary_stdout_commands=()):
     integer exit code. In agent mode, successful JSON stdout is wrapped in a
     stable envelope for automation consumers.
     """
-    # Top-level --doctor per mnem CONVENTIONS.md. Intercept before
+    # Top-level --doctor per hugr CONVENTIONS.md. Intercept before
     # the legacy dispatcher so every owa-* binary picks it up via the
     # shared entry point. --json flips it to machine mode.
     if is_doctor_invocation(argv):

@@ -16,15 +16,15 @@ Improves the agent-facing CLI contract by adding per-subcommand help across the 
 
 ## v0.1.2 - 2026-05-12
 
-Adds the mnem CLI contract surface across the suite and fixes a batch of
+Adds the hugr CLI contract surface across the suite and fixes a batch of
 contract-drift bugs caught by self-review. No breaking changes to the
 0/2/10-20 exit-code taxonomy; the `--doctor` 0-5 taxonomy is a documented
 carve-out.
 
 - New: every `owa-*` binary now accepts a top-level `--doctor` flag that
-  emits the shared mnem doctor payload (tool, suite version, findings).
+  emits the shared hugr doctor payload (tool, suite version, findings).
   `owa doctor` still shells out to `owa-doctor` for back-compat.
-- New: `owa_core.conventions` ports the mnem contract helpers
+- New: `owa_core.conventions` ports the hugr contract helpers
   (`action_envelope`, `data_error`, `DoctorPayload`, `DoctorFinding`,
   `EXIT_*` constants) and re-exports `owa_core.secrets.redact`.
 - Fix: 43 sites across 12 `owa-graph` resource modules were emitting
@@ -40,14 +40,14 @@ carve-out.
 - Fix: `owa_drive` `api_put_binary` raises `UsageError` on the 4MB
   guard, so callers exit 2 instead of 1.
 - Contract: structured failure envelopes from `emit_data_error` now go
-  to stdout (matching the mnem CONVENTIONS one-stream rule that
+  to stdout (matching the hugr CONVENTIONS one-stream rule that
   `gh api`, `aws`, `kubectl -o json`, and `terraform output -json` also
   follow). Free-text errors, tracebacks, and progress still go to
   stderr.
 - Tests: moved a hidden test file from `src/owa_core/tests/` into
   `src/tests/core/` so pytest's `testpaths` discovers it. Coverage
   jumped from 84% to 97% on `owa_core`.
-- Docs: README points at the mnem suite. `AGENTS.md` documents the
+- Docs: README points at the hugr suite. `AGENTS.md` documents the
   `--doctor` 0-5 carve-out alongside the main exit-code taxonomy.
 
 ## v0.1.1 - 2026-05-11

@@ -181,9 +181,9 @@ COMMANDS = {
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    # Top-level --doctor per mnem CONVENTIONS.md. The `owa doctor`
+    # Top-level --doctor per hugr CONVENTIONS.md. The `owa doctor`
     # subcommand stays for back-compat (delegates to owa-doctor binary);
-    # the flag form is the contract surface mnem doctor depends on.
+    # the flag form is the contract surface hugr doctor depends on.
     if is_doctor_invocation(argv):
         from owa_core.conventions import emit_doctor
         return emit_doctor("owa", "--json" in argv)

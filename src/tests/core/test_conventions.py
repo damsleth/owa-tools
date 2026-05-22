@@ -1,7 +1,7 @@
-"""Tests for owa_core/conventions.py - the mnem CLI contract surface.
+"""Tests for owa_core/conventions.py - the hugr CLI contract surface.
 
 Reuses owa_core.secrets.redact() and adds the envelope + doctor
-contract layers that mnem CONVENTIONS.md requires.
+contract layers that hugr CONVENTIONS.md requires.
 """
 from __future__ import annotations
 
@@ -98,7 +98,7 @@ def test_exit_constants():
 
 
 def test_emit_data_error_defaults_to_stdout():
-  """mnem CONVENTIONS.md: structured JSON (success AND failure)
+  """hugr CONVENTIONS.md: structured JSON (success AND failure)
   travels on stdout so suite-wide consumers parse one stream with
   one discriminator (`ok` reserved key). This overrides the
   owa-tools house "errors to stderr" rule for structured envelopes

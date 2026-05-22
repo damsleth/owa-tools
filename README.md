@@ -15,13 +15,13 @@ on the OWA browser session via [`owa-piggy`](https://github.com/damsleth/owa-pig
 ## Suite
 
 `owa-tools` is the M365 read/write surface in the
-**[mnem](https://github.com/damsleth/mnem)** memory suite, alongside
+**[hugr](https://github.com/damsleth/hugr)** memory suite, alongside
 YAAMS (Tier 1 raw), cognitive-ledger (Tier 2 curated), and owa-piggy
 (auth broker). The suite gives you one install (`brew install
-damsleth/tap/mnem`), one verb surface (`mnem mail ...`, `mnem
+damsleth/tap/hugr`), one verb surface (`hugr mail ...`, `hugr
 calendar ...`), and one CLI contract (output classes, exit codes,
 JSON envelopes - see
-[mnem/CONVENTIONS.md](https://github.com/damsleth/mnem/blob/main/CONVENTIONS.md)).
+[hugr/CONVENTIONS.md](https://github.com/damsleth/hugr/blob/main/CONVENTIONS.md)).
 The eight `owa-*` binaries continue to work standalone.
 
 ## Install
