@@ -1,7 +1,8 @@
 """Umbrella `owa` binary. Discovery only; not a full dispatcher.
 
 Subcommands:
-  owa list         List installed consumer CLIs and their versions.
+  owa list         List installed consumer CLIs and their versions
+                   (JSON by default; --pretty for a table).
   owa schema       Aggregate schemas from each consumer CLI.
   owa doctor       Forward to `owa-doctor probe`.
   owa version      Print the umbrella version.
@@ -85,7 +86,13 @@ def _looks_like_error(text: str) -> bool:
 
 
 def cmd_list(argv: list[str]) -> int:
-    del argv
+    pretty = False
+    for a in argv:
+        if a in ("--pretty", "-p"):
+            pretty = True
+        else:
+            sys.stderr.write(f"unknown flag: {a}\n")
+            return 2
     rows = []
     for name in CONSUMERS:
         path = _which(name)
@@ -95,9 +102,39 @@ def cmd_list(argv: list[str]) -> int:
             "path": path,
             "version": _version_of(name) if path else None,
         })
-    json.dump(rows, sys.stdout, ensure_ascii=False, indent=2)
-    sys.stdout.write("\n")
+    if pretty:
+        sys.stdout.write(_format_list_pretty(rows))
+        sys.stdout.write("\n")
+    else:
+        json.dump(rows, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
     return 0
+
+
+def _format_list_pretty(rows: list[dict]) -> str:
+    name_w = max((len(r["tool"]) for r in rows), default=4)
+    version_w = max((len(r["version"] or "-") for r in rows), default=7)
+    name_w = max(name_w, len("tool"))
+    version_w = max(version_w, len("version"))
+    state_w = len("missing")
+
+    def _line(tool, state, version, path):
+        return "  ".join((
+            tool.ljust(name_w),
+            state.ljust(state_w),
+            version.ljust(version_w),
+            path,
+        )).rstrip()
+
+    out = [_line("tool", "state", "version", "path")]
+    for r in rows:
+        out.append(_line(
+            r["tool"],
+            "ok" if r["installed"] else "missing",
+            r["version"] or "-",
+            r["path"] or "-",
+        ))
+    return "\n".join(out)
 
 
 def cmd_version(argv: list[str]) -> int:
