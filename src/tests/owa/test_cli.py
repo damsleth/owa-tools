@@ -46,6 +46,25 @@ def test_cmd_list_reports_installed_and_missing(monkeypatch, capsys):
     ]
 
 
+def test_cmd_list_pretty_renders_table(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "CONSUMERS", ("owa-cal", "owa-mail"))
+    monkeypatch.setattr(cli, "_which", lambda name: f"/bin/{name}" if name == "owa-cal" else None)
+    monkeypatch.setattr(cli, "_version_of", lambda name: f"{name} 1.2.3")
+
+    assert cli.cmd_list(["--pretty"]) == 0
+
+    out = capsys.readouterr().out
+    lines = out.strip().splitlines()
+    assert lines[0].split() == ["tool", "state", "version", "path"]
+    assert "owa-cal" in lines[1] and "ok" in lines[1] and "/bin/owa-cal" in lines[1]
+    assert "owa-mail" in lines[2] and "missing" in lines[2]
+
+
+def test_cmd_list_unknown_flag_errors(capsys):
+    assert cli.cmd_list(["--bogus"]) == 2
+    assert "unknown flag" in capsys.readouterr().err
+
+
 def test_version_of_prefers_version_output(monkeypatch):
     monkeypatch.setattr(cli, "_which", lambda name: f"/bin/{name}")
 
