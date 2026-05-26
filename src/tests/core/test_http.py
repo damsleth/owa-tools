@@ -255,6 +255,85 @@ def test_invalid_json_maps_to_internal_error():
         )
 
 
+def test_request_unauthenticated_omits_auth_and_returns_bytes():
+    seen = {}
+
+    def fake_urlopen(req, timeout):
+        seen['auth'] = req.get_header('Authorization')
+        seen['method'] = req.get_method()
+        seen['range'] = req.get_header('Content-range')
+        seen['data'] = req.data
+        return FakeResp(b'{"id":"x"}', status=201, headers={'request-id': 'r1'})
+
+    response = http.request_unauthenticated(
+        'PUT',
+        'https://up.example.test/sess',
+        body=b'abc',
+        headers={'Content-Range': 'bytes 0-2/3'},
+        urlopen=fake_urlopen,
+    )
+    assert seen['auth'] is None
+    assert seen['method'] == 'PUT'
+    assert seen['range'] == 'bytes 0-2/3'
+    assert seen['data'] == b'abc'
+    assert response.status == 201
+    assert response.bytes == b'{"id":"x"}'
+    assert response.request_id == 'r1'
+
+
+def test_request_unauthenticated_maps_http_error_to_typed_error():
+    def fake_urlopen(req, timeout):
+        raise _http_error(404, b'gone')
+
+    with pytest.raises(NotFoundError):
+        http.request_unauthenticated('PUT', 'https://up.example.test/sess', urlopen=fake_urlopen)
+
+
+def test_request_unauthenticated_maps_url_error_to_network_error():
+    def fake_urlopen(req, timeout):
+        raise urllib.error.URLError('offline')
+
+    with pytest.raises(NetworkError):
+        http.request_unauthenticated('PUT', 'https://up.example.test/sess', urlopen=fake_urlopen)
+
+
+def test_request_unauthenticated_retries_then_succeeds(capsys):
+    calls = {'n': 0}
+    sleeps = []
+
+    def fake_urlopen(req, timeout):
+        calls['n'] += 1
+        if calls['n'] == 1:
+            raise _http_error(503, headers={'Retry-After': '1'})
+        return FakeResp(b'{}', status=202)
+
+    response = http.request_unauthenticated(
+        'PUT',
+        'https://up.example.test/sess',
+        retry=1,
+        debug=True,
+        sleep=sleeps.append,
+        urlopen=fake_urlopen,
+    )
+    assert response.status == 202
+    assert sleeps == [1]
+    assert 'retrying in 1s' in capsys.readouterr().err
+
+
+def test_request_unauthenticated_retry_over_cap_raises_rate_limited():
+    def fake_urlopen(req, timeout):
+        raise _http_error(429, headers={'Retry-After': '999'})
+
+    with pytest.raises(RateLimitedError):
+        http.request_unauthenticated(
+            'PUT',
+            'https://up.example.test/sess',
+            retry=1,
+            sleep=lambda _s: None,
+            urlopen=fake_urlopen,
+        )
+
+
 def test_paginate_yields_collection_items_and_follows_next_link():
     payloads = [
         {'value': [{'id': '1'}], '@odata.nextLink': 'https://graph.example.test/page2'},

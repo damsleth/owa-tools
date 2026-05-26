@@ -6,6 +6,25 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## v0.2.0 (unreleased)
+
+### owa-drive
+
+- New: `owa-drive put` now uploads files of any size. Payloads larger
+  than 4 MB transparently use a Microsoft Graph resumable upload
+  session (chunked PUTs to a pre-authorized URL); files at or under
+  4 MB still take the single-PUT fast path. The previous hard cap and
+  "not implemented" error are gone.
+
+### owa_core
+
+- New: `owa_core.upload.upload_session(upload_url, content, ...)`, a
+  generic, stdlib-only, injectable driver for Graph upload sessions.
+  It chunks bytes into 320 KiB-multiple PUTs against a pre-signed
+  uploadUrl (no bearer token), retries transient 429/503 per chunk,
+  and returns the final item JSON. Reused by owa-drive today and ready
+  for mail attachments next.
+
 ## v0.1.3 - 2026-05-18
 
 Improves the agent-facing CLI contract by adding per-subcommand help across the suite.

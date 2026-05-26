@@ -71,6 +71,14 @@ def content_endpoint(path):
     return f'{base}/content'
 
 
+def upload_session_endpoint(path):
+    """Endpoint for POST createUploadSession (large-file upload)."""
+    base = item_endpoint(path)
+    if base == 'me/drive/root':
+        raise ValueError("the drive root has no content; specify a path")
+    return f'{base}/createUploadSession'
+
+
 def delete_endpoint(path):
     """Endpoint for DELETE.
 

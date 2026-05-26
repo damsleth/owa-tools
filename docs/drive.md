@@ -45,17 +45,30 @@ owa-piggy setup --profile work --email you@example.com
 owa-drive ls [path] [--pretty]            # list folder (default: drive root)
 owa-drive show <path> [--pretty]          # metadata for one item
 owa-drive get <path> [--out local-path]   # download (stdout or file)
-owa-drive put <local> <remote-path>       # upload (use - for stdin)
+owa-drive put <local> <remote-path>       # upload any size (use - for stdin)
 owa-drive rm <path> [--confirm]           # delete (interactive without --confirm)
 
 owa-drive refresh
 owa-drive config --profile crayon
 ```
 
+## Uploads
+
+`put` handles files of any size. Files at or under 4 MB upload in a
+single `PUT`. Larger files transparently use a Microsoft Graph
+resumable upload session: the bytes are streamed to a pre-authorized
+upload URL in sequential chunks (a multiple of 320 KiB each). The whole
+payload is read into memory before upload, so a multi-GB file needs
+comparable RAM.
+
+```bash
+$ owa-drive put ./big-video.mp4 /Documents/big-video.mp4
+uploading 734003200 bytes via upload session...
+{"id":"...","name":"big-video.mp4","kind":"file","size":734003200,...}
+```
+
 ## Caveats
 
-- Upload limit is 4 MB. Larger files need a Graph upload session,
-  which this tool does not implement yet.
 - `rm` deliberately requires `--confirm` (or interactive "yes")
   for safety. The drive root is unconditionally refused.
 - This is a CRUD tool, not a sync client. There is no folder

@@ -11,6 +11,7 @@ from owa_drive.paths import (
     delete_endpoint,
     item_endpoint,
     normalize_path,
+    upload_session_endpoint,
 )
 
 
@@ -59,6 +60,18 @@ def test_content_endpoint_root_raises():
 
 def test_content_endpoint_path():
     assert content_endpoint('/Documents/foo.txt') == 'me/drive/root:/Documents/foo.txt:/content'
+
+
+def test_upload_session_endpoint_root_raises():
+    with pytest.raises(ValueError):
+        upload_session_endpoint('/')
+
+
+def test_upload_session_endpoint_path():
+    assert (
+        upload_session_endpoint('/Documents/big.bin')
+        == 'me/drive/root:/Documents/big.bin:/createUploadSession'
+    )
 
 
 def test_delete_endpoint_root_raises():

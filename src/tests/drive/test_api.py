@@ -1,7 +1,7 @@
 """owa-drive API wrapper tests."""
 import pytest
 
-from owa_core.errors import AuthExpiredError, ConflictError, UsageError
+from owa_core.errors import AuthExpiredError, ConflictError, InternalError
 from owa_core.http import Response
 from owa_drive import api
 
@@ -57,13 +57,99 @@ def test_api_put_binary_uses_octet_stream(monkeypatch):
 
 
 def test_api_put_binary_preserves_size_guard():
-    with pytest.raises(UsageError, match='simple upload path is limited'):
+    with pytest.raises(InternalError, match='simple upload path is limited'):
         api.api_put_binary(
             'https://graph.microsoft.com/v1.0',
             '/content',
             'fake',
             b'x' * (api.UPLOAD_LIMIT_BYTES + 1),
         )
+
+
+def test_api_upload_session_creates_session_and_drives_upload(monkeypatch):
+    seen = {}
+
+    def fake_request(method, url, **kwargs):
+        seen['method'] = method
+        seen['url'] = url
+        seen['body'] = kwargs.get('body')
+        return Response(
+            status=200, headers={},
+            json={'uploadUrl': 'https://up.example.test/sess'}, bytes=b'{}',
+        )
+
+    def fake_upload_session(upload_url, content, **kwargs):
+        seen['upload_url'] = upload_url
+        seen['content'] = content
+        return {'id': 'big-1', 'name': 'big.bin'}
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    monkeypatch.setattr(api.upload_mod, 'upload_session', fake_upload_session)
+
+    out = api.api_upload_session(
+        'https://graph.microsoft.com/v1.0',
+        'me/drive/root:/big.bin:/createUploadSession',
+        'fake-token',
+        b'x' * 100,
+    )
+    assert out == {'id': 'big-1', 'name': 'big.bin'}
+    assert seen['method'] == 'POST'
+    assert seen['url'].endswith('/createUploadSession')
+    assert seen['body'] == {'item': {'@microsoft.graph.conflictBehavior': 'replace'}}
+    assert seen['upload_url'] == 'https://up.example.test/sess'
+    assert seen['content'] == b'x' * 100
+
+
+def test_api_upload_session_missing_upload_url_returns_none(monkeypatch, capsys):
+    def fake_request(method, url, **kwargs):
+        return Response(status=200, headers={}, json={}, bytes=b'{}')
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    out = api.api_upload_session(
+        'https://graph.microsoft.com/v1.0',
+        'me/drive/root:/big.bin:/createUploadSession',
+        'fake-token',
+        b'x' * 100,
+    )
+    assert out is None
+    assert 'uploadUrl' in capsys.readouterr().err
+
+
+def test_api_upload_session_session_conflict_returns_none(monkeypatch, capsys):
+    def fake_request(method, url, **kwargs):
+        raise ConflictError('conflict (409)')
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    out = api.api_upload_session(
+        'https://graph.microsoft.com/v1.0',
+        'me/drive/root:/big.bin:/createUploadSession',
+        'fake-token',
+        b'x' * 100,
+    )
+    assert out is None
+    assert 'conflict' in capsys.readouterr().err
+
+
+def test_api_upload_session_upload_failure_returns_none(monkeypatch, capsys):
+    def fake_request(method, url, **kwargs):
+        return Response(
+            status=200, headers={},
+            json={'uploadUrl': 'https://up.example.test/sess'}, bytes=b'{}',
+        )
+
+    def fake_upload_session(upload_url, content, **kwargs):
+        raise InternalError('upload chunk failed: HTTP 500')
+
+    monkeypatch.setattr(api.http, 'request', fake_request)
+    monkeypatch.setattr(api.upload_mod, 'upload_session', fake_upload_session)
+    out = api.api_upload_session(
+        'https://graph.microsoft.com/v1.0',
+        'me/drive/root:/big.bin:/createUploadSession',
+        'fake-token',
+        b'x' * 100,
+    )
+    assert out is None
+    assert 'upload chunk failed' in capsys.readouterr().err
 
 
 def test_api_request_conflict_preserves_none_contract(monkeypatch, capsys):
