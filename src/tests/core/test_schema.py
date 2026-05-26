@@ -118,14 +118,6 @@ def test_render_command_help_with_flag_dicts(capsys):
     assert '--pretty' in out
 
 
-def test_render_command_help_with_bare_string_flags(capsys):
-    cmd = schema.command('events', 'List events', flags=['--pretty', '--limit'])
-    schema.render_command_help('owa-cal', cmd)
-    out = capsys.readouterr().out
-    assert '--pretty' in out
-    assert '--limit' in out
-
-
 def test_render_command_help_shows_destructive_notes(capsys):
     cmd = schema.command(
         'delete', 'Delete an event', auth='outlook',
@@ -175,7 +167,7 @@ def test_maybe_emit_subcommand_help_returns_none_for_unknown_command():
 
 
 def test_maybe_emit_subcommand_help_short_form(capsys):
-    cmd = schema.command('events', 'List events', flags=['--pretty'])
+    cmd = schema.command('events', 'List events', flags=[schema.flag('--pretty')])
     rc = schema.maybe_emit_subcommand_help(
         'events', ['-h'], tool='owa-cal', commands=[cmd],
     )
@@ -184,7 +176,7 @@ def test_maybe_emit_subcommand_help_short_form(capsys):
 
 
 def test_maybe_emit_subcommand_help_long_form(capsys):
-    cmd = schema.command('events', 'List events', flags=['--pretty'])
+    cmd = schema.command('events', 'List events', flags=[schema.flag('--pretty')])
     rc = schema.maybe_emit_subcommand_help(
         'events', ['--help'], tool='owa-cal', commands=[cmd],
     )

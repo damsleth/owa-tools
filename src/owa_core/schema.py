@@ -19,9 +19,6 @@ def flag(name, *, value=None, summary='', required=False, repeatable=False):
         summary: One-line human description.
         required: True if the subcommand rejects invocations without it.
         repeatable: True if the flag may be passed multiple times.
-
-    Strings are still accepted directly in `command(flags=[...])` for
-    backwards compatibility with the original minimal contract.
     """
     row = {'name': name}
     if value is not None:
@@ -105,12 +102,7 @@ def maybe_emit_schema(argv, *, tool, commands):
 
 
 def _flag_left(entry):
-    """Render the left column for a flag entry.
-
-    Accepts both dict specs from `flag()` and bare strings.
-    """
-    if isinstance(entry, str):
-        return entry
+    """Render the left column for a flag entry built by `flag()`."""
     name = entry.get('name', '')
     value = entry.get('value')
     return f'{name} {value}' if value else name
@@ -118,8 +110,6 @@ def _flag_left(entry):
 
 def _flag_right(entry):
     """Render the right column (summary + required marker)."""
-    if isinstance(entry, str):
-        return ''
     parts = []
     summary = entry.get('summary') or ''
     if summary:
