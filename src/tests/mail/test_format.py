@@ -1,9 +1,33 @@
 """Tests for --pretty rendering."""
 from owa_mail.format import (
+    _human_size,
+    format_attachments_pretty,
     format_folders_pretty,
     format_message_pretty,
     format_messages_pretty,
 )
+
+
+def test_human_size_units():
+    assert _human_size(0) == '0B'
+    assert _human_size(512) == '512B'
+    assert _human_size(2048) == '2.0KB'
+    assert _human_size(5 * 1024 * 1024) == '5.0MB'
+    assert _human_size(3 * 1024 * 1024 * 1024) == '3.0GB'
+
+
+def test_format_attachments_pretty():
+    assert format_attachments_pretty([]) == 'No attachments.'
+    rows = [
+        {'name': 'a.pdf', 'size': 2048, 'kind': 'fileAttachment', 'content_type': 'application/pdf'},
+        {'name': 'b', 'size': 0, 'kind': '', 'content_type': ''},
+    ]
+    out = format_attachments_pretty(rows)
+    assert 'a.pdf' in out
+    assert '2.0KB' in out
+    assert 'application/pdf' in out
+    # Empty kind falls back to 'attachment'.
+    assert 'attachment' in out
 
 
 def test_format_messages_pretty_empty():
