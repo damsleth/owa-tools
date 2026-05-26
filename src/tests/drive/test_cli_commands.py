@@ -96,6 +96,48 @@ def test_ls_show_get_put_and_rm(monkeypatch, tmp_path, capfd):
     assert "deleted: /Documents/report.txt" in capfd.readouterr().err
 
 
+def test_put_large_file_uses_upload_session(monkeypatch, tmp_path, capfd):
+    seen = {}
+
+    def fake_session(api_base, endpoint, token, data, **kwargs):
+        seen['endpoint'] = endpoint
+        seen['size'] = len(data)
+        return _drive_item("big.bin")
+
+    monkeypatch.setattr(cli.api_mod, "api_upload_session", fake_session)
+    monkeypatch.setattr(
+        cli.api_mod, "api_put_binary",
+        lambda *a, **k: pytest.fail("small path used for large file"),
+    )
+
+    src = tmp_path / "big.bin"
+    src.write_bytes(b"x" * (cli.api_mod.UPLOAD_LIMIT_BYTES + 1))
+    assert cli.cmd_put([str(src), "/Documents/big.bin"], {}, "tok", "https://graph.test") == 0
+    out = capfd.readouterr()
+    assert json.loads(out.out)["name"] == "big.bin"
+    assert "upload session" in out.err
+    assert seen['endpoint'] == "me/drive/root:/Documents/big.bin:/createUploadSession"
+    assert seen['size'] == cli.api_mod.UPLOAD_LIMIT_BYTES + 1
+
+
+def test_put_large_file_to_root_rejected(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(
+        cli.api_mod, "api_upload_session",
+        lambda *a, **k: pytest.fail("session created for root path"),
+    )
+    src = tmp_path / "big.bin"
+    src.write_bytes(b"x" * (cli.api_mod.UPLOAD_LIMIT_BYTES + 1))
+    assert cli.cmd_put([str(src), "/"], {}, "tok", "https://graph.test") == 1
+    assert "root has no content" in capsys.readouterr().err
+
+
+def test_put_large_file_session_failure_returns_one(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli.api_mod, "api_upload_session", lambda *a, **k: None)
+    src = tmp_path / "big.bin"
+    src.write_bytes(b"x" * (cli.api_mod.UPLOAD_LIMIT_BYTES + 1))
+    assert cli.cmd_put([str(src), "/Documents/big.bin"], {}, "tok", "https://graph.test") == 1
+
+
 def test_drive_validation_confirm_and_failures(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(cli.api_mod, "api_request", lambda *args, **kwargs: None)
     monkeypatch.setattr(cli.api_mod, "api_get_binary", lambda *args, **kwargs: None)

@@ -61,7 +61,9 @@ Commands:
                       Default: stream to stdout.
                       With --out <local>: write to that path.
   put <local> <remote-path>
-                      Upload a small file (< 4MB) to <remote-path>.
+                      Upload a file of any size to <remote-path>.
+                      Small files use a single PUT; larger files use a
+                      Graph resumable upload session automatically.
                       <local>=='-' reads from stdin.
   rm <path>           Delete an item (requires --confirm for safety).
   refresh             Force a token refresh and verify auth.
@@ -221,16 +223,27 @@ def cmd_put(args, config, access_token, api_base):
             _error(f'cannot read {local}: {exc}')
             return 1
 
-    try:
-        endpoint = paths_mod.content_endpoint(remote)
-    except ValueError as exc:
-        _error(str(exc))
-        return 1
-
-    payload = api_mod.api_put_binary(
-        api_base, endpoint, access_token, data,
-        debug=_debug_enabled(config),
-    )
+    if len(data) > api_mod.UPLOAD_LIMIT_BYTES:
+        try:
+            session_endpoint = paths_mod.upload_session_endpoint(remote)
+        except ValueError as exc:
+            _error(str(exc))
+            return 1
+        _info(f'uploading {len(data)} bytes via upload session...')
+        payload = api_mod.api_upload_session(
+            api_base, session_endpoint, access_token, data,
+            debug=_debug_enabled(config),
+        )
+    else:
+        try:
+            endpoint = paths_mod.content_endpoint(remote)
+        except ValueError as exc:
+            _error(str(exc))
+            return 1
+        payload = api_mod.api_put_binary(
+            api_base, endpoint, access_token, data,
+            debug=_debug_enabled(config),
+        )
     if payload is None:
         return 1
     item = normalize_item(payload) if isinstance(payload, dict) else {}
@@ -379,7 +392,7 @@ COMMAND_SCHEMA = [
     schema_mod.command('ls', 'List a folder', auth='graph', flags=_LS_FLAGS),
     schema_mod.command('show', 'Show item metadata', auth='graph', flags=_SHOW_FLAGS),
     schema_mod.command('get', 'Download file content', auth='graph', output='bytes', flags=_GET_FLAGS),
-    schema_mod.command('put', 'Upload a small file', auth='graph', mutates=True, flags=_PUT_FLAGS),
+    schema_mod.command('put', 'Upload a file of any size', auth='graph', mutates=True, flags=_PUT_FLAGS),
     schema_mod.command(
         'rm',
         'Delete an item',

@@ -1,13 +1,15 @@
 """Graph HTTP helper for owa-drive.
 
 Two flavours: api_request for JSON in/out (most ops), and
-api_request_binary for content endpoints (download/upload). The
-4MB upload limit is a Graph constraint - large files need an upload
-session, which is a future expansion.
+api_request_binary for content endpoints (download/upload). Files at or
+under UPLOAD_LIMIT_BYTES use the simple single-PUT path
+(api_put_binary); larger files go through a Graph resumable upload
+session driven by the generic owa_core.upload helper.
 """
 import sys
 
 from owa_core import http
+from owa_core import upload as upload_mod
 from owa_core.errors import (
     AuthExpiredError,
     ConflictError,
@@ -17,7 +19,6 @@ from owa_core.errors import (
     OwaError,
     RateLimitedError,
     ScopeInsufficientError,
-    UsageError,
     emit_error,
 )
 
@@ -61,7 +62,13 @@ def api_get_binary(base, endpoint, access_token, debug=False):
 
 
 def api_put_binary(base, endpoint, access_token, content_bytes, debug=False):
-    """PUT raw bytes (for small-file content upload)."""
+    """PUT raw bytes in a single request (small-file content upload).
+
+    Graph caps the simple PUT path at UPLOAD_LIMIT_BYTES. Callers must
+    route larger payloads through api_upload_session; this function
+    defends the boundary so a misroute fails loudly rather than 4xx-ing
+    against Graph.
+    """
     url = f'{base}/{endpoint.lstrip("/")}'
     if debug:
         print(
@@ -69,10 +76,10 @@ def api_put_binary(base, endpoint, access_token, content_bytes, debug=False):
             file=sys.stderr,
         )
     if len(content_bytes) > UPLOAD_LIMIT_BYTES:
-        raise UsageError(
+        raise InternalError(
             f'file is {len(content_bytes)} bytes; the simple upload path is '
-            f'limited to {UPLOAD_LIMIT_BYTES} bytes. Larger files need an '
-            'upload session (not implemented).',
+            f'limited to {UPLOAD_LIMIT_BYTES} bytes. Use api_upload_session '
+            'for larger files.',
         )
     try:
         return http.request(
@@ -83,5 +90,41 @@ def api_put_binary(base, endpoint, access_token, content_bytes, debug=False):
             headers={'Content-Type': 'application/octet-stream'},
             debug=debug,
         ).json
+    except OwaError as error:
+        return _handle_owa_error(error)
+
+
+def api_upload_session(base, session_endpoint, access_token, content_bytes,
+                       debug=False, chunk_size=upload_mod.DEFAULT_CHUNK_SIZE):
+    """Upload arbitrary-size bytes via a Graph resumable upload session.
+
+    Creates an upload session against `session_endpoint`
+    (e.g. `me/drive/root:/path:/createUploadSession`), then hands the
+    pre-authorized uploadUrl and the bytes to the generic
+    owa_core.upload.upload_session driver. Returns the final driveItem
+    JSON, or None if session creation surfaced a recoverable OwaError
+    (matching the api_request None contract).
+    """
+    url = f'{base}/{session_endpoint.lstrip("/")}'
+    body = {'item': {'@microsoft.graph.conflictBehavior': 'replace'}}
+    try:
+        session = http.request(
+            'POST', url, token=access_token, body=body, debug=debug,
+        ).json
+    except OwaError as error:
+        return _handle_owa_error(error)
+    if not isinstance(session, dict):
+        emit_error(InternalError('upload session creation returned no body'))
+        return None
+    upload_url = session.get('uploadUrl')
+    if not upload_url:
+        emit_error(InternalError('upload session response had no uploadUrl'))
+        return None
+    if debug:
+        print('DEBUG: created upload session', file=sys.stderr)
+    try:
+        return upload_mod.upload_session(
+            upload_url, content_bytes, chunk_size=chunk_size, debug=debug,
+        )
     except OwaError as error:
         return _handle_owa_error(error)
