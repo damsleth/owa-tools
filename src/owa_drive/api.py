@@ -50,6 +50,25 @@ def api_request(method, base, endpoint, access_token, body=None,
         return _handle_owa_error(error)
 
 
+def paginate_all(base, endpoint, access_token, extra_headers=None, debug=False):
+    """Follow `@odata.nextLink` from the first page until exhausted.
+
+    Builds the first-page URL the same way api_request does, then
+    delegates to the shared `owa_core.http.paginate` generator and
+    collects every `value` item into a list. Returns the list on
+    success, or None on the recoverable errors api_request maps to None
+    (auth/scope errors re-raise), matching the single-page contract.
+    """
+    url = f'{base}/{endpoint.lstrip("/")}'
+    headers = dict(extra_headers or {})
+    try:
+        return list(http.paginate(
+            url, token=access_token, headers=headers, debug=debug,
+        ))
+    except OwaError as error:
+        return _handle_owa_error(error)
+
+
 def api_get_binary(base, endpoint, access_token, debug=False):
     """GET that returns raw bytes (for /content endpoints)."""
     url = f'{base}/{endpoint.lstrip("/")}'

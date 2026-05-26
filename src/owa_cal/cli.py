@@ -144,7 +144,9 @@ Events options:
   --year <n>          Year (default: current)
   --search <term>     Search events by subject
   --pretty            Human-readable table (default: JSON)
-  --limit <n>         Max results (default: 50)
+  --limit <n>         Max results per page (default: 50)
+  --all               Follow @odata.nextLink until exhausted (--limit
+                      still controls page size per request)
 
 Create options:
   --subject <title>   Event title (required)
@@ -266,6 +268,11 @@ def cmd_events_webcal(args, config):
             search, args = _require_value(flag, args)
         elif flag == '--pretty':
             pretty = True
+        elif flag == '--all':
+            # The webcal feed is fetched in full client-side, so it is
+            # already "all pages"; accept the flag as a no-op for parity
+            # with the Outlook REST path.
+            pass
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
         else:
@@ -297,6 +304,7 @@ def cmd_events(args, config, access_token, api_base):
     date_ = from_ = to_ = search = ''
     week = year = 0
     pretty = False
+    all_pages = False
     limit = 50
 
     while args:
@@ -315,6 +323,8 @@ def cmd_events(args, config, access_token, api_base):
             search, args = _require_value(flag, args)
         elif flag == '--pretty':
             pretty = True
+        elif flag == '--all':
+            all_pages = True
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
         else:
@@ -332,6 +342,8 @@ def cmd_events(args, config, access_token, api_base):
     select_fields = _EVENTS_SELECT
     orderby_field = _EVENTS_ORDERBY
 
+    # --limit still controls page size ($top per request); --all follows
+    # @odata.nextLink until every page is exhausted.
     q = api_mod.build_query({
         'startDateTime': start_dt,
         'endDateTime': end_dt,
@@ -339,10 +351,15 @@ def cmd_events(args, config, access_token, api_base):
         '$orderby': orderby_field,
         '$select': select_fields,
     })
-    data = api_mod.api_get(api_base, f'me/calendarView?{q}', access_token, debug=debug)
-
-    if data is None:
-        return 1
+    if all_pages:
+        items = api_mod.paginate_all(api_base, f'me/calendarView?{q}', access_token, debug=debug)
+        if items is None:
+            return 1
+        data = {'value': items}
+    else:
+        data = api_mod.api_get(api_base, f'me/calendarView?{q}', access_token, debug=debug)
+        if data is None:
+            return 1
     normalized = events_mod.normalize_events(data)
     if search:
         needle = search.lower()
@@ -672,7 +689,8 @@ _EVENTS_FLAGS = [
     schema_mod.flag('--year', value='<n>', summary='Year (default: current)'),
     schema_mod.flag('--search', value='<term>', summary='Search events by subject'),
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
-    schema_mod.flag('--limit', value='<n>', summary='Max results (default: 50)'),
+    schema_mod.flag('--limit', value='<n>', summary='Max results per page (default: 50)'),
+    schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
 ]
 
 _CREATE_FLAGS = [

@@ -8,8 +8,25 @@ per-tool subsections inside that release when useful.
 
 ## v0.2.0 (unreleased)
 
+### Suite-wide
+
+- New: `--all` pagination parity. Every list-producing command that
+  returns a Graph-style `value` collection now accepts `--all` to follow
+  `@odata.nextLink` until the collection is exhausted, matching
+  `owa-graph`. Affected commands: `owa-mail messages`, `owa-mail
+  folders`, `owa-people find`, `owa-people directory`, `owa-people
+  contacts`, `owa-drive ls`, and `owa-cal events`. Without `--all`
+  behavior is unchanged (single page); with `--all`, `--limit`/`--top`
+  still controls the page size requested per round-trip. All tools share
+  the `owa_core.http.paginate` generator via a per-tool `paginate_all`
+  helper that preserves the single-page error contract. (`owa-sched`
+  uses a single POST `getSchedule` call with no `@odata.nextLink`, so it
+  is unaffected; `owa-cal events` over a webcal/iCal profile treats
+  `--all` as a no-op since the feed is always fetched in full.)
+
 ### owa-mail
 
+- New: `--all` on `messages` and `folders` (see Suite-wide).
 - New: attachment support. `owa-mail attachments --id <id>` lists a
   message's attachments (name/type/size/kind, no base64 blob);
   `owa-mail attachment-get --id <id> --attachment <att-id>` downloads
@@ -27,8 +44,17 @@ per-tool subsections inside that release when useful.
   whitespace. JSON output is unchanged (raw `body` verbatim); text
   bodies pass through untouched.
 
+### owa-people
+
+- New: `--all` on `find`, `directory`, and `contacts` (see Suite-wide).
+
+### owa-cal
+
+- New: `--all` on `events` (see Suite-wide).
+
 ### owa-drive
 
+- New: `--all` on `ls` (see Suite-wide).
 - New: `owa-drive put` now uploads files of any size. Payloads larger
   than 4 MB transparently use a Microsoft Graph resumable upload
   session (chunked PUTs to a pre-authorized URL); files at or under

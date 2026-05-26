@@ -42,7 +42,7 @@ owa-piggy setup --profile work --email you@example.com
 ## Commands
 
 ```bash
-owa-drive ls [path] [--pretty]            # list folder (default: drive root)
+owa-drive ls [path] [--pretty] [--all]    # list folder (default: drive root)
 owa-drive show <path> [--pretty]          # metadata for one item
 owa-drive get <path> [--out local-path]   # download (stdout or file)
 owa-drive put <local> <remote-path>       # upload any size (use - for stdin)
@@ -50,6 +50,15 @@ owa-drive rm <path> [--confirm]           # delete (interactive without --confir
 
 owa-drive refresh
 owa-drive config --profile crayon
+```
+
+`ls` returns a single page by default. Pass `--all` to follow
+`@odata.nextLink` until the folder is fully enumerated (handy for large
+folders). Output shape is unchanged (a JSON array, or a `--pretty`
+table over all rows).
+
+```bash
+owa-drive ls "/Documents" --all | jq length
 ```
 
 ## Uploads

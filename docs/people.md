@@ -48,8 +48,20 @@ owa-people refresh               # force a token refresh, verify auth
 owa-people config --profile X    # pin a default owa-piggy profile
 ```
 
-Add `--pretty` for a table; `--limit N` to bound results (default 25,
-max 100); `--profile <alias>` to switch profiles for one invocation.
+Add `--pretty` for a table; `--limit N` to bound the page size (default
+25, max 100); `--profile <alias>` to switch profiles for one
+invocation.
+
+`find`, `directory`, and `contacts` return a single page by default.
+Pass `--all` to follow `@odata.nextLink` until the collection is
+exhausted; `--limit` still controls the page size requested per
+round-trip. (`show` and `me` return a single object and have no
+`--all`.)
+
+```bash
+owa-people directory "norconsult" --all | jq length
+owa-people contacts --all --pretty
+```
 
 ## Auth
 
