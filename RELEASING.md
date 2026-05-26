@@ -27,25 +27,19 @@ umbrella `owa` binary plus all consumer CLIs.
    `python src/scripts/check_artifacts.py dist/*` green.
 4. `python src/scripts/check_console_smoke.py` green.
 5. Changelog updated for the suite version.
-6. Migration notes in `docs/migrating-from-individual-installs.md` reflect
-   anything that changed for users coming from the old per-tool installs.
 
-## Compatibility snapshots: scope for first release
+## Compatibility snapshots
 
 Decision recorded here so it does not drift across docs.
 
-- The first `owa-tools` release ships with the existing
-  `src/tests/compat/` and `src/tests/contract/` suites only. The richer snapshot
-  system from the original implementation plan
-  (`tools/snapshot_cli.py`, versioned fixture format,
+- Releases ship with the `src/tests/compat/` and `src/tests/contract/`
+  suites only. The richer snapshot system from the original
+  implementation plan (`tools/snapshot_cli.py`, versioned fixture format,
   scrubbed sandbox captures replayed against mocked HTTP) is **deferred**.
-- Rationale: the first suite release is an explicit beta/preview swap-in
-  for the legacy per-tool installs. The current compat + contract gates
-  plus the runtime coverage gate are sufficient confidence to publish.
+- Rationale: the compat + contract gates plus the runtime coverage gate
+  are sufficient confidence to publish.
 - Follow-up: the snapshot system is tracked as a hardening milestone and
-  is listed under `## Deferred work` below. It must land before any
-  release intended to replace the legacy per-tool installs for users
-  outside the preview audience.
+  is listed under `## Deferred work` below.
 
 ## Release workflow
 
@@ -117,9 +111,6 @@ and the index is just stale.
   starting point to copy into the Homebrew tap repository at release
   time. Update `url`, `sha256`, and `version` to match the published
   sdist on PyPI.
-- Old per-tool formulas remain as transitional aliases for one release
-  cycle and then get removed. Each carries a `deprecate!` line pointing
-  at `owa-tools`.
 
 ## Backout / rollback
 
@@ -183,15 +174,8 @@ block the first preview release.
 
 - **Compatibility snapshots:** `tools/snapshot_cli.py`, versioned fixture
   format, `src/tests/compat/fixtures/`, scrubbed sandbox captures replayed
-  against mocked HTTP. Required before swapping in for legacy per-tool
-  installs at general-availability.
-- **Pagination/truncation metadata:** complete the agent-mode contract
-  for every list command (cursor behavior, `--all` behavior,
-  truncation metadata).
+  against mocked HTTP.
 - **Generated shell completions:** generate from schemas once the schema
   format stabilizes.
 - **Broader live integration coverage:** opt-in read-only smoke tests
   across doctor, graph, cal, mail, people, sched, drive.
-- **Old repo redirects:** after the release is verified end to end, add
-  redirect READMEs to the old per-tool repos and archive them only after
-  users have a working replacement install path.

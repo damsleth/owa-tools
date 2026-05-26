@@ -83,11 +83,3 @@ owa-doctor probe            # full suite health (every tool, every audience)
 ```
 
 `owa-doctor probe --no-tokens` runs without invoking `owa-piggy` at all; useful for CI on a machine that doesn't have any seeded profiles.
-
-## Coming from per-tool installs
-
-Profile resolution is unchanged from the legacy per-tool releases. If you
-are migrating from the old standalone `owa-cal` / `owa-mail` / etc.
-installs, see `docs/migrating-from-individual-installs.md` for the install
-swap. Your existing `~/.config/owa-piggy/` and per-tool
-`~/.config/<tool>/config` files keep working as is.

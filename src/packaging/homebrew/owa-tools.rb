@@ -9,8 +9,7 @@
 #  Pinned things to remember when copying:
 #  - The eight console scripts (`owa`, `owa-cal`, `owa-mail`, `owa-graph`,
 #    `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`) all come from
-#    this one bottle. Old per-tool formulas stay alive for one release
-#    cycle as deprecated aliases that depend on `owa-tools`.
+#    this one bottle.
 #  - `owa-piggy` keeps its own formula in the same tap. This formula does
 #    not depend on it at install time, but the `test do` block exercises
 #    `--no-tokens` paths so a missing `owa-piggy` does not break `brew

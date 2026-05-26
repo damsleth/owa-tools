@@ -80,8 +80,6 @@ Suite-wide:
 - One suite version across all eight binaries.
 - `owa list`, `owa schema`, `owa doctor`, `owa version` umbrella commands.
 - Verified compatible with `owa-piggy` 0.8.0 (minimum supported 0.7.1).
-- Migration guide for users coming from per-tool installs:
-  `docs/migrating-from-individual-installs.md`.
 - Release flow: PyPI via local `uv publish` (UV_PUBLISH_TOKEN from `.env`);
   GitHub Actions builds artifacts and creates the GitHub Release.
 - Draft Homebrew formula at `packaging/homebrew/owa-tools.rb`.
