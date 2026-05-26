@@ -8,6 +8,19 @@ per-tool subsections inside that release when useful.
 
 ## v0.2.0 (unreleased)
 
+### owa-mail
+
+- New: attachment support. `owa-mail attachments --id <id>` lists a
+  message's attachments (name/type/size/kind, no base64 blob);
+  `owa-mail attachment-get --id <id> --attachment <att-id>` downloads
+  one file attachment to `--out <path>` or raw bytes on stdout.
+- New: repeatable `--attach <file>` on `send`, `reply`, `reply-all`,
+  and `forward`. Files 3 MB or smaller are sent inline; larger files
+  transparently use a Microsoft Graph resumable upload session (create
+  draft -> createUploadSession -> chunked PUT -> send), reusing the
+  shared `owa_core.upload` driver. Small no-attachment sends keep the
+  single-shot `sendMail` fast path.
+
 ### owa-drive
 
 - New: `owa-drive put` now uploads files of any size. Payloads larger

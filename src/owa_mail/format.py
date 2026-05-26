@@ -79,6 +79,36 @@ def format_message_pretty(message):
     return '\n'.join(lines)
 
 
+def _human_size(num):
+    """Render a byte count as a short human string (KB/MB)."""
+    n = float(num or 0)
+    for unit in ('B', 'KB', 'MB', 'GB'):
+        if n < 1024 or unit == 'GB':
+            if unit == 'B':
+                return f'{int(n)}{unit}'
+            return f'{n:.1f}{unit}'
+        n /= 1024
+    return f'{int(num)}B'
+
+
+def format_attachments_pretty(attachments):
+    """Tabular attachment listing: name, kind, size, content-type."""
+    if not attachments:
+        return 'No attachments.'
+    width = max(len(a.get('name') or '') for a in attachments)
+    out = []
+    for a in attachments:
+        name = _pad(a.get('name') or '(unnamed)', width)
+        size = _human_size(a.get('size'))
+        kind = a.get('kind') or 'attachment'
+        ctype = a.get('content_type') or ''
+        line = f'{name}  {_pad(size, 8)}  {kind}'
+        if ctype:
+            line = f'{line}  {ctype}'
+        out.append(line)
+    return '\n'.join(out)
+
+
 def format_folders_pretty(folders):
     """Tabular folder listing: name, unread, total."""
     if not folders:

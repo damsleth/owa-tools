@@ -194,6 +194,20 @@ def _importance_value(value):
     raise ValueError(f'invalid importance: {value} (use low|normal|high)')
 
 
+def with_inline_attachments(message_body, inline_attachments):
+    """Return a copy of `message_body` with an `Attachments` array.
+
+    `inline_attachments` is a list of pre-built fileAttachment objects
+    (see attachments.build_inline_attachment). No-op when the list is
+    empty so the simple no-attachment payload is unchanged.
+    """
+    if not inline_attachments:
+        return message_body
+    out = dict(message_body)
+    out['Attachments'] = list(inline_attachments)
+    return out
+
+
 def build_message_body(to, cc, bcc, subject, body, html, importance=''):
     """Build the `Message` substructure shared by send / draft.
 

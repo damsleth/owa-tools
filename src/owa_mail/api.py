@@ -8,6 +8,7 @@ there is no recovery path for a 401 except telling the user to re-run.
 import urllib.parse
 
 from owa_core import http
+from owa_core import upload as upload_mod
 from owa_core.errors import (
     AuthExpiredError,
     ConflictError,
@@ -44,6 +45,61 @@ def api_request(method, base, endpoint, access_token, body=None, debug=False):
 
 def api_get(base, endpoint, access_token, debug=False):
     return api_request('GET', base, endpoint, access_token, debug=debug)
+
+
+def api_get_binary(base, endpoint, access_token, debug=False):
+    """GET that returns raw bytes (for attachment `$value` endpoints).
+
+    Returns the bytes on 2xx, None on the recoverable errors that
+    api_request maps to None, and re-raises auth/scope errors.
+    """
+    url = f'{base}/{endpoint}'
+    try:
+        return http.request(
+            'GET', url, token=access_token, raw=True, debug=debug,
+        ).bytes
+    except (AuthExpiredError, ScopeInsufficientError) as error:
+        raise error
+    except OwaError as error:
+        emit_error(error)
+        return None
+
+
+def api_upload_attachment_session(base, session_endpoint, access_token,
+                                  session_body, content_bytes, debug=False):
+    """Attach a large file to a (draft) message via an upload session.
+
+    Creates the upload session against `session_endpoint`
+    (`me/messages/{id}/attachments/createUploadSession`), then hands the
+    pre-authorized uploadUrl and the bytes to the generic
+    owa_core.upload.upload_session driver. Returns the final attachment
+    JSON, or None if session creation surfaced a recoverable OwaError
+    (matching the api_request None contract).
+    """
+    url = f'{base}/{session_endpoint}'
+    try:
+        session = http.request(
+            'POST', url, token=access_token, body=session_body, debug=debug,
+        ).json
+    except (AuthExpiredError, ScopeInsufficientError) as error:
+        raise error
+    except OwaError as error:
+        emit_error(error)
+        return None
+    if not isinstance(session, dict):
+        emit_error(InternalError('attachment upload session returned no body'))
+        return None
+    upload_url = session.get('uploadUrl') or session.get('UploadUrl')
+    if not upload_url:
+        emit_error(InternalError('attachment upload session had no uploadUrl'))
+        return None
+    try:
+        return upload_mod.upload_session(upload_url, content_bytes, debug=debug)
+    except (AuthExpiredError, ScopeInsufficientError) as error:
+        raise error
+    except OwaError as error:
+        emit_error(error)
+        return None
 
 
 def build_query(params):

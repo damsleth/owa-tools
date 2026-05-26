@@ -99,6 +99,9 @@ owa-mail folders | jq '.[] | select(.unread > 0)'
 fields included). `send`/`reply`/`forward` return `{"sent": true,
 "id": "...", "send_at": null|"<iso>"}`. `mark`/`move` return the
 updated message resource. `delete` writes `Deleted.` to stderr.
+`attachments` returns an array of attachment metadata objects (no
+base64 content); `attachment-get` writes the raw attachment bytes to
+stdout or `--out`.
 
 ---
 
@@ -112,17 +115,24 @@ owa-mail messages --folder SentItems --since 2026-04-01 --pretty
 owa-mail messages --search 'subject:invoice'         # KQL search
 owa-mail show --id AAMkAG... --pretty
 
+# Attachments (read)
+owa-mail attachments --id AAMkAG... --pretty            # list a message's attachments
+owa-mail attachment-get --id AAMkAG... --attachment AAA... --out ./report.pdf
+owa-mail attachment-get --id AAMkAG... --attachment AAA... > report.pdf
+
 # Send
 owa-mail send --to a@example.com --subject "hi" --body "hello"
 owa-mail send --to a@b.c,c@d.e --cc x@y.z --subject "review" --body "..." --html
 owa-mail send --to a@b.c --subject "later" --body "..." --send-at 2026-05-01T09:00:00Z
 owa-mail send --to a@b.c --subject "draft" --body "..." --save-draft
+owa-mail send --to a@b.c --subject "report" --body "see attached" --attach ./report.pdf
 echo "body from pipe" | owa-mail send --to a@b.c --subject "piped" --body -
 
 # Threads
 owa-mail reply --id AAMkAG... --body "thanks"
 owa-mail reply-all --id AAMkAG... --body "thanks all"
 owa-mail forward --id AAMkAG... --to friend@example.com --body "fyi"
+owa-mail forward --id AAMkAG... --to friend@example.com --attach ./slides.pdf
 
 # Mailbox
 owa-mail folders --pretty
@@ -168,6 +178,45 @@ Behind the scenes owa-mail creates a draft, attaches the
 `/send`. Exchange Transport then holds the message in your Outbox
 until the scheduled time - the same mechanism OWA's "Schedule send"
 button uses.
+
+### Attachments
+
+**Reading.** `attachments --id <message-id>` lists a message's
+attachments as JSON (or a table with `--pretty`); each row carries
+`id`, `name`, `content_type`, `size`, `kind` (`fileAttachment` /
+`itemAttachment` / `referenceAttachment`) and `is_inline`. The listing
+never includes the base64 content. Use the `id` to download one file
+attachment with `attachment-get`:
+
+```sh
+owa-mail attachments --id AAMkAG...                          # JSON
+owa-mail attachments --id AAMkAG... --pretty                 # table
+owa-mail attachment-get --id AAMkAG... --attachment AAA... --out ./report.pdf
+owa-mail attachment-get --id AAMkAG... --attachment AAA... > report.pdf
+```
+
+`attachment-get` streams the raw bytes to stdout by default (use it
+with a redirect or pipe), or writes them to `--out <path>`. It fetches
+the attachment's `$value` endpoint, so the bytes are exactly as stored.
+
+**Sending.** `--attach <file>` is repeatable and works on `send`,
+`reply`, `reply-all`, and `forward`:
+
+```sh
+owa-mail send --to a@b.c --subject hi --body "see files" \
+  --attach ./a.pdf --attach ./b.png
+owa-mail reply --id AAMkAG... --body "as discussed" --attach ./notes.txt
+owa-mail forward --id AAMkAG... --to c@d.e --attach ./slides.pdf
+```
+
+Files **3 MB or smaller** are sent inline in the message (base64 in
+the `Attachments` array). Files **larger than 3 MB** transparently use
+a Microsoft Graph **upload session**: owa-mail creates a draft (or, for
+reply/forward, uses the createReply/createForward draft), POSTs a
+`createUploadSession` for each large file, PUTs the bytes in chunks to
+the pre-authorized `uploadUrl`, then sends the draft. Small no-attachment
+and small-inline sends keep using the single-shot `sendMail` action, so
+nothing about the existing fast path changes.
 
 ---
 
@@ -221,7 +270,6 @@ See [`AGENTS.md`](AGENTS.md) for repo layout and ground rules.
 
 ## What's not in this version
 
-- **Attachments** - read or send. Planned for v0.2.
 - **`@odata.nextLink` pagination** - `--limit` caps a single page;
   use date bounds (`--since` / `--until`) to walk further back.
 - **HTML-to-text rendering** - `--pretty` shows the API's BodyPreview

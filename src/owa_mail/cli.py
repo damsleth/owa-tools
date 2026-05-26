@@ -19,12 +19,14 @@ from owa_core.errors import UsageError, emit_error, emit_message
 
 from . import __version__
 from . import api as api_mod
+from . import attachments as attachments_mod
 from . import auth as auth_mod
 from . import config as config_mod
 from . import folders as folders_mod
 from . import messages as messages_mod
 from .dates import resolve_date
 from .format import (
+    format_attachments_pretty,
     format_folders_pretty,
     format_message_pretty,
     format_messages_pretty,
@@ -92,6 +94,8 @@ Global options:
 Commands:
   messages             List messages (default: Inbox, last 25)
   show                 Show full message body by --id
+  attachments          List a message's attachments by --id
+  attachment-get       Download one file attachment to --out or stdout
   send                 Compose and send a new message
   reply                Reply to a message by --id
   reply-all            Reply-all to a message by --id
@@ -119,6 +123,15 @@ show options:
   --id <message-id>    (required)
   --pretty             Human-readable header block + body
 
+attachments options:
+  --id <message-id>    (required)
+  --pretty             Human-readable table (default: JSON)
+
+attachment-get options:
+  --id <message-id>        (required)
+  --attachment <att-id>    (required) attachment id from `attachments`
+  --out <path>             Write to file (default: raw bytes to stdout)
+
 send options:
   --to <addr[,addr]>   (required) one or more recipients
   --cc <addr[,addr]>
@@ -126,6 +139,8 @@ send options:
   --subject <text>     (required)
   --body <text>        Body content (use - to read from stdin)
   --html               Treat --body as HTML
+  --attach <file>      Attach a file (repeatable). Files over 3 MB are
+                       sent via a Graph upload session automatically.
   --send-at <iso>      Schedule deferred delivery (ISO datetime, UTC if naive)
   --save-draft         Save as Draft instead of sending
   --importance <lvl>   low|normal|high
@@ -134,6 +149,8 @@ reply / reply-all / forward options:
   --id <message-id>    (required)
   --body <text>        Reply text (use - to read from stdin)
   --html               Treat --body as HTML
+  --attach <file>      Attach a file (repeatable). Files over 3 MB are
+                       sent via a Graph upload session automatically.
   --send-at <iso>      Schedule deferred delivery
   --to <addr[,addr]>   (forward only) recipients
   --save-draft
@@ -171,7 +188,10 @@ Examples:
   owa-mail messages --unread --limit 10 --pretty
   owa-mail messages --folder SentItems --since 2026-04-01 --pretty
   owa-mail show --id AAMkAG... --pretty
+  owa-mail attachments --id AAMkAG... --pretty
+  owa-mail attachment-get --id AAMkAG... --attachment AAA... --out ./report.pdf
   owa-mail send --to a@example.com --subject hi --body "hello"
+  owa-mail send --to a@example.com --subject report --body "see attached" --attach ./report.pdf
   owa-mail send --to a@example.com --subject later --body x --send-at 2026-05-01T09:00:00Z
   owa-mail reply --id AAMkAG... --body "thanks"
   owa-mail mark --id AAMkAG... --read
@@ -291,6 +311,78 @@ def cmd_show(args, config, access_token, api_base):
     return 0
 
 
+def cmd_attachments(args, config, access_token, api_base):
+    message_id = ''
+    pretty = False
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--id':
+            message_id, args = _require_value(flag, args)
+        elif flag == '--pretty':
+            pretty = True
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+    if not message_id:
+        _error('--id is required'); return 1
+
+    debug = _debug_enabled(config)
+    # Select only metadata fields - never $select ContentBytes here, so
+    # we don't pull base64 blobs into a listing.
+    q = api_mod.build_query({'$select': 'Id,Name,ContentType,Size,IsInline'})
+    raw = api_mod.api_get(
+        api_base,
+        f'{attachments_mod.attachment_path(message_id)}?{q}',
+        access_token, debug=debug,
+    )
+    if raw is None:
+        return 1
+    flat = attachments_mod.normalize_attachments(raw)
+    if pretty:
+        print(format_attachments_pretty(flat))
+    else:
+        print(json.dumps(flat))
+    return 0
+
+
+def cmd_attachment_get(args, config, access_token, api_base):
+    message_id = ''
+    attachment_id = ''
+    out_path = ''
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--id':
+            message_id, args = _require_value(flag, args)
+        elif flag == '--attachment':
+            attachment_id, args = _require_value(flag, args)
+        elif flag == '--out':
+            out_path, args = _require_value(flag, args)
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+    if not message_id:
+        _error('--id is required'); return 1
+    if not attachment_id:
+        _error('--attachment is required'); return 1
+
+    debug = _debug_enabled(config)
+    # Preferred path: GET .../$value returns raw bytes directly.
+    content = api_mod.api_get_binary(
+        api_base,
+        attachments_mod.value_path(message_id, attachment_id),
+        access_token, debug=debug,
+    )
+    if content is None:
+        return 1
+
+    if out_path:
+        with open(out_path, 'wb') as fh:
+            fh.write(content)
+        _info(f'wrote {len(content)} bytes to {out_path}')
+    else:
+        # Raw bytes to stdout, no trailing newline (caller pipes them).
+        sys.stdout.buffer.write(content)
+    return 0
+
+
 def _parse_send_flags(args, allow_to=True, allow_cc_bcc=True, allow_importance=True):
     """Shared flag loop for send / reply / reply-all / forward.
 
@@ -309,11 +401,14 @@ def _parse_send_flags(args, allow_to=True, allow_cc_bcc=True, allow_importance=T
         'send_at': '',
         'save_draft': False,
         'importance': '',
+        'attach': [],
     }
     while args:
         flag, args = args[0], args[1:]
         if flag == '--id':
             out['id'], args = _require_value(flag, args)
+        elif flag == '--attach':
+            v, args = _require_value(flag, args); out['attach'].append(v)
         elif flag == '--to' and allow_to:
             out['to'], args = _require_value(flag, args)
         elif flag == '--cc' and allow_cc_bcc:
@@ -337,6 +432,32 @@ def _parse_send_flags(args, allow_to=True, allow_cc_bcc=True, allow_importance=T
     return out
 
 
+def _load_attachments(paths):
+    """Read each --attach path into (name, bytes). Raises ValueError."""
+    return [attachments_mod.read_file_attachment(p) for p in paths]
+
+
+def _upload_large_attachments(api_base, access_token, draft_id, large, debug):
+    """Attach each large file to a draft via an upload session.
+
+    Returns True on success, False if any upload failed (the failing
+    helper already emitted an error). No-op (True) when `large` is empty.
+    """
+    for name, content in large:
+        result = api_mod.api_upload_attachment_session(
+            api_base,
+            attachments_mod.createuploadsession_path(draft_id),
+            access_token,
+            attachments_mod.build_upload_session_body(name, len(content)),
+            content,
+            debug=debug,
+        )
+        if result is None:
+            return False
+        _info(f'uploaded attachment via session: {name} ({len(content)} bytes)')
+    return True
+
+
 def cmd_send(args, config, access_token, api_base):
     opts = _parse_send_flags(
         args, allow_to=True, allow_cc_bcc=True, allow_importance=True
@@ -352,8 +473,21 @@ def cmd_send(args, config, access_token, api_base):
     except ValueError as e:
         _error(str(e)); return 1
 
-    # Path A: immediate send, no draft, no scheduling.
-    if not opts['send_at'] and not opts['save_draft']:
+    try:
+        loaded = _load_attachments(opts['attach'])
+    except ValueError as e:
+        _error(str(e)); return 1
+    small, large = attachments_mod.partition_by_size(loaded)
+    inline = [
+        attachments_mod.build_inline_attachment(name, content)
+        for name, content in small
+    ]
+
+    # Path A: immediate send, no draft, no scheduling, no large attachments.
+    # Small (inline) attachments ride the simple sendMail action; large
+    # ones force the draft+upload-session path below.
+    if not opts['send_at'] and not opts['save_draft'] and not large:
+        msg = messages_mod.with_inline_attachments(msg, inline)
         result = api_mod.api_request(
             'POST', api_base, 'me/sendMail', access_token,
             body=messages_mod.build_send_payload(msg), debug=debug,
@@ -364,11 +498,13 @@ def cmd_send(args, config, access_token, api_base):
         print(json.dumps({'sent': True}))
         return 0
 
-    # Path B: create a draft, optionally with scheduled-send extended prop.
+    # Path B: create a draft (optionally scheduled), attach files, send.
+    # Used for scheduled sends, explicit drafts, and any large attachment.
     try:
         draft_payload = messages_mod.build_draft_payload(msg, send_at=opts['send_at'])
     except ValueError as e:
         _error(str(e)); return 1
+    draft_payload = messages_mod.with_inline_attachments(draft_payload, inline)
     draft = api_mod.api_request(
         'POST', api_base, 'me/messages', access_token,
         body=draft_payload, debug=debug,
@@ -376,6 +512,11 @@ def cmd_send(args, config, access_token, api_base):
     if not draft:
         return 1
     draft_flat = messages_mod.normalize_message(draft)
+
+    if not _upload_large_attachments(
+        api_base, access_token, draft_flat['id'], large, debug
+    ):
+        return 1
 
     if opts['save_draft']:
         print(json.dumps(draft_flat))
@@ -408,11 +549,17 @@ def _reply_like(args, config, access_token, api_base, action):
     )
     if not opts['id']:
         _error('--id is required'); return 1
-    if not opts['save_draft'] and opts['body'] is None:
+    if not opts['save_draft'] and opts['body'] is None and not opts['attach']:
         _error('--body is required (or pass --save-draft to create an empty draft)')
         return 1
     if action == 'createForward' and not opts['save_draft'] and not opts['to']:
         _error('forward requires --to (or --save-draft)'); return 1
+
+    try:
+        loaded = _load_attachments(opts['attach'])
+    except ValueError as e:
+        _error(str(e)); return 1
+    small, large = attachments_mod.partition_by_size(loaded)
 
     debug = _debug_enabled(config)
     draft = api_mod.api_request(
@@ -438,6 +585,23 @@ def _reply_like(args, config, access_token, api_base, action):
         )
         if result is None:
             return 1
+
+    # Small attachments POST inline to the existing draft; large ones go
+    # through an upload session. The draft already exists (createReply/
+    # createForward returned it), so no extra draft round-trip is needed.
+    for name, content in small:
+        added = api_mod.api_request(
+            'POST', api_base, attachments_mod.attachment_path(draft_id),
+            access_token,
+            body=attachments_mod.build_inline_attachment(name, content),
+            debug=debug,
+        )
+        if added is None:
+            return 1
+    if not _upload_large_attachments(
+        api_base, access_token, draft_id, large, debug
+    ):
+        return 1
 
     if opts['save_draft']:
         # Re-fetch normalized state after patch.
@@ -661,6 +825,8 @@ def cmd_refresh(args, config):
 AUTHED_HANDLERS = {
     'messages': cmd_messages,
     'show': cmd_show,
+    'attachments': cmd_attachments,
+    'attachment-get': cmd_attachment_get,
     'send': cmd_send,
     'reply': cmd_reply,
     'reply-all': cmd_reply_all,
@@ -688,6 +854,17 @@ _SHOW_FLAGS = [
     schema_mod.flag('--pretty', summary='Human-readable header block + body'),
 ]
 
+_ATTACHMENTS_FLAGS = [
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
+]
+
+_ATTACHMENT_GET_FLAGS = [
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--attachment', value='<attachment-id>', summary='Attachment ID', required=True),
+    schema_mod.flag('--out', value='<local-path>', summary='Write to file instead of stdout'),
+]
+
 _SEND_FLAGS = [
     schema_mod.flag('--to', value='<addr[,addr]>', summary='One or more recipients', required=True),
     schema_mod.flag('--cc', value='<addr[,addr]>', summary='Cc recipients'),
@@ -695,6 +872,7 @@ _SEND_FLAGS = [
     schema_mod.flag('--subject', value='<text>', summary='Subject', required=True),
     schema_mod.flag('--body', value='<text>', summary='Body content (use - to read from stdin)'),
     schema_mod.flag('--html', summary='Treat --body as HTML'),
+    schema_mod.flag('--attach', value='<file>', summary='Attach a file', repeatable=True),
     schema_mod.flag('--send-at', value='<iso>', summary='Schedule deferred delivery (ISO datetime, UTC if naive)'),
     schema_mod.flag('--save-draft', summary='Save as Draft instead of sending'),
     schema_mod.flag('--importance', value='<lvl>', summary='low|normal|high'),
@@ -704,6 +882,7 @@ _REPLY_FLAGS = [
     schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
     schema_mod.flag('--body', value='<text>', summary='Reply text (use - to read from stdin)'),
     schema_mod.flag('--html', summary='Treat --body as HTML'),
+    schema_mod.flag('--attach', value='<file>', summary='Attach a file', repeatable=True),
     schema_mod.flag('--send-at', value='<iso>', summary='Schedule deferred delivery'),
     schema_mod.flag('--save-draft', summary='Save as Draft instead of sending'),
 ]
@@ -713,6 +892,7 @@ _FORWARD_FLAGS = [
     schema_mod.flag('--to', value='<addr[,addr]>', summary='Forward recipients', required=True),
     schema_mod.flag('--body', value='<text>', summary='Forward note (use - to read from stdin)'),
     schema_mod.flag('--html', summary='Treat --body as HTML'),
+    schema_mod.flag('--attach', value='<file>', summary='Attach a file', repeatable=True),
     schema_mod.flag('--send-at', value='<iso>', summary='Schedule deferred delivery'),
     schema_mod.flag('--save-draft', summary='Save as Draft instead of sending'),
 ]
@@ -746,6 +926,8 @@ _CONFIG_FLAGS = [
 COMMAND_SCHEMA = [
     schema_mod.command('messages', 'List messages', auth='outlook', flags=_MESSAGES_FLAGS),
     schema_mod.command('show', 'Show full message body', auth='outlook', flags=_SHOW_FLAGS),
+    schema_mod.command('attachments', 'List a message\'s attachments', auth='outlook', flags=_ATTACHMENTS_FLAGS),
+    schema_mod.command('attachment-get', 'Download one file attachment', auth='outlook', output='bytes', flags=_ATTACHMENT_GET_FLAGS),
     schema_mod.command('send', 'Compose and send a message', auth='outlook', mutates=True, idempotent=False, flags=_SEND_FLAGS),
     schema_mod.command('reply', 'Reply to a message', auth='outlook', mutates=True, idempotent=False, flags=_REPLY_FLAGS),
     schema_mod.command('reply-all', 'Reply-all to a message', auth='outlook', mutates=True, idempotent=False, flags=_REPLY_FLAGS),
@@ -823,4 +1005,9 @@ def _main(argv):
 
 
 def main():
-    return mode_mod.run_with_output_modes('owa-mail', sys.argv[1:], _main)
+    return mode_mod.run_with_output_modes(
+        'owa-mail',
+        sys.argv[1:],
+        _main,
+        binary_stdout_commands=('attachment-get',),
+    )
