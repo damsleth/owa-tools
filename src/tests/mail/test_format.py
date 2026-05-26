@@ -89,6 +89,29 @@ def test_format_message_pretty_omits_empty_headers():
     assert 'To: me@b.c' in out
 
 
+def test_format_message_pretty_renders_html_body():
+    msg = {
+        'from': 'a@b.c',
+        'subject': 's',
+        'body': '<p>Hello <b>world</b></p><script>x()</script><ul><li>one</li></ul>',
+        'body_type': 'html',
+    }
+    out = format_message_pretty(msg)
+    assert 'Hello world' in out
+    assert '- one' in out
+    # Markup and script content are gone.
+    assert '<p>' not in out
+    assert 'x()' not in out
+
+
+def test_format_message_pretty_text_body_unchanged():
+    raw = '<p>not really html</p>'
+    msg = {'from': 'a@b.c', 'subject': 's', 'body': raw, 'body_type': 'Text'}
+    out = format_message_pretty(msg)
+    # Text bodies pass through verbatim, even if they contain angle brackets.
+    assert raw in out
+
+
 def test_format_folders_pretty_empty():
     assert format_folders_pretty([]) == 'No folders.'
 

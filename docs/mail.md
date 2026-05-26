@@ -96,7 +96,17 @@ owa-mail folders | jq '.[] | select(.unread > 0)'
 ```
 
 `show` returns a single message object (with `body` and `body_type`
-fields included). `send`/`reply`/`forward` return `{"sent": true,
+fields included). In JSON mode the `body` is emitted verbatim - if Graph
+returned an HTML body (`body_type: "html"`, the common case) you get the
+raw markup, unchanged. With `--pretty`, HTML bodies are flattened to
+readable plain text using a stdlib `html.parser`-based converter: block
+elements become line breaks, list items get `- ` bullets, `<script>` and
+`<style>` content is dropped, entities (`&amp;`, `&nbsp;`, `&#39;`, ...)
+are unescaped, and runs of whitespace/blank lines are collapsed. Links
+keep their visible text only. Text bodies (`body_type: "text"`) pass
+through unchanged in both modes.
+
+`send`/`reply`/`forward` return `{"sent": true,
 "id": "...", "send_at": null|"<iso>"}`. `mark`/`move` return the
 updated message resource. `delete` writes `Deleted.` to stderr.
 `attachments` returns an array of attachment metadata objects (no
@@ -272,9 +282,6 @@ See [`AGENTS.md`](AGENTS.md) for repo layout and ground rules.
 
 - **`@odata.nextLink` pagination** - `--limit` caps a single page;
   use date bounds (`--since` / `--until`) to walk further back.
-- **HTML-to-text rendering** - `--pretty` shows the API's BodyPreview
-  field. owa-mail does not parse HTML for terminal display
-  (stdlib-only); HTML bodies returned by `show` are printed verbatim.
 - **Real-time receive** (webhooks, IMAP IDLE) - poll `messages
   --unread` from cron or your agent loop.
 

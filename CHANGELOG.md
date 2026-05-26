@@ -20,6 +20,12 @@ per-tool subsections inside that release when useful.
   draft -> createUploadSession -> chunked PUT -> send), reusing the
   shared `owa_core.upload` driver. Small no-attachment sends keep the
   single-shot `sendMail` fast path.
+- New: `owa-mail show --pretty` now renders HTML bodies as readable
+  plain text instead of raw markup. A stdlib-only (`html.parser`)
+  converter turns block elements into line breaks, bullets list items,
+  drops `<script>`/`<style>`, unescapes entities, and collapses
+  whitespace. JSON output is unchanged (raw `body` verbatim); text
+  bodies pass through untouched.
 
 ### owa-drive
 

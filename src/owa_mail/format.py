@@ -12,6 +12,24 @@ from owa_core.format import pad as _pad
 from owa_core.format import time_part as _time_part
 from owa_core.format import truncate as _truncate
 
+from .htmltext import html_to_text as _html_to_text
+
+
+def _render_body(message):
+    """Pretty-mode body text. HTML bodies are flattened to readable text;
+    text bodies (and anything we can't classify) pass through unchanged.
+
+    Only the `--pretty` path calls this - the JSON path emits the raw
+    `body` field verbatim so machine consumers see exactly what Graph
+    returned.
+    """
+    body = message.get('body') or ''
+    if not body:
+        return ''
+    if (message.get('body_type') or '').lower() == 'html':
+        return _html_to_text(body)
+    return body
+
 
 def format_messages_pretty(messages):
     """Build a multiline table summarising messages.
@@ -48,8 +66,10 @@ def format_messages_pretty(messages):
 def format_message_pretty(message):
     """Single-message rendering: header block then body.
 
-    The body is printed verbatim (HTML or text - we don't strip HTML;
-    that would need an HTML parser and we stay stdlib-rendering-only).
+    HTML bodies (`body_type == 'html'`) are flattened to readable plain
+    text via the stdlib `html.parser`-based converter in `htmltext`; text
+    bodies pass through unchanged. This only affects `--pretty`; the JSON
+    path keeps the raw body.
     """
     if not message:
         return 'No message.'
@@ -75,7 +95,7 @@ def format_message_pretty(message):
     if extras:
         lines.append('  ' + ' / '.join(extras))
     lines.append('')
-    lines.append(message.get('body') or '')
+    lines.append(_render_body(message))
     return '\n'.join(lines)
 
 

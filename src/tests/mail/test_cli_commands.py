@@ -113,6 +113,28 @@ def test_messages_show_folders_and_validation(monkeypatch, capsys):
     assert cli.cmd_folders([], {}, "tok", "https://outlook.test") == 1
 
 
+def test_show_html_body_pretty_vs_json(monkeypatch, capsys):
+    raw = _raw_message("h1", "HTML mail")
+    raw["Body"] = {
+        "ContentType": "HTML",
+        "Content": "<p>Hello <b>world</b></p><script>evil()</script>",
+    }
+    monkeypatch.setattr(cli.api_mod, "api_get", lambda *a, **k: raw)
+
+    # JSON path: body is emitted verbatim (still raw HTML, not converted).
+    assert cli.cmd_show(["--id", "h1"], {}, "tok", "https://outlook.test") == 0
+    obj = json.loads(capsys.readouterr().out)
+    assert obj["body"] == "<p>Hello <b>world</b></p><script>evil()</script>"
+    assert obj["body_type"] == "HTML"
+
+    # --pretty path: body is flattened to readable text, script dropped.
+    assert cli.cmd_show(["--id", "h1", "--pretty"], {}, "tok", "https://outlook.test") == 0
+    pretty = capsys.readouterr().out
+    assert "Hello world" in pretty
+    assert "<p>" not in pretty
+    assert "evil()" not in pretty
+
+
 def test_send_reply_forward_move_mark_delete(monkeypatch, capsys):
     calls = []
 
