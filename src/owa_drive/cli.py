@@ -72,6 +72,7 @@ Commands:
 
 Common options:
   --pretty            Human-readable output (ls / show; default: JSON).
+  --all               Follow @odata.nextLink until exhausted (ls).
   --confirm           Skip confirmation prompts (rm).
   --out <local>       Write download to this path instead of stdout (get).
 
@@ -93,11 +94,14 @@ Examples:
 
 def cmd_ls(args, config, access_token, api_base):
     pretty = False
+    all_pages = False
     path = ''
     while args:
         flag, args = args[0], args[1:]
         if flag == '--pretty':
             pretty = True
+        elif flag == '--all':
+            all_pages = True
         elif flag.startswith('-'):
             raise UsageError(f'Unknown flag: {flag}')
         elif not path:
@@ -106,6 +110,18 @@ def cmd_ls(args, config, access_token, api_base):
             raise UsageError(f'Unexpected argument: {flag}')
 
     endpoint = paths_mod.children_endpoint(path)
+    if all_pages:
+        items = api_mod.paginate_all(
+            api_base, endpoint, access_token, debug=_debug_enabled(config),
+        )
+        if items is None:
+            return 1
+        out = [normalize_item(i) for i in items]
+        if pretty:
+            print(format_items_pretty(out))
+        else:
+            print(json.dumps(out))
+        return 0
     payload = api_mod.api_request(
         'GET', api_base, endpoint, access_token,
         debug=_debug_enabled(config),
@@ -361,6 +377,7 @@ def _command_name(argv):
 
 _LS_FLAGS = [
     schema_mod.flag('<path>', summary='Folder path (positional, defaults to drive root)'),
+    schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
 ]
 

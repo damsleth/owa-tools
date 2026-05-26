@@ -108,6 +108,16 @@ owa-cal events --date tomorrow | jq '[.[] | select(.showAs == "Busy")] | length'
 owa-cal events --week 16 | jq 'group_by(.start | .[0:10]) | map({day: .[0].start[0:10], count: length})'
 ```
 
+`events` caps at a single page by default. Pass `--all` to follow
+`@odata.nextLink` until every event in the window is returned; `--limit`
+still controls the page size (`$top`) requested per round-trip. Output
+shape is unchanged. (Against a webcal/iCal `--profile`, `--all` is a
+no-op: the feed is always fetched in full.)
+
+```sh
+owa-cal events --from 2026-01-01 --to 2026-12-31 --all | jq length
+```
+
 Same shape on `create` / `update` (returns the single normalized
 event), and on `categories` (returns `[{"name": ..., "color": ...}]`).
 

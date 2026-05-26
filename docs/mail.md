@@ -95,6 +95,16 @@ owa-mail messages --since 2026-04-01 | jq '[.[] | select(.has_attachments)] | le
 owa-mail folders | jq '.[] | select(.unread > 0)'
 ```
 
+`messages` and `folders` cap at a single page by default. Pass `--all`
+to follow `@odata.nextLink` until the collection is exhausted; `--limit`
+still controls the page size requested per round-trip. Output shape is
+unchanged (a JSON array, or a `--pretty` table over all rows).
+
+```sh
+owa-mail messages --since 2026-01-01 --all | jq length
+owa-mail folders --all --pretty
+```
+
 `show` returns a single message object (with `body` and `body_type`
 fields included). In JSON mode the `body` is emitted verbatim - if Graph
 returned an HTML body (`body_type: "html"`, the common case) you get the

@@ -116,7 +116,9 @@ messages options:
   --search <kql>       KQL search (mutually exclusive with filters)
   --since <date>       ReceivedDateTime >= date (YYYY-MM-DD or today/yesterday)
   --until <date>       ReceivedDateTime <= date
-  --limit <n>          Max results (default 25, hard cap 200)
+  --limit <n>          Max results per page (default 25, hard cap 200)
+  --all                Follow @odata.nextLink until exhausted (--limit
+                       still controls page size per request)
   --pretty             Human-readable table (default: JSON)
 
 show options:
@@ -169,6 +171,7 @@ mark options:
   --flag | --unflag    Toggle FlagStatus
 
 folders options:
+  --all                Follow @odata.nextLink until exhausted
   --pretty             Human-readable table
 
 config options:
@@ -228,6 +231,7 @@ def cmd_messages(args, config, access_token, api_base):
     folder = ''
     unread = False
     pretty = False
+    all_pages = False
     sender = subject_q = search = since = until = ''
     limit = 25
     while args:
@@ -248,6 +252,8 @@ def cmd_messages(args, config, access_token, api_base):
             v, args = _require_value(flag, args); until = resolve_date(v)
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
+        elif flag == '--all':
+            all_pages = True
         elif flag == '--pretty':
             pretty = True
         else:
@@ -266,11 +272,23 @@ def cmd_messages(args, config, access_token, api_base):
     debug = _debug_enabled(config)
     path = folders_mod.folder_messages_path(folder)
 
+    # --limit still controls page size per request; --all follows
+    # @odata.nextLink until every page is exhausted.
     params = messages_mod.build_list_query(
         unread=unread, sender=sender, subject_q=subject_q, search=search,
         since=since, until=until, limit=limit,
     )
     q = api_mod.build_query(params)
+    if all_pages:
+        items = api_mod.paginate_all(api_base, f'{path}?{q}', access_token, debug=debug)
+        if items is None:
+            return 1
+        flat = messages_mod.normalize_messages({'value': items})
+        if pretty:
+            print(format_messages_pretty(flat))
+        else:
+            print(json.dumps(flat))
+        return 0
     data = api_mod.api_get(api_base, f'{path}?{q}', access_token, debug=debug)
     if data is None:
         return 1
@@ -751,10 +769,13 @@ def cmd_mark(args, config, access_token, api_base):
 
 def cmd_folders(args, config, access_token, api_base):
     pretty = False
+    all_pages = False
     while args:
         flag, args = args[0], args[1:]
         if flag == '--pretty':
             pretty = True
+        elif flag == '--all':
+            all_pages = True
         else:
             raise UsageError(f'Unknown flag: {flag}')
 
@@ -763,6 +784,16 @@ def cmd_folders(args, config, access_token, api_base):
         '$select': 'Id,DisplayName,UnreadItemCount,TotalItemCount',
         '$top': 100,
     })
+    if all_pages:
+        raw_items = api_mod.paginate_all(api_base, f'me/MailFolders?{q}', access_token, debug=debug)
+        if raw_items is None:
+            return 1
+        items = folders_mod.normalize_folders({'value': raw_items})
+        if pretty:
+            print(format_folders_pretty(items))
+        else:
+            print(json.dumps(items))
+        return 0
     data = api_mod.api_get(api_base, f'me/MailFolders?{q}', access_token, debug=debug)
     if data is None:
         return 1
@@ -845,7 +876,8 @@ _MESSAGES_FLAGS = [
     schema_mod.flag('--search', value='<kql>', summary='KQL search (mutually exclusive with filters)'),
     schema_mod.flag('--since', value='<date>', summary='ReceivedDateTime >= date'),
     schema_mod.flag('--until', value='<date>', summary='ReceivedDateTime <= date'),
-    schema_mod.flag('--limit', value='<n>', summary='Max results (default 25, cap 200)'),
+    schema_mod.flag('--limit', value='<n>', summary='Max results per page (default 25, cap 200)'),
+    schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
 ]
 
@@ -916,6 +948,7 @@ _MARK_FLAGS = [
 ]
 
 _FOLDERS_FLAGS = [
+    schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
 ]
 
