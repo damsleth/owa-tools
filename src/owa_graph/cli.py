@@ -46,7 +46,7 @@ _VERB_FLAGS = [
     schema_mod.flag('--retry', summary='Honor Retry-After once on 429/503 (capped at 60s)'),
     schema_mod.flag('--beta', summary='Use https://graph.microsoft.com/beta (graph audience only)'),
     schema_mod.flag('--audience', value='<name>', summary='Forward to owa-piggy. Default: graph'),
-    schema_mod.flag('--pretty', summary='Human-readable output'),
+    schema_mod.flag('--pretty', summary='Human-readable output (default: JSON)'),
     schema_mod.flag('--raw', summary='Print raw response bytes (no JSON parsing)'),
     schema_mod.flag('--curl', summary='Print equivalent curl command and exit'),
     schema_mod.flag('--az', summary='Print equivalent `az rest` command and exit'),
@@ -54,13 +54,13 @@ _VERB_FLAGS = [
 
 _BATCH_FLAGS = [
     schema_mod.flag('<file|->', summary='JSON-batch body (file path, @path, or - for stdin)', required=True),
-    schema_mod.flag('--pretty', summary='Render per-request status table'),
-    schema_mod.flag('--retry', summary='Honor Retry-After once on 429/503'),
+    schema_mod.flag('--pretty', summary='Render per-request status table (default: JSON)'),
+    schema_mod.flag('--retry', summary='Honor Retry-After once on 429/503 (capped at 60s)'),
 ]
 
 _CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin an owa-piggy profile alias (owa_piggy_profile)'),
-    schema_mod.flag('--audience', value='<name>', summary='Pin a default audience'),
+    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
+    schema_mod.flag('--audience', value='<name>', summary='Pin a default audience (default: graph)'),
 ]
 
 COMMAND_SCHEMA = [

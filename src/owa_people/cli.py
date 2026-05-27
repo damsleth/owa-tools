@@ -400,7 +400,7 @@ _CONTACTS_FLAGS = [
 ]
 
 _CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin a default profile alias (owa_piggy_profile)'),
+    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
 ]
 
 COMMAND_SCHEMA = [
