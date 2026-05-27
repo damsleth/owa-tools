@@ -8,8 +8,8 @@ import json
 
 import pytest
 
-from owa_core import http
 from owa_cal import cli
+from owa_core import http
 
 
 def _raw_event(event_id):
