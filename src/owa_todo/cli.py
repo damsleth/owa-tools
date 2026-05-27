@@ -121,7 +121,7 @@ Create options:
   --folder <id|name>  Target folder (default: the default Tasks list)
   --due <date>        Due date (YYYY-MM-DD, today, tomorrow)
   --start <date>      Start date
-  --importance <imp>  low, normal, high
+  --importance <level>  low|normal|high
   --body <text>       Notes
 
 Update options:
@@ -153,6 +153,8 @@ Examples:
   owa-todo update --id AAMk... --due 2026-06-01
   owa-todo done --id AAMk...
   owa-todo delete --id AAMk...""")
+    print()
+    print(schema_mod.MACHINE_SURFACE_HELP)
 
 
 # ---------------------------------------------------------------------------
@@ -316,7 +318,7 @@ def cmd_create(args, config, access_token, api_base):
 
 
 def cmd_update(args, config, access_token, api_base):
-    task_id = ''
+    task_id, args = schema_mod.pop_positional_id(args)
     fields = {}
     while args:
         flag, args = args[0], args[1:]
@@ -357,7 +359,7 @@ def cmd_update(args, config, access_token, api_base):
 
 
 def cmd_done(args, config, access_token, api_base):
-    task_id = ''
+    task_id, args = schema_mod.pop_positional_id(args)
     while args:
         flag, args = args[0], args[1:]
         if flag == '--id':
@@ -378,7 +380,7 @@ def cmd_done(args, config, access_token, api_base):
 
 
 def cmd_delete(args, config, access_token, api_base):
-    task_id = ''
+    task_id, args = schema_mod.pop_positional_id(args)
     confirm = False
     while args:
         flag, args = args[0], args[1:]
@@ -498,7 +500,7 @@ _CREATE_FLAGS = [
 ]
 
 _UPDATE_FLAGS = [
-    schema_mod.flag('--id', value='<task-id>', summary='Task ID', required=True),
+    schema_mod.flag('--id', value='<task-id>', summary='Task ID (flag or positional)', required=True),
     schema_mod.flag('--subject', value='<title>', summary='New title'),
     schema_mod.flag('--due', value='<date>', summary='New due date'),
     schema_mod.flag('--start', value='<date>', summary='New start date'),
@@ -508,11 +510,11 @@ _UPDATE_FLAGS = [
 ]
 
 _DONE_FLAGS = [
-    schema_mod.flag('--id', value='<task-id>', summary='Task ID', required=True),
+    schema_mod.flag('--id', value='<task-id>', summary='Task ID (flag or positional)', required=True),
 ]
 
 _DELETE_FLAGS = [
-    schema_mod.flag('--id', value='<task-id>', summary='Task ID', required=True),
+    schema_mod.flag('--id', value='<task-id>', summary='Task ID (flag or positional)', required=True),
     schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
 ]
 
@@ -525,7 +527,7 @@ COMMAND_SCHEMA = [
     schema_mod.command('lists', 'List task folders (To Do lists)', auth='outlook', flags=_LISTS_FLAGS),
     schema_mod.command('tasks', 'List tasks', auth='outlook', flags=_TASKS_FLAGS),
     schema_mod.command('create', 'Create a task', auth='outlook', mutates=True, idempotent=False, flags=_CREATE_FLAGS),
-    schema_mod.command('update', 'Update a task', auth='outlook', mutates=True, flags=_UPDATE_FLAGS),
+    schema_mod.command('update', 'Update a task', auth='outlook', mutates=True, idempotent=True, flags=_UPDATE_FLAGS),
     schema_mod.command('done', 'Mark a task completed', auth='outlook', mutates=True, idempotent=True, flags=_DONE_FLAGS),
     schema_mod.command(
         'delete',

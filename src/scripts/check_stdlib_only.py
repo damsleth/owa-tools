@@ -9,7 +9,10 @@ Allowed at runtime:
   * Python stdlib (resolved via sys.stdlib_module_names on 3.10+;
     bundled allowlist on 3.9).
   * Local suite packages: owa_core, owa_cal, owa_mail, owa_graph,
-    owa_doctor, owa_people, owa_sched, owa_drive, owa.
+    owa_doctor, owa_people, owa_sched, owa_drive, owa_todo, owa.
+  * Sanctioned runtime dependencies declared in pyproject.toml
+    [project].dependencies (see RUNTIME_DEPS below): currently only
+    `hugr_conventions`, the shared hugr CLI-contract package.
   * `owa-piggy` is invoked via subprocess only; no Python import.
 
 Excluded from the check:
@@ -43,6 +46,15 @@ LOCAL_PACKAGES = frozenset({
     "owa_people",
     "owa_sched",
     "owa_drive",
+    "owa_todo",
+})
+
+# Third-party runtime dependencies the suite is allowed to import. Must
+# stay in sync with pyproject.toml [project].dependencies. The suite is
+# otherwise stdlib-only; this is the single vetted exception (the shared
+# hugr CLI-contract package, imported by owa_core.conventions).
+RUNTIME_DEPS = frozenset({
+    "hugr_conventions",
 })
 
 # Bundled stdlib list for Python 3.9 (sys.stdlib_module_names is 3.10+).
@@ -148,7 +160,7 @@ def disallowed_imports(file: Path, allowed: frozenset[str]) -> list[tuple[int, s
 
 
 def main() -> int:
-    allowed = stdlib_names() | LOCAL_PACKAGES
+    allowed = stdlib_names() | LOCAL_PACKAGES | RUNTIME_DEPS
     failures: list[tuple[Path, int, str]] = []
     for file in runtime_python_files(SRC_ROOT):
         try:
@@ -167,7 +179,9 @@ def main() -> int:
         rel = file.relative_to(REPO_ROOT)
         sys.stderr.write(f"  {rel}:{lineno}: imports '{name}' (not in allowlist)\n")
     sys.stderr.write(
-        "\nAllowlist: Python stdlib + " + ", ".join(sorted(LOCAL_PACKAGES)) + "\n"
+        "\nAllowlist: Python stdlib + "
+        + ", ".join(sorted(LOCAL_PACKAGES | RUNTIME_DEPS))
+        + "\n"
     )
     return 1
 

@@ -101,8 +101,10 @@ availability options:
   --to <date>         End of range.
   --week <n>          ISO week number.
   --year <n>          Year (default: current).
-  --start <HH:MM>     Window start time (default: 08:00).
-  --end <HH:MM>       Window end time (default: 17:00).
+  --start <HH:MM>     Work-day window start (default: 08:00, or config
+                      default_work_start).
+  --end <HH:MM>       Work-day window end (default: 17:00, or config
+                      default_work_end).
   --interval <n>      availabilityView granularity in minutes (default: 30).
   --pretty            Human-readable output (default: JSON).
 
@@ -111,8 +113,10 @@ find-time options:
                       if you want to be checked too).
   --duration <n>      Slot length in minutes (default: 30).
   --date / --from / --to / --week / --year  - same as availability.
-  --start <HH:MM>     Earliest start of working day (default: 09:00).
-  --end <HH:MM>       Latest end of working day (default: 17:00).
+  --start <HH:MM>     Work-day window start (default: 08:00, or config
+                      default_work_start).
+  --end <HH:MM>       Work-day window end (default: 17:00, or config
+                      default_work_end).
   --pretty            Human-readable output (default: JSON list of slots).
 
 Examples:
@@ -121,6 +125,8 @@ Examples:
   owa-sched find-time --who alice@x.com,bob@x.com --duration 30 --week 19 --pretty
   owa-sched --profile crayon find-time --who ole@example.com --date 2026-05-12
 """)
+    print()
+    print(schema_mod.MACHINE_SURFACE_HELP)
 
 
 # ---------------------------------------------------------------------------
@@ -158,8 +164,8 @@ def cmd_availability(args, config, access_token, api_base):
     who_csv = ''
     date_ = from_ = to_ = ''
     week = year = 0
-    start_hhmm = '08:00'
-    end_hhmm = '17:00'
+    start_hhmm = config.get('default_work_start') or '08:00'
+    end_hhmm = config.get('default_work_end') or '17:00'
     interval = 30
     pretty = False
     while args:
@@ -216,7 +222,7 @@ def cmd_find_time(args, config, access_token, api_base):
     date_ = from_ = to_ = ''
     week = year = 0
     duration = 30
-    start_hhmm = config.get('default_work_start') or '09:00'
+    start_hhmm = config.get('default_work_start') or '08:00'
     end_hhmm = config.get('default_work_end') or '17:00'
     pretty = False
     while args:
@@ -362,8 +368,8 @@ _AVAILABILITY_FLAGS = [
     schema_mod.flag('--to', value='<date>', summary='End of range'),
     schema_mod.flag('--week', value='<n>', summary='ISO week number'),
     schema_mod.flag('--year', value='<n>', summary='Year (default: current)'),
-    schema_mod.flag('--start', value='<HH:MM>', summary='Work-day start (default 08:00)'),
-    schema_mod.flag('--end', value='<HH:MM>', summary='Work-day end (default 17:00)'),
+    schema_mod.flag('--start', value='<HH:MM>', summary='Work-day start (default 08:00, or config default_work_start)'),
+    schema_mod.flag('--end', value='<HH:MM>', summary='Work-day end (default 17:00, or config default_work_end)'),
     schema_mod.flag('--interval', value='<min>', summary='Resolution in minutes (default 30)'),
     schema_mod.flag('--pretty', summary='Human-readable view (default: JSON)'),
 ]
@@ -371,13 +377,13 @@ _AVAILABILITY_FLAGS = [
 _FIND_TIME_FLAGS = [
     schema_mod.flag('--who', value='<addr[,addr]>', summary='Comma-separated attendee emails', required=True),
     schema_mod.flag('--duration', value='<min>', summary='Meeting length in minutes (default 30)'),
-    schema_mod.flag('--date', value='<date>', summary='Specific day'),
+    schema_mod.flag('--date', value='<date>', summary='Specific day (YYYY-MM-DD, today, tomorrow, yesterday)'),
     schema_mod.flag('--from', value='<date>', summary='Start of range'),
     schema_mod.flag('--to', value='<date>', summary='End of range'),
     schema_mod.flag('--week', value='<n>', summary='ISO week number'),
     schema_mod.flag('--year', value='<n>', summary='Year (default: current)'),
-    schema_mod.flag('--start', value='<HH:MM>', summary='Work-day start (default: default_work_start)'),
-    schema_mod.flag('--end', value='<HH:MM>', summary='Work-day end (default: default_work_end)'),
+    schema_mod.flag('--start', value='<HH:MM>', summary='Work-day start (default 08:00, or config default_work_start)'),
+    schema_mod.flag('--end', value='<HH:MM>', summary='Work-day end (default 17:00, or config default_work_end)'),
     schema_mod.flag('--pretty', summary='Human-readable view (default: JSON)'),
 ]
 

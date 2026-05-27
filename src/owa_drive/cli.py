@@ -54,18 +54,18 @@ Global options:
                       (also: DRIVE_DEBUG=1)
   --profile <alias>   Forward to owa-piggy as --profile <alias>.
 
-Commands:
-  ls [path]           List a folder (default: drive root).
+Commands (unix-style verbs; suite-canonical aliases in parentheses):
+  ls [path]           List a folder (default: drive root).  (alias: list)
   show <path>         Show metadata for one item.
-  get <path>          Download file content.
+  get <path>          Download file content.  (alias: download)
                       Default: stream to stdout.
                       With --out <local>: write to that path.
-  put <local> <remote-path>
+  put <local> <remote-path>                                 (alias: upload)
                       Upload a file of any size to <remote-path>.
                       Small files use a single PUT; larger files use a
                       Graph resumable upload session automatically.
                       <local>=='-' reads from stdin.
-  rm <path>           Delete an item (requires --confirm for safety).
+  rm <path>           Delete an item (requires --confirm).   (alias: delete)
   refresh             Force a token refresh and verify auth.
   config              View or update configuration.
   help                Show this help.
@@ -86,6 +86,8 @@ Examples:
   cat ./report.md | owa-drive put - "/Documents/report.md"
   owa-drive rm "/Documents/old.txt" --confirm
 """)
+    print()
+    print(schema_mod.MACHINE_SURFACE_HELP)
 
 
 # ---------------------------------------------------------------------------
@@ -406,10 +408,10 @@ _CONFIG_FLAGS = [
 ]
 
 COMMAND_SCHEMA = [
-    schema_mod.command('ls', 'List a folder', auth='graph', flags=_LS_FLAGS),
+    schema_mod.command('ls', 'List a folder', auth='graph', flags=_LS_FLAGS, aliases=['list']),
     schema_mod.command('show', 'Show item metadata', auth='graph', flags=_SHOW_FLAGS),
-    schema_mod.command('get', 'Download file content', auth='graph', output='bytes', flags=_GET_FLAGS),
-    schema_mod.command('put', 'Upload a file of any size', auth='graph', mutates=True, flags=_PUT_FLAGS),
+    schema_mod.command('get', 'Download file content', auth='graph', output='bytes', flags=_GET_FLAGS, aliases=['download']),
+    schema_mod.command('put', 'Upload a file of any size', auth='graph', mutates=True, idempotent=True, flags=_PUT_FLAGS, aliases=['upload']),
     schema_mod.command(
         'rm',
         'Delete an item',
@@ -419,6 +421,7 @@ COMMAND_SCHEMA = [
         confirmation=True,
         idempotent=False,
         flags=_RM_FLAGS,
+        aliases=['delete'],
     ),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
     schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
@@ -465,6 +468,10 @@ def _main(argv):
         return 0
 
     cmd, rest = argv[0], argv[1:]
+    # ls/get/put/rm are the primary verbs; list/download/upload/delete are
+    # accepted as suite-canonical aliases (resolved to the canonical name
+    # before help and dispatch so both share one path).
+    cmd = schema_mod.resolve_alias(cmd, COMMAND_SCHEMA)
 
     help_rc = schema_mod.maybe_emit_subcommand_help(
         cmd, rest, tool='owa-drive', commands=COMMAND_SCHEMA,

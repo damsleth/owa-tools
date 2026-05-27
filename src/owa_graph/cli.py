@@ -67,7 +67,7 @@ COMMAND_SCHEMA = [
     schema_mod.command('GET', 'Issue a GET request', auth='graph', flags=_VERB_FLAGS),
     schema_mod.command('POST', 'Issue a POST request', auth='graph', mutates=True, idempotent=False, flags=_VERB_FLAGS),
     schema_mod.command('PATCH', 'Issue a PATCH request', auth='graph', mutates=True, flags=_VERB_FLAGS),
-    schema_mod.command('PUT', 'Issue a PUT request', auth='graph', mutates=True, flags=_VERB_FLAGS),
+    schema_mod.command('PUT', 'Issue a PUT request', auth='graph', mutates=True, idempotent=True, flags=_VERB_FLAGS),
     schema_mod.command(
         'DELETE',
         'Issue a DELETE request',
@@ -200,6 +200,8 @@ Examples:
   owa-graph GET me/events --audience outlook --pretty
   owa-graph batch requests.json --pretty
   owa-graph refresh""")
+    print()
+    print(schema_mod.MACHINE_SURFACE_HELP)
 
 
 def _emit_scope_hint(method, path, audience, access_token):
