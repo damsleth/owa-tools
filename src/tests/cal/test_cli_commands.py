@@ -150,7 +150,7 @@ def test_respond_accept_decline_tentative(monkeypatch, capsys):
 
     assert cli.cmd_respond(["--id", "e1", "--action", "tentative"], {}, "tok", "https://outlook.test") == 0
     capsys.readouterr()
-    assert requests[-1][1] == "me/events/e1/tentativelyAccept"
+    assert requests[-1][1] == "me/events/e1/tentativelyaccept"
 
     # Recoverable error (api_request returns None) -> exit 1, no stdout.
     monkeypatch.setattr(cli.api_mod, "api_request", lambda *a, **k: None)

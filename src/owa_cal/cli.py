@@ -582,12 +582,11 @@ def cmd_delete(args, config, access_token, api_base):
 
 
 # Maps the user-facing --action value to the Outlook REST action segment.
-# The three are the only meeting-response actions Outlook exposes; 'tentative'
-# is spelled out as 'tentativelyAccept' on the wire.
+# The three are the only meeting-response actions Outlook REST v2 exposes.
 _RESPOND_ACTIONS = {
     'accept': 'accept',
     'decline': 'decline',
-    'tentative': 'tentativelyAccept',
+    'tentative': 'tentativelyaccept',
 }
 
 
@@ -819,7 +818,7 @@ COMMAND_SCHEMA = [
         'Respond to a meeting invite (accept/decline/tentative)',
         auth='outlook',
         mutates=True,
-        idempotent=True,
+        idempotent=False,
         flags=_RESPOND_FLAGS,
     ),
     schema_mod.command('categories', 'List or add master categories', auth='outlook', mutates=True, flags=_CATEGORIES_FLAGS),
