@@ -1,6 +1,6 @@
 # owa-cal
 
-Calendar CLI for Outlook / Microsoft 365. Read, create, update and delete events from the terminal.
+Calendar CLI for Outlook / Microsoft 365. Read, create, update, delete and RSVP to events from the terminal.
 Pipe-friendly JSON by default, `--pretty` for humans.
 
 ```sh
@@ -121,6 +121,13 @@ owa-cal events --from 2026-01-01 --to 2026-12-31 --all | jq length
 Same shape on `create` / `update` (returns the single normalized
 event), and on `categories` (returns `[{"name": ..., "color": ...}]`).
 
+`respond` sends a meeting reply (`accept` / `decline` / `tentative`) to an
+invite and emits `{"id": ..., "action": ..., "notified": true}` on success.
+The organizer is notified by default; pass `--no-notify` to record the
+response without sending a reply, and `--comment "<text>"` to include a note.
+Outlook returns no body for these actions, so the JSON is owa-cal's own
+confirmation envelope, not an event.
+
 ---
 
 ## Commands
@@ -134,6 +141,10 @@ owa-cal events --search "standup" --pretty
 owa-cal create --subject "lunsj" --start 11:00 --end 11:30 --category "CC LUNCH"
 owa-cal update --id <event-id> --category "ProjectX"
 owa-cal delete --id <event-id>
+
+owa-cal respond --id <event-id> --action accept              # RSVP to an invite
+owa-cal respond --id <event-id> --action decline --comment "conflict"
+owa-cal respond --id <event-id> --action tentative --no-notify
 
 owa-cal categories                            # JSON
 owa-cal categories --pretty                   # aligned table

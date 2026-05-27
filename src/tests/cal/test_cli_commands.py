@@ -127,6 +127,56 @@ def test_events_create_update_delete_categories(monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out)["DisplayName"] == "Green"
 
 
+def test_respond_accept_decline_tentative(monkeypatch, capsys):
+    requests = []
+
+    def fake_request(method, api_base, endpoint, access_token, **kwargs):
+        requests.append((method, endpoint, kwargs.get("body")))
+        return {}  # Outlook returns 202 with an empty body for these actions.
+
+    monkeypatch.setattr(cli.api_mod, "api_request", fake_request)
+
+    assert cli.cmd_respond(["--id", "e1", "--action", "accept"], {}, "tok", "https://outlook.test") == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out == {"id": "e1", "action": "accept", "notified": True}
+    assert requests[-1] == ("POST", "me/events/e1/accept", {"Comment": "", "SendResponse": True})
+
+    assert cli.cmd_respond(
+        ["--id", "e1", "--action", "decline", "--comment", "conflict", "--no-notify"],
+        {}, "tok", "https://outlook.test",
+    ) == 0
+    assert json.loads(capsys.readouterr().out)["notified"] is False
+    assert requests[-1] == ("POST", "me/events/e1/decline", {"Comment": "conflict", "SendResponse": False})
+
+    assert cli.cmd_respond(["--id", "e1", "--action", "tentative"], {}, "tok", "https://outlook.test") == 0
+    capsys.readouterr()
+    assert requests[-1][1] == "me/events/e1/tentativelyAccept"
+
+    # Recoverable error (api_request returns None) -> exit 1, no stdout.
+    monkeypatch.setattr(cli.api_mod, "api_request", lambda *a, **k: None)
+    assert cli.cmd_respond(["--id", "e1", "--action", "accept"], {}, "tok", "https://outlook.test") == 1
+    assert capsys.readouterr().out == ""
+
+
+def test_respond_validation():
+    with pytest.raises(cli.UsageError, match="--id is required"):
+        cli.cmd_respond(["--action", "accept"], {}, "tok", "https://outlook.test")
+    with pytest.raises(cli.UsageError, match="accept, decline, tentative"):
+        cli.cmd_respond(["--id", "e1"], {}, "tok", "https://outlook.test")
+    with pytest.raises(cli.UsageError, match="accept, decline, tentative"):
+        cli.cmd_respond(["--id", "e1", "--action", "maybe"], {}, "tok", "https://outlook.test")
+    with pytest.raises(cli.UsageError, match="Unknown flag"):
+        cli.cmd_respond(["--id", "e1", "--action", "accept", "--bogus"], {}, "tok", "https://outlook.test")
+
+
+def test_respond_rejected_on_webcal(monkeypatch, capsys):
+    monkeypatch.setattr(cli.config_mod, "load_config", lambda: {"owa_piggy_profile": "feed"})
+    monkeypatch.setattr(cli.profiles_mod, "load_local", lambda: {"feed": {"webcal_url": "https://feed.test/ical"}})
+    monkeypatch.setattr(cli.profiles_mod, "piggy_aliases", lambda: (set(), ""))
+    assert cli._main(["respond", "--id", "e1", "--action", "accept"]) == 2
+    assert "not supported on a webcal source" in capsys.readouterr().err
+
+
 def test_cal_validation_confirm_profiles_and_refresh(monkeypatch, capsys):
     with pytest.raises(cli.UsageError, match="--subject is required"):
         cli.cmd_create([], {}, "tok", "https://outlook.test")
