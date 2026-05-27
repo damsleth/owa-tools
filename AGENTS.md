@@ -26,6 +26,11 @@ interfaces. Prefer direct migrations to the release contract.
 - No live Microsoft or real broker calls in default tests. Live tests must be
   explicitly gated by environment variables.
 - No telemetry or update checks.
+- No MCP server, now or later. This is a deliberate, permanent non-goal, not a
+  deferred feature. The suite is CLI-only; agents drive it through the
+  documented contract - JSON on stdout, the `--agent` envelope, per-tool
+  `schema`, and the exit-code taxonomy below. Do not add a Model Context
+  Protocol server or propose one.
 
 ## Exit Codes
 
