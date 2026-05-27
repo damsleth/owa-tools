@@ -14,12 +14,10 @@ license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Carl Joakim Damsleth" }]
 
-# Runtime deps: stdlib only at the per-tool level, plus the shared
-# suite CLI-contract package. The workspace install pulls in every
-# package as a local path during development.
-dependencies = [
-  "hugr-conventions>=0.1",
-]
+# Runtime deps: none. The whole suite is stdlib-only so it ships as a
+# single self-contained distribution with no third-party runtime
+# dependency. The CLI-contract surface lives in owa_core.conventions.
+dependencies = []
 
 [project.optional-dependencies]
 dev = [

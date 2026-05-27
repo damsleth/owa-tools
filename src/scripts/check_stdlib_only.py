@@ -11,8 +11,8 @@ Allowed at runtime:
   * Local suite packages: owa_core, owa_cal, owa_mail, owa_graph,
     owa_doctor, owa_people, owa_sched, owa_drive, owa_todo, owa.
   * Sanctioned runtime dependencies declared in pyproject.toml
-    [project].dependencies (see RUNTIME_DEPS below): currently only
-    `hugr_conventions`, the shared hugr CLI-contract package.
+    [project].dependencies (see RUNTIME_DEPS below): currently none -
+    the suite is stdlib-only.
   * `owa-piggy` is invoked via subprocess only; no Python import.
 
 Excluded from the check:
@@ -51,11 +51,9 @@ LOCAL_PACKAGES = frozenset({
 
 # Third-party runtime dependencies the suite is allowed to import. Must
 # stay in sync with pyproject.toml [project].dependencies. The suite is
-# otherwise stdlib-only; this is the single vetted exception (the shared
-# hugr CLI-contract package, imported by owa_core.conventions).
-RUNTIME_DEPS = frozenset({
-    "hugr_conventions",
-})
+# stdlib-only, so this is empty; add an entry here only alongside a real
+# dependency in pyproject.toml.
+RUNTIME_DEPS: frozenset[str] = frozenset()
 
 # Bundled stdlib list for Python 3.9 (sys.stdlib_module_names is 3.10+).
 # Source: Python 3.9 docs index of standard library modules.
