@@ -35,7 +35,7 @@ The envelope shape is:
   "_owa": {
     "suite": "owa-tools",
     "tool": "owa-mail",
-    "version": "0.1.0",
+    "version": "0.2.1",
     "schema_version": 1,
     "command": "schema"
   },
@@ -46,6 +46,20 @@ The envelope shape is:
 Human output such as `--pretty` is intentionally not agent-wrapped. Binary
 stdout is also rejected in agent mode unless the command writes bytes to a file,
 for example `owa-drive get <path> --out <file>`.
+
+## Health
+
+Every binary answers `--doctor` (add `--json` for machine output) with a
+redaction-sentinel smoke test and tool-specific health findings:
+
+```bash
+owa-mail --doctor --json
+owa --doctor          # suite-wide
+```
+
+The `--doctor` payload uses the hugr 0-5 health taxonomy (distinct from the
+0/2/10-15/20 command-path taxonomy below). `owa-doctor probe` is the richer
+per-profile, per-audience health check.
 
 ## Error Output
 

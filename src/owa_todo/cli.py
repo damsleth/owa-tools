@@ -145,6 +145,9 @@ Auth:
   active profile; strict Conditional Access policies can withhold it,
   in which case calls exit 12 (access denied).
 
+Tasks carry opaque ids: address one via --id or as a bare positional
+argument (`owa-todo done <id>` == `owa-todo done --id <id>`).
+
 Examples:
   owa-todo lists --pretty
   owa-todo tasks --pretty

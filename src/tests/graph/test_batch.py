@@ -116,6 +116,40 @@ def test_batch_default_emits_compact_json(monkeypatch, tmp_path, capsys):
     assert json.loads(out) == _BATCH_RESPONSE
 
 
+def test_batch_ndjson_streams_one_response_per_line(monkeypatch, tmp_path, capsys):
+    body_file = tmp_path / 'batch.json'
+    body_file.write_text('[]')
+    monkeypatch.setattr(cli.api_mod, 'api_request', lambda *a, **k: _BATCH_RESPONSE)
+    rc = _run(monkeypatch, 'batch', str(body_file), '--ndjson')
+    out = capsys.readouterr().out
+    assert rc == 0
+    lines = [ln for ln in out.splitlines() if ln.strip()]
+    assert len(lines) == 2
+    assert [json.loads(ln) for ln in lines] == _BATCH_RESPONSE['responses']
+
+
+def test_batch_ndjson_non_envelope_emits_single_line(monkeypatch, tmp_path, capsys):
+    body_file = tmp_path / 'batch.json'
+    body_file.write_text('[]')
+    # An error-shaped response without a `responses` list still yields
+    # valid NDJSON: one line for the whole document.
+    monkeypatch.setattr(cli.api_mod, 'api_request', lambda *a, **k: {'error': 'nope'})
+    rc = _run(monkeypatch, 'batch', str(body_file), '--ndjson')
+    out = capsys.readouterr().out
+    assert rc == 0
+    lines = [ln for ln in out.splitlines() if ln.strip()]
+    assert len(lines) == 1
+    assert json.loads(lines[0]) == {'error': 'nope'}
+
+
+def test_batch_ndjson_and_pretty_incompatible(monkeypatch, tmp_path, capsys):
+    body_file = tmp_path / 'batch.json'
+    body_file.write_text('[]')
+    rc = _run(monkeypatch, 'batch', str(body_file), '--ndjson', '--pretty')
+    assert rc != 0
+    assert 'incompatible' in capsys.readouterr().err
+
+
 def test_batch_no_source_errors(monkeypatch, capsys):
     rc = _run(monkeypatch, 'batch')
     err = capsys.readouterr().err

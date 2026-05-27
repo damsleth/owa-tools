@@ -175,3 +175,72 @@ def test_agent_mode_wraps_successful_json_output():
     assert payload["_owa"]["tool"] == "owa-mail"
     assert payload["_owa"]["command"] == "schema"
     assert payload["data"]["commands"][0]["name"] == "messages"
+
+
+def test_agent_mode_envelope_is_uniform_across_every_tool():
+    """The --agent envelope (proven for owa-mail above) must look identical
+    for every consumer binary, exercised via `schema` so no auth is needed."""
+    for module in TOOLS:
+        tool = module.replace("_", "-")
+        result = _run_module(module, "--agent", "schema")
+        assert result.returncode == 0, f"{module}: {result.stderr!r}"
+        payload = json.loads(result.stdout)
+        assert payload["_owa"]["suite"] == "owa-tools"
+        assert payload["_owa"]["tool"] == tool
+        assert payload["_owa"]["command"] == "schema"
+        assert payload["data"]["tool"] == tool
+
+
+def test_every_tool_help_documents_machine_surface():
+    """Every consumer binary's --help carries the uniform machine-surface block
+    (schema / --agent / --err-json / --doctor). Previously these contracts were
+    real but undocumented in per-tool help."""
+    for module in TOOLS:
+        result = _run_module(module, "--help")
+        assert result.returncode == 0
+        assert "Machine surface (uniform across the owa suite)" in result.stdout
+        for token in ("schema", "--agent", "--err-json", "--doctor"):
+            assert token in result.stdout, f"{module} help missing {token}"
+
+
+def test_opaque_id_commands_advertise_positional_acceptance():
+    """cal/mail/todo address items by opaque id and accept it via --id OR as a
+    bare positional; the schema --id summary documents both."""
+    for module in ("owa_cal", "owa_mail", "owa_todo"):
+        schema = json.loads(_run_module(module, "schema").stdout)
+        id_flags = [
+            flag
+            for cmd in schema["commands"]
+            for flag in cmd.get("flags", [])
+            if flag.get("name") == "--id"
+        ]
+        assert id_flags, f"{module} has no --id commands"
+        assert all("flag or positional" in f.get("summary", "") for f in id_flags)
+
+
+def test_drive_declares_canonical_verb_aliases():
+    schema = json.loads(_run_module("owa_drive", "schema").stdout)
+    aliases = {c["name"]: c.get("aliases", []) for c in schema["commands"]}
+    assert aliases["ls"] == ["list"]
+    assert aliases["get"] == ["download"]
+    assert aliases["put"] == ["upload"]
+    assert aliases["rm"] == ["delete"]
+
+
+def test_drive_alias_help_resolves_to_canonical_command():
+    # `delete --help` short-circuits before auth and renders rm's help.
+    result = _run_module("owa_drive", "delete", "--help")
+    assert result.returncode == 0
+    assert "owa-drive rm" in result.stdout
+    assert "Aliases: delete" in result.stdout
+
+
+def test_graph_delete_is_destructive_without_a_confirm_gate():
+    """Raw Graph DELETE is destructive but intentionally has no --confirm gate
+    (unlike cal/mail/drive/todo deletes) - the caller owns the raw path. Pin the
+    deliberate difference so it can't regress silently."""
+    schema = json.loads(_run_module("owa_graph", "schema").stdout)
+    delete = next(c for c in schema["commands"] if c["name"] == "DELETE")
+    assert delete["mutates"] is True
+    assert delete["destructive"] is True
+    assert "confirmation" not in delete

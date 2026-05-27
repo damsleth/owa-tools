@@ -22,7 +22,7 @@ damsleth/tap/hugr`), one verb surface (`hugr mail ...`, `hugr
 calendar ...`), and one CLI contract (output classes, exit codes,
 JSON envelopes - see
 [hugr/CONVENTIONS.md](https://github.com/damsleth/hugr/blob/main/CONVENTIONS.md)).
-The eight `owa-*` binaries continue to work standalone.
+The nine `owa-*` binaries continue to work standalone.
 
 ## Install
 
@@ -56,7 +56,7 @@ owa-cal events --pretty                          # today's calendar
 owa-mail folders                                 # mail folders
 owa-graph me whoami                              # who am I
 owa-drive ls                                     # OneDrive root
-owa-people search "ola nordmann"                 # directory lookup
+owa-people find "ola nordmann"                   # people lookup
 owa-sched availability --who you@example.com --date today
 ```
 
@@ -108,7 +108,7 @@ rules.
 - [`docs/security.md`](docs/security.md) - token, redaction, and live-test boundaries
 - [`docs/agent-integration.md`](docs/agent-integration.md) - schema discovery, `--agent`, `--err-json`
 - [`docs/profile-model.md`](docs/profile-model.md) - profiles and audiences
-- Per-tool: [`cal`](docs/cal.md) | [`mail`](docs/mail.md) | [`graph`](docs/graph.md) | [`doctor`](docs/doctor.md) | [`people`](docs/people.md) | [`sched`](docs/sched.md) | [`drive`](docs/drive.md)
+- Per-tool: [`cal`](docs/cal.md) | [`mail`](docs/mail.md) | [`graph`](docs/graph.md) | [`doctor`](docs/doctor.md) | [`people`](docs/people.md) | [`sched`](docs/sched.md) | [`drive`](docs/drive.md) | [`todo`](docs/todo.md)
 
 ## Releases
 

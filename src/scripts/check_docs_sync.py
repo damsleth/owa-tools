@@ -102,6 +102,10 @@ def check_command_docs():
         text = path.read_text(encoding='utf-8')
         commands = _schema_commands(schema)
         allowed_examples = set(commands)
+        # Command aliases (e.g. owa-drive `delete` aliasing `rm`) are valid
+        # in examples even though they are not canonical command names.
+        for row in schema:
+            allowed_examples.update(row.get('aliases') or ())
         if tool == 'owa-graph':
             allowed_examples.update(graph_resources.known_groups())
         for command in sorted(commands):

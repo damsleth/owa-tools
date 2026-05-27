@@ -407,3 +407,55 @@ def test_folders_json(monkeypatch, capsys):
     assert rc == 0
     items = json.loads(capsys.readouterr().out)
     assert items == [{'id': '1', 'name': 'Inbox', 'unread': 0, 'total': 0}]
+
+
+# ----- positional id acceptance -----
+
+def test_show_accepts_positional_id(monkeypatch, capsys):
+    from owa_mail import api as api_mod
+    from owa_mail.cli import cmd_show
+    seen = {}
+
+    def fake_get(base, endpoint, token, debug=False):
+        seen['endpoint'] = endpoint
+        return {'Id': 'AAMkMSG', 'Subject': 'hi', 'Body': {'Content': 'x', 'ContentType': 'Text'}}
+
+    monkeypatch.setattr(api_mod, 'api_get', fake_get)
+    rc = cmd_show(['AAMkMSG'], {}, *_fake_token())
+    capsys.readouterr()
+    assert rc == 0
+    assert 'AAMkMSG' in seen['endpoint']
+
+
+def test_delete_accepts_positional_id(monkeypatch, capsys):
+    from owa_mail import api as api_mod
+    from owa_mail.cli import cmd_delete
+    seen = {}
+
+    def fake_request(method, base, endpoint, token, **kw):
+        seen['method'] = method
+        seen['endpoint'] = endpoint
+        return {}
+
+    monkeypatch.setattr(api_mod, 'api_request', fake_request)
+    rc = cmd_delete(['AAMkMSG', '--confirm'], {}, *_fake_token())
+    capsys.readouterr()
+    assert rc == 0
+    assert seen['method'] == 'DELETE'
+    assert 'AAMkMSG' in seen['endpoint']
+
+
+def test_show_flag_id_still_works(monkeypatch, capsys):
+    from owa_mail import api as api_mod
+    from owa_mail.cli import cmd_show
+    seen = {}
+
+    def fake_get(base, endpoint, token, debug=False):
+        seen['endpoint'] = endpoint
+        return {'Id': 'AAMkMSG', 'Subject': 'hi', 'Body': {'Content': 'x', 'ContentType': 'Text'}}
+
+    monkeypatch.setattr(api_mod, 'api_get', fake_get)
+    rc = cmd_show(['--id', 'AAMkMSG'], {}, *_fake_token())
+    capsys.readouterr()
+    assert rc == 0
+    assert 'AAMkMSG' in seen['endpoint']

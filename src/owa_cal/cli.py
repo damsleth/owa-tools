@@ -202,6 +202,9 @@ Auth:
     brew install damsleth/tap/owa-piggy
     owa-piggy setup                           # or: setup --profile work
 
+Events carry opaque ids: address one via --id or as a bare positional
+argument (`owa-cal delete <id>` == `owa-cal delete --id <id>`).
+
 Examples:
   owa-cal events --pretty
   owa-cal events --week 16 --pretty

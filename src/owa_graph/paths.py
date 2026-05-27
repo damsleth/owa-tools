@@ -1,10 +1,10 @@
 """Lazy reader for the vendored Graph path manifest.
 
 `owa_graph/data/paths.json.gz` ships ~10k OData paths extracted from
-Graph's CSDL metadata (see `scripts/refresh-paths.py`). The completion
-scripts call `dump_paths()` once per tab-press to render the
-candidate list; we keep the gzip read out of the import path so the
-verb-first happy case stays fast.
+Graph's CSDL metadata; it is a committed artifact regenerated when the
+schema gains new paths. The completion scripts call `dump_paths()` once
+per tab-press to render the candidate list; we keep the gzip read out of
+the import path so the verb-first happy case stays fast.
 """
 from __future__ import annotations
 

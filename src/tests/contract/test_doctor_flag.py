@@ -13,18 +13,15 @@ import sys
 
 import pytest
 
-# Each entry is (package_module, expected_tool_name).
-# Use the package __main__ (python -m owa_cal), not the cli submodule,
-# so the binary's own entry-point setup runs.
-_BINARIES = [
-  ("owa", "owa"),
-  ("owa_cal", "owa-cal"),
-  ("owa_mail", "owa-mail"),
-  ("owa_graph", "owa-graph"),
-  ("owa_doctor", "owa-doctor"),
-  ("owa_people", "owa-people"),
-  ("owa_sched", "owa-sched"),
-  ("owa_drive", "owa-drive"),
+from owa_core.registry import CONSUMER_TOOLS
+
+# Each entry is (package_module, expected_tool_name). Derived from the
+# canonical registry (plus the umbrella) so a newly added tool is
+# automatically covered - this list previously drifted and omitted
+# owa-todo. Use the package __main__ (python -m owa_cal), not the cli
+# submodule, so the binary's own entry-point setup runs.
+_BINARIES = [("owa", "owa")] + [
+  (tool.replace("-", "_"), tool) for tool in CONSUMER_TOOLS
 ]
 
 

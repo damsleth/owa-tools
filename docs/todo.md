@@ -107,6 +107,23 @@ owa-todo refresh                              # force token refresh
 guarded: in a non-interactive context it requires `--confirm`, otherwise it
 prompts before deleting.
 
+Tasks carry opaque ids: address one via `--id` or as a bare positional argument
+(`owa-todo done <id>` == `owa-todo done --id <id>`).
+
+---
+
+## Machine / agent surface
+
+Every owa binary exposes the same machine surface (see
+[agent-integration.md](agent-integration.md) for the full contract):
+
+- `owa-todo schema [<command>]` - JSON command schema (one command if named)
+- `owa-todo --help --json` - the same schema via the help flag
+- `--agent` - wrap JSON stdout in a stable `{"_owa": ..., "data": ...}`
+  envelope (or set `OWA_AGENT=1`)
+- `--err-json` - structured JSON errors on stderr (or `OWA_ERR_JSON=1`)
+- `--doctor [--json]` - this tool's health / redaction doctor payload
+
 ---
 
 ## Notes

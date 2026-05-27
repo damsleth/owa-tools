@@ -9,6 +9,7 @@ import re
 from dataclasses import dataclass
 
 REDACTION = '[redacted-secret]'
+BODY_REDACTION = '[redacted-body]'
 
 JWT_RE = re.compile(
     r'\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b'
@@ -19,6 +20,15 @@ AUTH_HEADER_RE = re.compile(
 )
 CLIENT_SECRET_RE = re.compile(
     r'(?i)(client_secret\s*[:=]\s*[\'"]?)([A-Za-z0-9._~+/=-]{12,})'
+)
+# Message-content fields per hugr CONVENTIONS.md ("Body fields named
+# body, content, text"). Not a secret *shape* but message content -
+# email/event/task bodies that must never reach logs or stderr (e.g. the
+# debug request-body print in owa_core.http). Scrub the JSON string value
+# while keeping the key so log structure stays readable. The exact-key
+# match (`"content"`, not `"contentType"`) leaves harmless metadata alone.
+BODY_FIELD_RE = re.compile(
+    r'(?i)("(?:body|content|text|html_body|plain_body)"\s*:\s*)"[^"]*"'
 )
 
 
@@ -59,9 +69,18 @@ def contains_secret(value):
 
 
 def redact(value):
-    """Replace known secret-shaped substrings with a stable placeholder."""
+    """Replace known secret-shaped substrings and message-body field
+    values with stable placeholders.
+
+    Secret shapes (JWT, refresh token, Bearer header, client_secret)
+    collapse to ``REDACTION``; message-content fields (``body``,
+    ``content``, ``text``, ...) collapse to ``BODY_REDACTION`` so a
+    debug/error log never carries email or message content. Detection
+    helpers (``find_secret_shapes``/``contains_secret``) are unchanged -
+    body fields are a logging concern, not a secret-scan finding."""
     text = _text(value)
     text = AUTH_HEADER_RE.sub(r'\1' + REDACTION, text)
     text = CLIENT_SECRET_RE.sub(r'\1' + REDACTION, text)
     text = REFRESH_RE.sub(REDACTION, text)
-    return JWT_RE.sub(REDACTION, text)
+    text = JWT_RE.sub(REDACTION, text)
+    return BODY_FIELD_RE.sub(r'\1"' + BODY_REDACTION + '"', text)

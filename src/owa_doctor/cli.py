@@ -74,6 +74,8 @@ Examples:
   owa-doctor --profile swon --pretty
   owa-doctor --no-tokens                # quick install check only
   owa-doctor --audience outlook --pretty""")
+    print()
+    print(schema_mod.MACHINE_SURFACE_HELP)
 
 
 def _parse_args(argv):

@@ -190,3 +190,57 @@ def test_is_help_token_only_matches_help_forms():
     assert not schema.is_help_token('help')
     assert not schema.is_help_token('--pretty')
     assert not schema.is_help_token('events')
+
+
+def test_command_records_aliases():
+    row = schema.command('rm', 'Delete an item', aliases=['delete'])
+    assert row['aliases'] == ['delete']
+
+
+def test_command_omits_aliases_when_empty():
+    assert 'aliases' not in schema.command('rm', 'Delete an item')
+
+
+def test_resolve_alias_maps_alias_to_canonical():
+    commands = [schema.command('rm', 'Delete', aliases=['delete', 'del'])]
+    assert schema.resolve_alias('delete', commands) == 'rm'
+    assert schema.resolve_alias('del', commands) == 'rm'
+
+
+def test_resolve_alias_passes_through_canonical_and_unknown():
+    commands = [schema.command('rm', 'Delete', aliases=['delete'])]
+    assert schema.resolve_alias('rm', commands) == 'rm'
+    assert schema.resolve_alias('show', commands) == 'show'
+
+
+def test_pop_positional_id_extracts_leading_token():
+    assert schema.pop_positional_id(['AAMk123', '--pretty']) == ('AAMk123', ['--pretty'])
+
+
+def test_pop_positional_id_leaves_flags_alone():
+    assert schema.pop_positional_id(['--id', 'AAMk']) == ('', ['--id', 'AAMk'])
+    assert schema.pop_positional_id([]) == ('', [])
+
+
+def test_render_command_help_shows_aliases(capsys):
+    cmd = schema.command('rm', 'Delete an item', aliases=['delete'])
+    schema.render_command_help('owa-drive', cmd)
+    out = capsys.readouterr().out
+    assert 'Aliases: delete' in out
+
+
+def test_subcommand_help_resolves_alias(capsys):
+    cmd = schema.command('rm', 'Delete an item', aliases=['delete'],
+                         flags=[schema.flag('<path>', summary='Item path')])
+    rc = schema.maybe_emit_subcommand_help(
+        'delete', ['--help'], tool='owa-drive', commands=[cmd],
+    )
+    assert rc == 0
+    # `delete --help` renders the canonical `rm` command's help.
+    assert 'Usage: owa-drive rm [options]' in capsys.readouterr().out
+
+
+def test_machine_surface_help_documents_the_uniform_surface():
+    block = schema.MACHINE_SURFACE_HELP
+    for token in ('schema', '--help --json', '--agent', '--err-json', '--doctor'):
+        assert token in block

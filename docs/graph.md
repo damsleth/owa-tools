@@ -34,10 +34,16 @@ owa-graph files list --pretty
 
 ## Install
 
+Part of the `owa-tools` suite - one install ships owa-graph and the
+whole suite plus the `owa-piggy` auth broker:
+
 ```sh
-brew install damsleth/tap/owa-piggy   # auth broker, required
-pip install owa-graph                 # or: uvx owa-graph GET /me
+brew install damsleth/tap/owa-piggy damsleth/tap/owa-tools
+# or: pipx install owa-piggy && pipx install owa-tools
+# one-shot, no install: uvx --from owa-tools owa-graph GET /me
 ```
+
+Run as `owa-graph ...` or via the umbrella `owa graph ...`.
 
 ## How it works
 
@@ -164,14 +170,14 @@ Hand-written completion scripts ship under `src/completions/`. No
 
 ```sh
 # Bash (macOS Homebrew)
-ln -s "$(brew --prefix owa-graph)/completions/owa-graph.bash" \
+ln -s "$(brew --prefix owa-tools)/completions/owa-graph.bash" \
       "$(brew --prefix)/etc/bash_completion.d/owa-graph"
 
 # Zsh (anywhere on $fpath named exactly _owa-graph)
 cp src/completions/owa-graph.zsh "$(brew --prefix)/share/zsh/site-functions/_owa-graph"
 
 # Fish
-cp src/completions/owa-graph.fish ~/.config/fish/src/completions/owa-graph.fish
+cp src/completions/owa-graph.fish ~/.config/fish/completions/owa-graph.fish
 ```
 
 Coverage:
@@ -184,21 +190,40 @@ Coverage:
 - `--audience <TAB>` lists the 13 known FOCI audiences
 - the full flag set is suggested anywhere a flag can appear
 
-Refresh the path manifest:
+The path list itself is dumped by the package (used by the completion
+scripts):
 
 ```sh
-python3 scripts/refresh-paths.py     # writes owa_graph/data/paths.json.gz
+python -m owa_graph.paths           # v1.0 paths, one per line
+python -m owa_graph.paths beta      # beta paths
 ```
 
-Run periodically (and pinned in CI) to track Graph schema additions.
+The vendored manifest at `owa_graph/data/paths.json.gz` is a committed
+artifact regenerated from Graph's CSDL metadata when the schema gains
+new paths.
 
 ## Development
 
+owa-graph ships in the `owa-tools` suite repository:
+
 ```sh
-pip install -e '.[test]'
-pytest -q
-python -m compileall owa_graph
+git clone https://github.com/damsleth/owa-tools
+cd owa-tools
+python -m venv .venv && .venv/bin/pip install -e '.[dev]'
+.venv/bin/python -m pytest -q
 ```
+
+## Machine / agent surface
+
+Every owa binary exposes the same machine surface (see
+[agent-integration.md](agent-integration.md) for the full contract):
+
+- `owa-graph schema [<command>]` - JSON command schema (one command if named)
+- `owa-graph --help --json` - the same schema via the help flag
+- `--agent` - wrap JSON stdout in a stable `{"_owa": ..., "data": ...}`
+  envelope (or set `OWA_AGENT=1`)
+- `--err-json` - structured JSON errors on stderr (or `OWA_ERR_JSON=1`)
+- `--doctor [--json]` - this tool's health / redaction doctor payload
 
 ## License
 

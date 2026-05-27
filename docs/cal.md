@@ -4,7 +4,7 @@ Calendar CLI for Outlook / Microsoft 365. Read, create, update, delete and RSVP 
 Pipe-friendly JSON by default, `--pretty` for humans.
 
 ```sh
-brew install damsleth/tap/owa-cal
+brew install damsleth/tap/owa-tools      # ships owa-cal + the whole suite
 owa-cal events --pretty
 ```
 
@@ -12,11 +12,11 @@ Or one-shot, no install, no on-disk state:
 
 ```sh
 OWA_REFRESH_TOKEN=1.AQ... OWA_TENANT_ID=<tenant-id-or-domain> \
-  uvx owa-cal events --pretty
+  uvx --from owa-tools owa-cal events --pretty
 ```
 
-`uvx` pulls owa-cal (and owa-piggy as a transitive dep) into a
-throwaway venv. The two env vars feed straight through to owa-piggy's
+`uvx --from owa-tools` pulls the suite (and owa-piggy as a transitive
+dep) into a throwaway venv. The two env vars feed straight through to owa-piggy's
 env-only mode - nothing is written to `~/.config/`. Useful on a
 borrowed laptop, in a CI job, or for a one-off script. See
 [Single-line uvx](#single-line-uvx-no-install-no-disk-state) for how
@@ -32,7 +32,7 @@ first-run flow:
 
 ```sh
 # 1. Install both
-brew install damsleth/tap/owa-piggy damsleth/tap/owa-cal
+brew install damsleth/tap/owa-piggy damsleth/tap/owa-tools
 
 # 2. Seed owa-piggy once from your browser (walks you through it)
 owa-piggy setup
@@ -41,8 +41,8 @@ owa-piggy setup
 owa-cal events --pretty
 ```
 
-owa-piggy and owa-cal version independently. owa-cal expects any
-owa-piggy >= 0.6.0 and sanity-checks the version on first call.
+owa-piggy and owa-tools version independently. owa-cal expects any
+owa-piggy >= 0.7.1 and sanity-checks the version on first call.
 
 Multi-account: seed a named owa-piggy profile and pin it in owa-cal's
 config.
@@ -154,47 +154,51 @@ owa-cal refresh                               # force token refresh
 owa-cal config --profile work                 # pin a profile
 ```
 
+Events carry opaque ids: address one via `--id` or as a bare positional
+argument (`owa-cal delete <id>` == `owa-cal delete --id <id>`).
+
+---
+
+## Machine / agent surface
+
+Every owa binary exposes the same machine surface (see
+[agent-integration.md](agent-integration.md) for the full contract):
+
+- `owa-cal schema [<command>]` - JSON command schema (one command if named)
+- `owa-cal --help --json` - the same schema via the help flag
+- `--agent` - wrap JSON stdout in a stable `{"_owa": ..., "data": ...}`
+  envelope (or set `OWA_AGENT=1`)
+- `--err-json` - structured JSON errors on stderr (or `OWA_ERR_JSON=1`)
+- `--doctor [--json]` - this tool's health / redaction doctor payload
+
 ---
 
 ## Auth
 
-Two paths:
+owa-cal shells out to [`owa-piggy`](https://github.com/damsleth/owa-piggy)
+for a fresh access token on every call. owa-piggy piggybacks on OWA's public
+SPA client (no Azure AD app registration needed) and owns the refresh-token
+lifecycle. owa-cal stores no refresh token of its own - at most an
+`owa_piggy_profile` alias. Audience: `outlook` (Outlook REST).
 
-- **owa-piggy bridge (default)** - owa-cal shells out to
-  [`owa-piggy`](https://github.com/damsleth/owa-piggy), which
-  piggybacks on OWA's public SPA client. No app registration needed;
-  owa-cal stores no refresh token. Optional `owa_piggy_profile` pins a
-  named owa-piggy profile.
-- **With an app registration** - set `OUTLOOK_APP_CLIENT_ID`,
-  `OUTLOOK_REFRESH_TOKEN`, and `OUTLOOK_TENANT_ID` in the config file
-  and owa-cal talks to the AAD token endpoint directly.
-
-Config lives at `~/.config/owa-cal/config`:
+Config lives at `~/.config/owa-cal/config` and holds only non-secret
+preferences:
 
 ```
-# Default (owa-piggy) path - optional, pins a profile alias
+# Optional - pins which owa-piggy profile owa-cal uses by default
 owa_piggy_profile="work"
-
-# App-registration path (optional, mutually exclusive)
-OUTLOOK_APP_CLIENT_ID=""
-OUTLOOK_REFRESH_TOKEN=""
-OUTLOOK_TENANT_ID=""
 ```
-
-`OUTLOOK_APP_CLIENT_ID` can be overridden via the environment. The
-refresh token / tenant id on the app-registration path live
-exclusively in the config file.
 
 ### Single-line uvx (no install, no disk state)
 
-`uvx owa-cal` pulls both packages into an ephemeral venv and never
-writes to `~/.config/`. Pair it with owa-piggy's env-only mode and
-you have a one-shot, fully portable invocation:
+`uvx --from owa-tools owa-cal` pulls the suite into an ephemeral venv
+and never writes to `~/.config/`. Pair it with owa-piggy's env-only mode
+and you have a one-shot, fully portable invocation:
 
 ```sh
 OWA_REFRESH_TOKEN=1.AQ... \
 OWA_TENANT_ID=<tenant-id-or-domain> \
-  uvx owa-cal events --pretty
+  uvx --from owa-tools owa-cal events --pretty
 ```
 
 Variables go to owa-piggy via subprocess env inheritance; owa-cal
@@ -221,7 +225,7 @@ Caveats:
   belongs in `owa-piggy setup`, not env vars.
 - Tokens on a command line (e.g. `OWA_REFRESH_TOKEN=... uvx ...`) end
   up in shell history and `ps aux`. Source them from a file
-  (`set -a; . secrets.env; set +a; uvx owa-cal events`) or your
+  (`set -a; . secrets.env; set +a; uvx --from owa-tools owa-cal events`) or your
   password manager's CLI.
 
 #### For agents
@@ -231,49 +235,52 @@ to read/write a calendar without persistent setup:
 
 ```sh
 OWA_REFRESH_TOKEN=$RT OWA_TENANT_ID=$TID \
-  uvx --quiet owa-cal events --from 2026-04-26 --to 2026-05-03
+  uvx --quiet --from owa-tools owa-cal events --from 2026-04-26 --to 2026-05-03
 ```
 
 Useful contract for agent code:
 
 - stdout is JSON (omit `--pretty`); stderr is logs.
-- exit `0` success, `1` any failure (auth, network, validation).
+- exit codes follow the suite taxonomy: `0` success, `2` usage, `10`
+  network, `11` auth-expired, `12` scope, `13` not-found, `14`
+  rate-limited, `15` conflict, `20` internal. See
+  [agent-integration.md](agent-integration.md).
 - `--quiet` on `uvx` suppresses the `Installed N packages` line so
   stdout stays clean for `jq` / `json.loads`.
-- pin a version for reproducibility: `uvx --from 'owa-cal==0.6.1'
+- pin a version for reproducibility: `uvx --from 'owa-tools==0.2.1'
   owa-cal events`.
 - short-lived only. Refresh tokens rotate on every exchange and have
   nowhere to go in env-only mode; for an agent that calls more than
   once across the 24h sliding window, run `owa-piggy setup --profile
-  agent` once on the host and use `OWA_PROFILE=agent uvx owa-cal ...`
-  instead - owa-piggy then handles rotation and caching.
+  agent` once on the host and use `OWA_PROFILE=agent uvx --from
+  owa-tools owa-cal ...` instead - owa-piggy then handles rotation and
+  caching.
 
 ---
 
 ## Dependencies
 
-- Python 3.8+ (stdlib only - no `pip install` required at runtime)
-- [`owa-piggy`](https://github.com/damsleth/owa-piggy) unless you
-  bring your own app registration
+- Python 3.10+
+- [`owa-piggy`](https://github.com/damsleth/owa-piggy), the auth broker
 
 ## Development
 
+owa-cal ships in the `owa-tools` suite repository:
+
 ```sh
-git clone https://github.com/damsleth/owa-cal
-cd owa-cal
-pip install -e '.[test]'
-pytest -q
+git clone https://github.com/damsleth/owa-tools
+cd owa-tools
+python -m venv .venv && .venv/bin/pip install -e '.[dev]'
+.venv/bin/python -m pytest -q
 ```
 
-See [`AGENTS.md`](AGENTS.md) for repo layout and ground rules.
+See [`AGENTS.md`](../AGENTS.md) for repo layout and ground rules.
 
 ## Disclaimer
 
 ```
-Personal tooling. The default (owa-piggy bridge) path holds no
-refresh token of its own - tokens are owa-piggy's responsibility,
-scoped to its profile store. The optional app-registration path
-does persist a delegated refresh token in owa-cal's config file.
-If you don't know why either of those might be a bad idea, don't
-use it.
+Personal tooling. owa-cal holds no refresh token of its own - tokens
+are owa-piggy's responsibility, scoped to its profile store. owa-cal's
+own config file holds only non-secret preferences. If you don't know
+why piggybacking on a browser session might be a bad idea, don't use it.
 ```
