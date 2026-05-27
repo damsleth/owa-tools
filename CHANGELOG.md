@@ -6,7 +6,7 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
-## v0.2.0 (unreleased)
+## v0.2.0 - 2026-05-27
 
 ### Suite-wide
 
