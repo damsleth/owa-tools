@@ -52,11 +52,13 @@ Add `--pretty` for a table; `--limit N` to bound the page size (default
 25, max 100); `--profile <alias>` to switch profiles for one
 invocation.
 
-`find`, `directory`, and `contacts` return a single page by default.
-Pass `--all` to follow `@odata.nextLink` until the collection is
-exhausted; `--limit` still controls the page size requested per
-round-trip. (`show` and `me` return a single object and have no
-`--all`.)
+`directory` and `contacts` return a single page by default. Pass
+`--all` to follow `@odata.nextLink` until the collection is exhausted;
+`--limit` still controls the page size requested per round-trip.
+(`show` and `me` return a single object and have no `--all`. `find`
+hits `/me/people`, which is relevance-ranked and does not return
+`@odata.nextLink`, so it has no `--all` either — raise `--limit` to
+widen the result set.)
 
 ```bash
 owa-people directory "norconsult" --all | jq length

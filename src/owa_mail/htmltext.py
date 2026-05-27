@@ -9,7 +9,10 @@ Stdlib only: `html.parser.HTMLParser` does the tokenising and
 `html.unescape` handles any entities the parser hands us as already-text.
 This is a pragmatic flattener, not a browser: it drops `<script>`/`<style>`
 content, turns block-level elements into line breaks, bullets list items,
-collapses whitespace, and never raises on malformed input.
+separates table cells, collapses whitespace, and never raises on malformed
+input. Known limitation: `<pre>` content is whitespace-collapsed like any
+other text rather than preserved verbatim, so pre-formatted code/tables in
+a mail body lose their original spacing in `--pretty`.
 """
 import re
 from html.parser import HTMLParser
@@ -24,6 +27,11 @@ _BLOCK_TAGS = frozenset({
 
 # Tags whose text content we drop entirely.
 _SKIP_TAGS = frozenset({'script', 'style', 'head', 'title', 'noscript'})
+
+# Table cells aren't block-level (no line break), but adjacent cells on a
+# row must not glue together ("AB"); separate them with a tab, which the
+# whitespace pass folds to a single space.
+_CELL_TAGS = frozenset({'td', 'th'})
 
 _WS_RE = re.compile(r'[ \t\f\v]+')
 _BLANKLINES_RE = re.compile(r'\n{3,}')
@@ -52,6 +60,8 @@ class _TextExtractor(HTMLParser):
             self._parts.append('\n')
         elif tag == 'li':
             self._parts.append('\n- ')
+        elif tag in _CELL_TAGS:
+            self._parts.append('\t')
         elif tag in _BLOCK_TAGS:
             self._parts.append('\n')
 

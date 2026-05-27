@@ -72,8 +72,9 @@ Commands:
 Common options:
   --pretty            Human-readable output (default: JSON).
   --limit <n>         Max results per page (default: 25, max 100).
-  --all               (find/directory/contacts) Follow @odata.nextLink
-                      until exhausted. --limit still controls page size.
+  --all               (directory/contacts) Follow @odata.nextLink until
+                      exhausted. --limit still controls page size. Not
+                      available on find (/me/people does not page).
 
 Examples:
   owa-people find "vibeke" --pretty
@@ -90,15 +91,12 @@ Examples:
 
 def cmd_find(args, config, access_token, api_base):
     pretty = False
-    all_pages = False
     limit = 25
     query_parts = []
     while args:
         flag, args = args[0], args[1:]
         if flag == '--pretty':
             pretty = True
-        elif flag == '--all':
-            all_pages = True
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
         elif flag.startswith('-'):
@@ -113,21 +111,11 @@ def cmd_find(args, config, access_token, api_base):
         '$search': f'"{query}"',
         '$top': max(1, min(limit, 100)),
     })
+    # No --all here: /me/people is relevance-ranked and uses client-driven
+    # $top/$skip paging with no @odata.nextLink (and $skip is unsupported
+    # alongside $search), so there is no server page chain to follow.
     endpoint = f'me/people?{qs}'
     headers = {'ConsistencyLevel': 'eventual'}
-    if all_pages:
-        items = api_mod.paginate_all(
-            api_base, endpoint, access_token,
-            extra_headers=headers, debug=_debug_enabled(config),
-        )
-        if items is None:
-            return 1
-        people = [normalize_person(i, 'people') for i in items]
-        if pretty:
-            print(format_people_pretty(people))
-        else:
-            print(json.dumps(people))
-        return 0
     payload = api_mod.api_get(
         api_base, endpoint, access_token,
         extra_headers=headers,
@@ -383,8 +371,7 @@ def _command_name(argv):
 
 _FIND_FLAGS = [
     schema_mod.flag('<query>', summary='Search query (positional, free text)', required=True),
-    schema_mod.flag('--limit', value='<n>', summary='Max results per page (default 25, cap 100)'),
-    schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
+    schema_mod.flag('--limit', value='<n>', summary='Max results (default 25, cap 100)'),
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
 ]
 

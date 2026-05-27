@@ -47,6 +47,44 @@ def test_invalid_chunk_size_raises():
         upload._normalize_chunk_size(0)
 
 
+def test_normalize_chunk_size_caps_at_max():
+    # Graph rejects chunks over 60 MiB; an oversized request is clamped to
+    # the max (an exact 320 KiB multiple), not passed through.
+    assert upload._normalize_chunk_size(upload.MAX_CHUNK_SIZE * 4) == upload.MAX_CHUNK_SIZE
+    assert upload.MAX_CHUNK_SIZE % upload.CHUNK_MULTIPLE == 0
+    assert upload.MAX_CHUNK_SIZE == 60 * 1024 * 1024
+
+
+def test_empty_content_rejected():
+    # Zero-length payloads have no valid Content-Range for a session and
+    # belong on the simple-PUT path; the helper refuses them outright.
+    with pytest.raises(InternalError):
+        upload.upload_session(
+            'https://up.example.test/session', b'',
+            urlopen=lambda *a, **k: FakeResp(b'{}', status=200),
+        )
+
+
+def test_chunk_retry_covers_transient_5xx():
+    # Graph's resumable-upload guidance: retry 500/502/504 (not just
+    # 429/503) on a chunk PUT rather than aborting the whole transfer.
+    calls = {'n': 0}
+    sleeps = []
+
+    def fake_urlopen(req, timeout):
+        calls['n'] += 1
+        if calls['n'] == 1:
+            raise _http_error(502, headers={'Retry-After': '1'})
+        return FakeResp(b'{"id":"ok"}', status=200)
+
+    out = upload.upload_session(
+        'https://up.example.test/session', b'small',
+        retry=1, sleep=sleeps.append, urlopen=fake_urlopen,
+    )
+    assert out == {'id': 'ok'}
+    assert calls['n'] == 2 and sleeps == [1]
+
+
 def test_single_chunk_upload_returns_final_item_and_omits_auth():
     seen = []
 

@@ -78,19 +78,33 @@ def test_read_file_attachment_unreadable(monkeypatch, tmp_path):
 
 
 def test_build_inline_attachment_round_trips():
-    obj = att.build_inline_attachment("a.bin", b"\x00\x01\x02", content_type="application/octet-stream")
+    obj = att.build_inline_attachment("a.bin", b"\x00\x01\x02", content_type="text/plain")
     assert obj["@odata.type"] == att.FILE_ATTACHMENT_TYPE
     assert obj["Name"] == "a.bin"
-    assert obj["ContentType"] == "application/octet-stream"
+    assert obj["ContentType"] == "text/plain"
     assert base64.b64decode(obj["ContentBytes"]) == b"\x00\x01\x02"
-    # Without content type the key is omitted.
-    assert "ContentType" not in att.build_inline_attachment("b", b"x")
+
+
+def test_build_inline_attachment_guesses_content_type():
+    # No explicit type: guessed from the filename, never octet-stream here.
+    assert att.build_inline_attachment("report.pdf", b"x")["ContentType"] == "application/pdf"
+    # No usable extension falls back to octet-stream.
+    assert att.build_inline_attachment("blob", b"x")["ContentType"] == "application/octet-stream"
 
 
 def test_build_upload_session_body():
     assert att.build_upload_session_body("big.zip", 99) == {
-        "AttachmentItem": {"attachmentType": "file", "name": "big.zip", "size": 99}
+        "AttachmentItem": {
+            "attachmentType": "file",
+            "name": "big.zip",
+            "size": 99,
+            "contentType": "application/zip",
+        }
     }
+    # Explicit content type wins over the filename guess.
+    assert att.build_upload_session_body("x.bin", 1, content_type="image/png")[
+        "AttachmentItem"
+    ]["contentType"] == "image/png"
 
 
 def test_partition_by_size():

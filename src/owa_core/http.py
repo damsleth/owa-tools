@@ -183,6 +183,7 @@ def request_unauthenticated(
     headers=None,
     timeout=30,
     retry=0,
+    retry_statuses=(429, 503),
     debug=False,
     sleep=time.sleep,
     urlopen=urllib.request.urlopen,
@@ -191,12 +192,17 @@ def request_unauthenticated(
 
     Used for pre-signed URLs (e.g. Graph upload-session `uploadUrl`s)
     where attaching a bearer token would break the request. Returns a
-    Response and applies the same 429/503 Retry-After handling as
-    `request`, but never decodes JSON automatically - the caller reads
-    `Response.bytes` (and may parse). Raises OwaError subclasses, mapping
-    transport errors to NetworkError and HTTP error statuses to the
-    shared typed errors. Successful statuses (including 202 Accepted)
-    are returned as-is so callers can drive multi-step protocols.
+    Response and applies the same Retry-After handling as `request`, but
+    never decodes JSON automatically - the caller reads `Response.bytes`
+    (and may parse). Raises OwaError subclasses, mapping transport errors
+    to NetworkError and HTTP error statuses to the shared typed errors.
+    Successful statuses (including 202 Accepted) are returned as-is so
+    callers can drive multi-step protocols.
+
+    `retry_statuses` is the set of HTTP codes retried (with Retry-After
+    backoff) while `retry > 0`. It defaults to `(429, 503)`; upload
+    sessions widen it to the full transient 5xx set, which Graph's
+    resumable-upload guidance says to ride through.
     """
     all_headers = dict(headers or {})
     data = bytes(body) if isinstance(body, (bytes, bytearray)) else body
@@ -215,7 +221,7 @@ def request_unauthenticated(
                 request_id=_request_id(resp_headers),
             )
     except urllib.error.HTTPError as error:
-        if error.code in (429, 503) and retry > 0:
+        if error.code in retry_statuses and retry > 0:
             wait = _parse_retry_after(_headers_dict(getattr(error, 'headers', None)).get('Retry-After'))
             if wait <= RETRY_AFTER_CAP_SECONDS:
                 if debug:
@@ -228,6 +234,7 @@ def request_unauthenticated(
                     headers=headers,
                     timeout=timeout,
                     retry=retry - 1,
+                    retry_statuses=retry_statuses,
                     debug=debug,
                     sleep=sleep,
                     urlopen=urlopen,

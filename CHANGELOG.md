@@ -14,8 +14,9 @@ per-tool subsections inside that release when useful.
   returns a Graph-style `value` collection now accepts `--all` to follow
   `@odata.nextLink` until the collection is exhausted, matching
   `owa-graph`. Affected commands: `owa-mail messages`, `owa-mail
-  folders`, `owa-people find`, `owa-people directory`, `owa-people
-  contacts`, `owa-drive ls`, and `owa-cal events`. Without `--all`
+  folders`, `owa-people directory`, `owa-people contacts`, `owa-drive
+  ls`, and `owa-cal events`. (`owa-people find` is excluded: `/me/people`
+  is relevance-ranked and returns no `@odata.nextLink`.) Without `--all`
   behavior is unchanged (single page); with `--all`, `--limit`/`--top`
   still controls the page size requested per round-trip. All tools share
   the `owa_core.http.paginate` generator via a per-tool `paginate_all`
@@ -32,7 +33,8 @@ per-tool subsections inside that release when useful.
   `owa-mail attachment-get --id <id> --attachment <att-id>` downloads
   one file attachment to `--out <path>` or raw bytes on stdout.
 - New: repeatable `--attach <file>` on `send`, `reply`, `reply-all`,
-  and `forward`. Files 3 MB or smaller are sent inline; larger files
+  and `forward`. Each attachment's MIME type is detected from its
+  filename. Files 3 MB or smaller are sent inline; larger files
   transparently use a Microsoft Graph resumable upload session (create
   draft -> createUploadSession -> chunked PUT -> send), reusing the
   shared `owa_core.upload` driver. Small no-attachment sends keep the
@@ -46,7 +48,7 @@ per-tool subsections inside that release when useful.
 
 ### owa-people
 
-- New: `--all` on `find`, `directory`, and `contacts` (see Suite-wide).
+- New: `--all` on `directory` and `contacts` (see Suite-wide).
 
 ### owa-cal
 

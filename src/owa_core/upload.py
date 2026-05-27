@@ -35,6 +35,14 @@ CHUNK_MULTIPLE = 320 * 1024  # 327680 bytes
 # Default ~10 MiB. 10 MiB is already a clean 320 KiB multiple:
 # 10 * 1024 * 1024 / 327680 == 32.
 DEFAULT_CHUNK_SIZE = 32 * CHUNK_MULTIPLE  # 10 MiB
+# Graph rejects a single chunk PUT larger than 60 MiB; cap there so a
+# caller passing an oversized chunk_size can't silently produce failing
+# PUTs. 60 MiB is an exact 320 KiB multiple (192 * 327680).
+MAX_CHUNK_SIZE = 192 * CHUNK_MULTIPLE  # 60 MiB
+
+# Graph's resumable upload guidance says to retry transient 5xx (500,
+# 502, 503, 504) as well as 429 on a chunk PUT, rather than aborting.
+_UPLOAD_RETRY_STATUSES = (429, 500, 502, 503, 504)
 
 
 def _normalize_chunk_size(chunk_size):
@@ -42,7 +50,8 @@ def _normalize_chunk_size(chunk_size):
         raise InternalError(f'invalid chunk size: {chunk_size}')
     if chunk_size < CHUNK_MULTIPLE:
         return CHUNK_MULTIPLE
-    return (chunk_size // CHUNK_MULTIPLE) * CHUNK_MULTIPLE
+    aligned = (chunk_size // CHUNK_MULTIPLE) * CHUNK_MULTIPLE
+    return min(aligned, MAX_CHUNK_SIZE)
 
 
 def _decode_json(raw):
@@ -82,6 +91,11 @@ def upload_session(
     """
     chunk_size = _normalize_chunk_size(chunk_size)
     total = len(content)
+    if total == 0:
+        # Graph has no valid Content-Range for a zero-length session
+        # upload (`bytes 0-0/0` is rejected); empty payloads belong on the
+        # simple-PUT path, so callers must not route them here.
+        raise InternalError('cannot upload empty content via an upload session')
     if debug:
         print(
             f'DEBUG: upload session {total} bytes in chunks of {chunk_size}',
@@ -101,12 +115,10 @@ def upload_session(
     while True:
         end = min(start + chunk_size, total)
         chunk = content[start:end]
-        # Content-Range end is inclusive; guard the empty-content case so
-        # the range stays non-negative (`bytes 0-0/0`).
-        last_index = max(end - 1, 0)
+        # Content-Range end is inclusive (total >= 1, guarded above).
         headers = {
             'Content-Length': str(len(chunk)),
-            'Content-Range': f'bytes {start}-{last_index}/{total}',
+            'Content-Range': f'bytes {start}-{end - 1}/{total}',
         }
         if debug:
             print(
@@ -120,6 +132,7 @@ def upload_session(
             headers=headers,
             timeout=timeout,
             retry=retry,
+            retry_statuses=_UPLOAD_RETRY_STATUSES,
             debug=debug,
             **transport,
         )

@@ -10,8 +10,19 @@ Listing deliberately omits `ContentBytes` so we never dump base64 blobs
 into terminal or JSON output. Downloads decode it (or read `$value`).
 """
 import base64
+import mimetypes
 import os
 import urllib.parse
+
+# Fallback when the filename gives no hint; Graph/Outlook accept this and
+# clients sniff the real type, but a specific type renders better (e.g.
+# inline images, PDFs opening in-app).
+_DEFAULT_CONTENT_TYPE = 'application/octet-stream'
+
+
+def guess_content_type(name):
+    """Best-effort MIME type from a filename, never None."""
+    return mimetypes.guess_type(name)[0] or _DEFAULT_CONTENT_TYPE
 
 # Files at or under this size are sent inline in the message; larger
 # files go through a Graph upload session. Outlook's documented inline
@@ -115,24 +126,30 @@ def read_file_attachment(path):
 
 
 def build_inline_attachment(name, content_bytes, content_type=None):
-    """Build one inline fileAttachment object for a message payload."""
-    att = {
+    """Build one inline fileAttachment object for a message payload.
+
+    `content_type` is guessed from the filename when not given so the
+    attachment lands with a real MIME type instead of octet-stream.
+    """
+    return {
         '@odata.type': FILE_ATTACHMENT_TYPE,
         'Name': name,
+        'ContentType': content_type or guess_content_type(name),
         'ContentBytes': base64.b64encode(content_bytes).decode('ascii'),
     }
-    if content_type:
-        att['ContentType'] = content_type
-    return att
 
 
-def build_upload_session_body(name, size):
-    """Build the createUploadSession request body for a large attachment."""
+def build_upload_session_body(name, size, content_type=None):
+    """Build the createUploadSession request body for a large attachment.
+
+    `content_type` is guessed from the filename when not given.
+    """
     return {
         'AttachmentItem': {
             'attachmentType': 'file',
             'name': name,
             'size': size,
+            'contentType': content_type or guess_content_type(name),
         }
     }
 
