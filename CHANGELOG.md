@@ -8,7 +8,24 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
-## v0.3.0 - 2026-05-27
+## v0.3.1 - 2026-05-27
+
+The 0.3 feature set ships as v0.3.1. The v0.3.0 tag was pushed but never
+published: 0.3.0 declared a hard runtime dependency on `hugr-conventions`,
+which is not on PyPI, so the wheel was uninstallable
+(`No matching distribution found for hugr-conventions>=0.1`) and its
+release CI failed at the install step before producing any artifact (no
+GitHub Release, nothing on PyPI). Per "fix forward, don't force-push
+tags," the dead tag is left in place and the features land here.
+
+### Packaging
+
+- Fixed: `owa-tools` is stdlib-only again with **no third-party runtime
+  dependency**. The shared `hugr-conventions` package introduced in the
+  0.3 line is dropped; the CLI-contract surface (action/error envelopes,
+  NDJSON helpers, the doctor payload, and the 0-5 `--doctor` exit-code
+  taxonomy) is vendored back into `owa_core.conventions` as a
+  self-contained hand-copy. Public surface and behavior are unchanged.
 
 ### owa-todo (new tool)
 
