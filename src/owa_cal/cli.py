@@ -130,6 +130,7 @@ Commands:
   create              Create a new event
   update              Update an existing event
   delete              Delete an event
+  respond             Accept/decline/tentatively-accept a meeting invite
   categories          List or add master categories
   profiles            List/add/delete calendar profiles (merged with
                       owa-piggy profiles)
@@ -168,6 +169,12 @@ Delete options:
   --id <event-id>     Event ID (required)
   --confirm           Skip confirmation prompt
 
+Respond options:
+  --id <event-id>     Event ID (required)
+  --action <action>   accept, decline, or tentative (required)
+  --comment <text>    Optional note sent to the organizer
+  --no-notify         Record the response without notifying the organizer
+
 Categories options:
   --add <name>        Add a new master category
   --pretty            Human-readable table (default: JSON)
@@ -203,6 +210,8 @@ Examples:
   owa-cal create --subject "Standup" --date tomorrow --start 09:00 --end 09:30
   owa-cal update --id AAMkAG... --category "ProjectX"
   owa-cal delete --id AAMkAG...
+  owa-cal respond --id AAMkAG... --action accept
+  owa-cal respond --id AAMkAG... --action decline --comment "conflict"
   owa-cal categories
   owa-cal profiles --pretty
   owa-cal profiles add brkh --webcal 'https://example.invalid/feed?key=...'
@@ -572,6 +581,51 @@ def cmd_delete(args, config, access_token, api_base):
     return 0
 
 
+# Maps the user-facing --action value to the Outlook REST action segment.
+# The three are the only meeting-response actions Outlook exposes; 'tentative'
+# is spelled out as 'tentativelyAccept' on the wire.
+_RESPOND_ACTIONS = {
+    'accept': 'accept',
+    'decline': 'decline',
+    'tentative': 'tentativelyAccept',
+}
+
+
+def cmd_respond(args, config, access_token, api_base):
+    event_id = action = comment = ''
+    notify = True
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--id':
+            event_id, args = _require_value(flag, args)
+        elif flag == '--action':
+            action, args = _require_value(flag, args)
+        elif flag == '--comment':
+            comment, args = _require_value(flag, args)
+        elif flag == '--no-notify':
+            notify = False
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+
+    if not event_id:
+        raise UsageError('--id is required')
+    if action not in _RESPOND_ACTIONS:
+        raise UsageError('--action must be one of: accept, decline, tentative')
+
+    debug = _debug_enabled(config)
+    # Outlook REST action endpoints return 202 with an empty body, which
+    # api_request decodes to {}. Gate on `is None` (the recoverable-error
+    # signal), not falsiness, so an empty success body is not mistaken for
+    # failure - same contract as cmd_delete.
+    body = {'Comment': comment, 'SendResponse': notify}
+    endpoint = f'{_event_path(event_id)}/{_RESPOND_ACTIONS[action]}'
+    result = api_mod.api_request('POST', api_base, endpoint, access_token, body=body, debug=debug)
+    if result is None:
+        return 1
+    print(json.dumps({'id': event_id, 'action': action, 'notified': notify}))
+    return 0
+
+
 def cmd_categories(args, config, access_token, api_base):
     add = ''
     pretty = False
@@ -673,13 +727,13 @@ def cmd_refresh(args, config):
 # Dispatch
 # ---------------------------------------------------------------------------
 
-AUTHED_COMMANDS = {'events', 'create', 'update', 'delete', 'categories'}
+AUTHED_COMMANDS = {'events', 'create', 'update', 'delete', 'respond', 'categories'}
 
 # Commands the webcal/iCal source supports. The feed is read-only and
-# carries no category metadata, so write commands and `categories` are
-# rejected with a clear error before auth or HTTP is touched.
+# carries no category metadata, so write commands, RSVP, and `categories`
+# are rejected with a clear error before auth or HTTP is touched.
 WEBCAL_READ_COMMANDS = {'events'}
-WEBCAL_REJECTED_COMMANDS = {'create', 'update', 'delete', 'categories'}
+WEBCAL_REJECTED_COMMANDS = {'create', 'update', 'delete', 'respond', 'categories'}
 
 _EVENTS_FLAGS = [
     schema_mod.flag('--date', value='<date>', summary='Specific day (YYYY-MM-DD, today, tomorrow, yesterday)'),
@@ -722,6 +776,13 @@ _DELETE_FLAGS = [
     schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
 ]
 
+_RESPOND_FLAGS = [
+    schema_mod.flag('--id', value='<event-id>', summary='Event ID', required=True),
+    schema_mod.flag('--action', value='<accept|decline|tentative>', summary='Response to send', required=True),
+    schema_mod.flag('--comment', value='<text>', summary='Optional note to the organizer'),
+    schema_mod.flag('--no-notify', summary="Don't send a response back to the organizer"),
+]
+
 _CATEGORIES_FLAGS = [
     schema_mod.flag('--add', value='<name>', summary='Add a new master category'),
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
@@ -752,6 +813,14 @@ COMMAND_SCHEMA = [
         confirmation=True,
         idempotent=False,
         flags=_DELETE_FLAGS,
+    ),
+    schema_mod.command(
+        'respond',
+        'Respond to a meeting invite (accept/decline/tentative)',
+        auth='outlook',
+        mutates=True,
+        idempotent=True,
+        flags=_RESPOND_FLAGS,
     ),
     schema_mod.command('categories', 'List or add master categories', auth='outlook', mutates=True, flags=_CATEGORIES_FLAGS),
     schema_mod.command('profiles', 'List/add/delete calendar profiles', mutates=True, flags=_PROFILES_FLAGS),
@@ -1055,6 +1124,8 @@ def _main(argv):
         return cmd_update(rest, config, access_token, api_base)
     if cmd == 'delete':
         return cmd_delete(rest, config, access_token, api_base)
+    if cmd == 'respond':
+        return cmd_respond(rest, config, access_token, api_base)
     if cmd == 'categories':
         return cmd_categories(rest, config, access_token, api_base)
 

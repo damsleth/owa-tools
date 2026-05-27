@@ -6,6 +6,20 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## Unreleased
+
+### owa-cal
+
+- New: `owa-cal respond --id <id> --action accept|decline|tentative`
+  sends a meeting reply to an invite via the Outlook REST
+  accept/decline/tentativelyAccept actions. `--comment "<text>"`
+  attaches a note for the organizer; the organizer is notified by
+  default, and `--no-notify` records the response without sending a
+  reply. On success it emits a confirmation envelope
+  (`{"id", "action", "notified"}`) rather than an event, since Outlook
+  returns no body for these actions. Rejected against webcal/iCal
+  profiles (read-only feeds), like the other write commands.
+
 ## v0.2.1 - 2026-05-27
 
 The 0.2 feature set ships as v0.2.1. The v0.2.0 tag was pushed but never
