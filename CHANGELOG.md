@@ -6,7 +6,13 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
-## v0.2.0 - 2026-05-27
+## v0.2.1 - 2026-05-27
+
+The 0.2 feature set ships as v0.2.1. The v0.2.0 tag was pushed but never
+published: its release CI failed on a lint gate before producing any
+artifact (no GitHub Release, nothing on PyPI). Per "fix forward, don't
+force-push tags," the dead tag is left in place and the features land
+here unchanged.
 
 ### Suite-wide
 
