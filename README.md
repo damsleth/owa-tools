@@ -63,6 +63,10 @@ owa-sched availability --who you@example.com --date today
 Every binary supports `--help` and `<binary> help` for the full command surface.
 JSON on stdout, logs on stderr, `--pretty` when you want a human-readable table.
 
+The `owa` umbrella also dispatches to any tool, so `owa cal events --pretty`
+is equivalent to `owa-cal events --pretty` — everything after the tool name is
+passed straight through.
+
 ## What's in the box
 
 | CLI | What it does |
@@ -74,7 +78,7 @@ JSON on stdout, logs on stderr, `--pretty` when you want a human-readable table.
 | `owa-sched` | Free/busy and slot finding for one or many attendees. |
 | `owa-drive` | OneDrive CRUD plus binary up/download. |
 | `owa-doctor` | Health check across the suite, all profiles, all audiences. |
-| `owa` | Umbrella discovery binary: `owa list`, `owa schema`, `owa doctor`, `owa version`. |
+| `owa` | Umbrella: suite meta (`owa list`, `owa schema`, `owa version`, `owa --doctor`) plus `owa <tool> ...` pass-through dispatch (e.g. `owa cal events`). |
 
 ## Multi-account / profiles
 

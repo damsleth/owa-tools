@@ -1047,10 +1047,10 @@ def _main(argv):
     return handler(rest, config, access_token, api_base)
 
 
-def main():
+def main(argv=None):
     return mode_mod.run_with_output_modes(
         'owa-mail',
-        sys.argv[1:],
+        sys.argv[1:] if argv is None else argv,
         _main,
         binary_stdout_commands=('attachment-get',),
     )

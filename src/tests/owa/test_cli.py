@@ -3,13 +3,16 @@ from __future__ import annotations
 
 import json
 import subprocess
+import types
 
 from owa import cli
 
 
 def test_main_no_args_shows_help(capsys):
     assert cli.main([]) == 0
-    assert "Subcommands:" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "Tool dispatch" in out
+    assert "Available tools:" in out and "cal" in out
 
 
 def test_main_unknown_command_errors(capsys):
@@ -107,23 +110,52 @@ def test_version_of_returns_none_when_missing_or_failing(monkeypatch):
     assert cli._version_of("owa-cal") is None
 
 
-def test_cmd_doctor_requires_installed_binary(monkeypatch, capsys):
-    monkeypatch.setattr(cli, "_which", lambda name: None)
-    assert cli.cmd_doctor([]) == 13
-    assert "owa-doctor not on PATH" in capsys.readouterr().err
+def _fake_tool_module(monkeypatch, expected_pkg, seen, rc=0):
+    """Stub importlib so cmd_dispatch resolves a fake tool CLI whose
+    main() records the argv it was handed and returns `rc`."""
+    def fake_main(argv):
+        seen["argv"] = argv
+        return rc
+
+    module = types.SimpleNamespace(main=fake_main)
+
+    def fake_import(name):
+        assert name == f"{expected_pkg}.cli", name
+        return module
+
+    monkeypatch.setattr(cli.importlib, "import_module", fake_import)
 
 
-def test_cmd_doctor_forwards_probe(monkeypatch):
+def test_dispatch_forwards_argv_to_tool_main(monkeypatch):
     seen = {}
-    monkeypatch.setattr(cli, "_which", lambda name: "/bin/owa-doctor")
+    _fake_tool_module(monkeypatch, "owa_cal", seen)
+    assert cli.main(["cal", "events", "--week", "16"]) == 0
+    assert seen["argv"] == ["events", "--week", "16"]
 
-    def fake_call(args):
-        seen["args"] = args
-        return 7
 
-    monkeypatch.setattr(cli.subprocess, "call", fake_call)
-    assert cli.cmd_doctor(["--pretty"]) == 7
-    assert seen["args"] == ["/bin/owa-doctor", "probe", "--pretty"]
+def test_dispatch_accepts_binary_form_and_propagates_exit_code(monkeypatch):
+    seen = {}
+    _fake_tool_module(monkeypatch, "owa_mail", seen, rc=11)
+    assert cli.main(["owa-mail", "messages"]) == 11
+    assert seen["argv"] == ["messages"]
+
+
+def test_doctor_dispatches_in_process(monkeypatch):
+    seen = {}
+    _fake_tool_module(monkeypatch, "owa_doctor", seen, rc=7)
+    # No `probe` is inserted: owa-doctor defaults to probe on its own.
+    assert cli.main(["doctor", "--no-tokens"]) == 7
+    assert seen["argv"] == ["--no-tokens"]
+
+
+def test_meta_command_takes_precedence_over_dispatch(monkeypatch, capsys):
+    # `version` is a meta command, never dispatched to a tool.
+    def boom(name):
+        raise AssertionError(f"should not import {name}")
+
+    monkeypatch.setattr(cli.importlib, "import_module", boom)
+    assert cli.main(["version"]) == 0
+    assert capsys.readouterr().out.startswith("owa ")
 
 
 def test_cmd_schema_requires_tool_value(capsys):

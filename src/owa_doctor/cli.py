@@ -198,5 +198,7 @@ def _main(argv):
     return _exit_code_for(report)
 
 
-def main():
-    return mode_mod.run_with_output_modes('owa-doctor', sys.argv[1:], _main)
+def main(argv=None):
+    return mode_mod.run_with_output_modes(
+        'owa-doctor', sys.argv[1:] if argv is None else argv, _main,
+    )

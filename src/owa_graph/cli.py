@@ -779,5 +779,7 @@ def _main(argv):
     return cmd_request(method, path, request_args, config)
 
 
-def main():
-    return mode_mod.run_with_output_modes('owa-graph', sys.argv[1:], _main)
+def main(argv=None):
+    return mode_mod.run_with_output_modes(
+        'owa-graph', sys.argv[1:] if argv is None else argv, _main,
+    )

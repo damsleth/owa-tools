@@ -506,10 +506,10 @@ def _main(argv):
     return 1
 
 
-def main():
+def main(argv=None):
     return mode_mod.run_with_output_modes(
         'owa-drive',
-        sys.argv[1:],
+        sys.argv[1:] if argv is None else argv,
         _main,
         binary_stdout_commands=('get',),
     )
