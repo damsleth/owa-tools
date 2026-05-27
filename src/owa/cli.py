@@ -38,6 +38,7 @@ CONSUMERS = (
     "owa-people",
     "owa-sched",
     "owa-drive",
+    "owa-todo",
 )
 
 # Short tool name -> import package, derived from CONSUMERS so the two

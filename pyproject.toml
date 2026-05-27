@@ -37,6 +37,7 @@ owa-doctor = "owa_doctor:main"
 owa-people = "owa_people:main"
 owa-sched = "owa_sched:main"
 owa-drive = "owa_drive:main"
+owa-todo = "owa_todo:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -52,6 +53,7 @@ packages = [
   "owa_people",
   "owa_sched",
   "owa_drive",
+  "owa_todo",
 ]
 
 [tool.setuptools.package-data]
@@ -80,6 +82,7 @@ source = [
   "owa_people",
   "owa_sched",
   "owa_drive",
+  "owa_todo",
 ]
 omit = ["*/__main__.py"]
 

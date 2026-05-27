@@ -14,6 +14,7 @@ RUNTIME_DIRS = [
     'owa_people',
     'owa_sched',
     'owa_drive',
+    'owa_todo',
 ]
 
 

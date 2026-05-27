@@ -19,6 +19,7 @@ from owa_graph.cli import COMMAND_SCHEMA as GRAPH_SCHEMA  # noqa: E402
 from owa_mail.cli import COMMAND_SCHEMA as MAIL_SCHEMA  # noqa: E402
 from owa_people.cli import COMMAND_SCHEMA as PEOPLE_SCHEMA  # noqa: E402
 from owa_sched.cli import COMMAND_SCHEMA as SCHED_SCHEMA  # noqa: E402
+from owa_todo.cli import COMMAND_SCHEMA as TODO_SCHEMA  # noqa: E402
 
 DOCS = {
     'owa-cal': ('docs/cal.md', CAL_SCHEMA),
@@ -28,6 +29,7 @@ DOCS = {
     'owa-people': ('docs/people.md', PEOPLE_SCHEMA),
     'owa-sched': ('docs/sched.md', SCHED_SCHEMA),
     'owa-drive': ('docs/drive.md', DRIVE_SCHEMA),
+    'owa-todo': ('docs/todo.md', TODO_SCHEMA),
 }
 
 SHELL_FENCES = {'', 'sh', 'bash', 'shell', 'console'}
