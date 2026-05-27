@@ -1133,5 +1133,7 @@ def _main(argv):
     return 1
 
 
-def main():
-    return mode_mod.run_with_output_modes('owa-cal', sys.argv[1:], _main)
+def main(argv=None):
+    return mode_mod.run_with_output_modes(
+        'owa-cal', sys.argv[1:] if argv is None else argv, _main,
+    )

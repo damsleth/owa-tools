@@ -1,16 +1,25 @@
-"""Umbrella `owa` binary. Discovery only; not a full dispatcher.
+"""Umbrella `owa` binary: suite discovery plus pass-through dispatch.
 
-Subcommands:
+Meta commands operate on the suite as a whole:
   owa list         List installed consumer CLIs and their versions
                    (JSON by default; --pretty for a table).
   owa schema       Aggregate schemas from each consumer CLI.
-  owa doctor       Forward to `owa-doctor probe`.
   owa version      Print the umbrella version.
+  owa --doctor     Emit the suite doctor payload.
 
-Real work lives in the consumer CLIs (owa-cal, owa-mail, ...).
+Tool dispatch forwards everything after the tool name to that consumer
+CLI, run in-process (all tools ship in this one distribution):
+  owa <tool> [args...]   e.g. `owa cal events --week 16`,
+                              `owa mail messages --pretty`,
+                              `owa doctor --no-tokens`.
+
+`owa` does not re-declare any tool's flags, help, or schema; the tool's
+own `--help`, `--version`, and `schema` apply unchanged. Real work lives
+in the consumer CLIs (owa-cal, owa-mail, ...).
 """
 from __future__ import annotations
 
+import importlib
 import json
 import shutil
 import subprocess
@@ -30,6 +39,12 @@ CONSUMERS = (
     "owa-sched",
     "owa-drive",
 )
+
+# Short tool name -> import package, derived from CONSUMERS so the two
+# never drift: "owa-cal" -> ("cal", "owa_cal"). Used by tool dispatch.
+TOOL_PACKAGES = {
+    name[len("owa-"):]: name.replace("-", "_") for name in CONSUMERS
+}
 
 
 def _which(name: str) -> str | None:
@@ -143,12 +158,22 @@ def cmd_version(argv: list[str]) -> int:
     return 0
 
 
-def cmd_doctor(argv: list[str]) -> int:
-    path = _which("owa-doctor")
-    if path is None:
-        sys.stderr.write("owa-doctor not on PATH\n")
+def cmd_dispatch(short: str, argv: list[str]) -> int:
+    """Forward `owa <tool> ...` to the consumer CLI in-process.
+
+    All tools ship in this one distribution, so the package is always
+    importable when `owa` is; we call the tool's `main(argv)` directly
+    rather than spawning a subprocess. The tool wraps its own dispatch
+    in `run_with_output_modes`, so --agent/--err-json/--doctor and the
+    exit-code taxonomy pass through unchanged.
+    """
+    package = TOOL_PACKAGES[short]
+    try:
+        module = importlib.import_module(f"{package}.cli")
+    except ImportError as exc:  # pragma: no cover - one distribution ships all
+        sys.stderr.write(f"owa-{short} is not installed: {exc}\n")
         return 13
-    return subprocess.call([path, "probe", *argv])
+    return int(module.main(argv) or 0)
 
 
 def cmd_schema(argv: list[str]) -> int:
@@ -201,13 +226,15 @@ def cmd_schema(argv: list[str]) -> int:
 def cmd_help(argv: list[str]) -> int:
     del argv
     sys.stdout.write(__doc__ or "")
+    sys.stdout.write("\nAvailable tools: " + ", ".join(sorted(TOOL_PACKAGES)) + "\n")
     return 0
 
 
+# Meta commands operate on the suite and take precedence over tool
+# dispatch. None of their names collide with a tool short name.
 COMMANDS = {
     "list": cmd_list,
     "version": cmd_version,
-    "doctor": cmd_doctor,
     "schema": cmd_schema,
     "help": cmd_help,
     "--help": cmd_help,
@@ -226,12 +253,17 @@ def main(argv: list[str] | None = None) -> int:
         return emit_doctor("owa", "--json" in argv)
     if not argv:
         return cmd_help([])
-    cmd = argv[0]
+    cmd, rest = argv[0], argv[1:]
     handler = COMMANDS.get(cmd)
-    if handler is None:
-        sys.stderr.write(f"unknown command: {cmd}\n")
-        return 2
-    return handler(argv[1:])
+    if handler is not None:
+        return handler(rest)
+    # Tool dispatch: `owa <tool> ...` forwards to the consumer CLI.
+    # Accept the binary form too (`owa owa-cal ...`).
+    short = cmd[len("owa-"):] if cmd.startswith("owa-") else cmd
+    if short in TOOL_PACKAGES:
+        return cmd_dispatch(short, rest)
+    sys.stderr.write(f"unknown command: {cmd}\n")
+    return 2
 
 
 if __name__ == "__main__":

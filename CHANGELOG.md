@@ -8,6 +8,24 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa (umbrella)
+
+- New: `owa <tool> [args...]` now dispatches to any consumer CLI, so
+  `owa cal events --week 16` is equivalent to `owa-cal events --week 16`.
+  Everything after the tool name passes straight through; the tool's own
+  `--help`/`--version`/`schema` and the `--agent`/`--err-json`/`--doctor`
+  modes apply unchanged. Dispatch is in-process (all tools ship in one
+  distribution, so the package is always importable - no subprocess) and
+  propagates the tool's exit code. Both short (`cal`) and binary
+  (`owa-cal`) forms resolve. Meta commands (`list`, `schema`, `version`,
+  `--doctor`) keep precedence and are unchanged. `owa doctor` now routes
+  through generic dispatch to `owa-doctor` (which defaults to `probe`),
+  instead of shelling out with an inserted `probe` subcommand - behavior
+  is equivalent.
+- Internal: every tool's `main()` now accepts an optional `argv`
+  (defaulting to `sys.argv[1:]`), which the umbrella passes when
+  dispatching.
+
 ### owa-cal
 
 - New: `owa-cal respond --id <id> --action accept|decline|tentative`
