@@ -26,10 +26,27 @@ def test_version_flag():
     assert r.stdout.strip().startswith('owa-people ')
 
 
-def test_unknown_command_exits_nonzero():
-    r = _run(['frobnicate'])
+def test_unknown_flag_exits_nonzero():
+    # A leading-dash first token is a genuine unknown flag, not a name.
+    r = _run(['--frobnicate'])
     assert r.returncode != 0
     assert 'Unknown command' in r.stderr
+
+
+def test_bare_query_routes_to_find(tmp_path):
+    # A bare word is shorthand for `find <word>`: it is NOT rejected as an
+    # unknown command, it routes to find and attempts auth (which fails
+    # cleanly here because owa-piggy is absent).
+    env = {
+        'HOME': str(tmp_path),
+        'PATH': str(tmp_path / 'empty-bin') + ':/usr/bin:/bin',
+        'XDG_CONFIG_HOME': str(tmp_path / '.config'),
+    }
+    (tmp_path / 'empty-bin').mkdir()
+    r = _run(['frobnicate'], env=env)
+    assert 'Unknown command' not in r.stderr
+    assert 'Traceback' not in r.stderr
+    assert 'owa-piggy not found' in r.stderr.lower() or 'token refresh failed' in r.stderr.lower()
 
 
 def test_config_subcommand_runs_without_auth(tmp_path):
