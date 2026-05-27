@@ -50,6 +50,7 @@ def print_help():
     print("""owa-people - People/contacts CLI for Outlook / Microsoft 365
 
 Usage: owa-people <command> [options]
+       owa-people <query>          (shorthand for: owa-people find <query>)
 
 Global options:
   --debug, --verbose  Print HTTP requests and response bodies on errors
@@ -472,9 +473,15 @@ def _main(argv):
     if cmd == 'refresh':
         return cmd_refresh(rest, config)
 
+    # Bare-query shorthand: a first token that isn't a known command (and
+    # isn't a flag) is treated as the start of a find query, so
+    # `owa-people nina` == `owa-people find nina`. A leading-dash token is
+    # still a genuine error (unknown flag, not a name).
     if cmd not in AUTHED_COMMANDS:
-        _error(f"Unknown command: {cmd}. Run 'owa-people help' for usage.")
-        return 1
+        if cmd.startswith('-'):
+            _error(f"Unknown command: {cmd}. Run 'owa-people help' for usage.")
+            return 1
+        cmd, rest = 'find', argv
 
     access_token, api_base = auth_mod.setup_auth(
         config, debug=_debug_enabled(config),
