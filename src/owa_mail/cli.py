@@ -186,6 +186,9 @@ Auth:
     brew install damsleth/tap/owa-piggy
     owa-piggy setup                            # or: setup --profile work
 
+Messages carry opaque ids: address one via --id or as a bare positional
+argument (`owa-mail show <id>` == `owa-mail show --id <id>`).
+
 Examples:
   owa-mail messages --pretty
   owa-mail messages --unread --limit 10 --pretty

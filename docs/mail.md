@@ -5,7 +5,7 @@ forward, move, mark and delete mail from the terminal.
 Pipe-friendly JSON by default, `--pretty` for humans.
 
 ```sh
-brew install damsleth/tap/owa-mail
+brew install damsleth/tap/owa-tools      # ships owa-mail + the whole suite
 owa-mail messages --pretty
 ```
 
@@ -13,12 +13,12 @@ Or one-shot, no install, no on-disk state:
 
 ```sh
 OWA_REFRESH_TOKEN=1.AQ... OWA_TENANT_ID=<tenant-id-or-domain> \
-  uvx owa-mail messages --pretty
+  uvx --from owa-tools owa-mail messages --pretty
 ```
 
-`uvx` pulls owa-mail (and owa-piggy as a transitive dep) into a
-throwaway venv. The two env vars feed straight through to owa-piggy's
-env-only mode - nothing is written to `~/.config/`.
+`uvx --from owa-tools` pulls the suite (and owa-piggy as a transitive
+dep) into a throwaway venv. The two env vars feed straight through to
+owa-piggy's env-only mode - nothing is written to `~/.config/`.
 
 ---
 
@@ -30,7 +30,7 @@ first-run flow:
 
 ```sh
 # 1. Install both
-brew install damsleth/tap/owa-piggy damsleth/tap/owa-mail
+brew install damsleth/tap/owa-piggy damsleth/tap/owa-tools
 
 # 2. Seed owa-piggy once from your browser (walks you through it)
 owa-piggy setup
@@ -39,8 +39,8 @@ owa-piggy setup
 owa-mail messages --pretty
 ```
 
-owa-piggy and owa-mail version independently. owa-mail expects any
-owa-piggy >= 0.6.0 and sanity-checks the version on first call.
+owa-piggy and owa-tools version independently. owa-mail expects any
+owa-piggy >= 0.7.1 and sanity-checks the version on first call.
 
 Multi-account: seed a named owa-piggy profile and pin it in owa-mail's
 config.
@@ -165,6 +165,9 @@ owa-mail refresh
 owa-mail config --profile work
 ```
 
+Messages carry opaque ids: address one via `--id` or as a bare positional
+argument (`owa-mail show <id>` == `owa-mail show --id <id>`).
+
 ### Folder names
 
 The `--folder` and `--to` (move) flags accept these well-known names
@@ -240,6 +243,20 @@ nothing about the existing fast path changes.
 
 ---
 
+## Machine / agent surface
+
+Every owa binary exposes the same machine surface (see
+[agent-integration.md](agent-integration.md) for the full contract):
+
+- `owa-mail schema [<command>]` - JSON command schema (one command if named)
+- `owa-mail --help --json` - the same schema via the help flag
+- `--agent` - wrap JSON stdout in a stable `{"_owa": ..., "data": ...}`
+  envelope (or set `OWA_AGENT=1`)
+- `--err-json` - structured JSON errors on stderr (or `OWA_ERR_JSON=1`)
+- `--doctor [--json]` - this tool's health / redaction doctor payload
+
+---
+
 ## Auth
 
 owa-mail shells out to
@@ -263,16 +280,18 @@ owa_piggy_profile="work"
 
 ## Dependencies
 
-- Python 3.9+ (stdlib only - no `pip install` required at runtime)
-- [`owa-piggy`](https://github.com/damsleth/owa-piggy) >= 0.6.0
+- Python 3.10+
+- [`owa-piggy`](https://github.com/damsleth/owa-piggy) >= 0.7.1
 
 ## Development
 
+owa-mail ships in the `owa-tools` suite repository:
+
 ```sh
-git clone https://github.com/damsleth/owa-mail
-cd owa-mail
-python -m pip install -e '.[test]'
-python -m pytest -q
+git clone https://github.com/damsleth/owa-tools
+cd owa-tools
+python -m venv .venv && .venv/bin/pip install -e '.[dev]'
+.venv/bin/python -m pytest -q
 ```
 
 Live mailbox tests are opt-in and hit a real Outlook account through
@@ -286,12 +305,10 @@ OWA_MAIL_LIVE=1 OWA_MAIL_LIVE_PROFILE=work OWA_MAIL_LIVE_TO=me@example.com \
   OWA_MAIL_LIVE_PYTHON=python3 python -m pytest -q src/tests/mail/test_live.py
 ```
 
-See [`AGENTS.md`](AGENTS.md) for repo layout and ground rules.
+See [`AGENTS.md`](../AGENTS.md) for repo layout and ground rules.
 
 ## What's not in this version
 
-- **`@odata.nextLink` pagination** - `--limit` caps a single page;
-  use date bounds (`--since` / `--until`) to walk further back.
 - **Real-time receive** (webhooks, IMAP IDLE) - poll `messages
   --unread` from cron or your agent loop.
 

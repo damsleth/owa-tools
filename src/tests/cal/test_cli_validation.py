@@ -244,3 +244,33 @@ def test_categories_pretty_opt_in(capsys, monkeypatch):
     assert 'Alpha' in out
     assert 'Preset0' in out
     assert '[' not in out
+
+
+def test_events_limit_is_clamped_to_200(capsys, monkeypatch):
+    import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_events
+    seen = {}
+    monkeypatch.setattr(
+        api_mod, 'api_get',
+        lambda base, ep, tok, **k: seen.update(ep=ep) or {'value': []},
+    )
+    cmd_events(['--limit', '9999'], {}, 'tok', 'https://example.invalid')
+    capsys.readouterr()
+    assert 'top=200' in seen['ep']
+    assert '9999' not in seen['ep']
+
+
+def test_update_accepts_positional_id(capsys, monkeypatch):
+    import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_update
+    seen = {}
+
+    def fake_request(method, base, endpoint, token, body=None, debug=False):
+        seen['endpoint'] = endpoint
+        return {'Id': 'AAMkEVT', 'Subject': 'New'}
+
+    monkeypatch.setattr(api_mod, 'api_request', fake_request)
+    rc = cmd_update(['AAMkEVT', '--subject', 'New'], {}, 'tok', 'https://example.invalid')
+    capsys.readouterr()
+    assert rc == 0
+    assert 'AAMkEVT' in seen['endpoint']

@@ -55,6 +55,34 @@ per-tool subsections inside that release when useful.
   returns no body for these actions. Rejected against webcal/iCal
   profiles (read-only feeds), like the other write commands.
 
+### suite-wide (CLI uniformity)
+
+- New: `owa-drive` accepts suite-canonical aliases for its unix verbs -
+  `list` (=`ls`), `download` (=`get`), `upload` (=`put`), `delete`
+  (=`rm`). The unix names remain the primary form; both work.
+- New: every opaque-id command on `owa-cal`, `owa-mail`, and `owa-todo`
+  now accepts the id either via `--id` or as a bare positional argument
+  (`owa-mail show <id>` == `owa-mail show --id <id>`), matching the
+  positional style of `owa-people`/`owa-drive`.
+- New: every binary's `--help` now ends with a uniform "Machine surface"
+  block documenting `schema`, `--help --json`, `--agent`, `--err-json`,
+  and `--doctor`. The contracts already existed; they were previously
+  undocumented in per-tool help.
+- Fixed: `owa-doctor` now probes `owa-todo` (the sibling list had drifted
+  and omitted the newest tool); the umbrella and doctor tool lists now
+  derive from one registry (`owa_core.registry`) so they can't diverge.
+- Fixed: `owa-sched availability` now honours the configured work-day
+  window (`default_work_start`/`default_work_end`); it previously
+  hard-coded 08:00-17:00 while `find-time` respected config.
+- Changed: `owa-cal` and `owa-todo` now clamp `--limit` to `[1, 200]`
+  (matching `owa-mail`'s cap); schema flag summaries, `idempotent`
+  metadata on mutating commands, and the `--limit`/`--pretty`/`--profile`
+  wording are now consistent across all tools.
+- Docs: per-tool docs normalized, install instructions corrected to the
+  one-distribution model, and `docs/profile-model.md` rewritten to match
+  the real `owa-piggy` surface (`OWA_PROFILE`, plaintext-0600 profile
+  store, `owa-piggy status`).
+
 ## v0.2.1 - 2026-05-27
 
 The 0.2 feature set ships as v0.2.1. The v0.2.0 tag was pushed but never

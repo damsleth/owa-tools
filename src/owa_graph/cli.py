@@ -54,6 +54,7 @@ _VERB_FLAGS = [
 
 _BATCH_FLAGS = [
     schema_mod.flag('<file|->', summary='JSON-batch body (file path, @path, or - for stdin)', required=True),
+    schema_mod.flag('--ndjson', summary='Stream one sub-response per line (jq-friendly)'),
     schema_mod.flag('--pretty', summary='Render per-request status table (default: JSON)'),
     schema_mod.flag('--retry', summary='Honor Retry-After once on 429/503 (capped at 60s)'),
 ]
@@ -111,7 +112,7 @@ def print_help():
 
 Usage: owa-graph <METHOD> <path> [options]
        owa-graph <group> <shortcut> [options]
-       owa-graph batch <file|-> [--pretty] [--retry]
+       owa-graph batch <file|-> [--ndjson] [--pretty] [--retry]
        owa-graph refresh
        owa-graph config [--profile <alias>] [--app-client-id <id>] [--audience <name>]
 
@@ -185,7 +186,7 @@ Scope caveat:
   /planner, /me/drive and directory work; mail/calendar/contacts/todo/
   sites/presence shortcuts return 403 on this path. Use the audience-
   specific siblings (owa-cal, owa-mail) which target the Outlook REST
-  audience. See README.md "Scope matrix" for per-shortcut details.
+  audience. See docs/graph.md "Scope matrix" for per-shortcut details.
 
 Examples:
   owa-graph GET /me
@@ -471,6 +472,21 @@ def _emit_ndjson_single(result):
         print(json.dumps(result, ensure_ascii=False))
 
 
+def _emit_ndjson_batch(result):
+    """Stream a $batch response as NDJSON: one line per sub-response.
+
+    Graph returns `{"responses": [...]}`; each entry is a self-contained
+    `{id,status,body,...}` object, the natural unit for jq/streaming
+    consumers (one line per request the batch fanned out to). A response
+    that isn't the expected envelope is emitted as a single line so the
+    caller still receives valid NDJSON."""
+    if isinstance(result, dict) and isinstance(result.get('responses'), list):
+        for item in result['responses']:
+            print(json.dumps(item, ensure_ascii=False))
+    else:
+        print(json.dumps(result, ensure_ascii=False))
+
+
 def cmd_batch(args, config):
     """Post a Graph JSON-batch request body and surface the response.
 
@@ -478,16 +494,19 @@ def cmd_batch(args, config):
     a flat array we wrap it in `{"requests": [...]}` so callers don't
     have to remember Graph's outer envelope; objects are passed through
     verbatim. Default output is the raw JSON response (which is itself
-    a `{"responses": [...]}` envelope); --pretty renders the per-request
-    status table.
+    a `{"responses": [...]}` envelope); --ndjson streams one sub-response
+    per line; --pretty renders the per-request status table.
     """
     pretty = False
+    ndjson = False
     do_retry = False
     source = None
     while args:
         a, args = args[0], args[1:]
         if a == '--pretty':
             pretty = True
+        elif a == '--ndjson':
+            ndjson = True
         elif a == '--retry':
             do_retry = True
         elif a.startswith('--'):
@@ -496,6 +515,10 @@ def cmd_batch(args, config):
             source = a
         else:
             _error(f'Unexpected argument: {a!r}'); return 1
+
+    if ndjson and pretty:
+        _error('--ndjson and --pretty are incompatible')
+        return 1
 
     if source is None:
         _error('batch requires a file path or - for stdin')
@@ -536,7 +559,9 @@ def cmd_batch(args, config):
     )
     if result is None:
         return 1
-    if pretty:
+    if ndjson:
+        _emit_ndjson_batch(result)
+    elif pretty:
         print(format_mod.format_pretty(result))
     else:
         print(json.dumps(result, ensure_ascii=False))

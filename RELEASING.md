@@ -104,7 +104,7 @@ and the index is just stale.
 
 ## Homebrew
 
-- `owa-tools` formula installs all seven consumer binaries plus the
+- `owa-tools` formula installs all eight consumer binaries plus the
   umbrella `owa` binary.
 - `owa-piggy` formula stays standalone in the same tap.
 - A draft formula lives at `src/packaging/homebrew/owa-tools.rb`. It is the
@@ -145,14 +145,16 @@ python3 -m venv /tmp/owa-tools-clean
 /tmp/owa-tools-clean/bin/owa-cal --help
 /tmp/owa-tools-clean/bin/owa-mail --help
 /tmp/owa-tools-clean/bin/owa-graph --help
+/tmp/owa-tools-clean/bin/owa-doctor --help
 /tmp/owa-tools-clean/bin/owa-people --help
 /tmp/owa-tools-clean/bin/owa-sched --help
 /tmp/owa-tools-clean/bin/owa-drive --help
+/tmp/owa-tools-clean/bin/owa-todo --help
 ```
 
 Where credentials are available, run at least one read-only authenticated
-command per profile (e.g., `owa-piggy whoami --json`,
-`owa-graph me`, `owa-cal list --top 1`).
+command per profile (e.g., `owa-piggy status --json`,
+`owa-graph me whoami`, `owa-cal events --limit 1`).
 
 For Homebrew, the same checks against the freshly tapped formula:
 

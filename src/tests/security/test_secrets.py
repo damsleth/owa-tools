@@ -1,6 +1,14 @@
 """Secret redaction and scanner tests."""
+import json
+
 from owa_core.errors import AuthExpiredError, emit_error
-from owa_core.secrets import REDACTION, contains_secret, find_secret_shapes, redact
+from owa_core.secrets import (
+    BODY_REDACTION,
+    REDACTION,
+    contains_secret,
+    find_secret_shapes,
+    redact,
+)
 
 
 def _jwt():
@@ -27,6 +35,30 @@ def test_redact_access_refresh_and_client_secret_shapes():
     assert _refresh() not in out
     assert 'supersecretvalue123' not in out
     assert out.count(REDACTION) == 3
+
+
+def test_redact_scrubs_message_body_fields():
+    # A Graph sendMail-shaped payload: the message content must be
+    # scrubbed, the harmless ContentType metadata left intact.
+    payload = {'Message': {'Body': {'ContentType': 'Text', 'Content': 'secret CANARY_xyz here'}}}
+    out = redact(json.dumps(payload))
+    assert 'CANARY_xyz' not in out
+    assert BODY_REDACTION in out
+    assert 'ContentType' in out and 'Text' in out  # metadata preserved
+
+
+def test_redact_body_field_variants():
+    for key in ('body', 'content', 'text', 'html_body', 'plain_body'):
+        out = redact(json.dumps({key: 'LEAK_me'}))
+        assert 'LEAK_me' not in out, key
+        assert BODY_REDACTION in out, key
+
+
+def test_redact_leaves_non_body_keys_alone():
+    out = redact(json.dumps({'subject': 'keep this', 'contentType': 'HTML'}))
+    assert 'keep this' in out
+    assert 'HTML' in out
+    assert BODY_REDACTION not in out
 
 
 def test_find_secret_shapes_reports_kinds():
