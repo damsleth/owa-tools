@@ -8,6 +8,8 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+## v0.3.0 - 2026-05-27
+
 ### owa-todo (new tool)
 
 - New: `owa-todo`, a Microsoft To Do task CLI, joins the suite as the
