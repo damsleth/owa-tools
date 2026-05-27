@@ -145,7 +145,7 @@ send options:
                        sent via a Graph upload session automatically.
   --send-at <iso>      Schedule deferred delivery (ISO datetime, UTC if naive)
   --save-draft         Save as Draft instead of sending
-  --importance <lvl>   low|normal|high
+  --importance <level> low|normal|high
 
 reply / reply-all / forward options:
   --id <message-id>    (required)
@@ -200,6 +200,8 @@ Examples:
   owa-mail mark --id AAMkAG... --read
   owa-mail move --id AAMkAG... --to Archive
   owa-mail folders --pretty""")
+    print()
+    print(schema_mod.MACHINE_SURFACE_HELP)
 
 
 def _require_value(flag, args):
@@ -301,7 +303,7 @@ def cmd_messages(args, config, access_token, api_base):
 
 
 def cmd_show(args, config, access_token, api_base):
-    message_id = ''
+    message_id, args = schema_mod.pop_positional_id(args)
     pretty = False
     while args:
         flag, args = args[0], args[1:]
@@ -330,7 +332,7 @@ def cmd_show(args, config, access_token, api_base):
 
 
 def cmd_attachments(args, config, access_token, api_base):
-    message_id = ''
+    message_id, args = schema_mod.pop_positional_id(args)
     pretty = False
     while args:
         flag, args = args[0], args[1:]
@@ -363,7 +365,7 @@ def cmd_attachments(args, config, access_token, api_base):
 
 
 def cmd_attachment_get(args, config, access_token, api_base):
-    message_id = ''
+    message_id, args = schema_mod.pop_positional_id(args)
     attachment_id = ''
     out_path = ''
     while args:
@@ -569,12 +571,14 @@ def _reply_like(args, config, access_token, api_base, action):
     `action` is one of 'createReply', 'createReplyAll', 'createForward'.
     """
     allow_to = (action == 'createForward')
+    pos_id, args = schema_mod.pop_positional_id(args)
     opts = _parse_send_flags(
         args,
         allow_to=allow_to,
         allow_cc_bcc=False,
         allow_importance=False,
     )
+    opts['id'] = opts['id'] or pos_id
     if not opts['id']:
         _error('--id is required'); return 1
     if not opts['save_draft'] and opts['body'] is None and not opts['attach']:
@@ -664,7 +668,7 @@ def cmd_forward(args, config, access_token, api_base):
 
 
 def cmd_delete(args, config, access_token, api_base):
-    message_id = ''
+    message_id, args = schema_mod.pop_positional_id(args)
     confirm = False
     while args:
         flag, args = args[0], args[1:]
@@ -708,7 +712,7 @@ def cmd_delete(args, config, access_token, api_base):
 
 
 def cmd_move(args, config, access_token, api_base):
-    message_id = ''
+    message_id, args = schema_mod.pop_positional_id(args)
     destination = ''
     while args:
         flag, args = args[0], args[1:]
@@ -736,7 +740,7 @@ def cmd_move(args, config, access_token, api_base):
 
 
 def cmd_mark(args, config, access_token, api_base):
-    message_id = ''
+    message_id, args = schema_mod.pop_positional_id(args)
     read = flag_state = None
     while args:
         flag, args = args[0], args[1:]
@@ -892,17 +896,17 @@ _MESSAGES_FLAGS = [
 ]
 
 _SHOW_FLAGS = [
-    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID (flag or positional)', required=True),
     schema_mod.flag('--pretty', summary='Human-readable header block + body (default: JSON)'),
 ]
 
 _ATTACHMENTS_FLAGS = [
-    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID (flag or positional)', required=True),
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
 ]
 
 _ATTACHMENT_GET_FLAGS = [
-    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID (flag or positional)', required=True),
     schema_mod.flag('--attachment', value='<attachment-id>', summary='Attachment ID', required=True),
     schema_mod.flag('--out', value='<local-path>', summary='Write to file instead of stdout'),
 ]
@@ -921,7 +925,7 @@ _SEND_FLAGS = [
 ]
 
 _REPLY_FLAGS = [
-    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID (flag or positional)', required=True),
     schema_mod.flag('--body', value='<text>', summary='Reply text (use - to read from stdin)'),
     schema_mod.flag('--html', summary='Treat --body as HTML'),
     schema_mod.flag('--attach', value='<file>', summary='Attach a file', repeatable=True),
@@ -930,7 +934,7 @@ _REPLY_FLAGS = [
 ]
 
 _FORWARD_FLAGS = [
-    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID (flag or positional)', required=True),
     schema_mod.flag('--to', value='<addr[,addr]>', summary='Forward recipients', required=True),
     schema_mod.flag('--body', value='<text>', summary='Forward note (use - to read from stdin)'),
     schema_mod.flag('--html', summary='Treat --body as HTML'),
@@ -940,17 +944,17 @@ _FORWARD_FLAGS = [
 ]
 
 _DELETE_FLAGS = [
-    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID (flag or positional)', required=True),
     schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
 ]
 
 _MOVE_FLAGS = [
-    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID (flag or positional)', required=True),
     schema_mod.flag('--to', value='<folder>', summary='Well-known name or folder id', required=True),
 ]
 
 _MARK_FLAGS = [
-    schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID (flag or positional)', required=True),
     schema_mod.flag('--read', summary='Mark as read'),
     schema_mod.flag('--unread', summary='Mark as unread'),
     schema_mod.flag('--flag', summary='Set FlagStatus'),
@@ -985,8 +989,8 @@ COMMAND_SCHEMA = [
         idempotent=False,
         flags=_DELETE_FLAGS,
     ),
-    schema_mod.command('move', 'Move a message', auth='outlook', mutates=True, flags=_MOVE_FLAGS),
-    schema_mod.command('mark', 'Mark a message', auth='outlook', mutates=True, flags=_MARK_FLAGS),
+    schema_mod.command('move', 'Move a message', auth='outlook', mutates=True, idempotent=False, flags=_MOVE_FLAGS),
+    schema_mod.command('mark', 'Mark a message', auth='outlook', mutates=True, idempotent=True, flags=_MARK_FLAGS),
     schema_mod.command('folders', 'List mail folders', auth='outlook', flags=_FOLDERS_FLAGS),
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
     schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),

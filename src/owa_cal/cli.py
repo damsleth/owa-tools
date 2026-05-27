@@ -216,6 +216,8 @@ Examples:
   owa-cal profiles --pretty
   owa-cal profiles add brkh --webcal 'https://example.invalid/feed?key=...'
   owa-cal --profile brkh events --pretty""")
+    print()
+    print(schema_mod.MACHINE_SURFACE_HELP)
 
 
 def _require_value(flag, args):
@@ -471,7 +473,7 @@ def _check_duplicates(created, check_date, access_token, api_base, debug):
 
 
 def cmd_update(args, config, access_token, api_base):
-    event_id = ''
+    event_id, args = schema_mod.pop_positional_id(args)
     fields = {}
     date_ = start_time = end_time = ''
     while args:
@@ -546,7 +548,7 @@ def cmd_update(args, config, access_token, api_base):
 
 
 def cmd_delete(args, config, access_token, api_base):
-    event_id = ''
+    event_id, args = schema_mod.pop_positional_id(args)
     confirm = False
     while args:
         flag, args = args[0], args[1:]
@@ -593,7 +595,8 @@ _RESPOND_ACTIONS = {
 
 
 def cmd_respond(args, config, access_token, api_base):
-    event_id = action = comment = ''
+    event_id, args = schema_mod.pop_positional_id(args)
+    action = comment = ''
     notify = True
     while args:
         flag, args = args[0], args[1:]
@@ -761,7 +764,7 @@ _CREATE_FLAGS = [
 ]
 
 _UPDATE_FLAGS = [
-    schema_mod.flag('--id', value='<event-id>', summary='Event ID', required=True),
+    schema_mod.flag('--id', value='<event-id>', summary='Event ID (flag or positional)', required=True),
     schema_mod.flag('--subject', value='<title>', summary='New event title'),
     schema_mod.flag('--date', value='<date>', summary='New date'),
     schema_mod.flag('--start', value='<HH:MM>', summary='New start time'),
@@ -773,12 +776,12 @@ _UPDATE_FLAGS = [
 ]
 
 _DELETE_FLAGS = [
-    schema_mod.flag('--id', value='<event-id>', summary='Event ID', required=True),
+    schema_mod.flag('--id', value='<event-id>', summary='Event ID (flag or positional)', required=True),
     schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
 ]
 
 _RESPOND_FLAGS = [
-    schema_mod.flag('--id', value='<event-id>', summary='Event ID', required=True),
+    schema_mod.flag('--id', value='<event-id>', summary='Event ID (flag or positional)', required=True),
     schema_mod.flag('--action', value='<accept|decline|tentative>', summary='Response to send', required=True),
     schema_mod.flag('--comment', value='<text>', summary='Optional note to the organizer'),
     schema_mod.flag('--no-notify', summary="Don't send a response back to the organizer"),
@@ -804,7 +807,7 @@ COMMAND_SCHEMA = [
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
     schema_mod.command('events', 'List calendar events', auth='outlook', flags=_EVENTS_FLAGS),
     schema_mod.command('create', 'Create an event', auth='outlook', mutates=True, idempotent=False, flags=_CREATE_FLAGS),
-    schema_mod.command('update', 'Update an event', auth='outlook', mutates=True, flags=_UPDATE_FLAGS),
+    schema_mod.command('update', 'Update an event', auth='outlook', mutates=True, idempotent=True, flags=_UPDATE_FLAGS),
     schema_mod.command(
         'delete',
         'Delete an event',

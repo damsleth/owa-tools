@@ -8,6 +8,20 @@ SCHEMA_VERSION = 1
 
 HELP_TOKENS = ('--help', '-h')
 
+# One uniform block describing the machine/agent surface every owa-*
+# binary exposes. Each tool's print_help() appends this verbatim so the
+# contract is documented identically across the suite. Exit codes are
+# deliberately omitted here (owa-doctor's `probe` uses its own 0/1/2
+# taxonomy); they live in docs/security.md and AGENTS.md.
+MACHINE_SURFACE_HELP = """Machine surface (uniform across the owa suite):
+  schema [<command>]   Print the JSON command schema (one command if named).
+  --help --json        Emit that schema instead of human-readable help.
+  --agent              Wrap JSON stdout in a stable {"_owa": ..., "data": ...}
+                       envelope for automation (or set OWA_AGENT=1).
+  --err-json           Emit structured JSON errors on stderr (or OWA_ERR_JSON=1).
+  --doctor [--json]    Print this tool's health / redaction doctor payload.
+  --version            Print the suite version."""
+
 
 def flag(name, *, value=None, summary='', required=False, repeatable=False):
     """Build a single flag spec for a command's `flags` list.
@@ -42,6 +56,7 @@ def command(
     destructive=False,
     confirmation=False,
     idempotent=None,
+    aliases=None,
 ):
     row = {
         'name': name,
@@ -49,6 +64,8 @@ def command(
         'output': {'type': output},
         'flags': list(flags or []),
     }
+    if aliases:
+        row['aliases'] = list(aliases)
     if auth:
         row['auth'] = {'audience': auth}
     if mutates:
@@ -60,6 +77,40 @@ def command(
     if idempotent is not None:
         row['idempotent'] = bool(idempotent)
     return row
+
+
+def resolve_alias(cmd, commands):
+    """Map a command alias to its canonical name.
+
+    Each command may declare ``aliases`` (e.g. owa-drive's ``rm`` aliases
+    ``delete``). Returns the canonical name when ``cmd`` matches a
+    declared alias, otherwise ``cmd`` unchanged. Dispatchers call this
+    right after reading the subcommand token so the alias and the
+    canonical verb share one code path.
+    """
+    for entry in commands:
+        if cmd == entry.get('name'):
+            return cmd
+        if cmd in (entry.get('aliases') or ()):
+            return entry['name']
+    return cmd
+
+
+def pop_positional_id(args):
+    """Pull a leading positional identifier out of an arg list.
+
+    Commands that address an item by opaque server id accept the id
+    either as ``--id <id>`` or as a bare leading token (so
+    ``owa-mail show <id>`` matches ``owa-people show <email>`` and
+    ``owa-drive show <path>``). Server ids are base64-ish and never
+    start with ``-``, so a leading non-flag token is unambiguous.
+
+    Returns ``(positional_id, remaining_args)``; ``('', args)`` when the
+    first token is a flag or the list is empty.
+    """
+    if args and not args[0].startswith('-'):
+        return args[0], args[1:]
+    return '', list(args)
 
 
 def schema_for(tool, commands):
@@ -142,6 +193,9 @@ def render_command_help(tool, cmd_dict, *, stream=None):
     stream.write(f'Usage: {tool} {name} [options]\n')
     if summary:
         stream.write(f'\n  {summary}\n')
+    aliases = cmd_dict.get('aliases') or []
+    if aliases:
+        stream.write(f"\n  Aliases: {', '.join(aliases)}\n")
     if flags:
         rows = [(_flag_left(f), _flag_right(f)) for f in flags]
         width = max(len(left) for left, _ in rows)
@@ -189,7 +243,8 @@ def maybe_emit_subcommand_help(cmd, rest, *, tool, commands):
     """
     if len(rest) != 1 or not is_help_token(rest[0]):
         return None
-    matched = next((c for c in commands if c.get('name') == cmd), None)
+    canonical = resolve_alias(cmd, commands)
+    matched = next((c for c in commands if c.get('name') == canonical), None)
     if matched is None:
         return None
     return render_command_help(tool, matched)
