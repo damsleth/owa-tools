@@ -154,6 +154,7 @@ def test_send_save_draft_path_creates_message_only(monkeypatch):
     from owa_mail.cli import cmd_send
 
     calls = []
+    gets = []
 
     def fake_request(method, base, endpoint, token, body=None, debug=False):
         calls.append((method, endpoint))
@@ -161,13 +162,21 @@ def test_send_save_draft_path_creates_message_only(monkeypatch):
             return {'Id': 'DRAFT1', 'Subject': 'hi'}
         return {}
 
+    def fake_get(base, endpoint, token, extra_headers=None, debug=False):
+        gets.append(endpoint)
+        return {'Id': 'DRAFT1', 'Subject': 'hi'}
+
     monkeypatch.setattr(api_mod, 'api_request', fake_request)
+    monkeypatch.setattr(api_mod, 'api_get', fake_get)
     rc = cmd_send(
         ['--to', 'a@b.c', '--subject', 'hi', '--body', 'b', '--save-draft'],
         {}, *_fake_token(),
     )
     assert rc == 0
+    # No send; one create plus a re-fetch of the draft (so the printed
+    # JSON reflects any session-uploaded attachments).
     assert calls == [('POST', 'me/messages')]
+    assert len(gets) == 1 and gets[0].startswith('me/messages/DRAFT1?')
 
 
 def test_send_with_send_at_creates_draft_then_sends(monkeypatch):

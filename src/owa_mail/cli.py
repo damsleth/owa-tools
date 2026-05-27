@@ -392,8 +392,11 @@ def cmd_attachment_get(args, config, access_token, api_base):
         return 1
 
     if out_path:
-        with open(out_path, 'wb') as fh:
-            fh.write(content)
+        try:
+            with open(out_path, 'wb') as fh:
+                fh.write(content)
+        except OSError as exc:
+            _error(f'cannot write {out_path}: {exc}'); return 1
         _info(f'wrote {len(content)} bytes to {out_path}')
     else:
         # Raw bytes to stdout, no trailing newline (caller pipes them).
@@ -537,7 +540,14 @@ def cmd_send(args, config, access_token, api_base):
         return 1
 
     if opts['save_draft']:
-        print(json.dumps(draft_flat))
+        # Re-fetch so the printed draft reflects any large attachments
+        # added via upload session after the initial create.
+        latest = api_mod.api_get(
+            api_base,
+            f'{messages_mod.message_path(draft_flat["id"])}?{api_mod.build_query({"$select": messages_mod.LIST_SELECT})}',
+            access_token, debug=debug,
+        )
+        print(json.dumps(messages_mod.normalize_message(latest) if latest else draft_flat))
         return 0
 
     # Send the draft. Scheduled drafts are sent immediately by

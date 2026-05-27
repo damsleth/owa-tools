@@ -39,6 +39,15 @@ def test_ul_li_bullets():
     assert lines == ['- apple', '- banana']
 
 
+def test_table_cells_separated_not_glued():
+    # Adjacent cells on a row must not concatenate ("AB"); they get a
+    # space separator. Rows still break onto separate lines.
+    out = html_to_text('<table><tr><td>A</td><td>B</td></tr>'
+                       '<tr><td>C</td><td>D</td></tr></table>')
+    lines = [ln for ln in out.splitlines() if ln]
+    assert lines == ['A B', 'C D']
+
+
 def test_script_and_style_removed():
     html = (
         '<style>.x{color:red}</style>'
