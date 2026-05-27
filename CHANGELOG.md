@@ -8,6 +8,23 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-todo (new tool)
+
+- New: `owa-todo`, a Microsoft To Do task CLI, joins the suite as the
+  ninth console script. Commands: `lists` (task folders), `tasks`
+  (list/filter by folder/status/subject), `create`, `update`, `done`
+  (mark completed), `delete` (confirmation-gated), plus `config` and
+  `refresh`. Reachable directly or via the umbrella (`owa todo tasks`).
+- It targets the Outlook REST v2.0 Tasks API
+  (`https://outlook.office.com/api/v2.0/me/taskfolders` and `.../me/tasks`)
+  on the existing `outlook` audience — the same token owa-cal/owa-mail
+  use, which already carries `Tasks.ReadWrite` on a To Do-capable
+  profile. No owa-piggy change required. Tenants with strict Conditional
+  Access that withhold the Tasks scope get a clean exit 12; switch
+  profiles with `--profile`.
+- `--all` pagination, `--pretty` output, and the shared exit-code /
+  `--agent` / `--err-json` contracts work as on every other tool.
+
 ### owa (umbrella)
 
 - New: `owa <tool> [args...]` now dispatches to any consumer CLI, so

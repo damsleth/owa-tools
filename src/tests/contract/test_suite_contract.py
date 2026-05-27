@@ -11,6 +11,7 @@ TOOLS = (
     "owa_people",
     "owa_sched",
     "owa_drive",
+    "owa_todo",
 )
 
 
@@ -64,6 +65,7 @@ def test_destructive_commands_declare_confirmation_metadata():
         "owa_cal": {"delete"},
         "owa_mail": {"delete"},
         "owa_drive": {"rm"},
+        "owa_todo": {"delete"},
     }
     for module, command_names in expected.items():
         result = _run_module(module, "schema")
