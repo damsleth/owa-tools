@@ -14,9 +14,12 @@ license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Carl Joakim Damsleth" }]
 
-# Runtime deps: stdlib only at the per-tool level. The workspace install
-# pulls in every package as a local path during development.
-dependencies = []
+# Runtime deps: stdlib only at the per-tool level, plus the shared
+# suite CLI-contract package. The workspace install pulls in every
+# package as a local path during development.
+dependencies = [
+  "hugr-conventions>=0.1",
+]
 
 [project.optional-dependencies]
 dev = [

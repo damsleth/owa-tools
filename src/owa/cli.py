@@ -27,19 +27,14 @@ import sys
 from pathlib import Path
 
 from owa_core.modes import is_doctor_invocation
+from owa_core.registry import CONSUMER_TOOLS
 
 from . import __version__
 
-CONSUMERS = (
-    "owa-cal",
-    "owa-mail",
-    "owa-graph",
-    "owa-doctor",
-    "owa-people",
-    "owa-sched",
-    "owa-drive",
-    "owa-todo",
-)
+# Canonical consumer list lives in owa_core.registry so the umbrella and
+# owa-doctor can never drift. Re-exported as CONSUMERS for back-compat
+# with check_docs_sync and the release-contract tests.
+CONSUMERS = CONSUMER_TOOLS
 
 # Short tool name -> import package, derived from CONSUMERS so the two
 # never drift: "owa-cal" -> ("cal", "owa_cal"). Used by tool dispatch.

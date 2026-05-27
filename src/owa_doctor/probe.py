@@ -15,9 +15,11 @@ import subprocess
 from owa_core import auth as core_auth
 from owa_core.errors import OwaError
 from owa_core.jwt import decode_token_audience, token_minutes_remaining
+from owa_core.registry import CONSUMER_TOOLS
 
-SIBLINGS = ('owa-piggy', 'owa-cal', 'owa-mail', 'owa-graph',
-            'owa-people', 'owa-sched', 'owa-drive', 'owa-doctor')
+# owa-piggy (the auth broker) plus every consumer CLI, derived from the
+# canonical registry so a newly added tool is probed automatically.
+SIBLINGS = ('owa-piggy',) + CONSUMER_TOOLS
 
 
 def _which(cmd):

@@ -113,7 +113,7 @@ Tasks options:
   --status <status>   Filter: notstarted, inprogress, completed, waiting, deferred
   --search <term>     Filter tasks by subject
   --pretty            Human-readable checklist (default: JSON)
-  --limit <n>         Max results per page (default: 50)
+  --limit <n>         Max results per page (default 50, cap 200)
   --all               Follow @odata.nextLink until exhausted
 
 Create options:
@@ -231,6 +231,7 @@ def cmd_tasks(args, config, access_token, api_base):
             all_pages = True
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
+            limit = max(1, min(limit, 200))
         else:
             raise UsageError(f'Unknown flag: {flag}')
 
@@ -483,7 +484,7 @@ _TASKS_FLAGS = [
     schema_mod.flag('--status', value='<status>', summary='notstarted, inprogress, completed, waiting, deferred'),
     schema_mod.flag('--search', value='<term>', summary='Filter tasks by subject'),
     schema_mod.flag('--pretty', summary='Human-readable checklist (default: JSON)'),
-    schema_mod.flag('--limit', value='<n>', summary='Max results per page (default: 50)'),
+    schema_mod.flag('--limit', value='<n>', summary='Max results per page (default 50, cap 200)'),
     schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
 ]
 
@@ -492,7 +493,7 @@ _CREATE_FLAGS = [
     schema_mod.flag('--folder', value='<id|name>', summary='Target folder (default: default Tasks list)'),
     schema_mod.flag('--due', value='<date>', summary='Due date (YYYY-MM-DD, today, tomorrow)'),
     schema_mod.flag('--start', value='<date>', summary='Start date'),
-    schema_mod.flag('--importance', value='<imp>', summary='low, normal, high'),
+    schema_mod.flag('--importance', value='<level>', summary='low|normal|high'),
     schema_mod.flag('--body', value='<text>', summary='Notes'),
 ]
 
@@ -502,7 +503,7 @@ _UPDATE_FLAGS = [
     schema_mod.flag('--due', value='<date>', summary='New due date'),
     schema_mod.flag('--start', value='<date>', summary='New start date'),
     schema_mod.flag('--status', value='<status>', summary='notstarted, inprogress, completed, waiting, deferred'),
-    schema_mod.flag('--importance', value='<imp>', summary='low, normal, high'),
+    schema_mod.flag('--importance', value='<level>', summary='low|normal|high'),
     schema_mod.flag('--body', value='<text>', summary='New notes'),
 ]
 
@@ -516,7 +517,7 @@ _DELETE_FLAGS = [
 ]
 
 _CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias'),
+    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
     schema_mod.flag('--folder', value='<id>', summary='Pin a default task folder'),
 ]
 

@@ -145,7 +145,7 @@ Events options:
   --year <n>          Year (default: current)
   --search <term>     Search events by subject
   --pretty            Human-readable table (default: JSON)
-  --limit <n>         Max results per page (default: 50)
+  --limit <n>         Max results per page (default 50, cap 200)
   --all               Follow @odata.nextLink until exhausted (--limit
                       still controls page size per request)
 
@@ -284,6 +284,7 @@ def cmd_events_webcal(args, config):
             pass
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
+            limit = max(1, min(limit, 200))
         else:
             raise UsageError(f'Unknown flag: {flag}')
 
@@ -336,6 +337,7 @@ def cmd_events(args, config, access_token, api_base):
             all_pages = True
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
+            limit = max(1, min(limit, 200))
         else:
             raise UsageError(f'Unknown flag: {flag}')
 
@@ -742,7 +744,7 @@ _EVENTS_FLAGS = [
     schema_mod.flag('--year', value='<n>', summary='Year (default: current)'),
     schema_mod.flag('--search', value='<term>', summary='Search events by subject'),
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
-    schema_mod.flag('--limit', value='<n>', summary='Max results per page (default: 50)'),
+    schema_mod.flag('--limit', value='<n>', summary='Max results per page (default 50, cap 200)'),
     schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
 ]
 
@@ -791,11 +793,11 @@ _PROFILES_FLAGS = [
     schema_mod.flag('list', summary='List all profiles (owa-cal + owa-piggy)'),
     schema_mod.flag('add <alias>', value='--webcal <url>', summary='Add a local webcal/iCal profile'),
     schema_mod.flag('delete <alias>', summary='Remove an owa-cal profile'),
-    schema_mod.flag('--pretty', summary='Human-readable listing'),
+    schema_mod.flag('--pretty', summary='Human-readable listing (default: JSON)'),
 ]
 
 _CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin a default profile alias (owa_piggy_profile)'),
+    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
 ]
 
 COMMAND_SCHEMA = [

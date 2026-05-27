@@ -893,7 +893,7 @@ _MESSAGES_FLAGS = [
 
 _SHOW_FLAGS = [
     schema_mod.flag('--id', value='<message-id>', summary='Message ID', required=True),
-    schema_mod.flag('--pretty', summary='Human-readable header block + body'),
+    schema_mod.flag('--pretty', summary='Human-readable header block + body (default: JSON)'),
 ]
 
 _ATTACHMENTS_FLAGS = [
@@ -917,7 +917,7 @@ _SEND_FLAGS = [
     schema_mod.flag('--attach', value='<file>', summary='Attach a file', repeatable=True),
     schema_mod.flag('--send-at', value='<iso>', summary='Schedule deferred delivery (ISO datetime, UTC if naive)'),
     schema_mod.flag('--save-draft', summary='Save as Draft instead of sending'),
-    schema_mod.flag('--importance', value='<lvl>', summary='low|normal|high'),
+    schema_mod.flag('--importance', value='<level>', summary='low|normal|high'),
 ]
 
 _REPLY_FLAGS = [
@@ -925,7 +925,7 @@ _REPLY_FLAGS = [
     schema_mod.flag('--body', value='<text>', summary='Reply text (use - to read from stdin)'),
     schema_mod.flag('--html', summary='Treat --body as HTML'),
     schema_mod.flag('--attach', value='<file>', summary='Attach a file', repeatable=True),
-    schema_mod.flag('--send-at', value='<iso>', summary='Schedule deferred delivery'),
+    schema_mod.flag('--send-at', value='<iso>', summary='Schedule deferred delivery (ISO datetime, UTC if naive)'),
     schema_mod.flag('--save-draft', summary='Save as Draft instead of sending'),
 ]
 
@@ -935,7 +935,7 @@ _FORWARD_FLAGS = [
     schema_mod.flag('--body', value='<text>', summary='Forward note (use - to read from stdin)'),
     schema_mod.flag('--html', summary='Treat --body as HTML'),
     schema_mod.flag('--attach', value='<file>', summary='Attach a file', repeatable=True),
-    schema_mod.flag('--send-at', value='<iso>', summary='Schedule deferred delivery'),
+    schema_mod.flag('--send-at', value='<iso>', summary='Schedule deferred delivery (ISO datetime, UTC if naive)'),
     schema_mod.flag('--save-draft', summary='Save as Draft instead of sending'),
 ]
 
@@ -963,7 +963,7 @@ _FOLDERS_FLAGS = [
 ]
 
 _CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin an owa-piggy profile alias (owa_piggy_profile)'),
+    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
 ]
 
 COMMAND_SCHEMA = [
