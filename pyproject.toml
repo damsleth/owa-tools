@@ -73,6 +73,7 @@ testpaths = ["src/tests"]
 addopts = "-q"
 
 [tool.coverage.run]
+branch = true
 source = [
   "owa",
   "owa_core",
@@ -88,6 +89,12 @@ source = [
 omit = ["*/__main__.py"]
 
 [tool.coverage.report]
-fail_under = 90
+# Combined line+branch floor for the whole runtime tree. owa_core has a
+# stricter dedicated gate in CI (95% line+branch). Per
+# .plans/03-test-strategy-and-coverage.md the long-term target is 90% line
+# AND 85% branch on per-tool modules; this floor is the honest combined
+# number we will ratchet upward as owa_todo / owa_people / owa_sched
+# coverage closes the remaining gap.
+fail_under = 89
 show_missing = true
 skip_covered = true
