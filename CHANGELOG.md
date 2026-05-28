@@ -60,6 +60,23 @@ Resolves four findings from the 2026-05-27 review
   into `docs/` or `README.md`. The suite ships as one distribution
   (`owa-tools`); per-tool packages no longer exist.
 
+### CI / coverage gates
+
+- Changed: coverage now runs with `branch = true`, so the gates
+  measure every dispatch path rather than just statement reach.
+  `owa_core` stays on a 95% line+branch gate (currently 96%); the
+  runtime tree gate is now 89% line+branch (currently 89.39%). The
+  per-tool line-only number was 91.38% before branch was enabled - the
+  gate dropped 1 point because branch coverage is stricter, not
+  because tests regressed. The 89% floor is the honest combined number
+  we will ratchet upward as `owa_todo` / `owa_people` / `owa_sched`
+  coverage closes the remaining gap.
+- Changed: `ci.yml` and `release.yml` updated to invoke the new gates.
+- Fixed: `src/scripts/check_console_smoke.py` was missing `owa-todo`
+  from its `TOOLS` tuple, so the fresh-venv smoke step in CI silently
+  skipped the ninth binary. All nine consumer CLIs are now exercised
+  on every push.
+
 ## v0.3.1 - 2026-05-27
 
 The 0.3 feature set ships as v0.3.1. The v0.3.0 tag was pushed but never
