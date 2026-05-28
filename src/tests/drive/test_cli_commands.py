@@ -12,6 +12,11 @@ from owa_drive import cli
 def _stub_config_and_auth(monkeypatch):
     monkeypatch.setattr(cli.config_mod, "load_config", lambda: {})
     monkeypatch.setattr(cli.auth_mod, "setup_auth", lambda config, debug=False: ("tok", "https://graph.test"))
+    # Default the put preflight to "remote does not exist" so existing
+    # upload tests don't have to opt in to the new --force / batch
+    # skip-and-continue surface. Tests that exercise the conflict path
+    # override this with `monkeypatch.setattr(cli, '_remote_exists', ...)`.
+    monkeypatch.setattr(cli, "_remote_exists", lambda *a, **k: False)
 
 
 def _drive_item(name="report.txt", *, folder=False):
@@ -138,27 +143,159 @@ def test_put_large_file_session_failure_returns_one(monkeypatch, tmp_path):
     assert cli.cmd_put([str(src), "/Documents/big.bin"], {}, "tok", "https://graph.test") == 1
 
 
+def test_put_refuses_overwrite_without_force(monkeypatch, tmp_path):
+    """Single-file put against an existing remote item raises ConflictError
+    (exit 15) so callers learn they need --force; the preflight saves
+    the upload bytes when the remote is already there."""
+    from owa_core.errors import ConflictError
+    monkeypatch.setattr(cli, "_remote_exists", lambda *a, **k: True)
+    monkeypatch.setattr(
+        cli.api_mod, "api_put_binary",
+        lambda *a, **k: pytest.fail("upload attempted despite existing remote"),
+    )
+    src = tmp_path / "upload.txt"
+    src.write_bytes(b"upload")
+    with pytest.raises(ConflictError, match="--force to overwrite"):
+        cli.cmd_put(
+            [str(src), "/Documents/upload.txt"],
+            {}, "tok", "https://graph.test",
+        )
+
+
+def test_put_force_overwrites_existing(monkeypatch, tmp_path, capfd):
+    monkeypatch.setattr(cli, "_remote_exists", lambda *a, **k: True)
+    monkeypatch.setattr(
+        cli.api_mod, "api_put_binary",
+        lambda *a, **k: _drive_item("upload.txt"),
+    )
+    src = tmp_path / "upload.txt"
+    src.write_bytes(b"upload")
+    assert cli.cmd_put(
+        [str(src), "/Documents/upload.txt", "--force"],
+        {}, "tok", "https://graph.test",
+    ) == 0
+    assert json.loads(capfd.readouterr().out)["name"] == "upload.txt"
+
+
+def test_put_batch_skips_existing_uploads_rest(monkeypatch, tmp_path, capfd):
+    """The headline batch contract: an existing remote file MUST NOT
+    abort the upload of the other files. Skips and successes coexist
+    in one JSON summary; exit 0 because no upload genuinely failed."""
+    a = tmp_path / "a.txt"
+    b = tmp_path / "b.txt"
+    c = tmp_path / "c.txt"
+    a.write_bytes(b"a")
+    b.write_bytes(b"b")
+    c.write_bytes(b"c")
+
+    def fake_exists(api_base, remote, token, debug):
+        return remote.endswith("/b.txt")  # only b.txt already exists
+
+    monkeypatch.setattr(cli, "_remote_exists", fake_exists)
+    uploaded = []
+
+    def fake_put(api_base, endpoint, token, data, debug=False):
+        uploaded.append(endpoint)
+        return _drive_item(endpoint.rsplit("/", 1)[-1].split(":")[0])
+
+    monkeypatch.setattr(cli.api_mod, "api_put_binary", fake_put)
+
+    rc = cli.cmd_put(
+        [str(a), str(b), str(c), "/Documents"],
+        {}, "tok", "https://graph.test",
+    )
+    assert rc == 0
+    out = json.loads(capfd.readouterr().out)
+    uploaded_remotes = {entry["remote"] for entry in out["uploaded"]}
+    skipped_remotes = {entry["remote"] for entry in out["skipped"]}
+    assert uploaded_remotes == {"/Documents/a.txt", "/Documents/c.txt"}
+    assert skipped_remotes == {"/Documents/b.txt"}
+    assert out["failed"] == []
+
+
+def test_put_batch_per_file_failure_does_not_abort(monkeypatch, tmp_path, capfd):
+    a = tmp_path / "a.txt"
+    b = tmp_path / "b.txt"
+    a.write_bytes(b"a")
+    b.write_bytes(b"b")
+
+    calls = []
+
+    def fake_put(api_base, endpoint, token, data, debug=False):
+        calls.append(endpoint)
+        if endpoint.endswith("/a.txt:/content"):
+            return None  # genuine failure mid-batch
+        return _drive_item(endpoint.rsplit("/", 1)[-1])
+
+    monkeypatch.setattr(cli.api_mod, "api_put_binary", fake_put)
+
+    rc = cli.cmd_put(
+        [str(a), str(b), "/Documents"],
+        {}, "tok", "https://graph.test",
+    )
+    # Exit 1 because one upload failed, but the second was still tried.
+    assert rc == 1
+    out = json.loads(capfd.readouterr().out)
+    assert len(calls) == 2
+    assert {e["remote"] for e in out["uploaded"]} == {"/Documents/b.txt"}
+    assert {e["remote"] for e in out["failed"]} == {"/Documents/a.txt"}
+
+
+def test_put_batch_force_overwrites_all(monkeypatch, tmp_path, capfd):
+    a = tmp_path / "a.txt"
+    b = tmp_path / "b.txt"
+    a.write_bytes(b"a")
+    b.write_bytes(b"b")
+
+    monkeypatch.setattr(
+        cli, "_remote_exists",
+        lambda *args, **kw: pytest.fail("preflight should be skipped with --force"),
+    )
+    monkeypatch.setattr(
+        cli.api_mod, "api_put_binary",
+        lambda api_base, endpoint, token, data, **kw: _drive_item("x"),
+    )
+
+    rc = cli.cmd_put(
+        [str(a), str(b), "/Documents", "--force"],
+        {}, "tok", "https://graph.test",
+    )
+    assert rc == 0
+    out = json.loads(capfd.readouterr().out)
+    assert len(out["uploaded"]) == 2
+    assert out["skipped"] == []
+    assert out["failed"] == []
+
+
+def test_put_batch_stdin_is_rejected(tmp_path):
+    """stdin in batch mode has no basename to map to <remote-dir>/<name>."""
+    a = tmp_path / "a.txt"
+    a.write_bytes(b"a")
+    with pytest.raises(cli.UsageError, match="stdin"):
+        cli.cmd_put(["-", str(a), "/Documents"], {}, "tok", "https://graph.test")
+
+
 def test_drive_validation_confirm_and_failures(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(cli.api_mod, "api_request", lambda *args, **kwargs: None)
     monkeypatch.setattr(cli.api_mod, "api_get_binary", lambda *args, **kwargs: None)
     monkeypatch.setattr(cli.api_mod, "api_put_binary", lambda *args, **kwargs: None)
 
     assert cli.cmd_ls([], {}, "tok", "https://graph.test") == 1
-    assert cli.cmd_show([], {}, "tok", "https://graph.test") == 1
-    assert "show requires" in capsys.readouterr().err
-    assert cli.cmd_get([], {}, "tok", "https://graph.test") == 1
-    assert "get requires" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match='show requires'):
+        cli.cmd_show([], {}, "tok", "https://graph.test")
+    with pytest.raises(cli.UsageError, match='get requires'):
+        cli.cmd_get([], {}, "tok", "https://graph.test")
     assert cli.cmd_get(["/"], {}, "tok", "https://graph.test") == 1
     assert "root has no content" in capsys.readouterr().err
-    assert cli.cmd_put([], {}, "tok", "https://graph.test") == 1
-    assert "put requires" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match='put requires'):
+        cli.cmd_put([], {}, "tok", "https://graph.test")
     assert cli.cmd_put([str(tmp_path / "missing"), "/x"], {}, "tok", "https://graph.test") == 1
     assert "cannot read" in capsys.readouterr().err
     monkeypatch.setattr(cli.sys, "stdin", type("Stdin", (), {"buffer": io.BytesIO(b"stdin-data")})())
     assert cli.cmd_put(["-", "/"], {}, "tok", "https://graph.test") == 1
     assert "root has no content" in capsys.readouterr().err
-    assert cli.cmd_rm([], {}, "tok", "https://graph.test") == 1
-    assert "rm requires" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match='rm requires'):
+        cli.cmd_rm([], {}, "tok", "https://graph.test")
     assert cli.cmd_rm(["/", "--confirm"], {}, "tok", "https://graph.test") == 1
     assert "refuse to delete" in capsys.readouterr().err
 

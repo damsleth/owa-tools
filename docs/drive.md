@@ -52,7 +52,8 @@ See [profile-model.md](profile-model.md) for profile precedence.
 | `ls [path]` (`list`) | List a folder (default: drive root). |
 | `show <path>` | Show metadata for one item. |
 | `get <path>` (`download`) | Download file content (stdout, or `--out <local>`). |
-| `put <local> <remote-path>` (`upload`) | Upload a file of any size (`-` reads stdin). |
+| `put <local> <remote-path>` (`upload`) | Upload a file of any size (`-` reads stdin). Refuses to overwrite without `--force` (exit 15). |
+| `put <local>… <remote-dir>` (batch) | Upload many files to a directory; existing files are skipped, per-file failures don't abort the batch. `--force` overwrites. |
 | `rm <path>` (`delete`) | Delete an item (requires `--confirm`). |
 | `refresh` | Force a token refresh and verify auth. |
 | `config` | View or update configuration. |
@@ -101,6 +102,37 @@ owa-drive put ./big-video.mp4 /Documents/big-video.mp4
 # uploading 734003200 bytes via upload session...
 # {"id":"...","name":"big-video.mp4","kind":"file","size":734003200,...}
 ```
+
+### Overwrite handling and batch upload
+
+`put` refuses to overwrite an existing remote item by default and exits with
+code `15` (CONFLICT). OneDrive enables file-version history on every drive,
+so the refusal is a bandwidth optimization — it lets `put` skip the upload
+bytes when the remote is already there — not a data-loss guard. Pass
+`--force` to overwrite:
+
+```bash
+owa-drive put ./report.md /Documents/report.md            # exits 15 if exists
+owa-drive put ./report.md /Documents/report.md --force    # overwrites
+```
+
+Pass more than one local path and the trailing positional becomes the remote
+*directory*; each local file is uploaded to `<remote-dir>/<basename>`:
+
+```bash
+owa-drive put ./*.md /Documents/notes
+# {
+#   "uploaded": [{"local": "...", "remote": "/Documents/notes/foo.md", "item": {...}}],
+#   "skipped":  [{"local": "...", "remote": "/Documents/notes/bar.md"}],
+#   "failed":   []
+# }
+```
+
+In batch mode, existing remote files are *skipped* (not refused) so the rest
+of the batch keeps going; per-file upload failures are recorded in `failed`
+but never abort the run. Exit code is `0` when `failed` is empty (skips count
+as success), `1` otherwise. `--force` re-uploads everything and skips the
+existence preflight altogether.
 
 ## Output contract
 

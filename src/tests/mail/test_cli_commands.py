@@ -94,18 +94,18 @@ def test_messages_show_folders_and_validation(monkeypatch, capsys):
     assert "$top=200" in get_calls[-1][1]
     assert "IsRead%20eq%20false" in get_calls[-1][1]
 
-    assert cli.cmd_messages(["--search", "hello", "--unread"], {}, "tok", "https://outlook.test") == 1
-    assert "--search cannot be combined" in capsys.readouterr().err
-    assert cli.cmd_messages(["--limit", "0"], {}, "tok", "https://outlook.test") == 1
-    assert "--limit must be" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match='--search cannot be combined'):
+        cli.cmd_messages(["--search", "hello", "--unread"], {}, "tok", "https://outlook.test")
+    with pytest.raises(cli.UsageError, match='--limit must be'):
+        cli.cmd_messages(["--limit", "0"], {}, "tok", "https://outlook.test")
     monkeypatch.setattr(cli.api_mod, "api_get", lambda *args, **kwargs: None)
     assert cli.cmd_messages([], {}, "tok", "https://outlook.test") == 1
 
     monkeypatch.setattr(cli.api_mod, "api_get", fake_get)
     assert cli.cmd_show(["--id", "m1", "--pretty"], {}, "tok", "https://outlook.test") == 0
     assert "Hello" in capsys.readouterr().out
-    assert cli.cmd_show([], {}, "tok", "https://outlook.test") == 1
-    assert "--id is required" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match='--id is required'):
+        cli.cmd_show([], {}, "tok", "https://outlook.test")
 
     assert cli.cmd_folders(["--pretty"], {}, "tok", "https://outlook.test") == 0
     assert "Inbox" in capsys.readouterr().out
@@ -193,18 +193,19 @@ def test_send_reply_forward_move_mark_delete(monkeypatch, capsys):
     assert cli.cmd_forward(["--id", "m1", "--to", "c@example.com", "--body", "fwd"], {}, "tok", "https://outlook.test") == 0
     assert json.loads(capsys.readouterr().out)["id"] == "draft-1"
 
-    assert cli.cmd_forward(["--id", "m1", "--body", "fwd"], {}, "tok", "https://outlook.test") == 1
-    assert "forward requires --to" in capsys.readouterr().err
-    assert cli.cmd_reply(["--id", "m1"], {}, "tok", "https://outlook.test") == 1
-    assert "--body is required" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match='forward requires --to'):
+        cli.cmd_forward(["--id", "m1", "--body", "fwd"], {}, "tok", "https://outlook.test")
+    with pytest.raises(cli.UsageError, match='--body is required'):
+        cli.cmd_reply(["--id", "m1"], {}, "tok", "https://outlook.test")
 
     assert cli.cmd_move(["--id", "m1", "--to", "Archive"], {}, "tok", "https://outlook.test") == 0
     assert json.loads(capsys.readouterr().out)["subject"] == "Moved"
     assert cli.cmd_mark(["--id", "m1", "--read", "--flag"], {}, "tok", "https://outlook.test") == 0
     assert json.loads(capsys.readouterr().out)["subject"] == "Patched"
-    assert cli.cmd_mark(["--id", "m1"], {}, "tok", "https://outlook.test") == 1
-    assert "mark requires" in capsys.readouterr().err
-    assert cli.cmd_mark(["--id", "m1", "--read", "--unread"], {}, "tok", "https://outlook.test") == 1
+    with pytest.raises(cli.UsageError, match='mark requires'):
+        cli.cmd_mark(["--id", "m1"], {}, "tok", "https://outlook.test")
+    with pytest.raises(cli.UsageError, match='mutually exclusive'):
+        cli.cmd_mark(["--id", "m1", "--read", "--unread"], {}, "tok", "https://outlook.test")
 
     assert cli.cmd_delete(["--id", "m1", "--confirm"], {}, "tok", "https://outlook.test") == 0
     assert "Deleted." in capsys.readouterr().err
@@ -221,8 +222,8 @@ def test_send_stdin_invalid_and_api_failures(monkeypatch, capsys):
     assert cli.cmd_send(["--to", "bob@example.com", "--subject", "Hi", "--body", "-"], {}, "tok", "https://outlook.test") == 0
     assert json.loads(capsys.readouterr().out)["sent"] is True
 
-    assert cli.cmd_send(["--to", "bob@example.com", "--subject", "Hi", "--importance", "urgent"], {}, "tok", "https://outlook.test") == 1
-    assert "invalid importance" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match='invalid importance'):
+        cli.cmd_send(["--to", "bob@example.com", "--subject", "Hi", "--importance", "urgent"], {}, "tok", "https://outlook.test")
     monkeypatch.setattr(cli.api_mod, "api_request", lambda *args, **kwargs: None)
     assert cli.cmd_send(["--to", "bob@example.com", "--subject", "Hi"], {}, "tok", "https://outlook.test") == 1
     assert cli.cmd_move(["--id", "m1", "--to", "Archive"], {}, "tok", "https://outlook.test") == 1

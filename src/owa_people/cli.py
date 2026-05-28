@@ -108,8 +108,7 @@ def cmd_find(args, config, access_token, api_base):
             query_parts.append(flag)
     query = ' '.join(query_parts).strip()
     if not query:
-        _error('find requires a search query')
-        return 1
+        raise UsageError('find requires a search query')
     qs = build_query({
         '$search': f'"{query}"',
         '$top': max(1, min(limit, 100)),
@@ -154,8 +153,7 @@ def cmd_directory(args, config, access_token, api_base):
             query_parts.append(flag)
     query = ' '.join(query_parts).strip()
     if not query:
-        _error('directory requires a search query')
-        return 1
+        raise UsageError('directory requires a search query')
     # /users $search needs ConsistencyLevel=eventual and quoted property:value pairs
     search = (
         f'"displayName:{query}" OR "mail:{query}" '
@@ -214,8 +212,7 @@ def cmd_show(args, config, access_token, api_base):
         else:
             raise UsageError(f'Unexpected argument: {flag}')
     if not target:
-        _error('show requires an id or email')
-        return 1
+        raise UsageError('show requires an id or email')
     # Heuristic: looks like an email -> /users/<email>; otherwise treat
     # as a Graph object id.
     endpoint = f'users/{target}'
@@ -442,7 +439,7 @@ def _main(argv):
             debug_flag = True
         elif a == '--profile' and not (is_config_cmd and 'config' in filtered):
             if i + 1 >= len(argv):
-                _error('--profile requires a value'); return 1
+                raise UsageError('--profile requires a value')
             profile_override = argv[i + 1]
             i += 2
             continue
@@ -481,9 +478,10 @@ def _main(argv):
     # still a genuine error (unknown flag, not a name).
     if cmd not in AUTHED_COMMANDS:
         if cmd.startswith('-'):
-            _error(f"Unknown command: {cmd}. Run 'owa-people help' for usage.")
-            return 1
+            raise UsageError(f"Unknown command: {cmd}. Run 'owa-people help' for usage.")
         cmd, rest = 'find', argv
+
+    schema_mod.precheck_required_args(cmd, rest, commands=COMMAND_SCHEMA)
 
     access_token, api_base = auth_mod.setup_auth(
         config, debug=_debug_enabled(config),

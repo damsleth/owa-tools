@@ -7,13 +7,15 @@
 #  PyPI.
 #
 #  Pinned things to remember when copying:
-#  - The eight console scripts (`owa`, `owa-cal`, `owa-mail`, `owa-graph`,
-#    `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`) all come from
-#    this one bottle.
+#  - The nine console scripts (`owa`, `owa-cal`, `owa-mail`, `owa-graph`,
+#    `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`, `owa-todo`) all
+#    come from this one bottle.
 #  - `owa-piggy` keeps its own formula in the same tap. This formula does
-#    not depend on it at install time, but the `test do` block exercises
-#    `--no-tokens` paths so a missing `owa-piggy` does not break `brew
-#    test`.
+#    not depend on it at install time. `owa doctor --no-tokens` deliberately
+#    exits 2 when `owa-piggy` is not installed (the broker is required for
+#    any real check); the `test do` block matches that contract by reading
+#    the JSON payload's `owa_piggy.installed` field rather than asserting
+#    exit 0.
 #  - Runtime is stdlib-only. The only Homebrew dependency is a supported
 #    Python.
 
@@ -36,15 +38,20 @@ class OwaTools < Formula
   end
 
   test do
-    # All eight binaries land on PATH and report the same suite version.
-    %w[owa owa-cal owa-mail owa-graph owa-doctor owa-people owa-sched owa-drive].each do |bin_name|
+    # All nine binaries land on PATH and report the same suite version.
+    %w[owa owa-cal owa-mail owa-graph owa-doctor owa-people owa-sched owa-drive
+       owa-todo].each do |bin_name|
       assert_match version.to_s, shell_output("#{bin}/#{bin_name} --version")
     end
 
     # `owa list` does not need credentials and must succeed.
     system "#{bin}/owa", "list"
 
-    # `owa doctor --no-tokens` runs without invoking owa-piggy and must succeed.
-    system "#{bin}/owa", "doctor", "--no-tokens"
+    # `owa doctor --no-tokens` exits 2 when `owa-piggy` is not installed
+    # (the broker is required for any real check). Assert on the JSON
+    # payload instead of the exit code so the formula test stays green
+    # without owa-piggy on PATH.
+    doctor_json = shell_output("#{bin}/owa doctor --no-tokens", 2)
+    assert_match "\"installed\": false", doctor_json
   end
 end

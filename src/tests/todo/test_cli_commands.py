@@ -225,5 +225,5 @@ def test_main_schema_version_and_unknown(capsys):
     assert json.loads(capsys.readouterr().out)["tool"] == "owa-todo"
     assert cli._main(["--version"]) == 0
     assert capsys.readouterr().out.startswith("owa-todo ")
-    assert cli._main(["bogus"]) == 1
-    assert "Unknown command" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match='Unknown command'):
+        cli._main(["bogus"])

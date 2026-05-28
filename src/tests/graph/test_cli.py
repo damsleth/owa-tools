@@ -44,14 +44,14 @@ def test_help_explicit(monkeypatch, capsys):
 def test_unknown_verb_errors(monkeypatch, capsys):
     rc = _run(monkeypatch, 'FROBNICATE', '/me')
     err = capsys.readouterr().err
-    assert rc == 1
+    assert rc == 2
     assert 'Unknown command' in err
 
 
 def test_get_without_path_errors(monkeypatch, capsys):
     rc = _run(monkeypatch, 'GET')
     err = capsys.readouterr().err
-    assert rc == 1
+    assert rc == 2
     assert 'requires a path' in err
 
 

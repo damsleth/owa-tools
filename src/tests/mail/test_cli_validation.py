@@ -18,12 +18,10 @@ def _fake_token():
 
 # ----- messages -----
 
-def test_messages_search_with_filter_is_rejected(monkeypatch, capsys):
+def test_messages_search_with_filter_is_rejected(monkeypatch):
     from owa_mail.cli import cmd_messages
-    rc = cmd_messages(['--search', 'hi', '--unread'], {}, *_fake_token())
-    assert rc == 1
-    err = capsys.readouterr().err
-    assert '$search' in err and '$filter' in err
+    with pytest.raises(UsageError, match=r'\$search.*\$filter'):
+        cmd_messages(['--search', 'hi', '--unread'], {}, *_fake_token())
 
 
 def test_messages_unknown_flag_exits(monkeypatch):
@@ -102,27 +100,24 @@ def test_messages_from_filter_omits_orderby(monkeypatch, capsys):
 
 # ----- show -----
 
-def test_show_requires_id(capsys):
+def test_show_requires_id():
     from owa_mail.cli import cmd_show
-    rc = cmd_show([], {}, *_fake_token())
-    assert rc == 1
-    assert '--id is required' in capsys.readouterr().err
+    with pytest.raises(UsageError, match='--id is required'):
+        cmd_show([], {}, *_fake_token())
 
 
 # ----- send -----
 
-def test_send_requires_to(capsys):
+def test_send_requires_to():
     from owa_mail.cli import cmd_send
-    rc = cmd_send(['--subject', 's', '--body', 'b'], {}, *_fake_token())
-    assert rc == 1
-    assert '--to is required' in capsys.readouterr().err
+    with pytest.raises(UsageError, match='--to is required'):
+        cmd_send(['--subject', 's', '--body', 'b'], {}, *_fake_token())
 
 
-def test_send_requires_subject(capsys):
+def test_send_requires_subject():
     from owa_mail.cli import cmd_send
-    rc = cmd_send(['--to', 'a@b.c', '--body', 'b'], {}, *_fake_token())
-    assert rc == 1
-    assert '--subject is required' in capsys.readouterr().err
+    with pytest.raises(UsageError, match='--subject is required'):
+        cmd_send(['--to', 'a@b.c', '--body', 'b'], {}, *_fake_token())
 
 
 def test_send_immediate_path_calls_sendmail(monkeypatch, capsys):
@@ -207,10 +202,10 @@ def test_send_with_send_at_creates_draft_then_sends(monkeypatch):
 
 # ----- delete -----
 
-def test_delete_requires_id(capsys):
+def test_delete_requires_id():
     from owa_mail.cli import cmd_delete
-    rc = cmd_delete([], {}, *_fake_token())
-    assert rc == 1
+    with pytest.raises(UsageError, match='--id is required'):
+        cmd_delete([], {}, *_fake_token())
 
 
 def test_delete_no_confirm_non_tty_returns_usage(monkeypatch, capsys):
@@ -230,11 +225,10 @@ def test_delete_no_confirm_non_tty_returns_usage(monkeypatch, capsys):
 
 # ----- move -----
 
-def test_move_requires_id_and_to(capsys):
+def test_move_requires_id_and_to():
     from owa_mail.cli import cmd_move
-    rc = cmd_move(['--id', 'X'], {}, *_fake_token())
-    assert rc == 1
-    assert '--to is required' in capsys.readouterr().err
+    with pytest.raises(UsageError, match='--to is required'):
+        cmd_move(['--id', 'X'], {}, *_fake_token())
 
 
 def test_move_resolves_well_known_destination(monkeypatch):
@@ -257,25 +251,22 @@ def test_move_resolves_well_known_destination(monkeypatch):
 
 # ----- mark -----
 
-def test_mark_requires_id_and_action(capsys):
+def test_mark_requires_id_and_action():
     from owa_mail.cli import cmd_mark
-    rc = cmd_mark(['--id', 'X'], {}, *_fake_token())
-    assert rc == 1
-    assert 'requires one of' in capsys.readouterr().err
+    with pytest.raises(UsageError, match='requires one of'):
+        cmd_mark(['--id', 'X'], {}, *_fake_token())
 
 
-def test_mark_read_and_unread_mutually_exclusive(capsys):
+def test_mark_read_and_unread_mutually_exclusive():
     from owa_mail.cli import cmd_mark
-    rc = cmd_mark(['--id', 'X', '--read', '--unread'], {}, *_fake_token())
-    assert rc == 1
-    assert 'mutually exclusive' in capsys.readouterr().err
+    with pytest.raises(UsageError, match='mutually exclusive'):
+        cmd_mark(['--id', 'X', '--read', '--unread'], {}, *_fake_token())
 
 
-def test_mark_flag_and_unflag_mutually_exclusive(capsys):
+def test_mark_flag_and_unflag_mutually_exclusive():
     from owa_mail.cli import cmd_mark
-    rc = cmd_mark(['--id', 'X', '--flag', '--unflag'], {}, *_fake_token())
-    assert rc == 1
-    assert 'mutually exclusive' in capsys.readouterr().err
+    with pytest.raises(UsageError, match='mutually exclusive'):
+        cmd_mark(['--id', 'X', '--flag', '--unflag'], {}, *_fake_token())
 
 
 def test_mark_read_emits_patch(monkeypatch):
@@ -300,15 +291,14 @@ def test_mark_read_emits_patch(monkeypatch):
 
 def test_reply_requires_id():
     from owa_mail.cli import cmd_reply
-    rc = cmd_reply(['--body', 'hi'], {}, *_fake_token())
-    assert rc == 1
+    with pytest.raises(UsageError, match='--id is required'):
+        cmd_reply(['--body', 'hi'], {}, *_fake_token())
 
 
-def test_reply_requires_body_or_save_draft(capsys):
+def test_reply_requires_body_or_save_draft():
     from owa_mail.cli import cmd_reply
-    rc = cmd_reply(['--id', 'X'], {}, *_fake_token())
-    assert rc == 1
-    assert '--body is required' in capsys.readouterr().err
+    with pytest.raises(UsageError, match='--body is required'):
+        cmd_reply(['--id', 'X'], {}, *_fake_token())
 
 
 def test_reply_save_draft_without_body_skips_patch(monkeypatch):
@@ -337,11 +327,10 @@ def test_reply_save_draft_without_body_skips_patch(monkeypatch):
     ]
 
 
-def test_forward_requires_to_when_sending(capsys):
+def test_forward_requires_to_when_sending():
     from owa_mail.cli import cmd_forward
-    rc = cmd_forward(['--id', 'X', '--body', 'fyi'], {}, *_fake_token())
-    assert rc == 1
-    assert '--to' in capsys.readouterr().err
+    with pytest.raises(UsageError, match='--to'):
+        cmd_forward(['--id', 'X', '--body', 'fyi'], {}, *_fake_token())
 
 
 def test_forward_rejects_cc(monkeypatch):

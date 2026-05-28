@@ -510,19 +510,17 @@ def cmd_batch(args, config):
         elif a == '--retry':
             do_retry = True
         elif a.startswith('--'):
-            _error(f'Unknown flag: {a}'); return 1
+            raise UsageError(f'Unknown flag: {a}')
         elif source is None:
             source = a
         else:
-            _error(f'Unexpected argument: {a!r}'); return 1
+            raise UsageError(f'Unexpected argument: {a!r}')
 
     if ndjson and pretty:
-        _error('--ndjson and --pretty are incompatible')
-        return 1
+        raise UsageError('--ndjson and --pretty are incompatible')
 
     if source is None:
-        _error('batch requires a file path or - for stdin')
-        return 1
+        raise UsageError('batch requires a file path or - for stdin')
 
     if source == '-':
         raw_body = sys.stdin.read()
@@ -742,7 +740,7 @@ def _main(argv):
             continue
         if a == '--profile' and not (is_config_cmd and 'config' in filtered):
             if i + 1 >= len(argv):
-                _error('--profile requires a value'); return 1
+                raise UsageError('--profile requires a value')
             profile_override = argv[i + 1]
             i += 2
             continue
@@ -791,17 +789,15 @@ def _main(argv):
 
     method = head.upper()
     if method not in HTTP_VERBS:
-        _error(
+        raise UsageError(
             f"Unknown command: {head!r}. "
             f"Expected an HTTP verb ({', '.join(sorted(HTTP_VERBS))}) "
             f"or one of: {', '.join(sorted(RESERVED_SUBCOMMANDS))}. "
             f"Run 'owa-graph help' for usage."
         )
-        return 1
 
     if not rest:
-        _error(f'{method} requires a path (e.g. `owa-graph {method} /me`)')
-        return 1
+        raise UsageError(f'{method} requires a path (e.g. `owa-graph {method} /me`)')
     path, request_args = rest[0], rest[1:]
     return cmd_request(method, path, request_args, config)
 

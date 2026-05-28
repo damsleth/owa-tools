@@ -67,7 +67,7 @@ def test_rm_without_path_after_auth_stub(monkeypatch, tmp_config, clean_env):
     monkeypatch.setattr(sys, 'argv', ['owa-drive', 'rm'])
 
     rc = cli_mod.main()
-    assert rc == 1
+    assert rc == 2
 
 
 def test_rm_root_refused(monkeypatch, tmp_config, clean_env):

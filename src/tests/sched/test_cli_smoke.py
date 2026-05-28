@@ -66,4 +66,4 @@ def test_availability_without_who_after_auth_stub(monkeypatch, tmp_config, clean
     monkeypatch.setattr(sys, 'argv', ['owa-sched', 'availability'])
 
     rc = cli_mod.main()
-    assert rc == 1
+    assert rc == 2
