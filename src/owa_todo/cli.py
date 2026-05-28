@@ -575,7 +575,7 @@ def _main(argv):
             debug_flag = True
         elif a == '--profile' and not (is_config_cmd and 'config' in filtered):
             if i + 1 >= len(argv):
-                _error('--profile requires a value'); return 1
+                raise UsageError('--profile requires a value')
             profile_override = argv[i + 1]
             i += 2
             continue
@@ -609,8 +609,9 @@ def _main(argv):
         return cmd_refresh(rest, config)
 
     if cmd not in AUTHED_COMMANDS:
-        _error(f"Unknown command: {cmd}. Run 'owa-todo help' for usage.")
-        return 1
+        raise UsageError(f"Unknown command: {cmd}. Run 'owa-todo help' for usage.")
+
+    schema_mod.precheck_required_args(cmd, rest, commands=COMMAND_SCHEMA)
 
     access_token, api_base = auth_mod.setup_auth(config, debug=_debug_enabled(config))
 

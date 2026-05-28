@@ -265,14 +265,15 @@ def cmd_messages(args, config, access_token, api_base):
             raise UsageError(f'Unknown flag: {flag}')
 
     if limit < 1:
-        _error('--limit must be >= 1'); return 1
+        raise UsageError('--limit must be >= 1')
     if limit > 200:
         limit = 200
 
     if search and (unread or sender or subject_q or since or until):
-        _error('--search cannot be combined with --unread/--from/--subject/--since/--until '
-               '(Outlook REST: $search and $filter are mutually exclusive)')
-        return 1
+        raise UsageError(
+            '--search cannot be combined with --unread/--from/--subject/--since/--until '
+            '(Outlook REST: $search and $filter are mutually exclusive)'
+        )
 
     debug = _debug_enabled(config)
     path = folders_mod.folder_messages_path(folder)
@@ -317,7 +318,7 @@ def cmd_show(args, config, access_token, api_base):
         else:
             raise UsageError(f'Unknown flag: {flag}')
     if not message_id:
-        _error('--id is required'); return 1
+        raise UsageError('--id is required')
 
     debug = _debug_enabled(config)
     q = api_mod.build_query({'$select': messages_mod.SHOW_SELECT})
@@ -346,7 +347,7 @@ def cmd_attachments(args, config, access_token, api_base):
         else:
             raise UsageError(f'Unknown flag: {flag}')
     if not message_id:
-        _error('--id is required'); return 1
+        raise UsageError('--id is required')
 
     debug = _debug_enabled(config)
     # Select only metadata fields - never $select ContentBytes here, so
@@ -382,9 +383,9 @@ def cmd_attachment_get(args, config, access_token, api_base):
         else:
             raise UsageError(f'Unknown flag: {flag}')
     if not message_id:
-        _error('--id is required'); return 1
+        raise UsageError('--id is required')
     if not attachment_id:
-        _error('--attachment is required'); return 1
+        raise UsageError('--attachment is required')
 
     debug = _debug_enabled(config)
     # Preferred path: GET .../$value returns raw bytes directly.
@@ -497,7 +498,7 @@ def cmd_send(args, config, access_token, api_base):
             html=opts['html'], importance=opts['importance'],
         )
     except ValueError as e:
-        _error(str(e)); return 1
+        raise UsageError(str(e))
 
     try:
         loaded = _load_attachments(opts['attach'])
@@ -529,7 +530,7 @@ def cmd_send(args, config, access_token, api_base):
     try:
         draft_payload = messages_mod.build_draft_payload(msg, send_at=opts['send_at'])
     except ValueError as e:
-        _error(str(e)); return 1
+        raise UsageError(str(e))
     draft_payload = messages_mod.with_inline_attachments(draft_payload, inline)
     draft = api_mod.api_request(
         'POST', api_base, 'me/messages', access_token,
@@ -583,12 +584,11 @@ def _reply_like(args, config, access_token, api_base, action):
     )
     opts['id'] = opts['id'] or pos_id
     if not opts['id']:
-        _error('--id is required'); return 1
+        raise UsageError('--id is required')
     if not opts['save_draft'] and opts['body'] is None and not opts['attach']:
-        _error('--body is required (or pass --save-draft to create an empty draft)')
-        return 1
+        raise UsageError('--body is required (or pass --save-draft to create an empty draft)')
     if action == 'createForward' and not opts['save_draft'] and not opts['to']:
-        _error('forward requires --to (or --save-draft)'); return 1
+        raise UsageError('forward requires --to (or --save-draft)')
 
     try:
         loaded = _load_attachments(opts['attach'])
@@ -682,7 +682,7 @@ def cmd_delete(args, config, access_token, api_base):
         else:
             raise UsageError(f'Unknown flag: {flag}')
     if not message_id:
-        _error('--id is required'); return 1
+        raise UsageError('--id is required')
 
     debug = _debug_enabled(config)
     if not confirm:
@@ -726,9 +726,9 @@ def cmd_move(args, config, access_token, api_base):
         else:
             raise UsageError(f'Unknown flag: {flag}')
     if not message_id:
-        _error('--id is required'); return 1
+        raise UsageError('--id is required')
     if not destination:
-        _error('--to is required (folder name or id)'); return 1
+        raise UsageError('--to is required (folder name or id)')
 
     debug = _debug_enabled(config)
     body = {'DestinationId': folders_mod.resolve_folder_id(destination)}
@@ -751,26 +751,26 @@ def cmd_mark(args, config, access_token, api_base):
             message_id, args = _require_value(flag, args)
         elif flag == '--read':
             if read is False:
-                _error('--read and --unread are mutually exclusive'); return 1
+                raise UsageError('--read and --unread are mutually exclusive')
             read = True
         elif flag == '--unread':
             if read is True:
-                _error('--read and --unread are mutually exclusive'); return 1
+                raise UsageError('--read and --unread are mutually exclusive')
             read = False
         elif flag == '--flag':
             if flag_state is False:
-                _error('--flag and --unflag are mutually exclusive'); return 1
+                raise UsageError('--flag and --unflag are mutually exclusive')
             flag_state = True
         elif flag == '--unflag':
             if flag_state is True:
-                _error('--flag and --unflag are mutually exclusive'); return 1
+                raise UsageError('--flag and --unflag are mutually exclusive')
             flag_state = False
         else:
             raise UsageError(f'Unknown flag: {flag}')
     if not message_id:
-        _error('--id is required'); return 1
+        raise UsageError('--id is required')
     if read is None and flag_state is None:
-        _error('mark requires one of --read, --unread, --flag, --unflag'); return 1
+        raise UsageError('mark requires one of --read, --unread, --flag, --unflag')
 
     debug = _debug_enabled(config)
     patch = messages_mod.build_mark_patch(read=read, flag=flag_state)
@@ -1017,7 +1017,7 @@ def _main(argv):
 
     debug_flag, profile_override, argv, err = _split_globals(argv)
     if err:
-        _error(err); return 1
+        raise UsageError(err)
 
     if not argv:
         print_help()
@@ -1045,8 +1045,9 @@ def _main(argv):
 
     handler = AUTHED_HANDLERS.get(cmd)
     if handler is None:
-        _error(f"Unknown command: {cmd}. Run 'owa-mail help' for usage.")
-        return 1
+        raise UsageError(f"Unknown command: {cmd}. Run 'owa-mail help' for usage.")
+
+    schema_mod.precheck_required_args(cmd, rest, commands=COMMAND_SCHEMA)
 
     access_token, api_base = auth_mod.setup_auth(
         config, debug=_debug_enabled(config)

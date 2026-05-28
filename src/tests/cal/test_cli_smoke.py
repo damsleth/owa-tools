@@ -50,9 +50,9 @@ def test_config_subcommand_no_flags_runs_without_auth(tmp_path, monkeypatch):
 
 
 def test_events_without_owa_piggy_fails_with_clear_error(tmp_path):
-    """With no OUTLOOK_APP_CLIENT_ID configured we take the owa-piggy
-    path. A PATH that doesn't expose `owa-piggy` must yield a clear
-    install hint, not a traceback."""
+    """A PATH that doesn't expose `owa-piggy` must yield a clear install
+    hint, not a traceback. owa-cal always shells out to owa-piggy for a
+    token; there is no in-process fallback."""
     env = {
         'HOME': str(tmp_path),
         # Deliberately minimal: python is reachable (full inherited PATH

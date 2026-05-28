@@ -148,6 +148,51 @@ def test_owa_doctor_probe_no_tokens_is_json_without_broker(tmp_path):
     assert "Traceback" not in result.stderr
 
 
+def test_missing_required_arg_returns_usage_before_auth(tmp_path):
+    """A bad invocation (missing required flag) must surface as exit 2 (usage)
+    on a machine that does not have owa-piggy installed - the broker must not
+    be invoked before argument validation. Locks the 2026-05-27 review fix.
+    """
+    empty_bin = tmp_path / "empty-bin"
+    empty_bin.mkdir()
+    env = {"HOME": str(tmp_path), "PATH": str(empty_bin)}
+    cases = [
+        ("owa_mail", ["show"]),
+        ("owa_mail", ["move", "--id", "X"]),
+        ("owa_drive", ["get"]),
+        ("owa_drive", ["put"]),
+        ("owa_drive", ["rm"]),
+        ("owa_cal", ["delete"]),
+        ("owa_sched", ["availability"]),
+        ("owa_people", ["show"]),
+        ("owa_todo", ["delete"]),
+        ("owa_graph", ["GET"]),
+    ]
+    for module, argv in cases:
+        result = _run_module(module, *argv, env=env)
+        assert result.returncode == 2, (
+            f"{module} {argv}: expected exit 2, got {result.returncode}\n"
+            f"stderr={result.stderr!r}"
+        )
+        assert "owa-piggy" not in result.stderr.lower(), (
+            f"{module} {argv} reached broker before validating args: "
+            f"stderr={result.stderr!r}"
+        )
+
+
+def test_unknown_command_returns_usage_before_auth(tmp_path):
+    """`<tool> <unknown-command>` must return exit 2 (usage), not exit 1."""
+    empty_bin = tmp_path / "empty-bin"
+    empty_bin.mkdir()
+    env = {"HOME": str(tmp_path), "PATH": str(empty_bin)}
+    for module in ("owa_mail", "owa_cal", "owa_drive", "owa_sched", "owa_todo"):
+        result = _run_module(module, "frobnicate", env=env)
+        assert result.returncode == 2, (
+            f"{module} frobnicate: expected exit 2, got {result.returncode}"
+        )
+        assert "Unknown command" in result.stderr
+
+
 def test_err_json_maps_auth_failure_to_structured_stderr(tmp_path):
     empty_bin = tmp_path / "empty-bin"
     empty_bin.mkdir()

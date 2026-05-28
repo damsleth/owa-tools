@@ -114,12 +114,12 @@ def test_availability_and_find_time(monkeypatch, capsys):
 def test_sched_validation_and_failures(monkeypatch, capsys):
     monkeypatch.setattr(cli.api_mod, "api_post", lambda *args, **kwargs: None)
 
-    assert cli.cmd_availability([], {}, "tok", "https://graph.test") == 1
-    assert "--who is required" in capsys.readouterr().err
-    assert cli.cmd_find_time([], {}, "tok", "https://graph.test") == 1
-    assert "--who is required" in capsys.readouterr().err
-    assert cli.cmd_find_time(["--who", "ada@example.com", "--duration", "0"], {}, "tok", "https://graph.test") == 1
-    assert "--duration must be positive" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match='--who is required'):
+        cli.cmd_availability([], {}, "tok", "https://graph.test")
+    with pytest.raises(cli.UsageError, match='--who is required'):
+        cli.cmd_find_time([], {}, "tok", "https://graph.test")
+    with pytest.raises(cli.UsageError, match='--duration must be positive'):
+        cli.cmd_find_time(["--who", "ada@example.com", "--duration", "0"], {}, "tok", "https://graph.test")
     assert cli.cmd_availability(["--who", "ada@example.com"], {}, "tok", "https://graph.test") == 1
 
     with pytest.raises(cli.UsageError, match="requires an integer"):

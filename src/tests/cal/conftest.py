@@ -42,9 +42,8 @@ def stub_piggy_aliases(monkeypatch):
 
 @pytest.fixture
 def clean_env(monkeypatch):
-    """Strip OUTLOOK_* env vars so tests start from a known state."""
+    """Strip env vars that could leak owa-piggy or owa-cal state between tests."""
     for key in (
-        'OUTLOOK_REFRESH_TOKEN', 'OUTLOOK_TENANT_ID', 'OUTLOOK_APP_CLIENT_ID',
         'OWA_PROFILE', 'CAL_DEBUG', 'XDG_CONFIG_HOME',
     ):
         monkeypatch.delenv(key, raising=False)

@@ -277,10 +277,10 @@ def test_missing_flag_value_exits(monkeypatch, stub_auth, loaded_config, capsys)
     assert '--top requires a value' in capsys.readouterr().err
 
 
-def test_global_profile_without_value_returns_1(monkeypatch, loaded_config, capsys):
+def test_global_profile_without_value_returns_2(monkeypatch, loaded_config, capsys):
     rc = _run(monkeypatch, '--profile')
     err = capsys.readouterr().err
-    assert rc == 1
+    assert rc == 2
     assert '--profile requires a value' in err
 
 

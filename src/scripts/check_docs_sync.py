@@ -140,11 +140,49 @@ def check_agents_index():
     return failures
 
 
+# Per-tool distribution names that no longer exist as standalone packages.
+# `owa-tools` (PyPI / Homebrew tap) is the single distribution. Mentions of
+# e.g. `pipx install owa-cal` or `brew install damsleth/tap/owa-mail` are
+# always stale and would mislead a reader trying to install. owa-piggy is
+# its own separate package and is allowed.
+_PER_TOOL_DIST_NAMES = (
+    'owa-cal', 'owa-mail', 'owa-graph', 'owa-doctor', 'owa-people',
+    'owa-sched', 'owa-drive', 'owa-todo',
+)
+_INSTALL_VERB_PATTERN = re.compile(
+    r'(?:'
+    r'brew\s+install\s+(?:[A-Za-z0-9._/-]+/)?'
+    r'|pipx\s+install\s+'
+    r'|pip\s+install\s+(?:-[^\s]+\s+)*'
+    r'|uv\s+pip\s+install\s+'
+    r')(' + '|'.join(re.escape(name) for name in _PER_TOOL_DIST_NAMES) + r')\b'
+)
+
+
+def check_no_stale_per_tool_installs():
+    failures = []
+    docs_dir = REPO_ROOT / 'docs'
+    targets = sorted(docs_dir.glob('*.md'))
+    targets.append(REPO_ROOT / 'README.md')
+    for path in targets:
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding='utf-8')
+        for match in _INSTALL_VERB_PATTERN.finditer(text):
+            rel = path.relative_to(REPO_ROOT)
+            failures.append(
+                f'{rel}: install snippet references per-tool package '
+                f"`{match.group(1)}` (suite ships as one distribution: owa-tools)"
+            )
+    return failures
+
+
 def check_docs_sync():
     failures = []
     failures.extend(check_command_docs())
     failures.extend(check_readme_tool_list())
     failures.extend(check_agents_index())
+    failures.extend(check_no_stale_per_tool_installs())
     return failures
 
 

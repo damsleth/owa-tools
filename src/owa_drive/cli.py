@@ -12,10 +12,18 @@ import json
 import os
 import sys
 
+from owa_core import http as http_mod
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
-from owa_core.errors import UsageError, emit_error, emit_message
+from owa_core.errors import (
+    ConflictError,
+    NotFoundError,
+    OwaError,
+    UsageError,
+    emit_error,
+    emit_message,
+)
 
 from . import __version__
 from . import api as api_mod
@@ -65,6 +73,16 @@ Commands (unix-style verbs; suite-canonical aliases in parentheses):
                       Small files use a single PUT; larger files use a
                       Graph resumable upload session automatically.
                       <local>=='-' reads from stdin.
+                      Refuses to overwrite an existing remote item
+                      (exit 15) unless --force is passed; OneDrive
+                      versioning preserves overwritten content.
+  put <local>... <remote-dir>                                (batch)
+                      Upload multiple files to <remote-dir>; each ends
+                      up at <remote-dir>/<basename>. Existing files are
+                      skipped (use --force to overwrite); per-file
+                      failures are recorded but never abort the batch.
+                      Stdout is one JSON summary with uploaded /
+                      skipped / failed lists.
   rm <path>           Delete an item (requires --confirm).   (alias: delete)
   refresh             Force a token refresh and verify auth.
   config              View or update configuration.
@@ -154,8 +172,7 @@ def cmd_show(args, config, access_token, api_base):
             raise UsageError(f'Unexpected argument: {flag}')
 
     if not path:
-        _error('show requires a path')
-        return 1
+        raise UsageError('show requires a path')
     endpoint = paths_mod.item_endpoint(path)
     payload = api_mod.api_request(
         'GET', api_base, endpoint, access_token,
@@ -186,8 +203,7 @@ def cmd_get(args, config, access_token, api_base):
             raise UsageError(f'Unexpected argument: {flag}')
 
     if not path:
-        _error('get requires a path')
-        return 1
+        raise UsageError('get requires a path')
 
     try:
         endpoint = paths_mod.content_endpoint(path)
@@ -213,24 +229,33 @@ def cmd_get(args, config, access_token, api_base):
     return 0
 
 
-def cmd_put(args, config, access_token, api_base):
-    local = ''
-    remote = ''
-    while args:
-        flag, args = args[0], args[1:]
-        if flag.startswith('-') and flag != '-':
-            raise UsageError(f'Unknown flag: {flag}')
-        elif not local:
-            local = flag
-        elif not remote:
-            remote = flag
-        else:
-            raise UsageError(f'Unexpected argument: {flag}')
+def _remote_exists(api_base, remote, access_token, debug):
+    """Silent existence check. Returns True/False/None (None = error).
 
-    if not local or not remote:
-        _error('put requires <local> and <remote-path>')
-        return 1
+    OneDrive enables versioning by default, so refusing to overwrite is a
+    bandwidth optimisation - it lets `put` skip a re-upload when the
+    remote item is already present. Returns None (instead of False) on
+    transient errors so callers can decide whether to proceed or abort;
+    we proceed by default (the user asked us to upload).
+    """
+    if not remote or remote == '/':
+        return False
+    url = f'{api_base}/{paths_mod.item_endpoint(remote).lstrip("/")}'
+    try:
+        response = http_mod.request('GET', url, token=access_token, debug=debug)
+    except NotFoundError:
+        return False
+    except OwaError:
+        return None
+    return bool(response.json)
 
+
+def _upload_one(local, remote, *, config, access_token, api_base, debug):
+    """Read and PUT a single file. Returns ('uploaded', item) or
+    ('failed', None). Selects the simple PUT path or the upload-session
+    path based on size, mirroring the per-file logic that single-file
+    `put` has used since v0.1.
+    """
     if local == '-':
         data = sys.stdin.buffer.read()
     else:
@@ -239,33 +264,127 @@ def cmd_put(args, config, access_token, api_base):
                 data = fh.read()
         except OSError as exc:
             _error(f'cannot read {local}: {exc}')
-            return 1
+            return 'failed', None
 
     if len(data) > api_mod.UPLOAD_LIMIT_BYTES:
         try:
             session_endpoint = paths_mod.upload_session_endpoint(remote)
         except ValueError as exc:
             _error(str(exc))
-            return 1
+            return 'failed', None
         _info(f'uploading {len(data)} bytes via upload session...')
         payload = api_mod.api_upload_session(
-            api_base, session_endpoint, access_token, data,
-            debug=_debug_enabled(config),
+            api_base, session_endpoint, access_token, data, debug=debug,
         )
     else:
         try:
             endpoint = paths_mod.content_endpoint(remote)
         except ValueError as exc:
             _error(str(exc))
-            return 1
+            return 'failed', None
         payload = api_mod.api_put_binary(
-            api_base, endpoint, access_token, data,
-            debug=_debug_enabled(config),
+            api_base, endpoint, access_token, data, debug=debug,
         )
     if payload is None:
-        return 1
+        return 'failed', None
     item = normalize_item(payload) if isinstance(payload, dict) else {}
-    print(json.dumps(item))
+    return 'uploaded', item
+
+
+def _resolve_batch_remote(remote_dir, local):
+    """Build the per-file remote path for batch mode.
+
+    `remote_dir` is the trailing positional in a multi-file `put`. The
+    upload target is `<remote_dir>/<basename(local)>`; stdin (`-`) is
+    rejected for batch mode since there is no filename to derive.
+    """
+    if local == '-':
+        raise UsageError(
+            "batch put cannot read from stdin ('-'); use single-file put "
+            "with an explicit <remote-path> instead"
+        )
+    base = os.path.basename(local.rstrip('/'))
+    if not base:
+        raise UsageError(f'cannot derive remote name from {local!r}')
+    return f'{remote_dir.rstrip("/")}/{base}'
+
+
+def cmd_put(args, config, access_token, api_base):
+    force = False
+    positional = []
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--force':
+            force = True
+        elif flag.startswith('-') and flag != '-':
+            raise UsageError(f'Unknown flag: {flag}')
+        else:
+            positional.append(flag)
+
+    if len(positional) < 2:
+        raise UsageError('put requires <local> and <remote-path>')
+
+    debug = _debug_enabled(config)
+    batch = len(positional) > 2
+    if batch:
+        remote_dir = positional[-1]
+        locals_ = positional[:-1]
+    else:
+        remote_dir = None
+        locals_ = [positional[0]]
+
+    uploaded = []
+    skipped = []
+    failed = []
+
+    for local in locals_:
+        remote = (
+            _resolve_batch_remote(remote_dir, local)
+            if batch else positional[1]
+        )
+
+        if not force:
+            exists = _remote_exists(api_base, remote, access_token, debug)
+            if exists is True:
+                # Skip-and-continue: in batch mode the rest of the files
+                # MUST still upload (the whole point of the batch). In
+                # single-file mode the user gets exit 15 below.
+                _info(f'skip (exists, no --force): {remote}')
+                skipped.append({'local': local, 'remote': remote})
+                continue
+
+        status, item = _upload_one(
+            local, remote,
+            config=config, access_token=access_token,
+            api_base=api_base, debug=debug,
+        )
+        if status == 'uploaded':
+            uploaded.append({'local': local, 'remote': remote, 'item': item})
+        else:
+            failed.append({'local': local, 'remote': remote})
+
+    if batch:
+        print(json.dumps({
+            'uploaded': uploaded,
+            'skipped': skipped,
+            'failed': failed,
+        }))
+        # 0 if no genuine failures (skips count as success - they were
+        # intentional). 1 if any per-file upload failed.
+        return 1 if failed else 0
+
+    # Single-file mode: preserve the original "print item JSON, exit 0/1"
+    # contract. A skip becomes exit 15 (CONFLICT) so a caller without
+    # --force learns they need to opt in to overwrite; in a shell `for`
+    # loop the conflict surfaces per-invocation but does not abort the loop.
+    if skipped:
+        raise ConflictError(
+            f'remote already exists: {skipped[0]["remote"]} '
+            '(pass --force to overwrite)'
+        )
+    if failed:
+        return 1
+    print(json.dumps(uploaded[0]['item']))
     return 0
 
 
@@ -284,8 +403,7 @@ def cmd_rm(args, config, access_token, api_base):
             raise UsageError(f'Unexpected argument: {flag}')
 
     if not path:
-        _error('rm requires a path')
-        return 1
+        raise UsageError('rm requires a path')
 
     try:
         endpoint = paths_mod.delete_endpoint(path)
@@ -394,8 +512,9 @@ _GET_FLAGS = [
 ]
 
 _PUT_FLAGS = [
-    schema_mod.flag('<local>', summary='Local file path or - to read stdin (positional)', required=True),
-    schema_mod.flag('<remote-path>', summary='Destination path on the drive (positional)', required=True),
+    schema_mod.flag('<local>', summary='Local file path, - for stdin, or multiple files (positional)', required=True),
+    schema_mod.flag('<remote-path>', summary='Destination path; in batch mode (multiple <local>) this is the destination directory (positional)', required=True),
+    schema_mod.flag('--force', summary='Overwrite existing remote items (default: refuse with exit 15; in batch mode: skip existing)'),
 ]
 
 _RM_FLAGS = [
@@ -454,7 +573,7 @@ def _main(argv):
             debug_flag = True
         elif a == '--profile' and not (is_config_cmd and 'config' in filtered):
             if i + 1 >= len(argv):
-                _error('--profile requires a value'); return 1
+                raise UsageError('--profile requires a value')
             profile_override = argv[i + 1]
             i += 2
             continue
@@ -492,8 +611,9 @@ def _main(argv):
         return cmd_refresh(rest, config)
 
     if cmd not in AUTHED_COMMANDS:
-        _error(f"Unknown command: {cmd}. Run 'owa-drive help' for usage.")
-        return 1
+        raise UsageError(f"Unknown command: {cmd}. Run 'owa-drive help' for usage.")
+
+    schema_mod.precheck_required_args(cmd, rest, commands=COMMAND_SCHEMA)
 
     access_token, api_base = auth_mod.setup_auth(
         config, debug=_debug_enabled(config),

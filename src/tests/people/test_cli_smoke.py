@@ -96,4 +96,4 @@ def test_show_without_target_after_auth_stub(monkeypatch, tmp_config, clean_env)
     monkeypatch.setattr(sys, 'argv', ['owa-people', 'show'])
 
     rc = cli_mod.main()
-    assert rc == 1
+    assert rc == 2

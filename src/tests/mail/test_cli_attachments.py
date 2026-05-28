@@ -60,9 +60,9 @@ def test_attachments_list_json_and_pretty(monkeypatch, capsys):
     assert "application/pdf" in out
 
 
-def test_attachments_requires_id_and_handles_failure(monkeypatch, capsys):
-    assert cli.cmd_attachments([], {}, "tok", "https://outlook.test") == 1
-    assert "--id is required" in capsys.readouterr().err
+def test_attachments_requires_id_and_handles_failure(monkeypatch):
+    with pytest.raises(cli.UsageError, match='--id is required'):
+        cli.cmd_attachments([], {}, "tok", "https://outlook.test")
     monkeypatch.setattr(cli.api_mod, "api_get", lambda *a, **k: None)
     assert cli.cmd_attachments(["--id", "m1"], {}, "tok", "https://outlook.test") == 1
     with pytest.raises(cli.UsageError):
@@ -94,11 +94,11 @@ def test_attachment_get_to_file_and_stdout(monkeypatch, tmp_path, capfd):
     assert capfd.readouterr().out == "PNGdata"
 
 
-def test_attachment_get_validation_and_failure(monkeypatch, capsys):
-    assert cli.cmd_attachment_get([], {}, "tok", "https://outlook.test") == 1
-    assert "--id is required" in capsys.readouterr().err
-    assert cli.cmd_attachment_get(["--id", "m1"], {}, "tok", "https://outlook.test") == 1
-    assert "--attachment is required" in capsys.readouterr().err
+def test_attachment_get_validation_and_failure(monkeypatch):
+    with pytest.raises(cli.UsageError, match='--id is required'):
+        cli.cmd_attachment_get([], {}, "tok", "https://outlook.test")
+    with pytest.raises(cli.UsageError, match='--attachment is required'):
+        cli.cmd_attachment_get(["--id", "m1"], {}, "tok", "https://outlook.test")
     monkeypatch.setattr(cli.api_mod, "api_get_binary", lambda *a, **k: None)
     assert cli.cmd_attachment_get(
         ["--id", "m1", "--attachment", "a"], {}, "tok", "https://outlook.test",

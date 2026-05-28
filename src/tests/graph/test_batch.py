@@ -153,14 +153,14 @@ def test_batch_ndjson_and_pretty_incompatible(monkeypatch, tmp_path, capsys):
 def test_batch_no_source_errors(monkeypatch, capsys):
     rc = _run(monkeypatch, 'batch')
     err = capsys.readouterr().err
-    assert rc == 1
+    assert rc == 2
     assert 'requires a file path or - for stdin' in err
 
 
 def test_batch_unknown_flag(monkeypatch, capsys):
     rc = _run(monkeypatch, 'batch', '--bogus')
     err = capsys.readouterr().err
-    assert rc == 1
+    assert rc == 2
     assert 'Unknown flag' in err
 
 
@@ -168,7 +168,7 @@ def test_batch_extra_positional(monkeypatch, tmp_path, capsys):
     f = tmp_path / 'b.json'
     f.write_text('[]')
     rc = _run(monkeypatch, 'batch', str(f), 'extra-arg')
-    assert rc == 1
+    assert rc == 2
     assert 'Unexpected argument' in capsys.readouterr().err
 
 

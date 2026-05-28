@@ -197,8 +197,7 @@ def cmd_availability(args, config, access_token, api_base):
 
     who = _split_csv(who_csv)
     if not who:
-        _error('--who is required (comma-separated emails)')
-        return 1
+        raise UsageError('--who is required (comma-separated emails)')
 
     from_, to_ = _resolve_window(date_, from_, to_, week, year)
     tz = config.get('default_timezone') or 'W. Europe Standard Time'
@@ -254,11 +253,9 @@ def cmd_find_time(args, config, access_token, api_base):
 
     who = _split_csv(who_csv)
     if not who:
-        _error('--who is required (comma-separated emails)')
-        return 1
+        raise UsageError('--who is required (comma-separated emails)')
     if duration <= 0:
-        _error('--duration must be positive')
-        return 1
+        raise UsageError('--duration must be positive')
 
     from_, to_ = _resolve_window(date_, from_, to_, week, year)
     tz = config.get('default_timezone') or 'W. Europe Standard Time'
@@ -425,7 +422,7 @@ def _main(argv):
             debug_flag = True
         elif a == '--profile' and not (is_config_cmd and 'config' in filtered):
             if i + 1 >= len(argv):
-                _error('--profile requires a value'); return 1
+                raise UsageError('--profile requires a value')
             profile_override = argv[i + 1]
             i += 2
             continue
@@ -459,8 +456,9 @@ def _main(argv):
         return cmd_refresh(rest, config)
 
     if cmd not in AUTHED_COMMANDS:
-        _error(f"Unknown command: {cmd}. Run 'owa-sched help' for usage.")
-        return 1
+        raise UsageError(f"Unknown command: {cmd}. Run 'owa-sched help' for usage.")
+
+    schema_mod.precheck_required_args(cmd, rest, commands=COMMAND_SCHEMA)
 
     access_token, api_base = auth_mod.setup_auth(
         config, debug=_debug_enabled(config),

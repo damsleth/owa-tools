@@ -2,6 +2,7 @@
 import json
 import sys
 
+from .errors import UsageError
 from .version import suite_version
 
 SCHEMA_VERSION = 1
@@ -231,6 +232,70 @@ def render_command_help(tool, cmd_dict, *, stream=None):
 
 def is_help_token(token):
     return token in HELP_TOKENS
+
+
+def precheck_required_args(cmd, args, *, commands):
+    """Validate ``args`` against ``cmd``'s schema before auth setup.
+
+    Raises ``UsageError`` for missing required flags or positional values,
+    unknown named flags, and value-taking flags that have no value. Returns
+    silently when ``cmd`` is not in ``commands`` (the dispatcher's own
+    unknown-command path handles that).
+
+    Only the schema is consulted - per-handler semantic checks (mutual
+    exclusion, enum values, etc.) still run in the handler.
+    """
+    canonical = resolve_alias(cmd, commands)
+    matched = next((c for c in commands if c.get('name') == canonical), None)
+    if matched is None:
+        return
+
+    flag_specs = matched.get('flags') or []
+    named_specs = {
+        f['name']: f for f in flag_specs
+        if not f.get('name', '').startswith('<')
+    }
+    positional_specs = [
+        f for f in flag_specs if f.get('name', '').startswith('<')
+    ]
+    required_positionals = [f for f in positional_specs if f.get('required')]
+
+    seen_named = set()
+    positionals_seen = 0
+    i = 0
+    while i < len(args):
+        token = args[i]
+        if not token.startswith('-') or token == '-':
+            positionals_seen += 1
+            i += 1
+            continue
+        spec = named_specs.get(token)
+        if spec is None:
+            raise UsageError(f'Unknown flag: {token}')
+        seen_named.add(token)
+        if spec.get('value') is not None:
+            if i + 1 >= len(args):
+                raise UsageError(f'{token} requires a value')
+            i += 2
+        else:
+            i += 1
+
+    for name, spec in named_specs.items():
+        if not spec.get('required'):
+            continue
+        if name in seen_named:
+            continue
+        # `--id` is the suite's positional fallback (mail/cal/todo "flag or
+        # positional"). Only honour the fallback when no `<...>` positional
+        # slot is declared - otherwise the positional belongs to that slot.
+        if name == '--id' and not positional_specs and positionals_seen >= 1:
+            continue
+        raise UsageError(f'{name} is required')
+
+    if positionals_seen < len(required_positionals):
+        missing = required_positionals[positionals_seen:]
+        names = ' '.join(f['name'] for f in missing)
+        raise UsageError(f'{names} is required')
 
 
 def maybe_emit_subcommand_help(cmd, rest, *, tool, commands):

@@ -88,12 +88,12 @@ def test_find_directory_show_me_and_contacts(monkeypatch, capsys):
 def test_people_validation_and_api_failures(monkeypatch, capsys):
     monkeypatch.setattr(cli.api_mod, "api_get", lambda *args, **kwargs: None)
 
-    assert cli.cmd_find([], {}, "tok", "https://graph.test") == 1
-    assert "find requires" in capsys.readouterr().err
-    assert cli.cmd_directory([], {}, "tok", "https://graph.test") == 1
-    assert "directory requires" in capsys.readouterr().err
-    assert cli.cmd_show([], {}, "tok", "https://graph.test") == 1
-    assert "show requires" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match='find requires'):
+        cli.cmd_find([], {}, "tok", "https://graph.test")
+    with pytest.raises(cli.UsageError, match='directory requires'):
+        cli.cmd_directory([], {}, "tok", "https://graph.test")
+    with pytest.raises(cli.UsageError, match='show requires'):
+        cli.cmd_show([], {}, "tok", "https://graph.test")
     assert cli.cmd_me([], {}, "tok", "https://graph.test") == 1
     assert cli.cmd_contacts([], {}, "tok", "https://graph.test") == 1
 
