@@ -8,8 +8,22 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+## v0.4.0 - 2026-05-28
+
+Headline: `owa-drive put` learns batch mode and refuses to overwrite by
+default (use `--force`). Pre-auth argument validation across the suite
+so usage errors fail fast with exit `2` instead of exit `11` ("owa-piggy
+not found") on machines without the broker. Coverage in CI is now
+line+branch.
+
+Breaking: scripts that relied on `owa-drive put <local> <remote>`
+silently overwriting an existing remote item must now pass `--force`.
+The default behavior is to refuse with exit `15` (CONFLICT). OneDrive
+versioning preserves the previous content, so this is a bandwidth
+guard rather than a data-loss guard.
+
 Resolves four findings from the 2026-05-27 review
-(`.plans/2026-05-27-review.md`).
+(`.plans/done/2026-05-27-review.md`).
 
 ### CLI contract
 
