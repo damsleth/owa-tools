@@ -8,6 +8,58 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+Resolves four findings from the 2026-05-27 review
+(`.plans/2026-05-27-review.md`).
+
+### CLI contract
+
+- Fixed: missing required flags now exit `2` (UsageError) on every
+  authed command (mail/cal/drive/sched/people/todo/graph) instead of
+  exit `11` ("owa-piggy not found") on machines without the broker. A
+  new `owa_core.schema.precheck_required_args()` is wired into each
+  dispatcher and runs *before* `setup_auth()`, so invalid invocations
+  fail fast and don't make a broker round-trip. Remaining
+  `_error(...); return 1` patterns across the suite were converted to
+  `raise UsageError(...)` so usage exit codes are uniform.
+- Fixed: unknown commands (`owa-cal frobnicate`) and missing
+  flag-values (`--profile` with no argument) now exit `2` instead of
+  `1`, matching the shared error taxonomy.
+
+### owa-drive
+
+- New: `--force` flag on `put`. By default, `owa-drive put` refuses to
+  overwrite an existing remote item and exits `15` (`ConflictError`).
+  OneDrive enables file-version history on every drive, so the refusal
+  is a bandwidth optimization (skip the upload bytes when the remote
+  already has the file) rather than a data-loss guard.
+- New: batch upload. `owa-drive put <local1> <local2> ... <remote-dir>`
+  uploads many local files to one remote directory, mapping each to
+  `<remote-dir>/<basename>`. Existing files are **skipped, not
+  refused** so the rest of the batch keeps going; per-file failures
+  are recorded in the JSON summary's `failed` list but never abort the
+  run. Exit `0` when `failed` is empty (skips count as success), `1`
+  otherwise. `--force` overwrites and skips the existence preflight.
+- Reading `-` (stdin) is rejected in batch mode (no basename to map).
+
+### Packaging
+
+- Fixed: Homebrew formula (`src/packaging/homebrew/owa-tools.rb`) no
+  longer asserts `owa doctor --no-tokens` exits `0`. `owa-doctor`
+  deliberately exits `2` when `owa-piggy` is not installed (the broker
+  is required for any real check), and `brew test` runs without
+  `owa-piggy` on PATH. The formula now uses `shell_output(..., 2)` and
+  asserts on the `"installed": false` JSON payload. Also adds
+  `owa-todo` to the formula's binary list (was missing).
+
+### Tooling
+
+- New: `check_no_stale_per_tool_installs` in
+  `src/scripts/check_docs_sync.py` flags any
+  `brew/pipx/pip install <owa-cal|owa-mail|owa-graph|owa-doctor|
+  owa-people|owa-sched|owa-drive|owa-todo>` snippet that slips back
+  into `docs/` or `README.md`. The suite ships as one distribution
+  (`owa-tools`); per-tool packages no longer exist.
+
 ## v0.3.1 - 2026-05-27
 
 The 0.3 feature set ships as v0.3.1. The v0.3.0 tag was pushed but never
