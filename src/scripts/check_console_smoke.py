@@ -20,6 +20,7 @@ TOOLS = (
     'owa-people',
     'owa-sched',
     'owa-drive',
+    'owa-todo',
 )
 
 

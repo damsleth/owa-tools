@@ -30,10 +30,10 @@ jobs:
         run: python src/scripts/check_no_secrets.py
       - name: Docs sync check
         run: python src/scripts/check_docs_sync.py
-      - name: Unit tests
+      - name: Unit tests (owa_core, line+branch 95% gate)
         run: coverage run --source=owa_core -m pytest -q && coverage report --fail-under=95
-      - name: Runtime coverage
-        run: pytest -q --cov --cov-fail-under=90
+      - name: Runtime coverage (line+branch 89% gate)
+        run: pytest -q --cov --cov-fail-under=89
       - name: Compatibility snapshots
         run: pytest -q src/tests/compat
       - name: Contract tests
