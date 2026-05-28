@@ -3,6 +3,7 @@ import pytest
 
 from owa_mail.messages import (
     LIST_SELECT,
+    LIST_SELECT_WITH_BODY,
     build_draft_payload,
     build_list_query,
     build_mark_patch,
@@ -56,6 +57,7 @@ def test_normalize_messages_drops_body_from_list():
                 'Id': '1',
                 'Subject': 'a',
                 'Body': {'ContentType': 'Text', 'Content': 'hi'},
+                'InternetMessageHeaders': [{'Name': 'X-Foo', 'Value': 'bar'}],
             }
         ]
     }
@@ -65,6 +67,52 @@ def test_normalize_messages_drops_body_from_list():
     # Body fields are stripped from listings to keep the payload tight.
     assert 'body' not in flat[0]
     assert 'body_type' not in flat[0]
+    assert 'internet_headers' not in flat[0]
+
+
+def test_normalize_messages_keep_body_preserves_body_and_headers():
+    raw = {
+        'value': [
+            {
+                'Id': '1',
+                'Subject': 'a',
+                'Body': {'ContentType': 'HTML', 'Content': '<p>hi</p>'},
+                'InternetMessageHeaders': [
+                    {'Name': 'List-Unsubscribe', 'Value': '<mailto:u@x>'},
+                    {'Name': 'Auto-Submitted', 'Value': 'auto-generated'},
+                ],
+            }
+        ]
+    }
+    flat = normalize_messages(raw, keep_body=True)
+    assert flat[0]['body'] == '<p>hi</p>'
+    assert flat[0]['body_type'] == 'HTML'
+    assert flat[0]['internet_headers'] == [
+        {'name': 'List-Unsubscribe', 'value': '<mailto:u@x>'},
+        {'name': 'Auto-Submitted', 'value': 'auto-generated'},
+    ]
+
+
+def test_list_select_with_body_includes_body_and_headers():
+    assert 'Body' in LIST_SELECT_WITH_BODY
+    assert 'InternetMessageHeaders' in LIST_SELECT_WITH_BODY
+
+
+def test_normalize_message_extracts_internet_headers():
+    raw = {
+        'Id': '1',
+        'InternetMessageHeaders': [
+            {'name': 'List-Id', 'value': 'foo'},  # camelCase variant
+            {'Name': 'Precedence', 'Value': 'bulk'},
+            'not-a-dict',
+            {'value': 'no-name'},
+        ],
+    }
+    flat = normalize_message(raw)
+    assert flat['internet_headers'] == [
+        {'name': 'List-Id', 'value': 'foo'},
+        {'name': 'Precedence', 'value': 'bulk'},
+    ]
 
 
 def test_normalize_message_handles_camel_case():
@@ -85,7 +133,7 @@ def test_normalize_message_handles_empty():
         'subject': '', 'from': '', 'to': '', 'cc': '', 'bcc': '',
         'preview': '', 'is_read': False, 'has_attachments': False,
         'importance': '', 'flag': '', 'folder_id': '', 'web_link': '',
-        'body_type': '', 'body': '',
+        'body_type': '', 'body': '', 'internet_headers': [],
     }
 
 

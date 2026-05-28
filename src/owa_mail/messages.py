@@ -15,10 +15,20 @@ LIST_SELECT = (
     'CcRecipients,BccRecipients,BodyPreview,IsRead,HasAttachments,'
     'Importance,Flag,WebLink,ParentFolderId'
 )
+# Bulk-fetch select for `messages --with-body`: same as SHOW_SELECT plus
+# InternetMessageHeaders so newsletter detectors can read List-Unsubscribe /
+# Auto-Submitted without a follow-up `show` per message.
+LIST_SELECT_WITH_BODY = (
+    'Id,ConversationId,ReceivedDateTime,SentDateTime,Subject,From,'
+    'ToRecipients,CcRecipients,BccRecipients,BodyPreview,Body,IsRead,'
+    'HasAttachments,Importance,Flag,WebLink,ParentFolderId,'
+    'InternetMessageHeaders'
+)
 SHOW_SELECT = (
     'Id,ConversationId,ReceivedDateTime,SentDateTime,Subject,From,'
     'ToRecipients,CcRecipients,BccRecipients,BodyPreview,Body,IsRead,'
-    'HasAttachments,Importance,Flag,WebLink,ParentFolderId'
+    'HasAttachments,Importance,Flag,WebLink,ParentFolderId,'
+    'InternetMessageHeaders'
 )
 
 
@@ -123,6 +133,24 @@ def _flag_status(flag):
     return _pick_str(flag, 'FlagStatus', 'flagStatus')
 
 
+def _internet_headers(raw):
+    """Flatten Outlook's InternetMessageHeaders into [{name, value}, ...].
+
+    Returns [] when the property is absent or not selected. Names are
+    case-preserved (Outlook gives them PascalCase-ish like List-Unsubscribe).
+    """
+    items = _pick_list(raw, 'InternetMessageHeaders', 'internetMessageHeaders')
+    out = []
+    for h in items:
+        if not isinstance(h, dict):
+            continue
+        name = _pick_str(h, 'Name', 'name')
+        value = _pick_str(h, 'Value', 'value')
+        if name:
+            out.append({'name': name, 'value': value})
+    return out
+
+
 def normalize_message(raw):
     """Flatten one Outlook REST message to our snake_case shape.
 
@@ -151,17 +179,26 @@ def normalize_message(raw):
         'web_link': _pick_str(raw, 'WebLink', 'webLink'),
         'body_type': _pick_str(body, 'ContentType', 'contentType'),
         'body': _pick_str(body, 'Content', 'content'),
+        'internet_headers': _internet_headers(raw),
     }
 
 
-def normalize_messages(raw):
+def normalize_messages(raw, keep_body=False):
+    """Flatten an Outlook REST messages collection.
+
+    `keep_body=False` (the default for `messages` listings) strips body
+    and internet_headers to keep payloads tight. `keep_body=True` is
+    used by `messages --with-body`, where we want the body + headers
+    inline so callers can avoid a follow-up `show` per message.
+    """
     items = raw.get('value', []) if isinstance(raw, dict) else []
     out = []
     for m in items:
         flat = normalize_message(m)
-        # Drop body fields from list view to keep payloads tight.
-        flat.pop('body', None)
-        flat.pop('body_type', None)
+        if not keep_body:
+            flat.pop('body', None)
+            flat.pop('body_type', None)
+            flat.pop('internet_headers', None)
         out.append(flat)
     return out
 

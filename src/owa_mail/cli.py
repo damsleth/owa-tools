@@ -119,6 +119,9 @@ messages options:
   --limit <n>          Max results per page (default 25, hard cap 200)
   --all                Follow @odata.nextLink until exhausted (--limit
                        still controls page size per request)
+  --with-body          Include full body + InternetMessageHeaders inline
+                       (same shape as `show`). Lets callers skip the
+                       per-message `show` roundtrip when bulk-ingesting.
   --pretty             Human-readable table (default: JSON)
 
 show options:
@@ -237,6 +240,7 @@ def cmd_messages(args, config, access_token, api_base):
     unread = False
     pretty = False
     all_pages = False
+    with_body = False
     sender = subject_q = search = since = until = ''
     limit = 25
     while args:
@@ -259,6 +263,8 @@ def cmd_messages(args, config, access_token, api_base):
             limit, args = _require_int(flag, args)
         elif flag == '--all':
             all_pages = True
+        elif flag == '--with-body':
+            with_body = True
         elif flag == '--pretty':
             pretty = True
         else:
@@ -280,16 +286,17 @@ def cmd_messages(args, config, access_token, api_base):
 
     # --limit still controls page size per request; --all follows
     # @odata.nextLink until every page is exhausted.
+    select = messages_mod.LIST_SELECT_WITH_BODY if with_body else None
     params = messages_mod.build_list_query(
         unread=unread, sender=sender, subject_q=subject_q, search=search,
-        since=since, until=until, limit=limit,
+        since=since, until=until, limit=limit, select=select,
     )
     q = api_mod.build_query(params)
     if all_pages:
         items = api_mod.paginate_all(api_base, f'{path}?{q}', access_token, debug=debug)
         if items is None:
             return 1
-        flat = messages_mod.normalize_messages({'value': items})
+        flat = messages_mod.normalize_messages({'value': items}, keep_body=with_body)
         if pretty:
             print(format_messages_pretty(flat))
         else:
@@ -298,7 +305,7 @@ def cmd_messages(args, config, access_token, api_base):
     data = api_mod.api_get(api_base, f'{path}?{q}', access_token, debug=debug)
     if data is None:
         return 1
-    flat = messages_mod.normalize_messages(data)
+    flat = messages_mod.normalize_messages(data, keep_body=with_body)
     if pretty:
         print(format_messages_pretty(flat))
     else:
@@ -895,6 +902,7 @@ _MESSAGES_FLAGS = [
     schema_mod.flag('--until', value='<date>', summary='ReceivedDateTime <= date'),
     schema_mod.flag('--limit', value='<n>', summary='Max results per page (default 25, cap 200)'),
     schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
+    schema_mod.flag('--with-body', summary='Include body + InternetMessageHeaders inline (skip per-message show)'),
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
 ]
 
