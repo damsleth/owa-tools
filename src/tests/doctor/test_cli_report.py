@@ -5,9 +5,9 @@ import subprocess
 
 import pytest
 
+from owa_core.registry import CONSUMER_TOOLS
 from owa_doctor import cli as cli_mod
 from owa_doctor import probe as probe_mod
-from owa_core.registry import CONSUMER_TOOLS
 
 # Canonical schema for a siblings[] entry returned by probe_siblings() /
 # build_report(). Keys that must be present and their expected types.
