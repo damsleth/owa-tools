@@ -12,6 +12,10 @@
 - Do not print except in explicit render/debug helpers.
 - Redact tokens and sensitive response bodies with `owa_core.secrets`.
 
+See `docs/architecture.md` before adding a shared abstraction here: it explains
+the one-shared-contract-layer rule and the cross-package constraints enforced by
+`src/tests/test_architecture_contracts.py`.
+
 Nearest tests: `src/tests/core/`, `src/tests/security/`.
 
 Verify:

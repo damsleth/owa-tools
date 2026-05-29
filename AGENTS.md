@@ -95,6 +95,21 @@ the main `0/2/10-15/20` contract intact for normal command paths.
 | `docs/AGENTS.md` | changing user documentation |
 | `src/scripts/AGENTS.md` | changing maintenance scripts |
 
+## Reference Docs
+
+The `docs/` tree is mostly user-facing, but a few files are the long-form
+rationale behind the terse rules above. Read the relevant one *before* the
+matching kind of change - they are reference for agents, not just humans.
+
+| Doc | Read Before |
+|---|---|
+| `docs/architecture.md` | adding shared abstractions to `owa_core`, or any cross-cutting refactor. Lists the cross-package constraints enforced by `src/tests/test_architecture_contracts.py` (no `urlopen` outside `owa_core.http`, no `owa-piggy` subprocess outside `owa_core.auth`, every mutating command declares confirmation/idempotency, etc.) |
+| `docs/testing.md` | adding or restructuring tests - the test layers, fixtures, and coverage gates |
+| `docs/new-tool-onboarding.md` | adding a new console script / tool package |
+| `docs/security.md` | touching auth, tokens, redaction, config writes, or destructive commands - includes the threat model |
+| `docs/agent-integration.md` | changing `--agent`, `--err-json`, schema, or the exit-code surface |
+| `docs/profile-model.md` | changing profile / audience precedence |
+
 ## Verification
 
 Run the narrow test for your edit first, then run the standard suite before a
