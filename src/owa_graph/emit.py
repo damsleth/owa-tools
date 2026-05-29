@@ -9,9 +9,20 @@ leaking large bodies into the rendered command.
 shlex.quote is used on every interpolated value so the output is safe to
 copy-paste into a shell. We default to multi-line backslash-continued
 output because Graph URLs and OData filters get long fast.
+
+By default the bearer token is *not* inlined: the Authorization header
+renders a `$OWA_TOKEN` placeholder (double-quoted so the shell expands it
+at run time) so `--curl | pbcopy` can't leak a live token into the
+clipboard or shell history. Pass `include_token=True` (the `--include-token`
+CLI flag) to inline the real access token.
 """
 import json
 import shlex
+
+# Placeholder emitted instead of the real bearer token unless the caller
+# opts in. Double-quoted (not shlex-quoted) so the shell expands the env
+# var when the command is run: `export OWA_TOKEN=$(owa-piggy token ...)`.
+_TOKEN_PLACEHOLDER = '$OWA_TOKEN'
 
 # Tokens that introduce a flag (and usually take a value). Used by
 # _join_continuation to decide where to break lines.
@@ -40,16 +51,33 @@ def _serialize_body(body):
     return str(body)
 
 
+def _auth_header_arg(label, access_token, include_token):
+    """Return the already-quoted Authorization header argument.
+
+    With `include_token`, the real bearer is inlined and shell-quoted.
+    Without it, a double-quoted `$OWA_TOKEN` placeholder is emitted so the
+    command stays runnable (after the user sets OWA_TOKEN) but no live
+    token reaches stdout/clipboard/history. `label` is the header text up
+    to the value, e.g. `'Authorization: Bearer '` (curl) or
+    `'Authorization=Bearer '` (az --headers)."""
+    if include_token:
+        return _quote(f'{label}{access_token}')
+    return f'"{label}{_TOKEN_PLACEHOLDER}"'
+
+
 def render_curl(method, url, access_token, headers=None, body=None,
-                body_is_file_ref=False):
-    """Return a multi-line curl command. The bearer token is inlined.
+                body_is_file_ref=False, include_token=False):
+    """Return a multi-line curl command.
+
+    By default the bearer token is rendered as a `$OWA_TOKEN` placeholder;
+    pass `include_token=True` to inline the real token.
 
     `body_is_file_ref=True` means `body` is a path that should be kept
     as `@<path>` so curl streams from disk - matches the `--body
     @file.json` invocation style.
     """
     parts = ['curl', '-sS', '-X', method]
-    parts += ['-H', _quote(f'Authorization: Bearer {access_token}')]
+    parts += ['-H', _auth_header_arg('Authorization: Bearer ', access_token, include_token)]
 
     needs_content_type = body is not None
     if needs_content_type:
@@ -69,17 +97,18 @@ def render_curl(method, url, access_token, headers=None, body=None,
 
 
 def render_az(method, url, access_token, headers=None, body=None,
-              body_is_file_ref=False):
+              body_is_file_ref=False, include_token=False):
     """Return a multi-line `az rest` command. Token goes via --headers,
-    same as az's own examples."""
+    same as az's own examples.
+
+    By default the bearer token is rendered as a `$OWA_TOKEN` placeholder;
+    pass `include_token=True` to inline the real token."""
     parts = ['az', 'rest', '--method', method.lower(), '--uri', _quote(url)]
 
-    hdr_pairs = [f'Authorization=Bearer {access_token}']
-    if headers:
-        for k, v in headers.items():
-            hdr_pairs.append(f'{k}={v}')
     parts += ['--headers']
-    parts += [_quote(p) for p in hdr_pairs]
+    parts += [_auth_header_arg('Authorization=Bearer ', access_token, include_token)]
+    if headers:
+        parts += [_quote(f'{k}={v}') for k, v in headers.items()]
 
     if body is not None:
         if body_is_file_ref:

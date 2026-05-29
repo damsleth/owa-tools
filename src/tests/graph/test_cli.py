@@ -57,11 +57,25 @@ def test_get_without_path_errors(monkeypatch, capsys):
 
 def test_curl_renders_and_exits(monkeypatch, capsys):
     rc = _run(monkeypatch, 'GET', '/me', '--curl')
-    out = capsys.readouterr().out
+    captured = capsys.readouterr()
+    out = captured.out
     assert rc == 0
     assert 'curl' in out
-    assert 'Bearer tok' in out
+    # Default redacts the token to a placeholder; the real token must not
+    # land on stdout (which is what gets piped to pbcopy).
+    assert 'Bearer tok' not in out
+    assert 'Bearer $OWA_TOKEN' in out
     assert 'graph.microsoft.com/v1.0/me' in out
+    # The placeholder hint goes to stderr, not stdout.
+    assert '$OWA_TOKEN' in captured.err
+
+
+def test_curl_include_token_inlines_real_token(monkeypatch, capsys):
+    rc = _run(monkeypatch, 'GET', '/me', '--curl', '--include-token')
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert 'Bearer tok' in captured.out
+    assert '$OWA_TOKEN' not in captured.out
 
 
 def test_az_renders_and_exits(monkeypatch, capsys):
@@ -69,6 +83,14 @@ def test_az_renders_and_exits(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert rc == 0
     assert 'az rest' in out
+    assert 'Authorization=Bearer tok' not in out
+    assert 'Authorization=Bearer $OWA_TOKEN' in out
+
+
+def test_az_include_token_inlines_real_token(monkeypatch, capsys):
+    rc = _run(monkeypatch, 'GET', '/me', '--az', '--include-token')
+    out = capsys.readouterr().out
+    assert rc == 0
     assert 'Authorization=Bearer tok' in out
 
 

@@ -58,6 +58,12 @@ request with the right base URL and Bearer header.
   JSON for everything else.
 - `--curl` and `--az` print the equivalent shell command instead of
   executing - useful for sharing, scripting, or piping into `pbcopy`.
+  By default the `Authorization` header renders a `$OWA_TOKEN`
+  placeholder rather than the live bearer token, so the rendered command
+  is safe to copy into the clipboard, paste into chat, or leave in shell
+  history. Set the env var to run it (`export OWA_TOKEN=$(owa-piggy token
+  --audience graph)`), or pass `--include-token` to inline the real
+  token (avoid piping that to `pbcopy`).
 - `--all` follows `@odata.nextLink` until exhausted; pair with
   `--ndjson` to stream items one per line through `jq`.
 - `--count` and `--search` set Graph's `ConsistencyLevel: eventual`

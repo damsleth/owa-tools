@@ -9,9 +9,17 @@ def test_curl_get_minimal():
     out = emit.render_curl('GET', URL, TOKEN)
     assert 'curl' in out
     assert '-X GET' in out
-    assert f"Authorization: Bearer {TOKEN}" in out
+    # Default does NOT inline the token - it renders a placeholder.
+    assert TOKEN not in out
+    assert 'Authorization: Bearer $OWA_TOKEN' in out
     assert URL in out
     assert '--data' not in out
+
+
+def test_curl_inlines_token_only_with_include_token():
+    out = emit.render_curl('GET', URL, TOKEN, include_token=True)
+    assert f'Authorization: Bearer {TOKEN}' in out
+    assert '$OWA_TOKEN' not in out
 
 
 def test_curl_post_with_literal_body():
@@ -53,7 +61,15 @@ def test_az_get():
     assert 'az rest' in out
     assert '--method get' in out
     assert '--uri ' in out
+    # Default does NOT inline the token - it renders a placeholder.
+    assert TOKEN not in out
+    assert 'Authorization=Bearer $OWA_TOKEN' in out
+
+
+def test_az_inlines_token_only_with_include_token():
+    out = emit.render_az('GET', URL, TOKEN, include_token=True)
     assert f'Authorization=Bearer {TOKEN}' in out
+    assert '$OWA_TOKEN' not in out
 
 
 def test_az_post_with_body():
