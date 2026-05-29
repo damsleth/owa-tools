@@ -11,6 +11,9 @@ Default tests must be deterministic and offline.
 - Security tests live in `src/tests/security/`.
 - Live tests must be opt-in and skipped by default.
 
+See `docs/testing.md` for the full layer map (which layer a new test belongs in
+and what each one fakes), the test-data policy, and the coverage gates.
+
 Nearest tests: this directory.
 
 Verify:
