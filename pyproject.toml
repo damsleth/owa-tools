@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "owa-tools"
-version = "0.4.0"
+version = "0.5.0"
 description = "Monorepo workspace for owa-piggy consumer CLIs"
 readme = "README.md"
 license = "MIT"

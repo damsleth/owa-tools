@@ -8,6 +8,42 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+## v0.5.0 - 2026-05-29
+
+Headline: `owa-graph --curl` / `--az` no longer leak a live bearer token.
+By default the rendered command carries a `$OWA_TOKEN` placeholder, so
+`owa-graph GET /me --curl | pbcopy` is safe to copy into the clipboard,
+chat, or shell history. `owa-mail messages` gains `--with-body`, and the
+maintainer reference docs (architecture, testing, onboarding) now ship
+in `docs/`.
+
+Behavior change: anyone parsing the live access token out of
+`owa-graph ... --curl`/`--az` output must now pass `--include-token` to
+inline the real bearer. The placeholder is the new default.
+
+### owa-graph
+
+- Fixed: `--curl` and `--az` render `Authorization: Bearer $OWA_TOKEN`
+  (double-quoted so the shell expands it at run time) instead of inlining
+  the real access token. A stderr note points at
+  `export OWA_TOKEN=$(owa-piggy token --audience <aud>)`.
+- New: `--include-token` opts back into inlining the real bearer for
+  `--curl`/`--az` when you explicitly want a self-contained command.
+
+### owa-mail
+
+- New: `--with-body` on `messages` fetches message bodies inline,
+  skipping the per-message `show` roundtrip.
+
+### Docs
+
+- New maintainer reference docs baked into `docs/`: `architecture.md`
+  (low-entropy architecture and the shared `owa_core` contract layer),
+  `testing.md` (test layers, fixtures, coverage gates), and
+  `new-tool-onboarding.md` (the process for adding a console script).
+  `security.md` gains a threat-model section. The root and package
+  `AGENTS.md` files now point agents at these as read-first reference.
+
 ## v0.4.0 - 2026-05-28
 
 Headline: `owa-drive put` learns batch mode and refuses to overwrite by
