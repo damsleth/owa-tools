@@ -60,6 +60,59 @@ wheels, and sdists:
 Use obvious fake values in tests: `fake-access-token`, `fake-refresh-token`,
 and `example.invalid` or `example.com` addresses.
 
+## Threat model
+
+### Token leakage
+
+Risks: debug logs print Authorization headers; structured errors include broker
+stderr with token content; fixtures accidentally contain real tokens; `--curl`
+or `--az` emit bearer tokens into shell history or clipboard; tests snapshot
+access tokens.
+
+Mitigations: a central `owa_core.secrets.redact(value)`; debug paths redact
+before printing; the no-token scanner runs in CI; the fixture policy is
+documented in `src/tests/security/AGENTS.md`. `owa-graph`'s `--curl` / `--az`
+render a `$OWA_TOKEN` placeholder by default and require `--include-token` to
+inline the real bearer, so `owa-graph GET /me --curl | pbcopy` never puts a
+live token on the clipboard (see [`graph.md`](graph.md)).
+
+### Refresh-token boundary drift
+
+Risks: a future tool reads `owa-piggy` config directly for convenience; setup /
+reseed logic migrates into `owa-tools`.
+
+Mitigations: the stdlib import checker bans `owa_piggy` imports in `owa-tools`;
+security tests scan for paths like `.config/owa-piggy`, `OWA_REFRESH_TOKEN`, and
+`profiles/default/config` outside docs and explicit tests; the root `AGENTS.md`
+forbids direct broker storage reads.
+
+### Path traversal
+
+Risks: profile aliases used as paths; OneDrive remote paths escape expected
+Graph path encoding; local `--out` writes unintended files.
+
+Mitigations: profile aliases are only passed to `owa-piggy`, never used for
+local path construction; path builders are pure functions with traversal tests;
+`--out` writes exactly where the user points, with clear parent errors and no
+implicit overwrite unless guarded by `--force`.
+
+### Destructive commands
+
+Risks: `delete`, `rm`, `move`, `mark`, `send`, and other write operations run in
+scripts by accident.
+
+Mitigations: non-TTY destructive commands require `--confirm` or `--yes`;
+high-impact commands document retry safety; the confirmation helper exits `2`,
+not a generic failure.
+
+### Overbroad scopes
+
+Risks: a tool silently uses a more privileged audience or scope than needed.
+
+Mitigations: every command spec declares its audience and scope assumptions;
+`owa-graph` scope hints stay advisory and redacted; no command changes the
+`owa-piggy` default audience; user-provided `--audience` is always explicit.
+
 ## Live Testing
 
 Default tests must not contact Microsoft or a real broker profile. Live tests

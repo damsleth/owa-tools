@@ -105,10 +105,16 @@ rules.
 
 ## Docs
 
-- [`docs/security.md`](docs/security.md) - token, redaction, and live-test boundaries
+- [`docs/security.md`](docs/security.md) - token, redaction, threat model, and live-test boundaries
 - [`docs/agent-integration.md`](docs/agent-integration.md) - schema discovery, `--agent`, `--err-json`
 - [`docs/profile-model.md`](docs/profile-model.md) - profiles and audiences
 - Per-tool: [`cal`](docs/cal.md) | [`mail`](docs/mail.md) | [`graph`](docs/graph.md) | [`doctor`](docs/doctor.md) | [`people`](docs/people.md) | [`sched`](docs/sched.md) | [`drive`](docs/drive.md) | [`todo`](docs/todo.md)
+
+Maintainer reference:
+
+- [`docs/architecture.md`](docs/architecture.md) - low-entropy architecture, shared contracts, maintainability tests
+- [`docs/testing.md`](docs/testing.md) - test layers, coverage gates, data policy
+- [`docs/new-tool-onboarding.md`](docs/new-tool-onboarding.md) - process for adding a companion CLI
 
 ## Releases
 

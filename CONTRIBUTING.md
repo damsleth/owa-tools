@@ -71,3 +71,14 @@ Any other import outside `src/tests/` and `src/scripts/` fails the build.
 
 - Don't add third-party runtime dependencies.
 - Don't read `owa-piggy` config directly or import `owa_piggy`.
+
+## Deeper reference
+
+- [`docs/architecture.md`](docs/architecture.md) - low-entropy architecture,
+  the shared `owa_core` contract layer, and maintainability constraints.
+- [`docs/testing.md`](docs/testing.md) - the test layers, what each is for, and
+  the coverage gates.
+- [`docs/new-tool-onboarding.md`](docs/new-tool-onboarding.md) - the process for
+  landing a new companion CLI.
+- [`docs/security.md`](docs/security.md) - the broker boundary, threat model,
+  and redaction rules.
