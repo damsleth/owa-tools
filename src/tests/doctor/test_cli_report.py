@@ -1,6 +1,30 @@
 """Tests for cli.build_report and exit-code policy."""
+import json
+import shutil
+import subprocess
+
+import pytest
+
 from owa_doctor import cli as cli_mod
 from owa_doctor import probe as probe_mod
+from owa_core.registry import CONSUMER_TOOLS
+
+# Canonical schema for a siblings[] entry returned by probe_siblings() /
+# build_report(). Keys that must be present and their expected types.
+_SIBLING_ENTRY_SCHEMA = {
+  'name': str,
+  'installed': bool,
+  'version': (str, type(None)),
+  'path': (str, type(None)),
+}
+
+# Canonical schema for a per-binary `<binary> --doctor --json` payload.
+# Sourced from real payloads (see contract/test_doctor_flag.py).
+_DOCTOR_PAYLOAD_SCHEMA = {
+  'tool': str,
+  'version': str,
+  'findings': list,
+}
 
 
 def test_build_report_no_piggy(monkeypatch):
@@ -64,3 +88,77 @@ def test_build_report_no_tokens_skips_profile_probe(monkeypatch):
     report = cli_mod.build_report(no_tokens=True)
     assert called['n'] == 0
     assert report['profiles'] == []
+
+
+def _assert_sibling_entry_schema(entry, label):
+  """Assert that a siblings[] entry conforms to _SIBLING_ENTRY_SCHEMA."""
+  for key, expected_type in _SIBLING_ENTRY_SCHEMA.items():
+    assert key in entry, f'{label}: missing key {key!r}'
+    assert isinstance(entry[key], expected_type), (
+      f'{label}: key {key!r} has type {type(entry[key]).__name__!r}, '
+      f'expected {expected_type}'
+    )
+
+
+def _assert_doctor_payload_schema(payload, label):
+  """Assert that a --doctor --json payload conforms to _DOCTOR_PAYLOAD_SCHEMA."""
+  for key, expected_type in _DOCTOR_PAYLOAD_SCHEMA.items():
+    assert key in payload, f'{label}: missing key {key!r}'
+    assert isinstance(payload[key], expected_type), (
+      f'{label}: key {key!r} has type {type(payload[key]).__name__!r}, '
+      f'expected {expected_type}'
+    )
+
+
+@pytest.mark.parametrize('binary', list(CONSUMER_TOOLS))
+def test_siblings_match_per_binary_doctor(binary):
+  """Cross-check: each siblings[] entry is schema-compatible with that
+  binary's own `<binary> --doctor --json` payload, and the stable
+  fields (tool name, version) agree between the two sides.
+
+  Aggregate side: probe_siblings() (called directly - it is the exact
+  function build_report() uses to populate siblings[]).
+  Per-binary side: subprocess shell-out to the installed binary.
+
+  Skipped when the binary is not on PATH so the test stays green in
+  minimal CI environments.
+  """
+  if not shutil.which(binary):
+    pytest.skip(f'{binary!r} not found on PATH')
+
+  # --- aggregate side: get the entry build_report() would emit ---
+  siblings = probe_mod.probe_siblings()
+  agg_entry = next((s for s in siblings if s['name'] == binary), None)
+  assert agg_entry is not None, (
+    f'{binary!r} not in probe_siblings() output even though it is on PATH'
+  )
+  _assert_sibling_entry_schema(agg_entry, label=f'siblings[{binary!r}]')
+
+  # --- per-binary side: run `<binary> --doctor --json` ---
+  proc = subprocess.run(
+    [binary, '--doctor', '--json'],
+    capture_output=True, text=True, timeout=10,
+  )
+  assert proc.returncode in (0, 1), (
+    f'{binary} --doctor --json exited {proc.returncode}; '
+    f'stderr: {proc.stderr.strip()!r}'
+  )
+  try:
+    payload = json.loads(proc.stdout.strip())
+  except json.JSONDecodeError as exc:
+    raise AssertionError(
+      f'{binary} --doctor --json produced non-JSON stdout: '
+      f'{proc.stdout.strip()!r}'
+    ) from exc
+  _assert_doctor_payload_schema(payload, label=f'{binary} --doctor --json')
+
+  # --- cross-check: stable fields must agree across both sides ---
+  # tool name in payload must equal the binary name
+  assert payload['tool'] == binary, (
+    f'{binary}: payload["tool"]={payload["tool"]!r} != binary name {binary!r}'
+  )
+  # version reported by the binary must equal what the aggregator recorded
+  assert payload['version'] == agg_entry['version'], (
+    f'{binary}: per-binary version={payload["version"]!r} '
+    f'!= aggregated version={agg_entry["version"]!r}'
+  )
