@@ -50,6 +50,7 @@ _VERB_FLAGS = [
     schema_mod.flag('--raw', summary='Print raw response bytes (no JSON parsing)'),
     schema_mod.flag('--curl', summary='Print equivalent curl command and exit'),
     schema_mod.flag('--az', summary='Print equivalent `az rest` command and exit'),
+    schema_mod.flag('--include-token', summary='Inline the real bearer token in --curl/--az output (default: $OWA_TOKEN placeholder)'),
 ]
 
 _BATCH_FLAGS = [
@@ -150,7 +151,12 @@ Per-call options:
   --raw                     Print raw response bytes (no JSON parsing).
                             Useful for $value endpoints that return binary.
   --curl                    Print equivalent curl command and exit. No HTTP call.
+                            Authorization renders a $OWA_TOKEN placeholder by
+                            default (safe to pipe to pbcopy / shell history).
   --az                      Print equivalent `az rest` command and exit.
+  --include-token           Inline the real bearer token in --curl/--az output
+                            instead of the $OWA_TOKEN placeholder. Avoid piping
+                            this to pbcopy or your shell history.
 
 Global options:
   --debug, --verbose        Print HTTP requests and response bodies on errors
@@ -197,7 +203,8 @@ Examples:
   owa-graph POST /me/sendMail --body @mail.json
   owa-graph PATCH /me/messages/AAMk... --body '{"isRead":true}'
   owa-graph GET /me/drive/root/children --beta
-  owa-graph GET /me --curl | pbcopy
+  owa-graph GET /me --curl | pbcopy        # placeholder token; safe to copy
+  owa-graph GET /me --curl --include-token # inlines the live bearer token
   owa-graph GET me/events --audience outlook --pretty
   owa-graph batch requests.json --pretty
   owa-graph refresh""")
@@ -291,6 +298,7 @@ def cmd_request(method, path, args, config):
     pretty = False
     raw = False
     emit_mode = None
+    include_token = False
     all_pages = False
     ndjson = False
     do_retry = False
@@ -355,6 +363,8 @@ def cmd_request(method, path, args, config):
             emit_mode = 'curl'
         elif flag == '--az':
             emit_mode = 'az'
+        elif flag == '--include-token':
+            include_token = True
         else:
             _error(f'Unknown flag: {flag}'); return 1
 
@@ -381,17 +391,22 @@ def cmd_request(method, path, args, config):
 
     url = api_mod.build_url(api_base, path, query_pairs)
 
-    if emit_mode == 'curl':
-        print(emit_mod.render_curl(
+    if emit_mode in ('curl', 'az'):
+        renderer = emit_mod.render_curl if emit_mode == 'curl' else emit_mod.render_az
+        print(renderer(
             method, url, access_token,
             headers=headers, body=body, body_is_file_ref=body_is_file_ref,
+            include_token=include_token,
         ))
-        return 0
-    if emit_mode == 'az':
-        print(emit_mod.render_az(
-            method, url, access_token,
-            headers=headers, body=body, body_is_file_ref=body_is_file_ref,
-        ))
+        # Token stays out of the rendered command by default. Nudge the
+        # user toward the env var so the placeholder command is runnable,
+        # without ever printing the token itself.
+        if not include_token:
+            _info(
+                'note: Authorization uses a $OWA_TOKEN placeholder. Set it '
+                '(e.g. `export OWA_TOKEN=$(owa-piggy token --audience '
+                f'{audience})`) or pass --include-token to inline the real token.'
+            )
         return 0
 
     # Resolve @file body for the actual call.
