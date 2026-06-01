@@ -8,6 +8,20 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-sites
+
+- New tool: a read-only SharePoint CLI that talks to the **SharePoint REST API**
+  on the per-tenant `*.sharepoint.com` host. `site` shows a site web, `lists`
+  lists its lists/libraries, `items --list <title>` reads list items, `files
+  --path <server-relative>` lists a folder's files, and `search --q <text>` runs
+  a tenant search for sites and content. JSON on stdout, `--pretty` for humans.
+  Auth mints a SharePoint-resource token via owa-piggy's `--scope` override
+  (`https://<tenant>.sharepoint.com/.default`, carrying `Sites.FullControl.All`);
+  the tenant host is auto-discovered from `/organization` verifiedDomains (or
+  pinned with `config --host`). This is distinct from `owa-graph sites`, which
+  rides the Graph `/sites` API and 403s without `Sites.Read.All`. File download
+  and upload are deferred.
+
 ### owa-planner
 
 - New tool: a read-only Microsoft Planner CLI. `plans` lists my plans (or a
