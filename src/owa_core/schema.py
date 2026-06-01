@@ -58,6 +58,7 @@ def command(
     confirmation=False,
     idempotent=None,
     aliases=None,
+    interactive=False,
 ):
     row = {
         'name': name,
@@ -67,6 +68,8 @@ def command(
     }
     if aliases:
         row['aliases'] = list(aliases)
+    if interactive:
+        row['interactive'] = True
     if auth:
         row['auth'] = {'audience': auth}
     if mutates:

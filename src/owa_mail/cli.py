@@ -937,8 +937,10 @@ def cmd_folders(args, config, access_token, api_base):
 
 
 def cmd_tui(args, config, access_token, api_base):
-    """Interactive curses browser. Refuses to run without a real terminal
-    (and therefore under --agent / a pipe), since there's no JSON to emit."""
+    """Interactive curses browser. Agent mode is refused upstream (the
+    schema marks `tui` interactive); here we still refuse a non-terminal
+    stdin/stderr so `owa-mail tui | cat` fails cleanly rather than launching
+    curses against a pipe."""
     folder = ''
     while args:
         flag, args = args[0], args[1:]
@@ -1151,7 +1153,7 @@ COMMAND_SCHEMA = [
     schema_mod.command('move', 'Move a message', auth='outlook', mutates=True, idempotent=False, flags=_MOVE_FLAGS),
     schema_mod.command('mark', 'Mark a message', auth='outlook', mutates=True, idempotent=True, flags=_MARK_FLAGS),
     schema_mod.command('folders', 'List mail folders', auth='outlook', flags=_FOLDERS_FLAGS),
-    schema_mod.command('tui', 'Browse and read messages interactively', auth='outlook', mutates=True, idempotent=True, flags=_TUI_FLAGS),
+    schema_mod.command('tui', 'Browse and read messages interactively', auth='outlook', mutates=True, idempotent=True, interactive=True, flags=_TUI_FLAGS),
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
     schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
 ]
@@ -1218,4 +1220,5 @@ def main(argv=None):
         sys.argv[1:] if argv is None else argv,
         _main,
         binary_stdout_commands=('attachment-get',),
+        interactive_commands=('tui',),
     )

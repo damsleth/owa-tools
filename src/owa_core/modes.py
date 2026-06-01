@@ -92,12 +92,19 @@ def _mode_environment(tool, command, err_json):
                 os.environ[key] = value
 
 
-def run_with_output_modes(tool, argv, dispatch, *, binary_stdout_commands=()):
+def run_with_output_modes(
+    tool, argv, dispatch, *, binary_stdout_commands=(), interactive_commands=()
+):
     """Run a legacy CLI dispatcher with shared agent/error modes.
 
     `dispatch` receives argv with global mode flags removed and returns an
     integer exit code. In agent mode, successful JSON stdout is wrapped in a
     stable envelope for automation consumers.
+
+    `interactive_commands` names commands that need a real terminal and emit
+    no JSON (e.g. a curses TUI). They are refused under agent mode here -
+    before the dispatcher authenticates or launches - so `--agent` (or
+    `OWA_AGENT`) can never reach the terminal-only code path.
     """
     # Top-level --doctor per hugr CONVENTIONS.md. Intercept before
     # the legacy dispatcher so every owa-* binary picks it up via the
@@ -108,6 +115,17 @@ def run_with_output_modes(tool, argv, dispatch, *, binary_stdout_commands=()):
 
     agent, err_json, filtered = split_mode_flags(argv)
     command = command_name(filtered)
+
+    if agent and command in interactive_commands:
+        return emit_error(
+            UsageError(
+                f'{command} needs an interactive terminal and cannot run under '
+                '--agent (it emits no JSON); use a scriptable command instead'
+            ),
+            tool=tool,
+            command=command,
+            err_json=err_json,
+        )
 
     if agent and command in binary_stdout_commands and '--out' not in filtered:
         return emit_error(
