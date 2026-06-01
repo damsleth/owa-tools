@@ -22,6 +22,7 @@ TOOLS = (
     'owa-drive',
     'owa-todo',
     'owa-planner',
+    'owa-sites',
 )
 
 

@@ -1,9 +1,9 @@
 """owa-tools implementation of the hugr suite CLI contract.
 
-Shared across all ten owa-* binaries (owa, owa-cal, owa-mail,
+Shared across all eleven owa-* binaries (owa, owa-cal, owa-mail,
 owa-graph, owa-doctor, owa-people, owa-sched, owa-drive, owa-todo,
-owa-planner). Each binary's cli.py imports from here so the contract is
-enforced once.
+owa-planner, owa-sites). Each binary's cli.py imports from here so the
+contract is enforced once.
 
 The wire contract (action/error envelopes, NDJSON streaming, the
 doctor payload shape, the 0-5 exit-code taxonomy) is specified by
