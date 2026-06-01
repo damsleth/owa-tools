@@ -8,6 +8,36 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+## v0.6.0 - 2026-06-01
+
+Headline: the `owa-mail tui` gets a real reading experience. The list now
+fills the full terminal width, a reading pane (default on the right) previews
+the selected message's body — lazily fetched and cached — and an `Esc` overlay
+menu exposes persisted settings. Vim-style focus navigation moves between the
+list and the pane.
+
+### owa-mail
+
+- New: reading pane in the TUI showing the selected message body, with
+  placement `off` / `right` / `bottom` and a configurable list/pane split
+  ratio. The body is fetched on demand and cached per message.
+- New: full-width list layout — columns flex to fill the terminal instead of
+  topping out at a fixed width.
+- New: `Esc` overlay menu (Resume / Settings / Help / Quit). The Settings
+  screen persists to `~/.config/owa-mail/config` and configures the reading
+  pane placement, split ratio, sort order (date newest/oldest, sender,
+  subject, unread-first) and date format (ISO 8601, `DD.MM`, `DD.MM HH:MM`, or
+  a custom strftime string).
+- New: focus navigation — `l`/`→` enters the reading pane (`j`/`k` then scroll
+  the body, `h`/`←` returns to the list); `u`/`d` half-page up/down in the
+  focused region; `Enter` still opens the full-screen reader; `q` quits.
+- Fixed: TUI search no longer returns HTTP 400. `$search` and `$orderby` are
+  mutually exclusive in Outlook/Graph, so `build_list_query` now drops
+  `$orderby` when a search is present.
+- Fixed: `messages --search` JSON output is sorted newest-first client-side
+  again (the API returns relevance order once `$orderby` is dropped); `--pretty`
+  already sorted on its own.
+
 ## v0.5.0 - 2026-05-29
 
 Headline: `owa-graph --curl` / `--az` no longer leak a live bearer token.
