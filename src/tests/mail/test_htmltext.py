@@ -74,10 +74,70 @@ def test_blank_line_runs_collapsed():
     assert out.splitlines()[-1] == 'b'
 
 
-def test_links_keep_visible_text_only():
+def test_links_become_numbered_footnotes():
     out = html_to_text('Click <a href="https://example.com/track?x=1">here</a> now')
+    # Visible text keeps a [n] marker; the URL lands in a trailing section.
+    assert out == 'Click here [1] now\n\nLinks:\n[1] https://example.com/track?x=1'
+
+
+def test_links_dropped_when_footnotes_disabled():
+    out = html_to_text(
+        'Click <a href="https://example.com/track?x=1">here</a> now',
+        link_footnotes=False,
+    )
     assert out == 'Click here now'
     assert 'example.com' not in out
+
+
+def test_duplicate_urls_share_one_footnote():
+    out = html_to_text(
+        '<a href="https://x.test/a">one</a> and '
+        '<a href="https://x.test/a">again</a>'
+    )
+    assert 'one [1]' in out
+    assert 'again [1]' in out
+    # The shared URL is listed exactly once.
+    assert out.count('[1] https://x.test/a') == 1
+    assert '[2]' not in out
+
+
+def test_distinct_urls_get_sequential_footnotes():
+    out = html_to_text(
+        '<a href="https://x.test/a">a</a> <a href="https://x.test/b">b</a>'
+    )
+    section = out.split('Links:\n', 1)[1]
+    assert section == '[1] https://x.test/a\n[2] https://x.test/b'
+
+
+def test_non_web_anchors_not_footnoted():
+    out = html_to_text(
+        'mail <a href="mailto:x@y.test">x</a> '
+        'jump <a href="#section">s</a> '
+        'js <a href="javascript:void(0)">j</a> '
+        'empty <a href="">e</a> '
+        'bare <a>b</a>'
+    )
+    assert 'Links:' not in out
+    assert '[1]' not in out
+    # Visible anchor text is still kept.
+    for word in ('mail x', 'jump s', 'js j', 'empty e', 'bare b'):
+        assert word in out
+
+
+def test_anchor_without_text_still_recovers_url():
+    out = html_to_text('<a href="https://x.test/login"></a>')
+    assert '[1]' in out
+    assert out.endswith('Links:\n[1] https://x.test/login')
+
+
+def test_fallback_path_has_no_footnotes(monkeypatch):
+    def boom(self, data):
+        raise RuntimeError('parser exploded')
+
+    monkeypatch.setattr(htmltext._TextExtractor, 'feed', boom)
+    out = html_to_text('Click <a href="https://example.com">here</a>')
+    assert 'Links:' not in out
+    assert 'here' in out
 
 
 def test_headings_break():

@@ -133,7 +133,10 @@ owa-mail messages --pretty                           # Inbox, last 25
 owa-mail messages --unread --limit 10 --pretty
 owa-mail messages --folder SentItems --since 2026-04-01 --pretty
 owa-mail messages --search 'subject:invoice'         # KQL search
-owa-mail show --id AAMkAG... --pretty
+owa-mail read --latest --pretty                      # newest message, full body, no id
+owa-mail read -n 2 --from anthropic --pretty         # 2nd newest from a sender
+owa-mail show --id AAMkAG... --pretty                # by explicit message id
+owa-mail tui                                         # interactive browse + read
 
 # Attachments (read)
 owa-mail attachments --id AAMkAG... --pretty            # list a message's attachments
@@ -166,7 +169,44 @@ owa-mail config --profile work
 ```
 
 Messages carry opaque ids: address one via `--id` or as a bare positional
-argument (`owa-mail show <id>` == `owa-mail show --id <id>`).
+argument (`owa-mail show <id>` == `owa-mail show --id <id>`). Note that the
+`messages` JSON exposes both `id` and `conversation_id`, which look alike;
+`show` needs `id`. To skip ids entirely, use `read`.
+
+### read - reading by recency
+
+`read` resolves a single message by *position* instead of id, so you never
+have to copy an opaque handle. `--latest` (the default) reads the newest
+message; `-n N` / `--index N` reads the N-th newest (1-based). The same
+listing filters as `messages` narrow the set first:
+
+```sh
+owa-mail read                                  # newest in Inbox (JSON)
+owa-mail read --latest --pretty                # newest, human-readable body
+owa-mail read -n 3 --pretty                    # 3rd newest
+owa-mail read --unread --latest --pretty       # newest unread
+owa-mail read --folder SentItems -n 1 --pretty # last thing you sent
+```
+
+Like `show`, JSON is the default and `--pretty` flattens HTML to readable
+text. URLs in the body are preserved as numbered `[n]` footnotes with a
+trailing `Links:` section, so login links and confirmations stay usable.
+
+### tui - interactive browser
+
+`owa-mail tui` opens a small full-screen browser (stdlib `curses`, no extra
+dependencies):
+
+```sh
+owa-mail tui                  # Inbox
+owa-mail tui --folder Archive
+```
+
+Keys: `j`/`k` or arrows move, `Enter` reads the full body (links shown as
+footnotes), `o` opens the message in a browser, `r` toggles read/unread, `/`
+searches, `g`/`G` jump to top/bottom, `q`/`Esc` go back or quit. It needs a
+real terminal and refuses to run under `--agent` or a pipe (there is no JSON
+to emit) - use `read` or `messages` for scripted access.
 
 ### Folder names
 
