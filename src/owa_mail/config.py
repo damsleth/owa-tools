@@ -19,6 +19,11 @@ CONFIG_PATH = Path(
 ALLOWED_KEYS = (
     'owa_piggy_profile',
     'debug',
+    'tui_reading_pane',
+    'tui_split_ratio',
+    'tui_sort_by',
+    'tui_date_format',
+    'tui_date_custom',
 )
 
 

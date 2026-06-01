@@ -202,11 +202,33 @@ owa-mail tui                  # Inbox
 owa-mail tui --folder Archive
 ```
 
-Keys: `j`/`k` or arrows move, `Enter` reads the full body (links shown as
-footnotes), `o` opens the message in a browser, `r` toggles read/unread, `/`
-searches, `g`/`G` jump to top/bottom, `q`/`Esc` go back or quit. It needs a
-real terminal and refuses to run under `--agent` or a pipe (there is no JSON
-to emit) - use `read` or `messages` for scripted access.
+By default the list shows on the left and a reading pane on the right that
+previews the selected message's body (lazily fetched and cached).
+
+Keys:
+
+| Key | Action |
+| --- | --- |
+| `j`/`k` or arrows | Move the list cursor (or scroll the body when the pane is focused) |
+| `l`/`→` | Focus the reading pane ("reading mode"); with the pane off, opens the full-screen reader |
+| `h`/`←` | Return focus to the list |
+| `u`/`d` | Half-page up/down in whichever region is focused |
+| `Enter` | Open the full-screen body (links shown as footnotes) |
+| `g`/`G` | Jump to top/bottom of the focused region |
+| `o` | Open the message in a browser |
+| `r` | Toggle read/unread |
+| `/` | Search |
+| `Esc` | Open the overlay menu (Resume / Settings / Help / Quit) |
+| `q` | Quit |
+
+The **Settings** menu (under `Esc`) persists to `~/.config/owa-mail/config`
+and configures the reading pane placement (`off`/`right`/`bottom`), the
+list/pane split ratio, the sort order (date newest/oldest, sender, subject,
+unread-first) and the date format (ISO 8601, `DD.MM`, `DD.MM HH:MM`, or a
+custom strftime string).
+
+It needs a real terminal and refuses to run under `--agent` or a pipe (there
+is no JSON to emit) - use `read` or `messages` for scripted access.
 
 ### Folder names
 

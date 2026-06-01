@@ -54,6 +54,12 @@ def build_list_query(unread=False, sender='', subject_q='', search='',
     if not sender and not subject_q:
         params['$orderby'] = 'ReceivedDateTime desc'
     if search:
+        # $search and $orderby are mutually exclusive in Outlook/Graph (HTTP 400
+        # if both are present). Drop $orderby before setting $search; the API
+        # then returns relevance order, so callers that want newest-first must
+        # sort client-side (the TUI _fetch_list, the read command, and
+        # cmd_messages --search all do).
+        params.pop('$orderby', None)
         # Outlook REST wants the value double-quoted inside $search="...".
         params['$search'] = f'"{search}"'
         return params

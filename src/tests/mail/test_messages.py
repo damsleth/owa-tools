@@ -282,12 +282,13 @@ def test_build_list_query_default_has_orderby():
     assert '$search' not in params
 
 
-def test_build_list_query_search_overrides_filter_and_orderby_kept():
+def test_build_list_query_search_drops_orderby():
+    # $search and $orderby are mutually exclusive in Outlook/Graph (HTTP 400).
+    # The fix in build_list_query pops $orderby before setting $search.
     params = build_list_query(search='budget')
     assert params['$search'] == '"budget"'
     assert '$filter' not in params
-    # search has no clauses dropping orderby; only sender/subject_q do.
-    assert params['$orderby'] == 'ReceivedDateTime desc'
+    assert '$orderby' not in params
 
 
 def test_build_list_query_sender_drops_orderby_and_escapes_quote():
