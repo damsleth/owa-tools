@@ -5,10 +5,10 @@ read the nearest local `AGENTS.md` for the files you are editing.
 
 ## Suite Purpose
 
-`owa-tools` is one suite distribution with nine console scripts:
+`owa-tools` is one suite distribution with ten console scripts:
 `owa`, `owa-cal`, `owa-mail`, `owa-graph`, `owa-doctor`, `owa-people`,
-`owa-sched`, `owa-drive`, and `owa-todo`. `owa-piggy` is a separate auth
-broker repository.
+`owa-sched`, `owa-drive`, `owa-todo`, and `owa-planner`. `owa-piggy` is a
+separate auth broker repository.
 
 Because the suite is unreleased, do not add compatibility shims for old internal
 interfaces. Prefer direct migrations to the release contract.
@@ -88,6 +88,7 @@ the main `0/2/10-15/20` contract intact for normal command paths.
 | `src/owa_sched/AGENTS.md` | changing scheduling or availability behavior |
 | `src/owa_drive/AGENTS.md` | changing OneDrive behavior or binary transfers |
 | `src/owa_todo/AGENTS.md` | changing Microsoft To Do task behavior |
+| `src/owa_planner/AGENTS.md` | changing Microsoft Planner behavior |
 | `src/tests/AGENTS.md` | adding or changing tests |
 | `src/tests/contract/AGENTS.md` | changing machine contract tests |
 | `src/tests/compat/AGENTS.md` | changing release-contract compatibility snapshots |

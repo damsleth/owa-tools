@@ -8,6 +8,17 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-planner
+
+- New tool: a read-only Microsoft Planner CLI. `plans` lists my plans (or a
+  group's with `--group`), `buckets --plan <id>` lists a plan's buckets,
+  `tasks` lists my assigned tasks (or a plan's with `--plan`, filtered by
+  `--bucket` / `--status`), and `task <id>` shows one task merged with its
+  checklist and description. Reads the Microsoft Graph `/planner` surface on the
+  `graph` audience — authorized by `Group.ReadWrite.All`, so no `Tasks.*` scope
+  is required. JSON on stdout, `--pretty` for humans. Writes are deferred
+  (Planner PATCH needs the exact `@odata.etag` in `If-Match`).
+
 ## v0.6.0 - 2026-06-01
 
 Headline: the `owa-mail tui` gets a real reading experience. The list now

@@ -47,6 +47,7 @@ LOCAL_PACKAGES = frozenset({
     "owa_sched",
     "owa_drive",
     "owa_todo",
+    "owa_planner",
 })
 
 # Third-party runtime dependencies the suite is allowed to import. Must
