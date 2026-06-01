@@ -106,6 +106,51 @@ def test_agent_mode_rejects_binary_stdout_without_out(capsys):
     assert 'write binary output with --out' in captured.err
 
 
+def test_agent_mode_refuses_interactive_command(capsys):
+    launched = []
+    rc = modes.run_with_output_modes(
+        'owa-mail',
+        ['--agent', 'tui'],
+        lambda _argv: launched.append(True) or 0,
+        interactive_commands=('tui',),
+    )
+
+    captured = capsys.readouterr()
+    assert rc == 2
+    # Refused before the dispatcher runs (so before auth/launch).
+    assert launched == []
+    assert captured.out == ''
+    assert 'interactive terminal' in captured.err
+    assert 'cannot run under' in captured.err
+
+
+def test_agent_env_refuses_interactive_command(monkeypatch, capsys):
+    monkeypatch.setenv('OWA_AGENT', '1')
+    launched = []
+    rc = modes.run_with_output_modes(
+        'owa-mail',
+        ['tui'],
+        lambda _argv: launched.append(True) or 0,
+        interactive_commands=('tui',),
+    )
+
+    assert rc == 2
+    assert launched == []
+    assert 'interactive terminal' in capsys.readouterr().err
+
+
+def test_interactive_command_runs_without_agent():
+    launched = []
+    rc = modes.run_with_output_modes(
+        'owa-mail',
+        ['tui'],
+        lambda _argv: launched.append(True) or 0,
+        interactive_commands=('tui',),
+    )
+    assert rc == 0
+    assert launched == [True]
+
+
 def test_err_json_mode_formats_emitted_errors(capsys):
     def dispatch(_argv):
         return emit_error(AuthExpiredError('token expired'), tool='owa-mail', command='messages')
