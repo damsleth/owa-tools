@@ -21,6 +21,7 @@ TOOLS = (
     'owa-sched',
     'owa-drive',
     'owa-todo',
+    'owa-planner',
 )
 
 

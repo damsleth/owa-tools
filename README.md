@@ -38,9 +38,9 @@ PyPI:
 pipx install owa-piggy && pipx install owa-tools
 ```
 
-Either path lands nine binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
-`owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`, `owa-todo`)
-plus the `owa-piggy` auth broker.
+Either path lands ten binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
+`owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`, `owa-todo`,
+`owa-planner`) plus the `owa-piggy` auth broker.
 
 ## Quickstart
 
@@ -79,6 +79,7 @@ passed straight through.
 | `owa-drive` | OneDrive CRUD plus binary up/download. |
 | `owa-doctor` | Health check across the suite, all profiles, all audiences. |
 | `owa-todo` | Microsoft To Do tasks: lists, create, update, complete, delete. |
+| `owa-planner` | Microsoft Planner (read-only): plans, buckets, tasks, task detail. |
 | `owa` | Umbrella: suite meta (`owa list`, `owa schema`, `owa version`, `owa --doctor`) plus `owa <tool> ...` pass-through dispatch (e.g. `owa cal events`). |
 
 ## Multi-account / profiles

@@ -12,6 +12,7 @@ TOOLS = (
     "owa_sched",
     "owa_drive",
     "owa_todo",
+    "owa_planner",
 )
 
 
