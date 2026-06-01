@@ -190,10 +190,13 @@ mark options:
 tui options:
   --folder <name|id>   Folder to open (default: Inbox)
 
-  Interactive keys: j/k or arrows move, Enter reads the body (links shown
-  as footnotes), o opens in browser, r toggles read/unread, / searches,
-  g/G jump to top/bottom, q/Esc go back or quit. Requires a terminal;
-  refuses to run under --agent or a pipe.
+  Interactive keys: j/k or arrows move the list; l/right focuses the reading
+  pane (j/k then scroll the body, h/left returns to the list); u/d half-page
+  scroll/move in the focused region; Enter opens the full-screen body (links
+  shown as footnotes); o opens in browser; r toggles read/unread; / searches;
+  g/G jump to top/bottom; Esc opens the menu (Resume/Settings/Help/Quit, where
+  Settings configures the reading pane, split ratio, sort order and date
+  format); q quits. Requires a terminal; refuses to run under --agent or a pipe.
 
 folders options:
   --all                Follow @odata.nextLink until exhausted
@@ -322,6 +325,11 @@ def cmd_messages(args, config, access_token, api_base):
         if items is None:
             return 1
         flat = messages_mod.normalize_messages({'value': items}, keep_body=with_body)
+        if search:
+            # $search drops $orderby (they are mutually exclusive), so the API
+            # returns relevance order. Restore the newest-first contract for
+            # JSON consumers client-side. (--pretty sorts on its own.)
+            flat.sort(key=lambda m: m.get('received') or '', reverse=True)
         if pretty:
             print(format_messages_pretty(flat))
         else:
@@ -331,6 +339,9 @@ def cmd_messages(args, config, access_token, api_base):
     if data is None:
         return 1
     flat = messages_mod.normalize_messages(data, keep_body=with_body)
+    if search:
+        # See note above: $search has no $orderby, so sort newest-first here.
+        flat.sort(key=lambda m: m.get('received') or '', reverse=True)
     if pretty:
         print(format_messages_pretty(flat))
     else:

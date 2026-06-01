@@ -98,9 +98,6 @@ def test_messages_show_folders_and_validation(monkeypatch, capsys):
         cli.cmd_messages(["--search", "hello", "--unread"], {}, "tok", "https://outlook.test")
     with pytest.raises(cli.UsageError, match='--limit must be'):
         cli.cmd_messages(["--limit", "0"], {}, "tok", "https://outlook.test")
-    monkeypatch.setattr(cli.api_mod, "api_get", lambda *args, **kwargs: None)
-    assert cli.cmd_messages([], {}, "tok", "https://outlook.test") == 1
-
     monkeypatch.setattr(cli.api_mod, "api_get", fake_get)
     assert cli.cmd_show(["--id", "m1", "--pretty"], {}, "tok", "https://outlook.test") == 0
     assert "Hello" in capsys.readouterr().out
@@ -111,6 +108,35 @@ def test_messages_show_folders_and_validation(monkeypatch, capsys):
     assert "Inbox" in capsys.readouterr().out
     monkeypatch.setattr(cli.api_mod, "api_get", lambda *args, **kwargs: None)
     assert cli.cmd_folders([], {}, "tok", "https://outlook.test") == 1
+
+    with pytest.raises(cli.UsageError, match='--search cannot be combined'):
+        cli.cmd_messages(["--search", "hello", "--unread"], {}, "tok", "https://outlook.test")
+    with pytest.raises(cli.UsageError, match='--limit must be'):
+        cli.cmd_messages(["--limit", "0"], {}, "tok", "https://outlook.test")
+    monkeypatch.setattr(cli.api_mod, "api_get", lambda *args, **kwargs: None)
+    assert cli.cmd_messages([], {}, "tok", "https://outlook.test") == 1
+
+
+def test_messages_search_json_is_newest_first(monkeypatch, capsys):
+    # $search drops $orderby (mutually exclusive), so the API returns relevance
+    # order. cmd_messages must restore newest-first for JSON consumers.
+    out_of_order = {"value": [
+        _raw_message("old", "Older"),
+        _raw_message("new", "Newer"),
+    ]}
+    out_of_order["value"][0]["ReceivedDateTime"] = "2026-05-01T10:00:00Z"
+    out_of_order["value"][1]["ReceivedDateTime"] = "2026-05-09T10:00:00Z"
+    sent_endpoints = []
+
+    def fake_get(api_base, endpoint, access_token, **kwargs):
+        sent_endpoints.append(endpoint)
+        return out_of_order
+
+    monkeypatch.setattr(cli.api_mod, "api_get", fake_get)
+    assert cli.cmd_messages(["--search", "budget"], {}, "tok", "https://outlook.test") == 0
+    rows = json.loads(capsys.readouterr().out)
+    assert [r["id"] for r in rows] == ["new", "old"]  # newest first despite API order
+    assert "%24orderby" not in sent_endpoints[-1]  # no $orderby sent with $search
 
 
 def test_show_html_body_pretty_vs_json(monkeypatch, capsys):
