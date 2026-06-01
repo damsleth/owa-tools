@@ -93,7 +93,9 @@ Global options:
 
 Commands:
   messages             List messages (default: Inbox, last 25)
+  read                 Read one message by recency (--latest / -n N, no id)
   show                 Show full message body by --id
+  tui                  Browse and read messages interactively (curses)
   attachments          List a message's attachments by --id
   attachment-get       Download one file attachment to --out or stdout
   send                 Compose and send a new message
@@ -123,6 +125,18 @@ messages options:
                        (same shape as `show`). Lets callers skip the
                        per-message `show` roundtrip when bulk-ingesting.
   --pretty             Human-readable table (default: JSON)
+
+read options:
+  --latest             Read the newest match (default; same as -n 1)
+  -n, --index <N>      Read the N-th newest match (1-based)
+  --folder <name|id>   Inbox|Drafts|SentItems|DeletedItems|Junk|Archive
+  --unread             Only unread messages
+  --from <addr>        Sender substring filter
+  --subject <text>     Subject substring filter
+  --search <kql>       KQL search (mutually exclusive with filters)
+  --since <date>       ReceivedDateTime >= date
+  --until <date>       ReceivedDateTime <= date
+  --pretty             Human-readable header block + body (default: JSON)
 
 show options:
   --id <message-id>    (required)
@@ -173,6 +187,14 @@ mark options:
   --read | --unread    Toggle IsRead
   --flag | --unflag    Toggle FlagStatus
 
+tui options:
+  --folder <name|id>   Folder to open (default: Inbox)
+
+  Interactive keys: j/k or arrows move, Enter reads the body (links shown
+  as footnotes), o opens in browser, r toggles read/unread, / searches,
+  g/G jump to top/bottom, q/Esc go back or quit. Requires a terminal;
+  refuses to run under --agent or a pipe.
+
 folders options:
   --all                Follow @odata.nextLink until exhausted
   --pretty             Human-readable table
@@ -196,6 +218,9 @@ Examples:
   owa-mail messages --pretty
   owa-mail messages --unread --limit 10 --pretty
   owa-mail messages --folder SentItems --since 2026-04-01 --pretty
+  owa-mail read --latest --pretty
+  owa-mail read -n 2 --from anthropic --pretty
+  owa-mail tui
   owa-mail show --id AAMkAG... --pretty
   owa-mail attachments --id AAMkAG... --pretty
   owa-mail attachment-get --id AAMkAG... --attachment AAA... --out ./report.pdf
@@ -333,12 +358,94 @@ def cmd_show(args, config, access_token, api_base):
         api_base, f'{messages_mod.message_path(message_id)}?{q}', access_token, debug=debug
     )
     if raw is None:
+        # The two ids in `messages` JSON look alike: `id` (AQMkAD...) is the
+        # message; `conversation_id` (AAQkAD...) is not addressable by `show`.
+        if message_id[:4] == 'AAQk':
+            _info("hint: that looks like a conversation_id; `show` needs the "
+                  "message `id` (starts AQMk). Try `owa-mail read --latest`.")
         return 1
     flat = messages_mod.normalize_message(raw)
     if pretty:
         print(format_message_pretty(flat))
     else:
         print(json.dumps(flat))
+    return 0
+
+
+def cmd_read(args, config, access_token, api_base):
+    """Read one message by recency - no opaque id required.
+
+    `--latest` (the default) reads the newest match; `-n N` / `--index N`
+    reads the N-th newest (1-based). The same listing filters as `messages`
+    narrow the set first. One round-trip: we fetch with the body-bearing
+    select, sort newest-first client-side (contains-filters drop the server
+    $orderby), and render the chosen message exactly like `show`.
+    """
+    folder = ''
+    unread = False
+    pretty = False
+    index = 1
+    sender = subject_q = search = since = until = ''
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--latest':
+            index = 1
+        elif flag in ('-n', '--index'):
+            index, args = _require_int(flag, args)
+        elif flag == '--folder':
+            folder, args = _require_value(flag, args)
+        elif flag == '--unread':
+            unread = True
+        elif flag == '--from':
+            sender, args = _require_value(flag, args)
+        elif flag == '--subject':
+            subject_q, args = _require_value(flag, args)
+        elif flag == '--search':
+            search, args = _require_value(flag, args)
+        elif flag == '--since':
+            v, args = _require_value(flag, args); since = resolve_date(v)
+        elif flag == '--until':
+            v, args = _require_value(flag, args); until = resolve_date(v)
+        elif flag == '--pretty':
+            pretty = True
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+
+    if index < 1:
+        raise UsageError('-n/--index must be >= 1 (1 is the newest message)')
+    if search and (unread or sender or subject_q or since or until):
+        raise UsageError(
+            '--search cannot be combined with --unread/--from/--subject/--since/--until '
+            '(Outlook REST: $search and $filter are mutually exclusive)'
+        )
+
+    debug = _debug_enabled(config)
+    path = folders_mod.folder_messages_path(folder)
+    # Fetch a generous page so the true newest is present even when a
+    # contains-filter forces the server to drop $orderby; then sort locally.
+    page = min(200, max(index, 50))
+    params = messages_mod.build_list_query(
+        unread=unread, sender=sender, subject_q=subject_q, search=search,
+        since=since, until=until, limit=page,
+        select=messages_mod.LIST_SELECT_WITH_BODY,
+    )
+    data = api_mod.api_get(api_base, f'{path}?{api_mod.build_query(params)}', access_token, debug=debug)
+    if data is None:
+        return 1
+    flat = messages_mod.normalize_messages(data, keep_body=True)
+    flat.sort(key=lambda m: m.get('received') or '', reverse=True)
+    if not flat:
+        raise UsageError('no messages match')
+    if index > len(flat):
+        raise UsageError(
+            f'requested message {index} but only {len(flat)} match'
+            + ('' if page > len(flat) else f' in the first {page}')
+        )
+    message = flat[index - 1]
+    if pretty:
+        print(format_message_pretty(message))
+    else:
+        print(json.dumps(message))
     return 0
 
 
@@ -829,6 +936,26 @@ def cmd_folders(args, config, access_token, api_base):
     return 0
 
 
+def cmd_tui(args, config, access_token, api_base):
+    """Interactive curses browser. Refuses to run without a real terminal
+    (and therefore under --agent / a pipe), since there's no JSON to emit."""
+    folder = ''
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--folder':
+            folder, args = _require_value(flag, args)
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+
+    if not tty_mod.is_interactive():
+        raise UsageError('tui needs an interactive terminal (it cannot run under '
+                         '--agent or a pipe); use `read` or `messages` instead')
+
+    from . import tui as tui_mod
+    return tui_mod.run(config, access_token, api_base, folder=folder,
+                       debug=_debug_enabled(config))
+
+
 def cmd_config(args, config):
     """Handled specially: no auth required."""
     profile = ''
@@ -880,6 +1007,7 @@ def cmd_refresh(args, config):
 AUTHED_HANDLERS = {
     'messages': cmd_messages,
     'show': cmd_show,
+    'read': cmd_read,
     'attachments': cmd_attachments,
     'attachment-get': cmd_attachment_get,
     'send': cmd_send,
@@ -890,6 +1018,7 @@ AUTHED_HANDLERS = {
     'move': cmd_move,
     'mark': cmd_mark,
     'folders': cmd_folders,
+    'tui': cmd_tui,
 }
 
 _MESSAGES_FLAGS = [
@@ -908,6 +1037,20 @@ _MESSAGES_FLAGS = [
 
 _SHOW_FLAGS = [
     schema_mod.flag('--id', value='<message-id>', summary='Message ID (flag or positional)', required=True),
+    schema_mod.flag('--pretty', summary='Human-readable header block + body (default: JSON)'),
+]
+
+_READ_FLAGS = [
+    schema_mod.flag('--latest', summary='Read the newest match (default; same as -n 1)'),
+    schema_mod.flag('-n', value='<N>', summary='Read the N-th newest match (1-based)'),
+    schema_mod.flag('--index', value='<N>', summary='Alias for -n'),
+    schema_mod.flag('--folder', value='<name|id>', summary='Inbox|Drafts|SentItems|DeletedItems|Junk|Archive'),
+    schema_mod.flag('--unread', summary='Only unread messages'),
+    schema_mod.flag('--from', value='<addr>', summary='Sender substring filter'),
+    schema_mod.flag('--subject', value='<text>', summary='Subject substring filter'),
+    schema_mod.flag('--search', value='<kql>', summary='KQL search (mutually exclusive with filters)'),
+    schema_mod.flag('--since', value='<date>', summary='ReceivedDateTime >= date'),
+    schema_mod.flag('--until', value='<date>', summary='ReceivedDateTime <= date'),
     schema_mod.flag('--pretty', summary='Human-readable header block + body (default: JSON)'),
 ]
 
@@ -977,6 +1120,10 @@ _FOLDERS_FLAGS = [
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
 ]
 
+_TUI_FLAGS = [
+    schema_mod.flag('--folder', value='<name|id>', summary='Folder to open (default: Inbox)'),
+]
+
 _CONFIG_FLAGS = [
     schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
 ]
@@ -984,6 +1131,7 @@ _CONFIG_FLAGS = [
 COMMAND_SCHEMA = [
     schema_mod.command('messages', 'List messages', auth='outlook', flags=_MESSAGES_FLAGS),
     schema_mod.command('show', 'Show full message body', auth='outlook', flags=_SHOW_FLAGS),
+    schema_mod.command('read', 'Read one message by recency (no id needed)', auth='outlook', flags=_READ_FLAGS),
     schema_mod.command('attachments', 'List a message\'s attachments', auth='outlook', flags=_ATTACHMENTS_FLAGS),
     schema_mod.command('attachment-get', 'Download one file attachment', auth='outlook', output='bytes', flags=_ATTACHMENT_GET_FLAGS),
     schema_mod.command('send', 'Compose and send a message', auth='outlook', mutates=True, idempotent=False, flags=_SEND_FLAGS),
@@ -1003,6 +1151,7 @@ COMMAND_SCHEMA = [
     schema_mod.command('move', 'Move a message', auth='outlook', mutates=True, idempotent=False, flags=_MOVE_FLAGS),
     schema_mod.command('mark', 'Mark a message', auth='outlook', mutates=True, idempotent=True, flags=_MARK_FLAGS),
     schema_mod.command('folders', 'List mail folders', auth='outlook', flags=_FOLDERS_FLAGS),
+    schema_mod.command('tui', 'Browse and read messages interactively', auth='outlook', mutates=True, idempotent=True, flags=_TUI_FLAGS),
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
     schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
 ]
