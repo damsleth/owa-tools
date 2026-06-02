@@ -250,6 +250,21 @@ def test_every_tool_help_documents_machine_surface():
             assert token in result.stdout, f"{module} help missing {token}"
 
 
+def test_consumer_tool_help_documents_multi_profile_fanout():
+    """Every tool that fans out repeated --profile advertises it in --help with
+    the uniform block. owa-doctor opts out of fan-out (its --profile means
+    'probe only this profile' and it carries its own 0/1/2 exit taxonomy), so it
+    must NOT print the block - that distinction is locked here."""
+    for module in TOOLS:
+        result = _run_module(module, "--help")
+        assert result.returncode == 0
+        has_block = "Multi-profile fan-out:" in result.stdout
+        if module == "owa_doctor":
+            assert not has_block, "owa-doctor must not advertise fan-out (it opts out)"
+        else:
+            assert has_block, f"{module} help missing the multi-profile fan-out block"
+
+
 def test_opaque_id_commands_advertise_positional_acceptance():
     """cal/mail/todo address items by opaque id and accept it via --id OR as a
     bare positional; the schema --id summary documents both."""
