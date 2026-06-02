@@ -12,7 +12,6 @@ coverage.json
 htmlcov/
 .DS_Store
 .tmp/
-.plans/
 .env
 *.swp
 .claude/
