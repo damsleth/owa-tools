@@ -23,8 +23,7 @@ umbrella `owa` binary plus all consumer CLIs.
    `pyproject.toml`.
 2. `python src/scripts/check_stdlib_only.py`, `python src/scripts/check_no_secrets.py`,
    and `python src/scripts/check_docs_sync.py` green.
-3. `python -m build`, `python -m twine check dist/*`, and
-   `python src/scripts/check_artifacts.py dist/*` green.
+3. `uv build` and `python src/scripts/check_artifacts.py dist/*` green.
 4. `python src/scripts/check_console_smoke.py` green.
 5. Changelog updated for the suite version.
 
@@ -81,8 +80,7 @@ git push origin vX.Y.Z
 
 # Build, verify, publish to PyPI.
 rm -rf dist build
-.venv/bin/python -m build
-.venv/bin/python -m twine check dist/*
+uv build
 .venv/bin/python src/scripts/check_artifacts.py dist/*
 .venv/bin/python src/scripts/check_console_smoke.py
 set -a && . ./.env && set +a && uv publish dist/owa_tools-X.Y.Z*

@@ -30,10 +30,9 @@ the full runtime surface configured in `pyproject.toml`.
 
 ## Build and packaging checks
 
-After `python -m build`, verify the artifacts:
+After `uv build`, verify the artifacts:
 
 ```
-python -m twine check dist/*
 python src/scripts/check_artifacts.py dist/*
 python src/scripts/check_console_smoke.py
 ```
