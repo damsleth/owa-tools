@@ -128,9 +128,10 @@ responses unless scrubbed to minimum shape.
 ## CI (`.github/workflows/ci.yml`)
 
 One `test` job over the 3.10 / 3.11 / 3.12 matrix: `ruff check .`, install,
-`pytest -q --cov --cov-fail-under=89`, `python -m build`, then
+`pytest -q --cov --cov-fail-under=89`, `uv build`, then
 `python src/scripts/check_console_smoke.py`. `release.yml` mirrors the same
-gates on tag push before building and publishing.
+gates on tag push before building the artifacts and creating the GitHub
+Release. Neither workflow publishes to PyPI - that is a local `uv publish`.
 
 ## Local acceptance commands
 

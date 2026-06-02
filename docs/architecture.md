@@ -45,7 +45,7 @@ generic config parser, generic schema generation, or generic error rendering.
 
 Runtime: Python stdlib only.
 
-Dev: pytest, pytest-cov, ruff, build, and twine or a uv publishing tool.
+Dev: pytest, pytest-cov, ruff, and uv (used for both `uv build` and `uv publish`).
 
 `src/scripts/check_stdlib_only.py` gates runtime imports in CI. Allowed runtime
 imports are the Python stdlib, the `owa_*` packages in this repo, and

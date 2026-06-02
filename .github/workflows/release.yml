@@ -58,9 +58,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install build deps
+      - uses: astral-sh/setup-uv@v6
+      - name: Install package (for artifact + console-smoke checks)
         run: |
-          python -m pip install --upgrade pip build twine
+          python -m pip install --upgrade pip
           pip install -e .[dev]
       - name: Resolve version from tag
         id: version
@@ -69,9 +70,7 @@ jobs:
           version="${ref#v}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
       - name: Build sdist + wheel
-        run: python -m build
-      - name: Twine metadata check
-        run: python -m twine check dist/*
+        run: uv build
       - name: Artifact check
         run: python src/scripts/check_artifacts.py dist/*
       - name: Console smoke
