@@ -220,6 +220,8 @@ Examples:
   owa-cal profiles add brkh --webcal 'https://example.invalid/feed?key=...'
   owa-cal --profile brkh events --pretty""")
     print()
+    print(schema_mod.MULTI_PROFILE_HELP)
+    print()
     print(schema_mod.MACHINE_SURFACE_HELP)
 
 

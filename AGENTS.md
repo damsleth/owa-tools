@@ -24,6 +24,11 @@ interfaces. Prefer direct migrations to the release contract.
   memory.
 - Never import `owa_piggy` Python modules or read `~/.config/owa-piggy`
   directly. Use the `owa-piggy` subprocess JSON surface.
+- Repeated `--profile` fans out: every consumer tool routes through
+  `owa_core.modes.run_with_output_modes`, which runs the command once per
+  profile and merges the results (exit `0`/`2`/`1` for all-ok/mixed/all-fail).
+  N<=1 is byte-identical to the old single-profile path; `owa-doctor` opts out
+  (`fan_out_profiles=False`). See `docs/profile-model.md`.
 - No live Microsoft or real broker calls in default tests. Live tests must be
   explicitly gated by environment variables.
 - No telemetry or update checks.

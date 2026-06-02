@@ -68,6 +68,73 @@ owa-cal config --profile work
 
 Each tool has its own `config --profile <alias>` subcommand for this.
 
+## Fan-out across profiles
+
+Pass `--profile` **more than once** and the command runs against each profile in
+a single invocation, merging the results keyed by profile. Zero or one
+`--profile` behaves exactly as it always has - the fan-out shape only appears
+for two or more.
+
+```bash
+owa-mail  --profile crayon --profile brkh messages --unread
+owa-graph --profile crayon --profile dno GET /me
+owa-cal   --profile crayon --profile swon events --pretty
+```
+
+The flag is order-preserving and de-duplicated: a repeated alias warns once on
+stderr (`warning: duplicate --profile <v> ignored`) and is dropped, so
+`--profile a --profile a` collapses to the single-profile path.
+
+### Output shapes
+
+- **JSON (default):** an envelope with a `results` array, one entry per profile.
+  Each entry is `{"profile", "ok", "data"}` on success or `{"profile", "ok":
+  false, "error", "exit_code"}` on failure. The `_owa` meta carries the
+  `profiles` list.
+
+  ```json
+  {
+    "_owa": {"suite": "owa-tools", "tool": "owa-mail", "command": "messages",
+             "profiles": ["crayon", "brkh"]},
+    "results": [
+      {"profile": "crayon", "ok": true, "data": [ ... ]},
+      {"profile": "brkh",   "ok": false, "error": "token expired", "exit_code": 11}
+    ]
+  }
+  ```
+
+- **`--pretty`:** one labelled section per profile, `=== profile: <alias> ===`
+  (a failed profile gets `=== profile: <alias> (FAILED) ===` plus its error).
+- **`--ndjson`:** every line is tagged with its profile - `{"profile": ...,
+  "item": ...}` - so `jq` can split a merged stream back apart.
+
+### Per-profile isolation and exit codes
+
+Each profile is run independently; one profile's auth failure or error never
+aborts the others. The overall exit code reflects the set:
+
+| Outcome | Exit code |
+|---|---|
+| All profiles succeeded | `0` |
+| Some succeeded, some failed | `2` |
+| All profiles failed | `1` |
+
+### What can't fan out
+
+Interactive commands (a curses `tui` is one terminal, not N) and binary-output
+commands (e.g. `owa-drive get` writing a file to stdout) are refused with a
+usage error when more than one `--profile` is given - run them once per
+`--profile` instead. `owa-doctor` opts out of fan-out entirely: its `--profile`
+selects which single profile to probe, and bare `owa-doctor` already probes
+every profile in one pass.
+
+### `OWA_PROFILE` vs repeated `--profile`
+
+`OWA_PROFILE` is **single-valued** - it names one fallback profile for the
+session and never fans out. Fan-out is a flag-only feature: the repeated
+`--profile` flags win over `OWA_PROFILE` (per the precedence above) and are the
+only way to target several profiles at once.
+
 ## Multi-tenant tip
 
 If you work across multiple tenants, set up one `owa-piggy` profile per tenant

@@ -94,6 +94,13 @@ OWA_PROFILE=crayon owa-cal events --pretty       # one shell session
 owa-cal config --profile crayon                  # persistent for owa-cal
 ```
 
+Repeat `--profile` to fan out across profiles in one call - results are merged
+keyed by profile (exit `0` all ok, `2` mixed, `1` all failed):
+
+```bash
+owa-mail --profile crayon --profile brkh messages --unread   # both inboxes, merged
+```
+
 See [`docs/profile-model.md`](docs/profile-model.md) for the full precedence
 rules.
 

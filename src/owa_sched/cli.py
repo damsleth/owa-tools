@@ -126,6 +126,8 @@ Examples:
   owa-sched --profile crayon find-time --who ole@example.com --date 2026-05-12
 """)
     print()
+    print(schema_mod.MULTI_PROFILE_HELP)
+    print()
     print(schema_mod.MACHINE_SURFACE_HELP)
 
 

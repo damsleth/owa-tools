@@ -85,6 +85,8 @@ Examples:
   owa-people --profile crayon find "ole kristian"
 """)
     print()
+    print(schema_mod.MULTI_PROFILE_HELP)
+    print()
     print(schema_mod.MACHINE_SURFACE_HELP)
 
 
