@@ -226,3 +226,182 @@ def test_mode_environment_is_restored(monkeypatch):
 
     assert os.environ['OWA_TOOL'] == 'before'
     assert 'OWA_ERR_JSON_ACTIVE' not in os.environ
+
+
+# --- multi-profile fan-out ---------------------------------------------------
+
+
+def test_single_profile_passes_filtered_argv_untouched(capsys):
+    seen = []
+
+    def dispatch(argv):
+        seen.append(argv)
+        print('{"id":"1"}')
+        return 0
+
+    modes.run_with_output_modes('owa-mail', ['--profile', 'x', 'messages'], dispatch)
+    capsys.readouterr()
+    modes.run_with_output_modes('owa-mail', ['messages'], dispatch)
+    capsys.readouterr()
+
+    # N<=1 passes the ORIGINAL filtered argv through untouched (the single
+    # --profile is NOT stripped by the fan-out path; the tool's _main owns it).
+    assert seen[0] == ['--profile', 'x', 'messages']
+    assert seen[1] == ['messages']
+
+
+def test_single_profile_agent_output_byte_identical(capsys):
+    # The fan-out path is a no-op for N<=1: a single-profile agent run must
+    # produce the exact same envelope+wrapping the pre-change single-run code
+    # produced for the same argv. We prove that by running the same dispatch
+    # under fan_out_profiles=True (default) and fan_out_profiles=False (which
+    # bypasses parse_profiles entirely, i.e. the original code path).
+    def dispatch(_argv):
+        print('{"id":"1"}')
+        return 0
+
+    argv = ['--agent', '--profile', 'x', 'messages']
+
+    modes.run_with_output_modes('owa-mail', argv, dispatch)
+    with_fan_out = capsys.readouterr().out
+
+    modes.run_with_output_modes('owa-mail', argv, dispatch, fan_out_profiles=False)
+    without_fan_out = capsys.readouterr().out
+
+    assert with_fan_out == without_fan_out
+
+
+def test_multi_profile_json_merge(capsys):
+    def dispatch(argv):
+        # Last token is the appended profile value.
+        print('{"id":"' + argv[-1] + '"}')
+        return 0
+
+    rc = modes.run_with_output_modes('owa-mail', ['--profile', 'a', '--profile', 'b', 'messages'], dispatch)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload['_owa']['suite'] == 'owa-tools'
+    assert payload['_owa']['tool'] == 'owa-mail'
+    assert payload['_owa']['command'] == 'messages'
+    assert payload['_owa']['profiles'] == ['a', 'b']
+    results = payload['results']
+    assert [r['profile'] for r in results] == ['a', 'b']
+    assert all(r['ok'] for r in results)
+    assert results[0]['data'] == {'id': 'a'}
+    assert results[1]['data'] == {'id': 'b'}
+
+
+def test_multi_profile_isolation_mixed_exit_2(capsys):
+    def dispatch(argv):
+        if argv[-1] == 'b':
+            raise AuthExpiredError('token expired')
+        print('{"id":"' + argv[-1] + '"}')
+        return 0
+
+    rc = modes.run_with_output_modes('owa-mail', ['--profile', 'a', '--profile', 'b', 'messages'], dispatch)
+
+    assert rc == 2
+    payload = json.loads(capsys.readouterr().out)
+    results = payload['results']
+    assert results[0] == {'profile': 'a', 'ok': True, 'data': {'id': 'a'}}
+    assert results[1]['profile'] == 'b'
+    assert results[1]['ok'] is False
+    assert results[1]['error'] == 'token expired'
+    assert results[1]['exit_code'] == 11
+
+
+def test_multi_profile_all_fail_exit_1(capsys):
+    def dispatch(_argv):
+        raise AuthExpiredError('token expired')
+
+    rc = modes.run_with_output_modes('owa-mail', ['--profile', 'a', '--profile', 'b', 'messages'], dispatch)
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert all(r['ok'] is False for r in payload['results'])
+
+
+def test_multi_profile_pretty_sections(capsys):
+    def dispatch(argv):
+        print('row for ' + argv[-1])
+        return 0
+
+    rc = modes.run_with_output_modes(
+        'owa-mail', ['--profile', 'a', '--profile', 'b', 'messages', '--pretty'], dispatch
+    )
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert '=== profile: a ===' in out
+    assert '=== profile: b ===' in out
+    assert 'row for a' in out
+    assert 'row for b' in out
+    # Order preserved: a's section precedes b's.
+    assert out.index('=== profile: a ===') < out.index('=== profile: b ===')
+
+
+def test_multi_profile_ndjson_tags_each_line(capsys):
+    def dispatch(argv):
+        print('{"id":"' + argv[-1] + '-1"}')
+        print('{"id":"' + argv[-1] + '-2"}')
+        return 0
+
+    rc = modes.run_with_output_modes(
+        'owa-mail', ['--profile', 'a', '--profile', 'b', 'messages', '--ndjson'], dispatch
+    )
+
+    assert rc == 0
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.strip()]
+    assert len(lines) == 4
+    assert all('profile' in obj for obj in lines)
+    assert [obj['profile'] for obj in lines] == ['a', 'a', 'b', 'b']
+    assert lines[0]['item'] == {'id': 'a-1'}
+
+
+def test_multi_profile_refuses_interactive(capsys):
+    launched = []
+    rc = modes.run_with_output_modes(
+        'owa-mail',
+        ['--profile', 'a', '--profile', 'b', 'tui'],
+        lambda _argv: launched.append(True) or 0,
+        interactive_commands=('tui',),
+    )
+
+    assert rc == 2
+    assert launched == []
+    assert 'cannot fan out' in capsys.readouterr().err
+
+
+def test_multi_profile_refuses_binary(capsys):
+    launched = []
+    rc = modes.run_with_output_modes(
+        'owa-drive',
+        ['--profile', 'a', '--profile', 'b', 'get', '/Report.pdf'],
+        lambda _argv: launched.append(True) or 0,
+        binary_stdout_commands=('get',),
+    )
+
+    assert rc == 2
+    assert launched == []
+    assert 'cannot fan out' in capsys.readouterr().err
+
+
+def test_fan_out_disabled_passes_full_argv_once():
+    seen = []
+
+    def dispatch(argv):
+        seen.append(argv)
+        return 0
+
+    rc = modes.run_with_output_modes(
+        'owa-mail',
+        ['--profile', 'a', '--profile', 'b', 'messages'],
+        dispatch,
+        fan_out_profiles=False,
+    )
+
+    assert rc == 0
+    # Repeated --profile is NOT fanned out; the full filtered argv is passed
+    # once (the doctor opt-out path).
+    assert seen == [['--profile', 'a', '--profile', 'b', 'messages']]
