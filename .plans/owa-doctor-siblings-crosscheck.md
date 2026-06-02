@@ -1,5 +1,12 @@
 # owa-doctor-siblings-crosscheck
 
+> **Status: DONE** — shipped in `b290aa1` (2026-05-29),
+> `test(doctor): cross-check siblings[] against per-binary --doctor schema`.
+> `tests/doctor/test_cli_report.py` now carries `_DOCTOR_PAYLOAD_SCHEMA`,
+> `_assert_doctor_payload`, and the parametrized
+> `test_siblings_match_per_binary_doctor` (`pytest.skip` when a binary is off
+> PATH). See [DONE.md](DONE.md).
+
 _Migrated 2026-05-29 from `hugr/.plans/` — this is owa-tools-local test work, so
 it belongs here, not in the hugr repo. (hugr only consumes `owa-doctor`'s
 aggregate output and never imports owa-tools — the loose-coupling axiom.)_
@@ -38,19 +45,19 @@ aggregated entry conform to it, so the test fails if *either* side drifts.
 
 ## Steps
 
-- [ ] Locate `tests/doctor/test_cli_report.py` and the `build_report()`
+- [x] Locate `tests/doctor/test_cli_report.py` and the `build_report()`
       implementation it covers. Identify how `siblings[]` entries are
       constructed (which binaries, which fields are copied vs. summarized).
-- [ ] Define the canonical sibling-entry schema (a dict of `key -> type`, or a
+- [x] Define the canonical sibling-entry schema (a dict of `key -> type`, or a
       Pydantic model / jsonschema if owa-tools already uses one). Source it from
       the real payloads — run `owa-cal --doctor --json` etc. and read the actual
-      shape.
-- [ ] Add `test_siblings_match_per_binary_doctor`: for each sibling, (a) invoke
+      shape. _Shipped as `_DOCTOR_PAYLOAD_SCHEMA` + `_assert_doctor_payload`._
+- [x] Add `test_siblings_match_per_binary_doctor`: for each sibling, (a) invoke
       `<binary> --doctor --json` (skip if not on PATH), (b) pull the matching
       entry from `owa-doctor --json`'s `siblings[]`, (c) assert both conform to
       the schema and that the aggregated entry's kept keys equal the per-binary
       values for a stable field (e.g. `tool`, `version`).
-- [ ] Gate on availability: `pytest.skip` when a sibling binary isn't installed,
+- [x] Gate on availability: `pytest.skip` when a sibling binary isn't installed,
       so the test is green in minimal CI.
 
 ## Open question

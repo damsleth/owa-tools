@@ -1,5 +1,14 @@
 # owa-mail TUI overhaul: full-width, reading pane, search fix, esc menu + settings
 
+> **Status: DONE** — shipped in `23b5f21` (2026-06-01),
+> `feat(mail): full-width tui with reading pane, esc menu, and settings`.
+> All six unit modules landed (`tui_dates.py`, `tui_layout.py`, `tui_sort.py`,
+> `tui_settings.py`, `tui_menu.py`) plus the `tui.py` integration and the
+> `messages.py` search-400 fix. See [DONE.md](DONE.md).
+>
+> Follow-up TUI ideas split off into `.plans/TODO.md`: reset-settings-to-default,
+> in-TUI profile switch, and an "all inboxes" cross-profile view.
+
 _Created 2026-06-01 · refined into a workflow-executable spec_
 
 ## Goal
