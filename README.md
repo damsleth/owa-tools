@@ -38,9 +38,9 @@ PyPI:
 pipx install owa-piggy && pipx install owa-tools
 ```
 
-Either path lands eleven binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
+Either path lands twelve binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
 `owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`, `owa-todo`,
-`owa-planner`, `owa-sites`) plus the `owa-piggy` auth broker.
+`owa-planner`, `owa-sites`, `owa-teams`) plus the `owa-piggy` auth broker.
 
 ## Quickstart
 
@@ -81,6 +81,7 @@ passed straight through.
 | `owa-todo` | Microsoft To Do tasks: lists, create, update, complete, delete. |
 | `owa-planner` | Microsoft Planner (read-only): plans, buckets, tasks, task detail. |
 | `owa-sites` | SharePoint (read-only) via SharePoint REST: site, lists, items, files, search. |
+| `owa-teams` | Microsoft Teams (read-only): joined teams, channels, chats, and channel/chat messages (threaded). |
 | `owa` | Umbrella: suite meta (`owa list`, `owa schema`, `owa version`, `owa --doctor`) plus `owa <tool> ...` pass-through dispatch (e.g. `owa cal events`). |
 
 ## Multi-account / profiles

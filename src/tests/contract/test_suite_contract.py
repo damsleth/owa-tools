@@ -14,6 +14,7 @@ TOOLS = (
     "owa_todo",
     "owa_planner",
     "owa_sites",
+    "owa_teams",
 )
 
 

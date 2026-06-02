@@ -21,6 +21,7 @@ from owa_people.cli import COMMAND_SCHEMA as PEOPLE_SCHEMA  # noqa: E402
 from owa_planner.cli import COMMAND_SCHEMA as PLANNER_SCHEMA  # noqa: E402
 from owa_sched.cli import COMMAND_SCHEMA as SCHED_SCHEMA  # noqa: E402
 from owa_sites.cli import COMMAND_SCHEMA as SITES_SCHEMA  # noqa: E402
+from owa_teams.cli import COMMAND_SCHEMA as TEAMS_SCHEMA  # noqa: E402
 from owa_todo.cli import COMMAND_SCHEMA as TODO_SCHEMA  # noqa: E402
 
 DOCS = {
@@ -34,6 +35,7 @@ DOCS = {
     'owa-todo': ('docs/todo.md', TODO_SCHEMA),
     'owa-planner': ('docs/planner.md', PLANNER_SCHEMA),
     'owa-sites': ('docs/sites.md', SITES_SCHEMA),
+    'owa-teams': ('docs/teams.md', TEAMS_SCHEMA),
 }
 
 SHELL_FENCES = {'', 'sh', 'bash', 'shell', 'console'}

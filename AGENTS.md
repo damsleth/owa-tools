@@ -95,6 +95,7 @@ the main `0/2/10-15/20` contract intact for normal command paths.
 | `src/owa_todo/AGENTS.md` | changing Microsoft To Do task behavior |
 | `src/owa_planner/AGENTS.md` | changing Microsoft Planner behavior |
 | `src/owa_sites/AGENTS.md` | changing SharePoint behavior |
+| `src/owa_teams/AGENTS.md` | changing Microsoft Teams behavior (channels, chats, chatsvc messages) |
 | `src/tests/AGENTS.md` | adding or changing tests |
 | `src/tests/contract/AGENTS.md` | changing machine contract tests |
 | `src/tests/compat/AGENTS.md` | changing release-contract compatibility snapshots |
