@@ -19,5 +19,14 @@ historical record, each with a `Status: DONE` banner pointing back here.
   gained it with zero per-tool code; `owa-doctor` opts out). Foundation shipped
   in v0.6.1 (`10cdaff`, 2026-06-02); the post-release follow-up (per-command
   `--help` block, prose docs across `profile-model.md`/README/AGENTS/skill, and
-  per-tool end-to-end tests) landed 2026-06-02. Plan now Status: COMPLETE —
+  per-tool end-to-end tests) shipped in **v0.6.2** (`c81f27e`, 2026-06-02) —
+  commits `9316e7f` (docs), `22097d3` (tests), `ad684fe` (plans housekeeping).
+  Plan Status: COMPLETE —
   [multi-profile-simultaneous-calls.md](multi-profile-simultaneous-calls.md).
+
+  **Released v0.6.2 (2026-06-02), all channels:** tag `v0.6.2` + GitHub Release
+  (CI workflow green, wheel + sdist attached); PyPI
+  [`owa-tools 0.6.2`](https://pypi.org/project/owa-tools/0.6.2/) (wheel + sdist);
+  Homebrew tap `damsleth/homebrew-tap` bumped 0.5.0 → 0.6.2
+  (`Formula/owa-tools.rb`, GitHub source archive). cj-owa-tools skill updated in
+  `skills-private`. (Patch bump: docs + tests over already-shipped behaviour.)
