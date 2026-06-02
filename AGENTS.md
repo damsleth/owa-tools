@@ -137,8 +137,8 @@ commit:
 For release or packaging changes also run:
 
 ```bash
-.venv/bin/python -m build
-.venv/bin/twine check dist/*
+uv build
+.venv/bin/python src/scripts/check_artifacts.py dist/*
 ```
 
 ## Workflow Rules
@@ -199,11 +199,10 @@ When the user says "cut a release" / "new patch version" / "ship it":
    Never retag a public version - PyPI rejects re-uploads and Homebrew
    users cache the tarball by sha. Lightweight tags (`git tag vX.Y.Z`)
    should not be used.
-7. Build sdist + wheel and verify metadata:
+7. Build sdist + wheel and verify the artifacts:
    ```bash
    rm -rf dist build
-   .venv/bin/python -m build
-   .venv/bin/python -m twine check dist/*
+   uv build
    .venv/bin/python src/scripts/check_artifacts.py dist/*
    .venv/bin/python src/scripts/check_console_smoke.py
    ```
