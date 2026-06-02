@@ -40,6 +40,7 @@ owa-drive = "owa_drive:main"
 owa-todo = "owa_todo:main"
 owa-planner = "owa_planner:main"
 owa-sites = "owa_sites:main"
+owa-teams = "owa_teams:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -58,6 +59,7 @@ packages = [
   "owa_todo",
   "owa_planner",
   "owa_sites",
+  "owa_teams",
 ]
 
 [tool.setuptools.package-data]
@@ -90,6 +92,7 @@ source = [
   "owa_todo",
   "owa_planner",
   "owa_sites",
+  "owa_teams",
 ]
 omit = ["*/__main__.py"]
 

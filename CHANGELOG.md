@@ -8,6 +8,25 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-teams (new)
+
+- New consumer binary `owa-teams` for Microsoft Teams (read-only): `teams`
+  (joined teams), `channels` (a team's channels), `chats` (1:1 / group /
+  meeting), and `messages` for channel or chat bodies. Twelfth console script;
+  registered in the suite registry, README, docs, and contract tests.
+- Dual-door auth: enumeration rides the plain `graph` token; message bodies are
+  read from the regional chat service (`https://teams.microsoft.com/api/chatsvc/{region}/v1`)
+  with an `ic3`-audience token, because Graph's `/teams/.../messages` requires
+  `ChannelMessage.Read.All` which the FOCI client cannot obtain (AADSTS65002).
+  Verified live: the `ic3` bearer returns 200 on channel messages.
+- Channel threading is reconstructed from the flat chatsvc stream via the
+  top-level `rootMessageId` (roots and replies are interleaved and ordered by
+  `sequenceId`; `properties.parentmessageid` is null in practice). Each message
+  carries `threadId = "{channelId}:{rootId}"`; replies inherit the root's
+  `subject`. Chats are flat (one chat = one thread).
+- Region is pinned via `owa-teams config --region` (default `emea`); automatic
+  authsvc-based resolution and channel-message posting are deferred.
+
 ## v0.6.2 - 2026-06-02
 
 ### suite
