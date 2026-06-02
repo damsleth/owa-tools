@@ -333,3 +333,28 @@ teams/channels/chats/messages/meetings surface lands.
 - `owa-shifts` (Teams Shifts) already references sharing `/me/joinedTeams` team
   discovery with owa-teams "if it lands first" — land that helper here cleanly so
   owa-shifts can reuse it if it ever unblocks.
+
+## Fast-follows the yaams `teams_channels` adapter wants (added 2026-06-02)
+
+yaams' channel ingestion (`yaams/ingest/teams_channels.py`, shipped) shells out
+to `owa-teams teams|channels|messages`. Its v1 works against the current
+(documented) contract — chronological rows carrying `threadId`,
+`rootMessageId`, `isReply`, `from{id,name,mri}`, `timestamp`, `subject`,
+`content`, `teamId`, `channelId`. Two flags on the `messages` verb would let it
+drop its workarounds:
+
+- **`messages --since <iso>`** — stop following `backwardLink` once a page
+  predates the cutoff. Today yaams fetches `--limit` pages and filters
+  `timestamp <= cutoff` adapter-side, so a cold start of a busy channel can miss
+  history older than `limit_pages × ~50` messages. `--since` removes that gap and
+  cuts pages fetched.
+- **`messages --region <emea|amer|…>`** — region is currently resolved from
+  owa-teams' own (single-valued) config, but yaams ingests multiple profiles that
+  may live in different regions. A per-call `--region` (read through to the
+  chatsvc base) lets the adapter pass it per profile. All current profiles are
+  `emea`, so yaams v1 works without it; add before onboarding a non-EU profile.
+
+Also: yaams holds the channel id→name map from its `channels` call and stamps
+the name itself, since `messages` rows don't carry `channelName`. Adding
+`channelName`/`teamName` to the message wire shape would let the adapter drop
+that bookkeeping (nice-to-have, not blocking).
