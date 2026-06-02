@@ -8,6 +8,27 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+## v0.6.2 - 2026-06-02
+
+### suite
+
+- Multi-profile fan-out follow-up (docs + tests for the v0.6.1 foundation; no
+  behaviour change). Every consumer tool's `--help` now carries a uniform
+  "Multi-profile fan-out" block documenting the repeatable `--profile` flag, the
+  merged output shapes (`results` array / `=== profile: <name> ===` sections /
+  per-line `--ndjson` tags), per-profile isolation, and the `0`/`2`/`1`
+  (all-ok/mixed/all-failed) exit codes. `owa-doctor` stays excluded (it opts out
+  of fan-out and keeps its own exit taxonomy). `docs/profile-model.md` gains a
+  "Fan-out across profiles" section (including `OWA_PROFILE` is single-valued vs
+  the repeatable flag), and the README, root `AGENTS.md`, and the cj-owa-tools
+  skill are updated to match.
+- Tests: `tests/contract/test_multi_profile_fanout.py` exercises real fan-out
+  end-to-end through every consumer binary (broker-missing all-fail merge +
+  `--pretty` sections, duplicate-`--profile` de-dup, and the `owa-doctor`
+  opt-out); `tests/mail/test_multi_profile.py` covers the success and mixed
+  (exit 2) merges through `owa_mail.main()` with mocked auth; and a contract
+  test pins the help block to every consumer tool (and its absence from doctor).
+
 ## v0.6.1 - 2026-06-02
 
 ### suite
