@@ -125,6 +125,8 @@ Examples:
   owa-planner tasks                       # my assigned tasks across plans
   owa-planner task <task-id> --pretty""")
     print()
+    print(schema_mod.MULTI_PROFILE_HELP)
+    print()
     print(schema_mod.MACHINE_SURFACE_HELP)
 
 

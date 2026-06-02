@@ -105,6 +105,8 @@ Examples:
   owa-drive rm "/Documents/old.txt" --confirm
 """)
     print()
+    print(schema_mod.MULTI_PROFILE_HELP)
+    print()
     print(schema_mod.MACHINE_SURFACE_HELP)
 
 
