@@ -2,15 +2,19 @@
 
 _Created 2026-06-01 · Foundation shipped in v0.6.1 (2026-06-02)_
 
-> **Status:** the fan-out **foundation** is implemented, tested, and released
-> in v0.6.1. Key deviation from the original design: rather than wiring each
-> tool's dispatcher, the entire fan-out lives in the shared
-> `owa_core.modes.run_with_output_modes` entry point that all 11 CLIs already
-> route through — so every tool (incl. planner/sites/todo) gained repeated
-> `--profile` with **zero per-tool code**. `owa-doctor` opts out
-> (`fan_out_profiles=False`). Remaining follow-up: per-command `--help` text,
-> prose docs (`docs/profile-model.md` et al.), and broader per-tool
-> integration tests.
+> **Status: COMPLETE** (follow-up landed 2026-06-02). The fan-out **foundation**
+> shipped in v0.6.1; the post-release follow-up (this pass) added the
+> per-command `--help` block (`schema.MULTI_PROFILE_HELP`, printed by all 9
+> consumer tools, not doctor), prose docs (`docs/profile-model.md` fan-out
+> section, README, root AGENTS, cj-owa-tools skill), and the per-tool
+> end-to-end tests (`tests/contract/test_multi_profile_fanout.py` subprocess
+> fan-out for every consumer tool + duplicate/doctor-opt-out, and
+> `tests/mail/test_multi_profile.py` mocked success/mixed merges). Key deviation
+> from the original design: rather than wiring each tool's dispatcher, the
+> entire fan-out lives in the shared `owa_core.modes.run_with_output_modes`
+> entry point that all 11 CLIs already route through — so every tool (incl.
+> planner/sites/todo) gained repeated `--profile` with **zero per-tool code**.
+> `owa-doctor` opts out (`fan_out_profiles=False`).
 
 Let owa-* verbs accept **repeated** `--profile` flags and run the same command
 against each profile in one invocation, fanning out auth + execution and merging
@@ -96,13 +100,20 @@ byte-identical (no regression for the common case).
   profile in the shared runner (no per-tool `cmd_tui` change). Tabs/switcher
   still a future follow-up.
 - [x] **Exit codes.** all ok ⇒ 0; mixed ⇒ 2; all fail ⇒ 1. _Not yet in `--help`._
-- [~] **Tests.** Done: `parse_profiles` (none/one/many/dupes/`-p`/`=`/dangling),
+- [x] **Tests.** Done: `parse_profiles` (none/one/many/dupes/`-p`/`=`/dangling),
   fan-out isolation, **golden no-regression** (fan-out on/off byte-identical for
   N<=1), N>1 JSON/pretty/ndjson, interactive+binary refusal, doctor opt-out.
-  _Pending: per-tool end-to-end integration tests with mocked auth._
-- [ ] **Docs.** Pending: each tool's `--help`, suite README, `docs/profile-model.md`
-  + per-tool docs, AGENTS reference, and cj-owa-tools skill notes; note
-  `OWA_PROFILE` vs repeated `--profile` (flag wins; env is single fallback).
+  _Follow-up landed:_ `tests/contract/test_multi_profile_fanout.py` runs the
+  real binary for every consumer tool via the broker-missing path (all-fail
+  merge + `--pretty` FAILED sections, parametrized), plus duplicate-warns and
+  doctor opt-out; `tests/mail/test_multi_profile.py` mocks the auth/HTTP seam
+  to prove the success + mixed (exit 2) merges through `owa_mail.main()`.
+- [x] **Docs.** Done: `schema.MULTI_PROFILE_HELP` printed by all 9 consumer
+  tools' `--help` (doctor excluded), `docs/profile-model.md` "Fan-out across
+  profiles" section (shapes/exit-codes/caveats + `OWA_PROFILE`-vs-flag note),
+  README Multi-account example, root `AGENTS.md` ground-rule, and the
+  cj-owa-tools skill. Per-tool docs left untouched (the shared model doc + each
+  tool's `--help` cover it; a contract test pins the help block per tool).
 
 ## Notes
 
