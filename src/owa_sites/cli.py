@@ -132,6 +132,8 @@ Examples:
   owa-sites files --site owa-casa --path "/sites/owa-casa/Shared Documents"
   owa-sites search --q "quarterly report" --pretty""")
     print()
+    print(schema_mod.MULTI_PROFILE_HELP)
+    print()
     print(schema_mod.MACHINE_SURFACE_HELP)
 
 

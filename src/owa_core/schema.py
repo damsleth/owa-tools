@@ -23,6 +23,24 @@ MACHINE_SURFACE_HELP = """Machine surface (uniform across the owa suite):
   --doctor [--json]    Print this tool's health / redaction doctor payload.
   --version            Print the suite version."""
 
+# Repeated --profile fan-out, documented identically across every consumer
+# tool that routes through modes.run_with_output_modes with fan_out_profiles
+# enabled. owa-doctor opts out (its --profile means "probe only this profile"
+# and it has its own 0/1/2 exit taxonomy), so it does NOT print this block.
+MULTI_PROFILE_HELP = """Multi-profile fan-out:
+  --profile <alias>    Repeatable. Pass --profile two or more times to run the
+                       command once per profile and merge the results, keyed by
+                       profile. Default JSON becomes {"_owa": {..., "profiles":
+                       [...]}, "results": [{"profile", "ok", "data"}, ...]};
+                       --pretty prints one "=== profile: <alias> ===" section
+                       per profile; --ndjson tags each line with its profile.
+                       A single --profile (or none) keeps the unchanged
+                       single-profile output. Each profile is isolated: one
+                       failure never aborts the others. Fan-out exit code is
+                       0 (all ok), 2 (some ok, some failed), or 1 (all failed).
+                       Interactive (tui) and binary-output commands cannot fan
+                       out - run them once per --profile instead."""
+
 
 def flag(name, *, value=None, summary='', required=False, repeatable=False):
     """Build a single flag spec for a command's `flags` list.

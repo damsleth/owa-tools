@@ -157,6 +157,8 @@ Examples:
   owa-todo done --id AAMk...
   owa-todo delete --id AAMk...""")
     print()
+    print(schema_mod.MULTI_PROFILE_HELP)
+    print()
     print(schema_mod.MACHINE_SURFACE_HELP)
 
 
