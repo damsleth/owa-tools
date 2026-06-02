@@ -201,6 +201,10 @@ def _main(argv):
 
 
 def main(argv=None):
+    # owa-doctor opts out of shared multi-profile fan-out: it already probes
+    # every profile in one pass (`--profile` only narrows to one), so a
+    # repeated `--profile` must not run the whole probe once per profile.
     return mode_mod.run_with_output_modes(
         'owa-doctor', sys.argv[1:] if argv is None else argv, _main,
+        fan_out_profiles=False,
     )

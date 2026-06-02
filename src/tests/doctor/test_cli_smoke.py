@@ -39,6 +39,19 @@ def test_version_flag():
     assert r.stdout.strip().startswith('owa-doctor ')
 
 
+def test_repeated_profile_does_not_fan_out(tmp_path):
+    """owa-doctor opts out of multi-profile fan-out: repeated --profile must
+    still emit one ordinary doctor report, not a per-profile `results` wrapper.
+    doctor already probes every profile in a single pass."""
+    env = {'HOME': str(tmp_path), 'PATH': str(tmp_path / 'empty-bin')}
+    (tmp_path / 'empty-bin').mkdir()
+    r = _run(['probe', '--no-tokens', '--profile', 'a', '--profile', 'b'], env=env)
+    payload = json.loads(r.stdout)
+    assert 'owa_piggy' in payload
+    assert 'results' not in payload
+    assert '_owa' not in payload
+
+
 def test_unknown_flag_fails():
     r = _run(['--frobnicate'])
     assert r.returncode == 2
