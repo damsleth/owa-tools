@@ -1,0 +1,176 @@
+"""Pure-function tests for owa_teams.teams (builders, normalizers, threading)."""
+
+from owa_teams import teams
+
+# --- HTML stripping -----------------------------------------------------------
+
+def test_strip_html_unwraps_mentions_and_tags():
+    html = '<div>Hi <at id="0">Kim</at>, see <b>this</b></div>'
+    assert teams.strip_html(html) == 'Hi Kim, see this'
+
+
+def test_strip_html_drops_attachments_and_entities():
+    assert teams.strip_html('<attachment id="x"></attachment><p>a&amp;b</p>') == 'a&b'
+
+
+def test_strip_html_empty():
+    assert teams.strip_html('') == ''
+    assert teams.strip_html(None) == ''
+
+
+# --- Graph endpoint builders --------------------------------------------------
+
+def test_joined_teams_endpoint_has_no_query():
+    # Graph 400s on $select/$top for /me/joinedTeams under delegated auth.
+    assert teams.joined_teams_endpoint() == 'me/joinedTeams'
+
+
+def test_channels_endpoint_selects_and_encodes():
+    ep = teams.channels_endpoint('team/with space')
+    assert ep.startswith('teams/team%2Fwith%20space/channels?$select=')
+    assert 'membershipType' in ep
+
+
+def test_chats_endpoint_top():
+    ep = teams.chats_endpoint(top=25)
+    assert ep.startswith('me/chats?$select=')
+    assert '$top=25' in ep
+
+
+def test_conversation_messages_url_encodes_id_and_view():
+    url = teams.conversation_messages_url(
+        'https://teams.microsoft.com/api/chatsvc/emea/v1',
+        '19:abc@thread.tacv2', page_size=30,
+    )
+    assert '/users/ME/conversations/19%3Aabc%40thread.tacv2/messages' in url
+    assert 'pageSize=30' in url
+    assert 'view=msnp24Equivalent%7CsupportsMessageProperties' in url
+
+
+# --- Graph normalizers --------------------------------------------------------
+
+def test_normalize_teams():
+    payload = {'value': [
+        {'id': 't1', 'displayName': 'A', 'description': 'd', 'isArchived': False},
+        {'displayName': 'no id'},  # dropped
+    ]}
+    rows = teams.normalize_teams(payload)
+    assert rows == [{'id': 't1', 'displayName': 'A', 'description': 'd', 'isArchived': False}]
+
+
+def test_normalize_channels():
+    rows = teams.normalize_channels([
+        {'id': 'c1', 'displayName': 'General', 'membershipType': 'standard'},
+    ])
+    assert rows[0]['membershipType'] == 'standard'
+    assert rows[0]['isArchived'] is False
+
+
+def test_normalize_chats_filters_by_type():
+    payload = {'value': [
+        {'id': 'a', 'chatType': 'oneOnOne', 'topic': None},
+        {'id': 'b', 'chatType': 'meeting', 'topic': 'Standup'},
+    ]}
+    assert [c['id'] for c in teams.normalize_chats(payload)] == ['a', 'b']
+    meeting = teams.normalize_chats(payload, chat_type='meeting')
+    assert [c['id'] for c in meeting] == ['b']
+
+
+# --- chatsvc message helpers --------------------------------------------------
+
+def test_sender_extracts_oid_from_mri():
+    s = teams._sender({'from': 'https://x/contacts/8:orgid:OID-1', 'imdisplayname': 'Kim'})
+    assert s == {'id': 'OID-1', 'name': 'Kim', 'mri': '8:orgid:OID-1'}
+
+
+def test_sender_falls_back_to_raw_mri():
+    s = teams._sender({'from': '28:botid', 'imdisplayname': ''})
+    assert s['mri'] == '28:botid'
+    assert s['id'] == '28:botid'
+
+
+def test_is_system_message():
+    assert teams.is_system_message({'messagetype': 'ThreadActivity/AddMember'}) is True
+    assert teams.is_system_message({'messagetype': 'RichText/Html'}) is False
+    assert teams.is_system_message({'messagetype': 'Text'}) is False
+
+
+def test_root_id_root_vs_reply():
+    assert teams._root_id({'id': '5', 'rootMessageId': '5'}) == ('5', False)
+    assert teams._root_id({'id': '5'}) == ('5', False)
+    assert teams._root_id({'id': '6', 'rootMessageId': '0'}) == ('6', False)
+    assert teams._root_id({'id': '6', 'rootMessageId': '5'}) == ('5', True)
+
+
+def _channel_raw():
+    """Newest-first, rootMessageId threading, parentmessageid null - the real shape."""
+    return [
+        {'id': '15', 'rootMessageId': '15', 'sequenceId': 15, 'messagetype': 'RichText/Html',
+         'from': 'https://x/contacts/8:orgid:D', 'imdisplayname': 'David',
+         'content': '<p>New post</p>', 'originalarrivaltime': '2023-09-07T18:00:00.0000000Z',
+         'properties': {'subject': 'New post', 'parentmessageid': None}},
+        {'id': '11', 'rootMessageId': '8', 'sequenceId': 11, 'messagetype': 'RichText/Html',
+         'from': 'https://x/contacts/8:orgid:L', 'imdisplayname': 'Line',
+         'content': '<div>reply two</div>', 'originalarrivaltime': '2022-11-01T08:17:12.494Z',
+         'properties': {}},
+        {'id': '8', 'rootMessageId': '8', 'sequenceId': 8, 'messagetype': 'RichText/Html',
+         'from': 'https://x/contacts/8:orgid:D', 'imdisplayname': 'David',
+         'content': '<div>root</div>', 'originalarrivaltime': '2022-10-17T08:16:53.428Z',
+         'properties': {'subject': 'TV-aksjonen'}},
+        {'id': 'sys', 'rootMessageId': 'sys', 'sequenceId': 7, 'messagetype': 'ThreadActivity/AddMember',
+         'content': '', 'properties': {}},
+    ]
+
+
+def test_normalize_channel_messages_threads_and_orders():
+    rows = teams.normalize_channel_messages(_channel_raw(), team_id='T', channel_id='19:CH@thread.tacv2')
+    # system event dropped, chronological (seq ascending)
+    assert [r['sequenceId'] for r in rows] == [8, 11, 15]
+    root, reply, post2 = rows
+    # root + reply share a thread keyed on rootMessageId; reply inherits subject
+    assert root['threadId'] == '19:CH@thread.tacv2:8'
+    assert reply['threadId'] == '19:CH@thread.tacv2:8'
+    assert reply['isReply'] is True
+    assert reply['subject'] == 'TV-aksjonen'
+    assert root['isReply'] is False
+    # second root is its own thread
+    assert post2['threadId'] == '19:CH@thread.tacv2:15'
+    # body stripped, sender resolved, team/channel echoed
+    assert reply['content'] == 'reply two'
+    assert reply['from'] == {'id': 'L', 'name': 'Line', 'mri': '8:orgid:L'}
+    assert root['teamId'] == 'T'
+    assert root['channelId'] == '19:CH@thread.tacv2'
+
+
+def test_normalize_channel_messages_include_system_keeps_events():
+    rows = teams.normalize_channel_messages(_channel_raw(), channel_id='c', include_system=True)
+    assert any(r['messageType'] == 'ThreadActivity/AddMember' for r in rows)
+
+
+def test_normalize_channel_messages_thread_id_without_channel():
+    rows = teams.normalize_channel_messages(
+        [{'id': '8', 'rootMessageId': '8', 'messagetype': 'Text', 'content': 'hi'}],
+    )
+    assert rows[0]['threadId'] == '8'
+
+
+def test_normalize_chat_messages_is_flat():
+    raw = [
+        {'id': '2', 'messagetype': 'Text', 'content': 'second', 'imdisplayname': 'A',
+         'from': 'https://x/contacts/8:orgid:A', 'originalarrivaltime': '2024-01-02T00:00:00Z'},
+        {'id': '1', 'messagetype': 'RichText/Html', 'content': '<p>first</p>', 'imdisplayname': 'B',
+         'from': 'https://x/contacts/8:orgid:B', 'composetime': '2024-01-01T00:00:00Z'},
+    ]
+    rows = teams.normalize_chat_messages(raw, chat_id='19:chat@unq.gbl.spaces')
+    assert [r['id'] for r in rows] == ['1', '2']  # reversed to chronological
+    assert all(r['threadId'] == '19:chat@unq.gbl.spaces' for r in rows)
+    assert rows[0]['content'] == 'first'
+    assert 'rootMessageId' not in rows[0]
+
+
+def test_normalize_chat_messages_drops_system_and_empty():
+    raw = [
+        {'id': 's', 'messagetype': 'ThreadActivity/AddMember', 'content': 'x'},
+        {'id': 'e', 'messagetype': 'Text', 'content': '   '},
+    ]
+    assert teams.normalize_chat_messages(raw, chat_id='c') == []

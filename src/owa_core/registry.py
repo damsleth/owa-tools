@@ -28,6 +28,7 @@ CONSUMER_TOOLS: tuple[str, ...] = (
     "owa-todo",
     "owa-planner",
     "owa-sites",
+    "owa-teams",
 )
 
 __all__ = ["CONSUMER_TOOLS"]
