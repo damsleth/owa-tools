@@ -8,6 +8,25 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+## v0.6.1 - 2026-06-02
+
+### suite
+
+- Multi-profile fan-out (foundation). Any owa-* verb now accepts **repeated**
+  `--profile`/`-p` flags and runs the command once per profile in a single
+  invocation, merging results keyed by profile — e.g.
+  `owa-graph GET /me --profile crayon --profile brkh`. Zero or one `--profile`
+  is byte-identical to before (no regression). With two or more, JSON output is
+  wrapped as `{"_owa": {…, "profiles": […]}, "results": [{"profile", "ok",
+  "data"|"error"}, …]}`, `--pretty` prints one `=== profile: <name> ===` section
+  per profile, and `--ndjson` tags each line with its profile. Per-profile
+  isolation: one profile's auth/scope failure does not abort the others. Exit
+  code is 0 (all ok), 2 (mixed), or 1 (all failed). Interactive (`tui`) and
+  binary-stdout commands are refused for more than one profile. `owa-doctor`
+  opts out (it already probes every profile in one pass). The fan-out lives in
+  the shared `owa_core` layer, so every consumer CLI gains it uniformly.
+  Per-command `--help` text and prose docs land in a follow-up.
+
 ### owa-sites
 
 - New tool: a read-only SharePoint CLI that talks to the **SharePoint REST API**
