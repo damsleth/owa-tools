@@ -8,6 +8,8 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+## v0.7.0 - 2026-06-02
+
 ### owa-teams (new)
 
 - New consumer binary `owa-teams` for Microsoft Teams (read-only): `teams`
