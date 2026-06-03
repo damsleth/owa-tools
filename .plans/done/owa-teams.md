@@ -1,5 +1,11 @@
 # owa-teams
 
+> **Status: SHIPPED** — Phase 1 landed in **v0.7.0** (`eadbfb8`, 2026-06-02,
+> `feat(owa-teams): add Microsoft Teams consumer CLI (read-only)`), plus the
+> 429 Retry-After ride-through (`7d076fe`, 2026-06-03). Remaining nice-to-haves
+> (`messages --since`, `messages --region`) are tracked as todos in
+> [../TODO.md](../TODO.md). See [../DONE.md](../DONE.md).
+
 _Created 2026-06-02_
 
 A consumer binary for Microsoft Teams artefacts: **teams, channels, chats,
