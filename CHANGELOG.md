@@ -8,6 +8,14 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-teams
+
+- `messages`/`channels`/`teams` reads now ride through a transient 429 by
+  honoring `Retry-After` (in-process, capped 60s) instead of aborting the
+  verb. The fan-out bursts enough calls to trip chatsvc's limiter; previously
+  a single 429 dropped a whole team's channels. Each Graph/chatsvc read carries
+  a default retry budget (`api.DEFAULT_RETRY`); pass `retry=0` to opt out.
+
 ## v0.7.0 - 2026-06-02
 
 ### owa-teams (new)
