@@ -5,7 +5,7 @@
 > `tests/doctor/test_cli_report.py` now carries `_DOCTOR_PAYLOAD_SCHEMA`,
 > `_assert_doctor_payload`, and the parametrized
 > `test_siblings_match_per_binary_doctor` (`pytest.skip` when a binary is off
-> PATH). See [DONE.md](DONE.md).
+> PATH). See [../DONE.md](../DONE.md).
 
 _Migrated 2026-05-29 from `hugr/.plans/` — this is owa-tools-local test work, so
 it belongs here, not in the hugr repo. (hugr only consumes `owa-doctor`'s

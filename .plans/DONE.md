@@ -1,18 +1,33 @@
 # Done
 
-Completed plans, newest first. The detailed plan files stay in `.plans/` as
-historical record, each with a `Status: DONE` banner pointing back here.
+Completed plans, newest first. The detailed plan files move to
+[`.plans/done/`](done/) as historical record, each with a status banner
+pointing back here.
+
+- **owa-teams** — read-only Microsoft Teams consumer CLI (`teams`, `channels`,
+  `chats`, `messages`, `meetings`) over Graph + the chatsvc `teams` audience.
+  Phase 1 shipped in **v0.7.0** (`eadbfb8`, 2026-06-02,
+  `feat(owa-teams): add Microsoft Teams consumer CLI (read-only)`); 429
+  Retry-After ride-through followed in `7d076fe` (2026-06-03). Open follow-ups
+  (`messages --since`, `messages --region`) tracked in [TODO.md](TODO.md).
+  Plan: [done/owa-teams.md](done/owa-teams.md).
+
+- **owa-shifts** — CLOSED, NOT BUILT: blocked by client preauth
+  (`AADSTS65002` — the StaffHub resource `aa580612` does not preauthorize
+  owa-piggy's One Outlook Web client, and it isn't FOCI), and the Graph
+  `/teams/{id}/schedule` door has no data. Probed 2026-06-01; archived
+  without building. Plan: [done/owa-shifts.md](done/owa-shifts.md).
 
 - **owa-mail TUI overhaul** — full-width layout, reading pane, search-400 fix,
   esc overlay menu + persisted settings. Shipped `23b5f21` (2026-06-01),
   `feat(mail): full-width tui with reading pane, esc menu, and settings`.
-  Plan: [owa-mail-tui-esc-menu-and-settings.md](owa-mail-tui-esc-menu-and-settings.md).
+  Plan: [done/owa-mail-tui-esc-menu-and-settings.md](done/owa-mail-tui-esc-menu-and-settings.md).
 
 - **owa-doctor siblings cross-check** — `owa-doctor --json` `siblings[]` entries
   are now asserted schema-compatible with each binary's own `<binary> --doctor
   --json` payload. Shipped `b290aa1` (2026-05-29),
   `test(doctor): cross-check siblings[] against per-binary --doctor schema`.
-  Plan: [owa-doctor-siblings-crosscheck.md](owa-doctor-siblings-crosscheck.md).
+  Plan: [done/owa-doctor-siblings-crosscheck.md](done/owa-doctor-siblings-crosscheck.md).
 
 - **multi-profile fan-out** — repeated `--profile` fans out across profiles via
   the shared `owa_core.modes.run_with_output_modes` entry point (every CLI
@@ -22,7 +37,7 @@ historical record, each with a `Status: DONE` banner pointing back here.
   per-tool end-to-end tests) shipped in **v0.6.2** (`c81f27e`, 2026-06-02) —
   commits `9316e7f` (docs), `22097d3` (tests), `ad684fe` (plans housekeeping).
   Plan Status: COMPLETE —
-  [multi-profile-simultaneous-calls.md](multi-profile-simultaneous-calls.md).
+  [done/multi-profile-simultaneous-calls.md](done/multi-profile-simultaneous-calls.md).
 
   **Released v0.6.2 (2026-06-02), all channels:** tag `v0.6.2` + GitHub Release
   (CI workflow green, wheel + sdist attached); PyPI
