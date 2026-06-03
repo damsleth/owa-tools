@@ -18,6 +18,10 @@ INDEXED_PATHS = [
     'src/owa_sched/AGENTS.md',
     'src/owa_drive/AGENTS.md',
     'src/owa_todo/AGENTS.md',
+    'src/owa_planner/AGENTS.md',
+    'src/owa_sites/AGENTS.md',
+    'src/owa_teams/AGENTS.md',
+    'src/owa_vids/AGENTS.md',
     'src/tests/AGENTS.md',
     'src/tests/contract/AGENTS.md',
     'src/tests/compat/AGENTS.md',
@@ -37,6 +41,10 @@ RUNTIME_PACKAGES = [
     'owa_sched',
     'owa_drive',
     'owa_todo',
+    'owa_planner',
+    'owa_sites',
+    'owa_teams',
+    'owa_vids',
 ]
 
 

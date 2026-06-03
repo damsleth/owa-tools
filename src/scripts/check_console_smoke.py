@@ -23,6 +23,8 @@ TOOLS = (
     'owa-todo',
     'owa-planner',
     'owa-sites',
+    'owa-teams',
+    'owa-vids',
 )
 
 
