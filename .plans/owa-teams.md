@@ -358,3 +358,12 @@ Also: yaams holds the channel id→name map from its `channels` call and stamps
 the name itself, since `messages` rows don't carry `channelName`. Adding
 `channelName`/`teamName` to the message wire shape would let the adapter drop
 that bookkeeping (nice-to-have, not blocking).
+
+**DONE 2026-06-03 — 429 Retry-After ride-through.** The fan-out tripped
+chatsvc's rate limiter and `owa-teams` aborted the verb on a 429 (dropping a
+team's channels); yaams added outer exponential backoff in v0.3.2. The proper
+fix now lands here too: `api.graph_get` / `graph_paginate` / `chatsvc_messages`
+carry a default retry budget (`api.DEFAULT_RETRY=3`) so `owa_core.http` honors
+`Retry-After` in-process (capped 60s) before surfacing the 429. The two layers
+compose: owa-teams rides transient limits; if it still exits non-zero, yaams
+retries the whole verb. Still open: `messages --since` and `messages --region`.

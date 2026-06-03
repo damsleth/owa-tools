@@ -116,3 +116,42 @@ def test_chatsvc_messages_recoverable_returns_none(monkeypatch, capsys):
     monkeypatch.setattr(api_mod.http, 'request', boom)
     assert api_mod.chatsvc_messages('https://t/v1', 'c', 'tok') is None
     assert '429' in capsys.readouterr().err
+
+
+# --- Retry-After budget (429 ride-through) ------------------------------------
+
+def test_graph_get_passes_default_retry_budget(monkeypatch):
+    seen = {}
+
+    def fake_request(method, url, **k):
+        seen['retry'] = k.get('retry')
+        return _resp({'value': []})
+
+    monkeypatch.setattr(api_mod.http, 'request', fake_request)
+    api_mod.graph_get('https://g', 'me/joinedTeams', 'tok')
+    assert seen['retry'] == api_mod.DEFAULT_RETRY
+    assert api_mod.DEFAULT_RETRY > 0
+
+
+def test_graph_paginate_passes_retry_budget(monkeypatch):
+    seen = {}
+
+    def fake_paginate(url, **k):
+        seen['retry'] = k.get('retry')
+        return iter([])
+
+    monkeypatch.setattr(api_mod.http, 'paginate', fake_paginate)
+    api_mod.graph_paginate('https://g', 'teams/t/channels', 'tok')
+    assert seen['retry'] == api_mod.DEFAULT_RETRY
+
+
+def test_chatsvc_messages_passes_retry_budget(monkeypatch):
+    seen = {}
+
+    def fake_request(method, url, **k):
+        seen['retry'] = k.get('retry')
+        return _resp({'messages': [], '_metadata': {}})
+
+    monkeypatch.setattr(api_mod.http, 'request', fake_request)
+    api_mod.chatsvc_messages('https://t/v1', 'c', 'tok')
+    assert seen['retry'] == api_mod.DEFAULT_RETRY
