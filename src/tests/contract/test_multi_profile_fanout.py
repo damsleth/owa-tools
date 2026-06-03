@@ -28,6 +28,11 @@ FANNING_TOOLS = [
     ("owa_todo", ["tasks"]),
     ("owa_planner", ["plans"]),
     ("owa_sites", ["site"]),
+    ("owa_teams", ["teams"]),
+    ("owa_vids", [
+        "info", "--manifest-url",
+        "https://example-mediap.svc.ms/transform/videomanifest?docid=x&format=dash",
+    ]),
     ("owa_sched", ["availability", "--who", "test@example.com"]),
 ]
 

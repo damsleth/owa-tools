@@ -15,6 +15,7 @@ TOOLS = (
     "owa_planner",
     "owa_sites",
     "owa_teams",
+    "owa_vids",
 )
 
 

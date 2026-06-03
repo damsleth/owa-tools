@@ -22,7 +22,7 @@ damsleth/tap/hugr`), one verb surface (`hugr mail ...`, `hugr
 calendar ...`), and one CLI contract (output classes, exit codes,
 JSON envelopes - see
 [hugr/CONVENTIONS.md](https://github.com/damsleth/hugr/blob/main/CONVENTIONS.md)).
-The nine `owa-*` binaries continue to work standalone.
+The `owa-*` binaries continue to work standalone.
 
 ## Install
 
@@ -38,9 +38,10 @@ PyPI:
 pipx install owa-piggy && pipx install owa-tools
 ```
 
-Either path lands twelve binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
+Either path lands thirteen binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
 `owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`, `owa-todo`,
-`owa-planner`, `owa-sites`, `owa-teams`) plus the `owa-piggy` auth broker.
+`owa-planner`, `owa-sites`, `owa-teams`, `owa-vids`) plus the `owa-piggy` auth
+broker.
 
 ## Quickstart
 
@@ -82,6 +83,7 @@ passed straight through.
 | `owa-planner` | Microsoft Planner (read-only): plans, buckets, tasks, task detail. |
 | `owa-sites` | SharePoint (read-only) via SharePoint REST: site, lists, items, files, search. |
 | `owa-teams` | Microsoft Teams (read-only): joined teams, channels, chats, and channel/chat messages (threaded). |
+| `owa-vids` | Download Teams / OneDrive meeting-recap DASH streams and mux to MP4 (token-only, via ffmpeg). |
 | `owa` | Umbrella: suite meta (`owa list`, `owa schema`, `owa version`, `owa --doctor`) plus `owa <tool> ...` pass-through dispatch (e.g. `owa cal events`). |
 
 ## Multi-account / profiles
@@ -118,7 +120,7 @@ rules.
 - [`docs/security.md`](docs/security.md) - token, redaction, threat model, and live-test boundaries
 - [`docs/agent-integration.md`](docs/agent-integration.md) - schema discovery, `--agent`, `--err-json`
 - [`docs/profile-model.md`](docs/profile-model.md) - profiles and audiences
-- Per-tool: [`cal`](docs/cal.md) | [`mail`](docs/mail.md) | [`graph`](docs/graph.md) | [`doctor`](docs/doctor.md) | [`people`](docs/people.md) | [`sched`](docs/sched.md) | [`drive`](docs/drive.md) | [`todo`](docs/todo.md)
+- Per-tool: [`cal`](docs/cal.md) | [`mail`](docs/mail.md) | [`graph`](docs/graph.md) | [`doctor`](docs/doctor.md) | [`people`](docs/people.md) | [`sched`](docs/sched.md) | [`drive`](docs/drive.md) | [`todo`](docs/todo.md) | [`planner`](docs/planner.md) | [`sites`](docs/sites.md) | [`teams`](docs/teams.md) | [`vids`](docs/vids.md)
 
 Maintainer reference:
 
