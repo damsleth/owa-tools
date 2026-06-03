@@ -8,6 +8,30 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-vids (new)
+
+- New consumer binary `owa-vids`: download Microsoft Teams / OneDrive
+  meeting-recap video streams. Token-only DASH pipeline (no browser cookies,
+  no decryption): resolve identity, fetch the clear manifest from the regional
+  `*-mediap.svc.ms` host with an SPO Bearer token, serially download fmp4
+  segments with resume + mid-download token refresh, and mux via
+  `ffmpeg -c copy`. Thirteenth console script; registered in the suite
+  registry, README, docs, contract tests, and shell completions, and wired as
+  `hugr vids`.
+- Verbs: `info` (probe title/duration/resolution/tracks, alias `show`),
+  `get` (download + mux, alias `download`), `check` (validate auth +
+  manifest + first segments, alias `probe`), and `config` (cached media
+  region + default profile). Sources: `--manifest-url` (copied from
+  DevTools) or `--embed-url` (player page URL, uses the cached region).
+- Auth mirrors `owa-sites`: SharePoint resource token minted as
+  `audience=graph` + `--scope https://{host}/.default`; identity/title rides
+  a plain `graph` token. The segment loop keeps one persistent connection per
+  host (`owa_vids.http.Http`) - the suite's single sanctioned exception to
+  `owa_core.http` - because svc.ms throttles reconnects.
+- Zero new third-party Python deps; ffmpeg is an external runtime requirement
+  for `get` only. The standalone script's `~/.config/owa-vids/config.json` is
+  migrated to the suite `KEY="VALUE"` format on first run.
+
 ### owa-teams
 
 - `messages`/`channels`/`teams` reads now ride through a transient 429 by

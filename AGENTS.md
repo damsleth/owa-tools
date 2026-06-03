@@ -5,9 +5,10 @@ read the nearest local `AGENTS.md` for the files you are editing.
 
 ## Suite Purpose
 
-`owa-tools` is one suite distribution with eleven console scripts:
+`owa-tools` is one suite distribution with thirteen console scripts:
 `owa`, `owa-cal`, `owa-mail`, `owa-graph`, `owa-doctor`, `owa-people`,
-`owa-sched`, `owa-drive`, `owa-todo`, `owa-planner`, and `owa-sites`.
+`owa-sched`, `owa-drive`, `owa-todo`, `owa-planner`, `owa-sites`,
+`owa-teams`, and `owa-vids`.
 `owa-piggy` is a separate auth broker repository.
 
 Because the suite is unreleased, do not add compatibility shims for old internal
@@ -96,6 +97,7 @@ the main `0/2/10-15/20` contract intact for normal command paths.
 | `src/owa_planner/AGENTS.md` | changing Microsoft Planner behavior |
 | `src/owa_sites/AGENTS.md` | changing SharePoint behavior |
 | `src/owa_teams/AGENTS.md` | changing Microsoft Teams behavior (channels, chats, chatsvc messages) |
+| `src/owa_vids/AGENTS.md` | changing meeting-recap video download behavior (DASH, segments, ffmpeg mux) |
 | `src/tests/AGENTS.md` | adding or changing tests |
 | `src/tests/contract/AGENTS.md` | changing machine contract tests |
 | `src/tests/compat/AGENTS.md` | changing release-contract compatibility snapshots |
