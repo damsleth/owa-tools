@@ -31,11 +31,19 @@ from . import teams as teams_mod
 _RECOVERABLE = (ConflictError, InternalError, NetworkError, NotFoundError, RateLimitedError)
 _ACCEPT_JSON = {'Accept': 'application/json'}
 
+# Teams reads fan out many calls (one per team, per channel, and per message
+# page), which bursts enough requests to trip chatsvc's rate limiter. Give
+# every read a Retry-After-honoring budget by default so a transient 429 is
+# ridden through in-process (owa_core.http waits the server-directed delay,
+# capped at 60s) rather than aborting the whole verb and dropping a team's
+# channels. Pass retry=0 to opt out.
+DEFAULT_RETRY = 3
 
-def graph_get(base, endpoint, access_token, debug=False):
+
+def graph_get(base, endpoint, access_token, debug=False, retry=DEFAULT_RETRY):
     url = f'{base}/{endpoint.lstrip("/")}'
     try:
-        return http.request('GET', url, token=access_token, debug=debug).json
+        return http.request('GET', url, token=access_token, retry=retry, debug=debug).json
     except (AuthExpiredError, ScopeInsufficientError):
         raise
     except _RECOVERABLE as error:
@@ -46,11 +54,11 @@ def graph_get(base, endpoint, access_token, debug=False):
         return None
 
 
-def graph_paginate(base, endpoint, access_token, debug=False, max_pages=50):
+def graph_paginate(base, endpoint, access_token, debug=False, max_pages=50, retry=DEFAULT_RETRY):
     """Collect a Graph `value` collection across `@odata.nextLink` pages."""
     url = f'{base}/{endpoint.lstrip("/")}'
     try:
-        return list(http.paginate(url, token=access_token, max_pages=max_pages, debug=debug))
+        return list(http.paginate(url, token=access_token, max_pages=max_pages, retry=retry, debug=debug))
     except (AuthExpiredError, ScopeInsufficientError):
         raise
     except _RECOVERABLE as error:
@@ -61,20 +69,23 @@ def graph_paginate(base, endpoint, access_token, debug=False, max_pages=50):
         return None
 
 
-def chatsvc_messages(base, conversation_id, access_token, *, page_size=50, max_pages=20, debug=False):
+def chatsvc_messages(base, conversation_id, access_token, *, page_size=50, max_pages=20,
+                     debug=False, retry=DEFAULT_RETRY):
     """Fetch a conversation's chatsvc message stream, following backwardLink.
 
     Returns the concatenated raw `messages` (newest-first across pages), or
     None on a recoverable error. Bounded by `max_pages` so an enormous channel
     can't page forever; callers that need a time window pass a small page count
-    and filter by timestamp downstream.
+    and filter by timestamp downstream. Each page request carries `retry` so a
+    429 mid-pagination is ridden through (Retry-After) instead of aborting.
     """
     url = teams_mod.conversation_messages_url(base, conversation_id, page_size=page_size)
     collected = []
     pages = 0
     try:
         while url:
-            resp = http.request('GET', url, token=access_token, headers=_ACCEPT_JSON, debug=debug)
+            resp = http.request('GET', url, token=access_token, headers=_ACCEPT_JSON,
+                                 retry=retry, debug=debug)
             payload = resp.json if isinstance(resp.json, dict) else {}
             messages = payload.get('messages')
             if not isinstance(messages, list):
