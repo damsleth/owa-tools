@@ -37,10 +37,10 @@ from .tui_sort import sort_messages as _sort_messages
 PAGE_SIZE = 50
 
 HELP_LINE = (
-    'j/k move  l/→ pane  Enter full  u/d half-page  o browser  r read  / search  Esc menu  q quit'
+    'j/k move  l/Tab pane  Enter full  u/d half-page  o browser  r read  / search  Esc menu  q quit'
 )
 PANE_HELP_LINE = (
-    'j/k scroll  u/d half-page  h/← back to list  g/G top/bot  Enter full  o browser  q quit'
+    'j/k scroll  u/d half-page  Tab/h/← back to list  g/G top/bot  Enter full  o browser  q quit'
 )
 
 
@@ -475,6 +475,12 @@ def _handle_menu_action(stdscr, state, action, config, api_base, token, debug):
 
 def _loop(stdscr, state, api_base, token, debug, config):
     curses.curs_set(0)
+    try:
+        curses.use_default_colors()
+        curses.init_pair(1, -1, -1)
+        stdscr.bkgd(' ', curses.color_pair(1))
+    except curses.error:
+        pass
     stdscr.keypad(True)
     while True:
         # Lazily load the selected message body so the reading pane shows it.
@@ -521,6 +527,8 @@ def _loop(stdscr, state, api_base, token, debug, config):
                 state.menu = Menu(screen='top')
             elif ch == ord('q'):
                 return
+            elif ch == ord('\t') and pane_on:
+                state.focus = 'pane' if state.focus == 'list' else 'list'
             elif state.focus == 'pane' and pane_on:
                 # Focus is in the reading pane: j/k/u/d scroll the body.
                 if ch in (ord('h'), curses.KEY_LEFT):
