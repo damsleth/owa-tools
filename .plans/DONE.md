@@ -4,6 +4,15 @@ Completed plans, newest first. The detailed plan files move to
 [`.plans/done/`](done/) as historical record, each with a status banner
 pointing back here.
 
+- **owa-vids merge** — standalone `owa-vids` script merged into the monorepo
+  as the thirteenth binary: token-only Teams/OneDrive meeting-recap DASH
+  downloader (`info`/`get`/`check`/`config`), refactored onto `owa_core`
+  primitives with one sanctioned exception (`owa_vids.http.Http` keep-alive
+  for svc.ms). Shipped in **v0.8.0** (`d2f5502`, 2026-06-03,
+  `feat(owa-vids): add meeting-recap video downloader as 13th binary`),
+  released 2026-06-05 with the `hugr vids` verb and Homebrew tap bump.
+  Plan: [done/merge-owa-vids.md](done/merge-owa-vids.md).
+
 - **owa-teams** — read-only Microsoft Teams consumer CLI (`teams`, `channels`,
   `chats`, `messages`, `meetings`) over Graph + the chatsvc `teams` audience.
   Phase 1 shipped in **v0.7.0** (`eadbfb8`, 2026-06-02,
