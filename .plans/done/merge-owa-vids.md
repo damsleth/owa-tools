@@ -1,5 +1,11 @@
 # owa-vids merge into owa-tools
 
+> **Status: SHIPPED** — landed in **v0.8.0** (`d2f5502`, 2026-06-03,
+> `feat(owa-vids): add meeting-recap video downloader as 13th binary`),
+> released 2026-06-05. All twelve steps complete: package, registry, docs,
+> completions, contract tests, `src/tests/vids/` (63 tests), `hugr vids`
+> router wiring, and the Homebrew tap bump. See [../DONE.md](../DONE.md).
+
 _Created 2026-06-03_
 
 Merge the standalone `owa-vids` script into the owa-tools monorepo as a first-class package `src/owa_vids/`, shipped as the 13th binary (`owa-vids`) and wired as `hugr vids`. The package downloads Microsoft Teams / OneDrive meeting-recap DASH streams using token-only auth (no browser cookies, no decryption) and muxes them to MP4 via ffmpeg.

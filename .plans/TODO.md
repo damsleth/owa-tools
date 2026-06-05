@@ -9,11 +9,6 @@
 
 ## Larger plans (standalone files)
 
-- [ ] **owa-vids merge** — IN PROGRESS: `src/owa_vids/` package scaffolded and
-  registered (pyproject scripts/packages, `owa_core.registry`, suite
-  scripts/contract tests updated), all uncommitted. Remaining: owa_vids test
-  suite, commit, `hugr vids` router wiring, Homebrew tap bump.
-  [merge-owa-vids.md](merge-owa-vids.md).
 - [ ] **owa-graph explorer TUI** — interactive curses FOCI-audience explorer for
   owa-graph. Not started; phased multi-agent build spec in
   [owa-graph-explorer-tui.md](owa-graph-explorer-tui.md).
@@ -23,5 +18,5 @@
 ## Done
 
 Completed plans are archived in [done/](done/) and logged in [DONE.md](DONE.md)
-(owa-teams, owa-shifts closed-as-blocked, owa-mail TUI overhaul, owa-doctor
-siblings cross-check, multi-profile fan-out).
+(owa-vids merge, owa-teams, owa-shifts closed-as-blocked, owa-mail TUI
+overhaul, owa-doctor siblings cross-check, multi-profile fan-out).
