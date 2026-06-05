@@ -6,7 +6,7 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
-## Unreleased
+## v0.8.0 - 2026-06-05
 
 ### owa-vids (new)
 
@@ -39,6 +39,12 @@ per-tool subsections inside that release when useful.
   verb. The fan-out bursts enough calls to trip chatsvc's limiter; previously
   a single 429 dropped a whole team's channels. Each Graph/chatsvc read carries
   a default retry budget (`api.DEFAULT_RETRY`); pass `retry=0` to opt out.
+
+### owa-mail
+
+- `tui`: Tab toggles focus between the message list and the reading pane
+  (no-op when the pane is hidden); help lines updated and curses default
+  colors initialized on loop entry.
 
 ## v0.7.0 - 2026-06-02
 
