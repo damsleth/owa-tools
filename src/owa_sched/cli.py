@@ -409,7 +409,7 @@ def _main(argv):
     if argv[0] in ('help', '--help', '-h'):
         print_help()
         return 0
-    if argv[0] == '--version':
+    if argv[0] in ('--version', '-v'):
         print(f'owa-sched {__version__}')
         return 0
 
