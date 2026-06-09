@@ -2,8 +2,8 @@
 
 Each binary's main() goes through owa_core.modes.run_with_output_modes,
 which intercepts --doctor before the legacy dispatcher. This contract
-test exercises the actual entry points to pin the schema hugr doctor
-will fan out over.
+test exercises the actual entry points to pin the schema that
+downstream doctor consumers fan out over.
 """
 from __future__ import annotations
 
