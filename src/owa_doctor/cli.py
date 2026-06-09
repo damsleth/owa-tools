@@ -172,7 +172,7 @@ def _main(argv):
     if argv and argv[0] in ('-h', '--help', 'help'):
         print_help()
         return 0
-    if argv and argv[0] == '--version':
+    if argv and argv[0] in ('--version', '-v'):
         print(f'owa-doctor {__version__}')
         return 0
     if argv and argv[0] == 'probe':

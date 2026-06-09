@@ -40,6 +40,11 @@ def test_all_tools_expose_help_and_version():
         assert "Traceback" not in version_result.stderr
         versions.add(version_result.stdout.strip().split()[-1])
 
+        # `-v` is a short alias for `--version` on every consumer binary.
+        short_result = _run_module(module, "-v")
+        assert short_result.returncode == 0, f"{module} -v failed: {short_result.stderr!r}"
+        assert short_result.stdout == version_result.stdout
+
     assert len(versions) == 1
 
 
