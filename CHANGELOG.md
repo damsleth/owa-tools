@@ -6,6 +6,17 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## v0.9.0 - 2026-06-09
+
+- **Standalone binary releases.** Each tagged release now attaches a
+  per-OS/arch tarball (Linux x86_64, macOS x86_64, macOS arm64) containing a
+  single PyInstaller bundle plus a symlink for every console script - run the
+  whole suite with no Python install. Built via `packaging/owa.spec`.
+- `-v` is now accepted as a short alias for `--version` on every consumer
+  binary and the `owa` umbrella.
+- Decoupled from the internal "hugr" suite framing; owa-tools is documented
+  and packaged as a fully standalone CLI suite. No behavior change.
+
 ## v0.8.0 - 2026-06-05
 
 ### owa-vids (new)
