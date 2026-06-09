@@ -236,6 +236,7 @@ COMMANDS = {
     "--help": cmd_help,
     "-h": cmd_help,
     "--version": cmd_version,
+    "-v": cmd_version,
 }
 
 
