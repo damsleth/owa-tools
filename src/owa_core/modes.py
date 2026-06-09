@@ -56,7 +56,7 @@ def envelope(tool, command, data):
 
 
 def is_doctor_invocation(argv):
-    """Return True only for the top-level hugr --doctor surface.
+    """Return True only for the top-level --doctor surface.
 
     Command-specific arguments may legitimately contain the literal
     string ``--doctor`` as a value. Treat it as doctor mode only when
@@ -115,7 +115,7 @@ def run_with_output_modes(
     byte-identical to a single-profile run. Set False to opt out (the doctor
     surface does so, since `--doctor` is tool-global).
     """
-    # Top-level --doctor per hugr CONVENTIONS.md. Intercept before
+    # Top-level --doctor surface. Intercept before
     # the legacy dispatcher so every owa-* binary picks it up via the
     # shared entry point. --json flips it to machine mode.
     if is_doctor_invocation(argv):

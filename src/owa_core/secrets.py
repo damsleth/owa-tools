@@ -21,8 +21,8 @@ AUTH_HEADER_RE = re.compile(
 CLIENT_SECRET_RE = re.compile(
     r'(?i)(client_secret\s*[:=]\s*[\'"]?)([A-Za-z0-9._~+/=-]{12,})'
 )
-# Message-content fields per hugr CONVENTIONS.md ("Body fields named
-# body, content, text"). Not a secret *shape* but message content -
+# Message-content fields (body fields named body, content, text).
+# Not a secret *shape* but message content -
 # email/event/task bodies that must never reach logs or stderr (e.g. the
 # debug request-body print in owa_core.http). Scrub the JSON string value
 # while keeping the key so log structure stays readable. The exact-key

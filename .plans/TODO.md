@@ -1,6 +1,6 @@
 # TODO
 
-- [ ] optional --pretty renderer for action commands (low priority; only if a human renderer is wanted) — migrated from hugr/.plans
+- [ ] optional --pretty renderer for action commands (low priority; only if a human renderer is wanted)
 - [ ] add owa-mail functionality for resetting settings to default
 - [ ] add owa-mail functionality for switching profiles
 - [ ] add owa-mail "all inboxes" view across multiple/all stored profiles
