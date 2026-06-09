@@ -12,12 +12,9 @@ No Azure AD app registration. No third-party runtime dependencies. Auth piggybac
 on the OWA browser session via [`owa-piggy`](https://github.com/damsleth/owa-piggy)
 - separate package, separate token store, never imported.
 
-## Suite
-
-`owa-tools` is a standalone M365 read/write CLI suite. Every `owa-*`
-binary shares one CLI contract (output classes, exit codes, JSON
-envelopes) so they behave consistently and compose cleanly in scripts
-and pipelines. Auth is brokered separately by owa-piggy.
+Every `owa-*` binary shares one CLI contract - the same output classes, exit
+codes, and JSON envelopes - so they behave consistently and compose cleanly in
+scripts and pipelines.
 
 ## Install
 
