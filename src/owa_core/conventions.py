@@ -1,4 +1,4 @@
-"""owa-tools implementation of the hugr suite CLI contract.
+"""owa-tools CLI contract surface.
 
 Shared across all eleven owa-* binaries (owa, owa-cal, owa-mail,
 owa-graph, owa-doctor, owa-people, owa-sched, owa-drive, owa-todo,
@@ -6,26 +6,22 @@ owa-planner, owa-sites). Each binary's cli.py imports from here so the
 contract is enforced once.
 
 The wire contract (action/error envelopes, NDJSON streaming, the
-doctor payload shape, the 0-5 exit-code taxonomy) is specified by
-CONVENTIONS.md in the hugr repo. owa-tools keeps a self-contained
-hand-copy of it here rather than depending on a separate package, so
-the suite stays a single pip-installable distribution with no
-third-party runtime dependency. The implementation mirrors
-yaams/conventions.py and ledger/conventions.py.
+doctor payload shape, the 0-5 exit-code taxonomy) is defined and
+maintained by owa-tools itself. It is kept self-contained here rather
+than depending on a separate package, so the suite stays a single
+pip-installable distribution with no third-party runtime dependency.
 
 Reuses owa_core.secrets.redact() as the redaction primitive (richer
 than the suite floor: it also scrubs attachment paths), re-exported
 here so ``conventions.redact is owa_core.secrets.redact``.
 
-The EXIT_* constants here intentionally use the hugr 0-5 taxonomy
-(see CONVENTIONS.md in the hugr repo). That range is distinct from
-the main owa-tools exit-code taxonomy (0/2/10-15/20 defined in
+The EXIT_* constants here intentionally use a dedicated 0-5 taxonomy
+for the --doctor surface. That range is distinct from the main
+owa-tools exit-code taxonomy (0/2/10-15/20 defined in
 owa_core.errors.ExitCode) and applies only to the --doctor surface
 emitted by emit_doctor(). AGENTS.md documents the carve-out under
 "Exit Codes". Tools that need the main taxonomy should raise an
 OwaError subclass instead of returning one of these constants.
-
-See https://github.com/damsleth/hugr/blob/main/CONVENTIONS.md.
 """
 
 from __future__ import annotations
@@ -49,7 +45,7 @@ def _resolve_version(_tool: str | None = None) -> str:
         return "0.0.0"
 
 
-# hugr --doctor exit-code range. See module docstring; not the main
+# --doctor exit-code range. See module docstring; not the main
 # owa-tools taxonomy in owa_core.errors.ExitCode.
 EXIT_OK = 0
 EXIT_USER_ERROR = 1
@@ -128,7 +124,7 @@ def data_error(
 def emit_data_error(envelope, stream=None) -> None:
     """Write a data-class error envelope on stdout.
 
-    Per hugr CONVENTIONS.md, structured JSON output - including
+    By convention, structured JSON output - including
     failure envelopes - travels on stdout so consumers parse one
     stream with one discriminator (the reserved-key `ok` field).
     This is a deliberate carve-out from the owa-tools house rule
@@ -194,7 +190,7 @@ def _run_default_doctor(tool: str) -> DoctorPayload:
     """Default per-binary doctor: redaction-sentinel check + config probe.
 
     Each binary can extend by appending findings before calling
-    emit_doctor(). For hugr's fan-out only the shape is contractual.
+    emit_doctor(). For downstream consumers only the shape is contractual.
     """
     payload = DoctorPayload(tool=tool)
 

@@ -10,7 +10,7 @@ pointing back here.
   primitives with one sanctioned exception (`owa_vids.http.Http` keep-alive
   for svc.ms). Shipped in **v0.8.0** (`d2f5502`, 2026-06-03,
   `feat(owa-vids): add meeting-recap video downloader as 13th binary`),
-  released 2026-06-05 with the `hugr vids` verb and Homebrew tap bump.
+  released 2026-06-05 with a Homebrew tap bump.
   Plan: [done/merge-owa-vids.md](done/merge-owa-vids.md).
 
 - **owa-teams** — read-only Microsoft Teams consumer CLI (`teams`, `channels`,

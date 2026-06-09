@@ -3,18 +3,18 @@
 > **Status: SHIPPED** — landed in **v0.8.0** (`d2f5502`, 2026-06-03,
 > `feat(owa-vids): add meeting-recap video downloader as 13th binary`),
 > released 2026-06-05. All twelve steps complete: package, registry, docs,
-> completions, contract tests, `src/tests/vids/` (63 tests), `hugr vids`
-> router wiring, and the Homebrew tap bump. See [../DONE.md](../DONE.md).
+> completions, contract tests, `src/tests/vids/` (63 tests),
+> and the Homebrew tap bump. See [../DONE.md](../DONE.md).
 
 _Created 2026-06-03_
 
-Merge the standalone `owa-vids` script into the owa-tools monorepo as a first-class package `src/owa_vids/`, shipped as the 13th binary (`owa-vids`) and wired as `hugr vids`. The package downloads Microsoft Teams / OneDrive meeting-recap DASH streams using token-only auth (no browser cookies, no decryption) and muxes them to MP4 via ffmpeg.
+Merge the standalone `owa-vids` script into the owa-tools monorepo as a first-class package `src/owa_vids/`, shipped as the 13th binary (`owa-vids`). The package downloads Microsoft Teams / OneDrive meeting-recap DASH streams using token-only auth (no browser cookies, no decryption) and muxes them to MP4 via ffmpeg.
 
 ## Goal
 
 - Deliver `owa-vids` as `src/owa_vids/` inside the monorepo, registered in every hardcoded list in the suite.
 - Refactor auth, config, errors, and HTTP onto `owa_core` primitives (`owa_core.auth`, `owa_core.config`, `owa_core.http`, `owa_core.errors`, `owa_core.modes`). Retain novel domain code (manifest parsing, DASH timeline expansion, segment loop, SPO identity resolution) verbatim from `owa-vids`.
-- Wire `hugr vids` in `~/code/hugr/src/hugr/router.py` and bump the Homebrew tap formula.
+- Bump the Homebrew tap formula.
 - **ZERO new third-party runtime dependencies** — confirmed below; no resolution needed.
 
 ## Current state (from survey)
@@ -74,7 +74,6 @@ The entire tool is a single file `owa-vids` (677 lines). No package structure. N
 - `src/scripts/check_console_smoke.py:15–25` — `TOOLS` has 10 entries ending at `"owa-sites"` (missing `owa-teams`).
 - `src/scripts/check_docs_sync.py:27–38` — `DOCS` dict has 11 entries ending at `'owa-teams'`.
 - `src/completions/` — only `owa-graph.{bash,zsh,fish}` exist; no per-tool completions for newer packages.
-- `~/code/hugr/src/hugr/router.py:280–334` — TABLE has `("drive",)` mapping at line ~326 as the last owa-tools entry; `("teams",)`, `("vids",)` are absent.
 - `~/code/homebrew-tap/Formula/owa-tools.rb:21` — binary test list has 12 entries; `owa-vids` absent.
 
 ## Design decisions
@@ -270,7 +269,7 @@ Verify:
 
 **`AGENTS.md:8`**: update suite description count. Current reads `"eleven console scripts"` (stale). Update to `"thirteen console scripts"` and list all 13. Add `` | `src/owa_vids/AGENTS.md` | `` row to the Repository Map table after `src/owa_teams/AGENTS.md`.
 
-**`CHANGELOG.md:9`**: add `### owa-vids (new)` subsection under `## Unreleased`. Include: token-only DASH download pipeline, `info`/`get`/`check`/`config` verbs, `--manifest-url` and `--embed-url` sources, ffmpeg mux, `hugr vids` verb, no third-party deps.
+**`CHANGELOG.md:9`**: add `### owa-vids (new)` subsection under `## Unreleased`. Include: token-only DASH download pipeline, `info`/`get`/`check`/`config` verbs, `--manifest-url` and `--embed-url` sources, ffmpeg mux, no third-party deps.
 
 ### Step 9 — Shell completions
 
@@ -282,28 +281,7 @@ Create three new files following `src/completions/owa-graph.{bash,zsh,fish}` pat
 
 Commands to complete: `info get check config` plus their aliases (`show download probe`). Global flags: `--profile`, `--debug`, `--version`, `--help`. Command-specific: `--manifest-url`, `--embed-url`, `--region`, `--out`, `--workdir`, `--video-only`, `--audio-only`, `--pretty`, `--set-profile`.
 
-### Step 10 — Wire `hugr vids`
-
-Edit `~/code/hugr/src/hugr/router.py`. After the `("drive",)` block (around line 334), add:
-
-```python
-  ("vids",): Mapping(
-    binary="owa-vids",
-    rewrite=_passthrough([]),
-    description="Download Teams / OneDrive meeting-recap DASH streams to MP4",
-    json_policy="native",
-    verbose_env=("VIDS_DEBUG", "1"),
-  ),
-```
-
-Usage after wiring:
-
-```bash
-hugr vids info --manifest-url '...' --profile swon --pretty
-hugr vids get  --embed-url '...' --profile swon -o meeting.mp4
-```
-
-### Step 11 — Update Homebrew tap
+### Step 10 — Update Homebrew tap
 
 After a PyPI release, edit `~/code/homebrew-tap/Formula/owa-tools.rb`:
 
@@ -421,7 +399,6 @@ def clean_env(monkeypatch):
 ## Out of scope
 
 - **`recap-dl.py` (AES-CBC decryption)**: dropped entirely. Not merged. If an encrypted manifest is encountered, `parse_manifest` raises `UsageError` with an informative message.
-- **`hugr teams` verb**: `owa-teams` is not yet wired in hugr's `router.py`. Wiring `hugr vids` does not block on it.
 - **Live integration tests**: no test in this plan requires a real Microsoft 365 tenant. All tests mock at the `Http.get` or `subprocess.run` boundary.
 - **`--out -` (pipe to stdout)**: binary-stdout mode for `get` is out of scope for v1.
 - **Write operations** (upload, delete): `owa-vids` is a read-only consumer; no mutations, no `--confirm` machinery.

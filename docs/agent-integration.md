@@ -57,7 +57,7 @@ owa-mail --doctor --json
 owa --doctor          # suite-wide
 ```
 
-The `--doctor` payload uses the hugr 0-5 health taxonomy (distinct from the
+The `--doctor` payload uses a dedicated 0-5 health taxonomy (distinct from the
 0/2/10-15/20 command-path taxonomy below). `owa-doctor probe` is the richer
 per-profile, per-audience health check.
 

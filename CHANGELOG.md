@@ -16,8 +16,7 @@ per-tool subsections inside that release when useful.
   `*-mediap.svc.ms` host with an SPO Bearer token, serially download fmp4
   segments with resume + mid-download token refresh, and mux via
   `ffmpeg -c copy`. Thirteenth console script; registered in the suite
-  registry, README, docs, contract tests, and shell completions, and wired as
-  `hugr vids`.
+  registry, README, docs, contract tests, and shell completions.
 - Verbs: `info` (probe title/duration/resolution/tracks, alias `show`),
   `get` (download + mux, alias `download`), `check` (validate auth +
   manifest + first segments, alias `probe`), and `config` (cached media
@@ -284,17 +283,16 @@ Resolves four findings from the 2026-05-27 review
 ## v0.3.1 - 2026-05-27
 
 The 0.3 feature set ships as v0.3.1. The v0.3.0 tag was pushed but never
-published: 0.3.0 declared a hard runtime dependency on `hugr-conventions`,
-which is not on PyPI, so the wheel was uninstallable
-(`No matching distribution found for hugr-conventions>=0.1`) and its
-release CI failed at the install step before producing any artifact (no
-GitHub Release, nothing on PyPI). Per "fix forward, don't force-push
-tags," the dead tag is left in place and the features land here.
+published: 0.3.0 declared a hard runtime dependency on a shared
+conventions package that is not on PyPI, so the wheel was uninstallable
+and its release CI failed at the install step before producing any
+artifact (no GitHub Release, nothing on PyPI). Per "fix forward, don't
+force-push tags," the dead tag is left in place and the features land here.
 
 ### Packaging
 
 - Fixed: `owa-tools` is stdlib-only again with **no third-party runtime
-  dependency**. The shared `hugr-conventions` package introduced in the
+  dependency**. The shared conventions package introduced in the
   0.3 line is dropped; the CLI-contract surface (action/error envelopes,
   NDJSON helpers, the doctor payload, and the 0-5 `--doctor` exit-code
   taxonomy) is vendored back into `owa_core.conventions` as a
@@ -457,15 +455,15 @@ Improves the agent-facing CLI contract by adding per-subcommand help across the 
 
 ## v0.1.2 - 2026-05-12
 
-Adds the hugr CLI contract surface across the suite and fixes a batch of
+Adds the CLI contract surface across the suite and fixes a batch of
 contract-drift bugs caught by self-review. No breaking changes to the
 0/2/10-20 exit-code taxonomy; the `--doctor` 0-5 taxonomy is a documented
 carve-out.
 
 - New: every `owa-*` binary now accepts a top-level `--doctor` flag that
-  emits the shared hugr doctor payload (tool, suite version, findings).
+  emits the shared doctor payload (tool, suite version, findings).
   `owa doctor` still shells out to `owa-doctor` for back-compat.
-- New: `owa_core.conventions` ports the hugr contract helpers
+- New: `owa_core.conventions` provides the contract helpers
   (`action_envelope`, `data_error`, `DoctorPayload`, `DoctorFinding`,
   `EXIT_*` constants) and re-exports `owa_core.secrets.redact`.
 - Fix: 43 sites across 12 `owa-graph` resource modules were emitting
@@ -481,14 +479,14 @@ carve-out.
 - Fix: `owa_drive` `api_put_binary` raises `UsageError` on the 4MB
   guard, so callers exit 2 instead of 1.
 - Contract: structured failure envelopes from `emit_data_error` now go
-  to stdout (matching the hugr CONVENTIONS one-stream rule that
+  to stdout (matching the one-stream rule that
   `gh api`, `aws`, `kubectl -o json`, and `terraform output -json` also
   follow). Free-text errors, tracebacks, and progress still go to
   stderr.
 - Tests: moved a hidden test file from `src/owa_core/tests/` into
   `src/tests/core/` so pytest's `testpaths` discovers it. Coverage
   jumped from 84% to 97% on `owa_core`.
-- Docs: README points at the hugr suite. `AGENTS.md` documents the
+- Docs: README describes the standalone suite. `AGENTS.md` documents the
   `--doctor` 0-5 carve-out alongside the main exit-code taxonomy.
 
 ## v0.1.1 - 2026-05-11

@@ -7,15 +7,12 @@
 > `test_siblings_match_per_binary_doctor` (`pytest.skip` when a binary is off
 > PATH). See [../DONE.md](../DONE.md).
 
-_Migrated 2026-05-29 from `hugr/.plans/` — this is owa-tools-local test work, so
-it belongs here, not in the hugr repo. (hugr only consumes `owa-doctor`'s
-aggregate output and never imports owa-tools — the loose-coupling axiom.)_
+_This is owa-tools-local test work. Downstream consumers only read
+`owa-doctor`'s aggregate output and never import owa-tools — the
+loose-coupling axiom._
 
-> **Stale-reference note:** the original plan cited `AUDIT.md` (item 9, lines
-> 132-136 and the sibling roster at line 54). That file was **retired** in hugr
-> (commit `2f6782a`, 2026-05-29). The cross-check below is self-contained;
-> source the real payload shapes from the binaries themselves, not from the
-> dead AUDIT.md.
+> **Note:** the cross-check below is self-contained; source the real
+> payload shapes from the binaries themselves.
 
 ## Goal
 
