@@ -6,6 +6,24 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## v0.10.0 - 2026-06-12
+
+- **New tool: `owa-ado`.** A fourteenth consumer binary, an Azure DevOps CLI
+  over the REST API, authenticated through owa-piggy with the `devops`
+  audience (a profile that brokers the non-FOCI Azure DevOps client's token).
+  Commands: `projects`, `sprints`, `wi` (WIQL list / show by id), `wi-create`,
+  `wi-update`, `repos`, `prs` (list / show), `pipelines`, `runs`, `refresh`,
+  `config`. Per-tool config stores `owa_piggy_profile`, `ado_org`, and
+  `ado_project` so the common case needs no flags.
+- DevOps-specific mechanics live behind `owa_ado.api`: every request carries
+  an `api-version`; list endpoints page on the `x-ms-continuationtoken`
+  response header; work-item create/update use the `application/json-patch+json`
+  media type; WIQL caps via the `$top` query param (no `TOP` clause); and path
+  segments are percent-encoded so team names with spaces resolve.
+- Registered in `owa_core.registry`, so the umbrella `owa` binary and
+  `owa-doctor` pick it up automatically. Docs at `docs/ado.md`, wired into the
+  docs-sync gate.
+
 ## v0.9.0 - 2026-06-09
 
 - **Standalone binary releases.** Each tagged release now attaches a
