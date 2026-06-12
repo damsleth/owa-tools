@@ -19,6 +19,7 @@ RUNTIME_DIRS = [
     'owa_sites',
     'owa_teams',
     'owa_vids',
+    'owa_ado',
 ]
 
 

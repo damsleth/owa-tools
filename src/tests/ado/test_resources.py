@@ -1,0 +1,98 @@
+"""Pure-transform coverage for owa_ado.resources (no I/O)."""
+from owa_ado import resources as res
+
+
+def test_normalize_project():
+    out = res.normalize_project({
+        'id': 'p1', 'name': 'NOCOS', 'state': 'wellFormed',
+        'visibility': 'private', 'lastUpdateTime': '2022', 'url': 'u',
+        'description': 'd',
+    })
+    assert out == {
+        'id': 'p1', 'name': 'NOCOS', 'description': 'd', 'state': 'wellFormed',
+        'visibility': 'private', 'lastUpdate': '2022', 'url': 'u',
+    }
+
+
+def test_normalize_iteration_flattens_attributes():
+    out = res.normalize_iteration({
+        'id': 'i1', 'name': 'CD 1', 'path': 'NOCOS\\CD 1',
+        'attributes': {'startDate': 'a', 'finishDate': 'b', 'timeFrame': 'current'},
+    })
+    assert out['timeFrame'] == 'current'
+    assert out['startDate'] == 'a' and out['finishDate'] == 'b'
+
+
+def test_normalize_work_item_pulls_fields_and_identity():
+    out = res.normalize_work_item({
+        'id': 12, 'url': 'u',
+        'fields': {
+            'System.WorkItemType': 'Task', 'System.Title': 'T',
+            'System.State': 'Active',
+            'System.AssignedTo': {'displayName': 'Kim', 'uniqueName': 'k@x'},
+            'System.IterationPath': 'NOCOS\\CD 1',
+        },
+    })
+    assert out['id'] == 12
+    assert out['type'] == 'Task'
+    assert out['assignedTo'] == 'Kim'
+    assert out['iteration'] == 'NOCOS\\CD 1'
+
+
+def test_identity_accepts_bare_string():
+    out = res.normalize_work_item({'id': 1, 'fields': {'System.AssignedTo': 'plain'}})
+    assert out['assignedTo'] == 'plain'
+
+
+def test_normalize_repo_strips_refs_prefix():
+    out = res.normalize_repo({
+        'id': 'r', 'name': 'NOCOS', 'defaultBranch': 'refs/heads/main',
+        'project': {'name': 'NOCOS'}, 'webUrl': 'w', 'size': 10,
+    })
+    assert out['defaultBranch'] == 'main'
+    assert out['project'] == 'NOCOS'
+
+
+def test_normalize_pr_strips_branch_prefixes():
+    out = res.normalize_pr({
+        'pullRequestId': 7, 'title': 'x', 'status': 'active',
+        'createdBy': {'displayName': 'Kim'},
+        'repository': {'name': 'NOCOS-Main'},
+        'sourceRefName': 'refs/heads/feature', 'targetRefName': 'refs/heads/main',
+    })
+    assert out['id'] == 7
+    assert out['sourceBranch'] == 'feature' and out['targetBranch'] == 'main'
+    assert out['repo'] == 'NOCOS-Main'
+
+
+def test_normalize_build():
+    out = res.normalize_build({
+        'id': 1, 'buildNumber': '20260611.1', 'status': 'completed',
+        'result': 'succeeded', 'definition': {'name': 'CI'},
+        'sourceBranch': 'refs/heads/main', 'requestedFor': {'displayName': 'Kim'},
+    })
+    assert out['pipeline'] == 'CI'
+    assert out['branch'] == 'main'
+    assert out['requestedFor'] == 'Kim'
+
+
+def test_build_wiql_defaults_to_mine_and_orders():
+    q = res.build_wiql(project='NOCOS', mine=True)
+    assert q.startswith('SELECT [System.Id] FROM workitems WHERE ')
+    assert "[System.TeamProject] = 'NOCOS'" in q
+    assert '[System.AssignedTo] = @Me' in q
+    assert q.endswith('ORDER BY [System.ChangedDate] DESC')
+    # WIQL has no TOP clause; must never appear.
+    assert 'TOP' not in q
+
+
+def test_build_wiql_filters_and_escapes_quotes():
+    q = res.build_wiql(project="O'Brien", state='Active', wi_type='Bug')
+    assert "[System.TeamProject] = 'O''Brien'" in q
+    assert "[System.State] = 'Active'" in q
+    assert "[System.WorkItemType] = 'Bug'" in q
+
+
+def test_build_wiql_no_filters_has_no_where():
+    q = res.build_wiql()
+    assert 'WHERE' not in q
