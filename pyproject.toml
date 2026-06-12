@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "owa-tools"
-version = "0.9.0"
+version = "0.10.0"
 description = "Monorepo workspace for owa-piggy consumer CLIs"
 readme = "README.md"
 license = "MIT"
@@ -42,6 +42,7 @@ owa-planner = "owa_planner:main"
 owa-sites = "owa_sites:main"
 owa-teams = "owa_teams:main"
 owa-vids = "owa_vids:main"
+owa-ado = "owa_ado:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -62,6 +63,7 @@ packages = [
   "owa_sites",
   "owa_teams",
   "owa_vids",
+  "owa_ado",
 ]
 
 [tool.setuptools.package-data]
@@ -96,6 +98,7 @@ source = [
   "owa_sites",
   "owa_teams",
   "owa_vids",
+  "owa_ado",
 ]
 omit = ["*/__main__.py"]
 
