@@ -30,10 +30,10 @@ PyPI:
 pipx install owa-piggy && pipx install owa-tools
 ```
 
-Either path lands thirteen binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
+Either path lands fourteen binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
 `owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`, `owa-todo`,
-`owa-planner`, `owa-sites`, `owa-teams`, `owa-vids`) plus the `owa-piggy` auth
-broker.
+`owa-planner`, `owa-sites`, `owa-teams`, `owa-vids`, `owa-ado`) plus the
+`owa-piggy` auth broker.
 
 ## Quickstart
 
@@ -76,6 +76,7 @@ passed straight through.
 | `owa-sites` | SharePoint (read-only) via SharePoint REST: site, lists, items, files, search. |
 | `owa-teams` | Microsoft Teams (read-only): joined teams, channels, chats, and channel/chat messages (threaded). |
 | `owa-vids` | Download Teams / OneDrive meeting-recap DASH streams and mux to MP4 (token-only, via ffmpeg). |
+| `owa-ado` | Azure DevOps: work items (WIQL), boards/sprints, repos & pull requests, pipelines & runs. Auth via `owa-piggy --audience devops`. |
 | `owa` | Umbrella: suite meta (`owa list`, `owa schema`, `owa version`, `owa --doctor`) plus `owa <tool> ...` pass-through dispatch (e.g. `owa cal events`). |
 
 ## Multi-account / profiles
