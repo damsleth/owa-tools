@@ -1,5 +1,4 @@
 """Coverage for owa-ado help/version/config/refresh and flag parsing."""
-import json
 
 import pytest
 
