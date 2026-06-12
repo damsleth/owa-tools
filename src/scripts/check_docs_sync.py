@@ -11,6 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from owa import cli as umbrella_cli  # noqa: E402
+from owa_ado.cli import COMMAND_SCHEMA as ADO_SCHEMA  # noqa: E402
 from owa_cal.cli import COMMAND_SCHEMA as CAL_SCHEMA  # noqa: E402
 from owa_doctor.cli import COMMAND_SCHEMA as DOCTOR_SCHEMA  # noqa: E402
 from owa_drive.cli import COMMAND_SCHEMA as DRIVE_SCHEMA  # noqa: E402
@@ -38,6 +39,7 @@ DOCS = {
     'owa-sites': ('docs/sites.md', SITES_SCHEMA),
     'owa-teams': ('docs/teams.md', TEAMS_SCHEMA),
     'owa-vids': ('docs/vids.md', VIDS_SCHEMA),
+    'owa-ado': ('docs/ado.md', ADO_SCHEMA),
 }
 
 SHELL_FENCES = {'', 'sh', 'bash', 'shell', 'console'}
