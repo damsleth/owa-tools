@@ -80,6 +80,20 @@ def test_main_routes_messages_channel(monkeypatch, capsys, stub_chatsvc):
     assert out[1]['threadId'] == '19:c@thread.tacv2:8'
 
 
+def test_main_messages_since_forwarded(monkeypatch, capsys, stub_chatsvc):
+    seen = {}
+    monkeypatch.setattr(cli.api_mod, 'chatsvc_messages',
+                        lambda base, cid, tok, **k: seen.update(k=k) or [])
+    assert cli._main(['messages', '--chat', '19:x@unq.gbl.spaces', '--since', '2026-06-01']) == 0
+    assert seen['k']['since_dt'] is not None
+    capsys.readouterr()
+
+
+def test_main_messages_since_invalid_is_usage_error(stub_chatsvc):
+    with pytest.raises(cli.UsageError, match='ISO-8601'):
+        cli._main(['messages', '--chat', 'c', '--since', 'notadate'])
+
+
 def test_main_routes_messages_chat_is_flat(monkeypatch, capsys, stub_chatsvc):
     monkeypatch.setattr(cli.api_mod, 'chatsvc_messages', lambda base, cid, tok, **k: [
         {'id': '1', 'messagetype': 'Text', 'content': 'hi', 'imdisplayname': 'A', 'from': '8:orgid:A'},

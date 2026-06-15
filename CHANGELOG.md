@@ -33,6 +33,14 @@ per-tool subsections inside that release when useful.
   lists-of-objects still fall back to indented JSON, where structure stays
   legible.
 
+### owa-teams
+
+- **`owa-teams messages --since <iso>`.** Bounds a channel/chat read to a time
+  floor: paging stops as soon as a `backwardLink` page reaches past the cutoff
+  (no point following the cursor into strictly older pages), and the result is
+  trimmed to messages at/after that time. Accepts a full ISO-8601 timestamp or a
+  bare date; messages with no parseable timestamp are kept.
+
 ## v0.10.0 - 2026-06-12
 
 - **New tool: `owa-ado`.** A fourteenth consumer binary, an Azure DevOps CLI

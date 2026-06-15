@@ -94,7 +94,10 @@ A channel message normalizes to:
 
 System events and empty bodies are dropped by default; pass `--all` to keep
 them. Messages are returned oldest-first; the chat service is paged backward via
-its `backwardLink` cursor, bounded by `--limit` pages.
+its `backwardLink` cursor, bounded by `--limit` pages. `--since <iso>` adds a
+time floor: paging stops as soon as a page reaches past the cutoff (no point
+following `backwardLink` into strictly older pages), and the result is trimmed to
+messages at/after that time. Messages with no parseable timestamp are kept.
 
 ---
 
@@ -114,6 +117,7 @@ owa-teams messages --channel "19:abc@thread.tacv2" --pretty       # channel post
 owa-teams messages --channel "19:abc@thread.tacv2" --team <id> --limit 4
 owa-teams messages --chat "19:def@unq.gbl.spaces"                 # a flat chat thread
 owa-teams messages --channel "19:abc@thread.tacv2" --all          # include system events
+owa-teams messages --chat "19:def@unq.gbl.spaces" --since 2026-06-01  # only since a date
 
 owa-teams config --region amer                            # pin the chatsvc region
 owa-teams config --profile work                           # pin a default profile

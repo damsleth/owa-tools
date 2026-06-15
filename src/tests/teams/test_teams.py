@@ -1,6 +1,43 @@
 """Pure-function tests for owa_teams.teams (builders, normalizers, threading)."""
 
+import datetime as dt
+
 from owa_teams import teams
+
+# --- ISO timestamp parsing ----------------------------------------------------
+
+def test_parse_iso_handles_z_suffix():
+    assert teams.parse_iso('2026-06-01T12:00:00Z') == dt.datetime(2026, 6, 1, 12, tzinfo=dt.timezone.utc)
+
+
+def test_parse_iso_trims_overlong_fractional_seconds():
+    # chatsvc emits 7-digit fractions, which fromisoformat rejects.
+    parsed = teams.parse_iso('2026-06-02T08:17:12.4940000Z')
+    assert parsed == dt.datetime(2026, 6, 2, 8, 17, 12, 494000, tzinfo=dt.timezone.utc)
+
+
+def test_parse_iso_bare_date_is_midnight_utc():
+    assert teams.parse_iso('2026-06-01') == dt.datetime(2026, 6, 1, tzinfo=dt.timezone.utc)
+
+
+def test_parse_iso_assumes_utc_for_naive():
+    assert teams.parse_iso('2026-06-01T00:00:00') == dt.datetime(2026, 6, 1, tzinfo=dt.timezone.utc)
+
+
+def test_parse_iso_rejects_garbage_and_empty():
+    assert teams.parse_iso('not-a-date') is None
+    assert teams.parse_iso('') is None
+    assert teams.parse_iso(None) is None
+    assert teams.parse_iso('   ') is None
+
+
+def test_message_datetime_reads_arrival_then_compose():
+    assert teams.message_datetime({'originalarrivaltime': '2026-06-01T00:00:00Z'}) == \
+        dt.datetime(2026, 6, 1, tzinfo=dt.timezone.utc)
+    assert teams.message_datetime({'composetime': '2026-06-02T00:00:00Z'}) == \
+        dt.datetime(2026, 6, 2, tzinfo=dt.timezone.utc)
+    assert teams.message_datetime({}) is None
+
 
 # --- HTML stripping -----------------------------------------------------------
 

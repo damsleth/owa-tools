@@ -17,6 +17,7 @@ roots carry `properties.subject`. So one flat pass reconstructs every thread:
 Verified live 2026-06-02. Chats, by contrast, are genuinely flat - one chat is
 one thread.
 """
+import datetime as _dt
 import html as _html
 import re
 import urllib.parse
@@ -50,6 +51,38 @@ def strip_html(text):
 
 def _q(value):
     return urllib.parse.quote(str(value), safe='')
+
+
+# A trailing fractional-second run longer than microseconds (chatsvc emits 7
+# digits) is what trips datetime.fromisoformat; trim it back to 6.
+_OVERLONG_FRACTION_RE = re.compile(r'^(.*\.\d{6})\d+(.*)$')
+
+
+def parse_iso(value):
+    """Parse an ISO-8601 timestamp into an aware UTC datetime, or None.
+
+    Tolerates a trailing ``Z`` and chatsvc's 7-digit fractional seconds (which
+    ``datetime.fromisoformat`` rejects) by trimming the fraction to microseconds.
+    A bare date (``2026-06-01``) parses as midnight UTC. Naive inputs are read as
+    UTC. Returns ``None`` for empty/unparseable values so callers can decide.
+    """
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith(('Z', 'z')):
+        text = text[:-1] + '+00:00'
+    match = _OVERLONG_FRACTION_RE.match(text)
+    if match:
+        text = match.group(1) + match.group(2)
+    try:
+        parsed = _dt.datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=_dt.timezone.utc)
+    return parsed.astimezone(_dt.timezone.utc)
 
 
 # --- Graph endpoint builders --------------------------------------------------
@@ -157,6 +190,11 @@ def _sender(message):
 
 def _timestamp(message):
     return message.get('originalarrivaltime') or message.get('composetime') or ''
+
+
+def message_datetime(message):
+    """The message's arrival time as an aware UTC datetime, or None if absent."""
+    return parse_iso(_timestamp(message))
 
 
 def is_system_message(message):
