@@ -1,9 +1,15 @@
 """Tests for owa_teams.api (Graph + chatsvc HTTP helpers). No network."""
+import datetime as dt
+
 import pytest
 
 from owa_core import errors
 from owa_core.http import Response
 from owa_teams import api as api_mod
+
+
+def _utc(*parts):
+    return dt.datetime(*parts, tzinfo=dt.timezone.utc)
 
 
 def _resp(json_obj):
@@ -95,6 +101,35 @@ def test_chatsvc_messages_respects_max_pages(monkeypatch):
     out = api_mod.chatsvc_messages('https://t/v1', 'c', 'tok', max_pages=3)
     assert len(calls) == 3
     assert len(out) == 3
+
+
+def test_chatsvc_messages_since_stops_paging_and_filters(monkeypatch):
+    pages = [
+        {'messages': [{'id': '3', 'originalarrivaltime': '2026-06-10T00:00:00Z'}],
+         '_metadata': {'backwardLink': 'https://t/p2'}},
+        {'messages': [{'id': '2', 'originalarrivaltime': '2026-06-05T00:00:00Z'},
+                      {'id': '1', 'originalarrivaltime': '2026-05-01T00:00:00Z'}],
+         '_metadata': {'backwardLink': 'https://t/p3'}},
+    ]
+    calls = []
+
+    def fake_request(method, url, **k):
+        resp = _resp(pages[len(calls)])
+        calls.append(url)
+        return resp
+
+    monkeypatch.setattr(api_mod.http, 'request', fake_request)
+    out = api_mod.chatsvc_messages('https://t/v1', 'c', 'tok', since_dt=_utc(2026, 6, 1))
+    # Page 2 dips below the cutoff -> stop after it; the May message is filtered.
+    assert len(calls) == 2
+    assert [m['id'] for m in out] == ['3', '2']
+
+
+def test_chatsvc_messages_since_keeps_unparseable_timestamps(monkeypatch):
+    monkeypatch.setattr(api_mod.http, 'request', lambda *a, **k: _resp(
+        {'messages': [{'id': 'x'}], '_metadata': {}}))
+    out = api_mod.chatsvc_messages('https://t/v1', 'c', 'tok', since_dt=_utc(2026, 6, 1))
+    assert [m['id'] for m in out] == ['x']
 
 
 def test_chatsvc_messages_stops_on_non_list_payload(monkeypatch):
