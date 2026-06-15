@@ -111,9 +111,9 @@ class TestSettingsNavigation:
 
     def test_move_clamps_at_settings_last_item(self):
         m = _settings_menu()
-        # 5 setting fields + "Back" = 6 items → max index 5
+        # 5 setting fields + "Reset to defaults" + "Back" = 7 items → max index 6
         m.move(100)
-        assert m.cursor == 5
+        assert m.cursor == 6
 
     def test_back_resets_to_top(self):
         m = _settings_menu()
@@ -196,9 +196,14 @@ class TestSettingsSelect:
         m._cursor = 4  # date_custom
         assert m.select(_default_settings()) == "edit_custom"
 
+    def test_reset_row_returns_reset_settings(self):
+        m = _settings_menu()
+        m._cursor = 5  # "Reset to defaults" (index after the 5 fields)
+        assert m.select(_default_settings()) == "reset_settings"
+
     def test_back_row_returns_back(self):
         m = _settings_menu()
-        m._cursor = 5  # "Back" (index after the 5 fields)
+        m._cursor = 6  # "Back" (after the 5 fields + Reset)
         assert m.select(_default_settings()) == "back"
 
     def test_select_without_settings_object_falls_back_to_cycle(self):
@@ -246,21 +251,23 @@ class TestItemsForSettings:
         s = _Settings(reading_pane="bottom", split_ratio=40, sort_by="sender",
                       date_format="ddmm", date_custom="%d/%m")
         rows = m.items_for_settings(s)
-        # Five setting rows + Back
-        assert len(rows) == 6
+        # Five setting rows + Reset to defaults + Back
+        assert len(rows) == 7
         assert any("bottom" in r for r in rows), rows
         assert any("40" in r for r in rows), rows
         assert any("sender" in r for r in rows), rows
         assert any("ddmm" in r for r in rows), rows
         assert any("%d/%m" in r for r in rows), rows
+        assert rows[-2] == "Reset to defaults"
         assert rows[-1] == "Back"
 
     def test_rows_show_label_and_value(self):
         m = _settings_menu()
         s = _default_settings()
         rows = m.items_for_settings(s)
-        # Each row (except Back) should look like "Label: value"
-        for row in rows[:-1]:
+        # Each of the five setting rows should look like "Label: value"
+        # (the trailing "Reset to defaults" / "Back" rows are bare labels).
+        for row in rows[:5]:
             assert ":" in row, f"Expected 'Label: value' format, got: {row!r}"
 
     def test_default_settings_reflected(self):
@@ -387,7 +394,7 @@ class TestScreenTransitions:
         assert action == "open_settings"
         m.open_settings()
         assert m.screen == "settings"
-        m._cursor = 5  # "Back"
+        m._cursor = 6  # "Back"
         assert m.select(_default_settings()) == "back"
         m.back()
         assert m.screen == "top"

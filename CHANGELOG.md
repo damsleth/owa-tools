@@ -45,6 +45,13 @@ per-tool subsections inside that release when useful.
   single-valued `config.teams_region`. Normalized like the config value; falls
   back to the configured/default region when omitted.
 
+### owa-mail
+
+- **TUI: "Reset to defaults" in the settings menu.** The `Esc` → Settings
+  screen gains a row that restores every view setting (reading pane, split
+  ratio, sort order, date format/custom) to its default in one step and persists
+  immediately — no need to cycle each field back by hand.
+
 ## v0.10.0 - 2026-06-12
 
 - **New tool: `owa-ado`.** A fourteenth consumer binary, an Azure DevOps CLI
