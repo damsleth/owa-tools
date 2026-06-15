@@ -405,3 +405,136 @@ def test_fan_out_disabled_passes_full_argv_once():
     # Repeated --profile is NOT fanned out; the full filtered argv is passed
     # once (the doctor opt-out path).
     assert seen == [['--profile', 'a', '--profile', 'b', 'messages']]
+
+
+# --- `--profile all` / -A / --all-profiles meta-profile ----------------------
+
+
+def _patch_profiles(monkeypatch, rows):
+    """Stub the broker registry that _resolve_all_meta_profile reads."""
+    from owa_core.auth import BrokerProfile
+
+    profiles = [
+        BrokerProfile(
+            alias=r['alias'],
+            default=r.get('default', False),
+            registered=r.get('registered', True),
+            has_config=r.get('has_config', True),
+        )
+        for r in rows
+    ]
+    monkeypatch.setattr('owa_core.auth.get_profiles', lambda **_kw: profiles)
+
+
+def test_all_meta_profile_expands_to_eligible(monkeypatch, capsys):
+    _patch_profiles(monkeypatch, [{'alias': 'a'}, {'alias': 'b'}])
+
+    def dispatch(argv):
+        print('{"id":"' + argv[-1] + '"}')
+        return 0
+
+    rc = modes.run_with_output_modes('owa-mail', ['--profile', 'all', 'messages'], dispatch)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload['_owa']['profiles'] == ['a', 'b']
+    assert [r['profile'] for r in payload['results']] == ['a', 'b']
+
+
+def test_all_aliases_normalize_identically(monkeypatch, capsys):
+    def run(argv):
+        _patch_profiles(monkeypatch, [{'alias': 'a'}, {'alias': 'b'}])
+        modes.run_with_output_modes(
+            'owa-mail', argv, lambda av: print('{"id":"' + av[-1] + '"}') or 0
+        )
+        return capsys.readouterr().out
+
+    canonical = run(['--profile', 'all', 'messages'])
+    assert run(['-A', 'messages']) == canonical
+    assert run(['--all-profiles', 'messages']) == canonical
+
+
+def test_all_meta_single_profile_still_keyed(monkeypatch, capsys):
+    # Output shape follows intent, not count: one eligible profile under `all`
+    # still produces the profile-keyed multi shape, not the flat single path.
+    _patch_profiles(monkeypatch, [{'alias': 'solo'}])
+
+    rc = modes.run_with_output_modes(
+        'owa-mail', ['--profile', 'all', 'messages'], lambda _av: print('{"id":"1"}') or 0
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload['_owa']['profiles'] == ['solo']
+    assert [r['profile'] for r in payload['results']] == ['solo']
+
+
+def test_all_meta_excludes_inactive_and_configless(monkeypatch, capsys):
+    _patch_profiles(monkeypatch, [
+        {'alias': 'active'},
+        {'alias': 'inactive', 'registered': False},
+        {'alias': 'configless', 'has_config': False},
+    ])
+
+    rc = modes.run_with_output_modes(
+        'owa-mail', ['--profile', 'all', 'messages'], lambda av: print('{}') or 0
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload['_owa']['profiles'] == ['active']
+
+
+def test_all_meta_reserved_name_is_hard_error(monkeypatch, capsys):
+    _patch_profiles(monkeypatch, [{'alias': 'all'}, {'alias': 'a'}])
+    launched = []
+
+    rc = modes.run_with_output_modes(
+        'owa-mail', ['--profile', 'all', 'messages'],
+        lambda _av: launched.append(True) or 0,
+    )
+
+    assert rc == 2
+    assert launched == []
+    assert 'reserved meta-profile name' in capsys.readouterr().err
+
+
+def test_all_meta_no_active_profiles_errors(monkeypatch, capsys):
+    _patch_profiles(monkeypatch, [{'alias': 'x', 'has_config': False}])
+
+    rc = modes.run_with_output_modes(
+        'owa-mail', ['--profile', 'all', 'messages'], lambda _av: print('{}') or 0
+    )
+
+    assert rc == 2
+    assert 'no active profiles' in capsys.readouterr().err
+
+
+def test_all_meta_refuses_interactive(monkeypatch, capsys):
+    _patch_profiles(monkeypatch, [{'alias': 'a'}, {'alias': 'b'}])
+    launched = []
+
+    rc = modes.run_with_output_modes(
+        'owa-mail', ['-A', 'tui'],
+        lambda _av: launched.append(True) or 0,
+        interactive_commands=('tui',),
+    )
+
+    assert rc == 2
+    assert launched == []
+    assert 'cannot fan out' in capsys.readouterr().err
+
+
+def test_all_meta_merges_with_explicit_profile(monkeypatch, capsys):
+    # Explicit profiles given alongside `all` are kept and de-duplicated.
+    _patch_profiles(monkeypatch, [{'alias': 'a'}, {'alias': 'b'}])
+
+    rc = modes.run_with_output_modes(
+        'owa-mail', ['--profile', 'b', '--profile', 'all', 'messages'],
+        lambda av: print('{"id":"' + av[-1] + '"}') or 0,
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    # b seen first, then a from the `all` expansion (b not repeated).
+    assert payload['_owa']['profiles'] == ['b', 'a']

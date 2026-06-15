@@ -66,7 +66,9 @@ complete -c owa-graph -l debug    -d "Print HTTP requests and response bodies on
 complete -c owa-graph -l verbose  -d "Alias for --debug"
 complete -c owa-graph -l version  -d "Print version and exit"
 complete -c owa-graph -l help     -d "Show help and exit"
-complete -c owa-graph -l profile  -d "owa-piggy profile alias" -r
+complete -c owa-graph -l profile  -d "owa-piggy profile alias (or 'all' to fan out)" -r
+complete -c owa-graph -l all-profiles -d "Fan out across every active profile"
+complete -c owa-graph -o A         -d "Fan out across every active profile"
 complete -c owa-graph -l body     -d "Request body (JSON, @file, or -)" -r
 complete -c owa-graph -l header   -d "Extra header K=V" -r
 complete -c owa-graph -l query    -d "OData query parameter K=V" -r

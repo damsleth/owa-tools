@@ -21,7 +21,9 @@ complete -c owa-vids -n "__fish_is_first_token" -a "help" -d "Show help" -f
 
 # --- global flags ------------------------------------------------------------
 
-complete -c owa-vids -l profile -d "owa-piggy profile alias" -x
+complete -c owa-vids -l profile -d "owa-piggy profile alias (or 'all' to fan out)" -x
+complete -c owa-vids -l all-profiles -d "Fan out across every active profile"
+complete -c owa-vids -o A -d "Fan out across every active profile"
 complete -c owa-vids -l debug -d "Verbose HTTP / ffmpeg / auth detail" -f
 complete -c owa-vids -l verbose -d "Alias for --debug" -f
 complete -c owa-vids -l version -d "Print the suite version" -f

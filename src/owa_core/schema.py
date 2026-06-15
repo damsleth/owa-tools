@@ -39,7 +39,11 @@ MULTI_PROFILE_HELP = """Multi-profile fan-out:
                        failure never aborts the others. Fan-out exit code is
                        0 (all ok), 2 (some ok, some failed), or 1 (all failed).
                        Interactive (tui) and binary-output commands cannot fan
-                       out - run them once per --profile instead."""
+                       out - run them once per --profile instead.
+  --profile all        Fan out across every active, configured profile. Aliases:
+  -A, --all-profiles   Always uses the merged, profile-keyed shape above, even
+                       for a single profile. `all` is a reserved name; no
+                       profile may be named it."""
 
 
 def flag(name, *, value=None, summary='', required=False, repeatable=False):
