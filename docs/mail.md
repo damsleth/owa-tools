@@ -225,7 +225,8 @@ The **Settings** menu (under `Esc`) persists to `~/.config/owa-mail/config`
 and configures the reading pane placement (`off`/`right`/`bottom`), the
 list/pane split ratio, the sort order (date newest/oldest, sender, subject,
 unread-first) and the date format (ISO 8601, `DD.MM`, `DD.MM HH:MM`, or a
-custom strftime string).
+custom strftime string). A **Reset to defaults** row restores every setting to
+its default in one step (and persists immediately).
 
 It needs a real terminal and refuses to run under `--agent` or a pipe (there
 is no JSON to emit) - use `read` or `messages` for scripted access.
