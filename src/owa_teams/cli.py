@@ -109,6 +109,8 @@ Messages:
   messages --chat <id>           Chat conversation id (19:...@unq.gbl.spaces);
                                  flat message list.
   --team <id>                    Team id, echoed into channel-message metadata.
+  --region <region>              Chatsvc region for this call only (emea/amer/...);
+                                 overrides config.teams_region.
   --since <iso>                  Only messages at/after this ISO-8601 time; stops
                                  paging older once the cutoff is crossed.
   --limit <n>                    Max pages to fetch (default 4, ~50 msgs/page).
@@ -118,6 +120,7 @@ Auth:
   Enumeration (teams/channels/chats) uses the Graph token. Message bodies use
   an ic3-audience token against the regional chat service. The region defaults
   to 'emea'; pin another with: owa-teams config --region <emea|amer|apac|...>
+  or override a single read with: owa-teams messages ... --region <region>
 
 Examples:
   owa-teams teams --pretty
@@ -198,7 +201,7 @@ def cmd_chats(args, config):
 
 
 def cmd_messages(args, config):
-    channel = chat = team = since = ''
+    channel = chat = team = since = region = ''
     limit = 4
     pretty = include_system = False
     while args:
@@ -209,6 +212,8 @@ def cmd_messages(args, config):
             chat, args = _require_value(flag, args)
         elif flag == '--team':
             team, args = _require_value(flag, args)
+        elif flag == '--region':
+            region, args = _require_value(flag, args)
         elif flag == '--since':
             since, args = _require_value(flag, args)
         elif flag == '--limit':
@@ -230,7 +235,7 @@ def cmd_messages(args, config):
             raise UsageError(f'--since requires an ISO-8601 timestamp, got: {since}')
 
     debug = _debug_enabled(config)
-    access_token, base = auth_mod.chatsvc_setup(config, debug=debug)
+    access_token, base = auth_mod.chatsvc_setup(config, debug=debug, region=region)
     conversation_id = channel or chat
     raw = api_mod.chatsvc_messages(
         base, conversation_id, access_token,
@@ -331,6 +336,7 @@ _MESSAGES_FLAGS = [
     schema_mod.flag('--channel', value='<conv-id>', summary='Channel conversation id (threaded)'),
     schema_mod.flag('--chat', value='<conv-id>', summary='Chat conversation id (flat)'),
     schema_mod.flag('--team', value='<team-id>', summary='Team id, echoed into channel metadata'),
+    schema_mod.flag('--region', value='<region>', summary='Chatsvc region for this call only (overrides config)'),
     schema_mod.flag('--since', value='<iso>', summary='Only messages at/after this ISO-8601 time (stops paging older)'),
     schema_mod.flag('--limit', value='<n>', summary='Max pages to fetch (default 4)'),
     schema_mod.flag('--all', summary='Include system events and empty bodies'),
