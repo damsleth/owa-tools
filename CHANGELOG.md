@@ -6,6 +6,20 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## Unreleased
+
+### owa-graph
+
+- **`--pretty` now renders a single shallow object as a key/value table.**
+  Previously `--pretty` only tabled known collection shapes (users, messages,
+  drives, …) and fell through to indented JSON for everything else — so
+  `owa-graph get /me --pretty` was just reformatted JSON. A single object whose
+  values are all scalars or lists of scalars (the common case for `/me`,
+  `get <id>`, and mutation responses) now prints as an aligned two-column table;
+  `@odata.*` metadata keys are dropped. Objects with nested objects or
+  lists-of-objects still fall back to indented JSON, where structure stays
+  legible.
+
 ## v0.10.0 - 2026-06-12
 
 - **New tool: `owa-ado`.** A fourteenth consumer binary, an Azure DevOps CLI

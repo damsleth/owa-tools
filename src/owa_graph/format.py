@@ -375,11 +375,65 @@ def _format_drive_items(items):
     ) or '(no items)'
 
 
+def _is_scalar(v):
+    # None / str / int / float / bool render as a single table cell. bool
+    # is a subclass of int, so it's covered by the isinstance check.
+    return v is None or isinstance(v, (str, int, float, bool))
+
+
+def _looks_like_shallow_object(payload):
+    # A single (non-collection) Graph object whose every value is a scalar
+    # or a list of scalars - the shape a key/value table renders cleanly.
+    # `@odata.*` metadata keys don't count against shallowness. Nested
+    # objects or lists-of-objects fall through to indented JSON, where the
+    # structure stays legible.
+    if not isinstance(payload, dict):
+        return False
+    if isinstance(payload.get('value'), list):
+        return False  # collection - handled by the shape detectors above
+    has_field = False
+    for key, val in payload.items():
+        if isinstance(key, str) and key.startswith('@odata.'):
+            continue
+        has_field = True
+        if _is_scalar(val):
+            continue
+        if isinstance(val, list) and all(_is_scalar(x) for x in val):
+            continue
+        return False
+    return has_field
+
+
+def _scalar_cell(val):
+    if isinstance(val, bool):
+        return 'true' if val else 'false'
+    if val is None:
+        return ''
+    if isinstance(val, list):
+        return ', '.join(_scalar_cell(x) for x in val)
+    return str(val)
+
+
+def _format_object(payload):
+    # Aligned two-column key/value table for a shallow object. `@odata.*`
+    # metadata keys are dropped as noise; list values are comma-joined.
+    rows = [
+        (key, _scalar_cell(val))
+        for key, val in payload.items()
+        if not (isinstance(key, str) and key.startswith('@odata.'))
+    ]
+    if not rows:
+        return '(no fields)'
+    key_w = max(len(k) for k, _ in rows)
+    return '\n'.join(f'{_pad(k, key_w)}  {v}' for k, v in rows)
+
+
 def format_pretty(payload):
     """Best-effort pretty printer.
 
     Recognises Graph-style collection responses (`{value: [...]}`) for a
-    few common shapes; otherwise indents the JSON. Always returns a
+    few common shapes and renders a single shallow object (e.g. `/me`) as
+    a key/value table; otherwise indents the JSON. Always returns a
     string ready for `print()`."""
     if isinstance(payload, dict) and isinstance(payload.get('value'), list):
         items = payload['value']
@@ -414,6 +468,8 @@ def format_pretty(payload):
                 return _format_messages(items)
             if _looks_like_drive_items(items):
                 return _format_drive_items(items)
+    if _looks_like_shallow_object(payload):
+        return _format_object(payload)
     if isinstance(payload, (dict, list)):
         return json.dumps(payload, indent=2, ensure_ascii=False)
     return str(payload)
