@@ -6,7 +6,7 @@ import os
 import sys
 
 from .errors import OwaError, UsageError, emit_error
-from .profiles_args import parse_profiles
+from .profiles_args import ALL_PROFILES, normalize_all_flags, parse_profiles
 from .schema import SCHEMA_VERSION
 from .version import suite_version
 
@@ -125,9 +125,23 @@ def run_with_output_modes(
     agent, err_json, filtered = split_mode_flags(argv)
 
     profiles = []
+    all_requested = False
     if fan_out_profiles:
-        profiles, rest = parse_profiles(filtered)
-    if fan_out_profiles and len(profiles) > 1:
+        profiles, rest = parse_profiles(normalize_all_flags(filtered))
+        if ALL_PROFILES in profiles:
+            all_requested = True
+            try:
+                profiles = _resolve_all_meta_profile(
+                    profiles, tool=tool, debug=('--debug' in filtered),
+                )
+            except OwaError as error:
+                return emit_error(
+                    error, tool=tool, command=command_name(rest), err_json=err_json,
+                )
+    # Output shape follows intent, not count: an explicit "all" request always
+    # takes the multi-profile path (profile-keyed records) even for a single
+    # eligible profile, so consumers never special-case a length-1 result.
+    if fan_out_profiles and (all_requested or len(profiles) > 1):
         return _run_multi_profile(
             tool, rest, profiles, dispatch,
             agent=agent, err_json=err_json,
@@ -200,6 +214,38 @@ def run_with_output_modes(
         json.dump(envelope(tool, command, data), sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write('\n')
         return 0
+
+
+def _resolve_all_meta_profile(profiles, *, tool, debug):
+    """Expand the reserved `all` token into every eligible broker profile.
+
+    Eligible = active (registered with the broker) AND configured. Config-less
+    or inactive profiles are not part of "all". `all` is a reserved name: a real
+    profile aliased `all` is a hard usage error, since it would make the
+    meta-profile ambiguous. Other profile values given alongside `all` are kept,
+    de-duplicated, in first-seen order.
+    """
+    from owa_core.auth import get_profiles
+
+    rows = get_profiles(tool_name=tool, debug=debug)
+    if any(row.alias == ALL_PROFILES for row in rows):
+        raise UsageError(
+            "'all' is a reserved meta-profile name; rename the profile aliased "
+            "'all' in owa-piggy to use --profile all / -A / --all-profiles",
+        )
+    eligible = [row.alias for row in rows if row.registered and row.has_config]
+    if not eligible:
+        raise UsageError(
+            'no active profiles to fan out across; run `owa-piggy login` first',
+        )
+    resolved = []
+    seen = set()
+    for value in profiles:
+        for name in (eligible if value == ALL_PROFILES else [value]):
+            if name not in seen:
+                seen.add(name)
+                resolved.append(name)
+    return resolved
 
 
 def _multi_exit_code(records):

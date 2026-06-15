@@ -13,7 +13,7 @@ _owa_vids() {
 
     local commands="info get check config schema help"
     local aliases="show download probe"
-    local global_flags="--profile --debug --verbose --version --help"
+    local global_flags="--profile --all-profiles -A --debug --verbose --version --help"
     local source_flags="--manifest-url --embed-url --region"
     local get_flags="--out -o --workdir --video-only --audio-only --pretty"
     local config_flags="--region --set-profile --profile"

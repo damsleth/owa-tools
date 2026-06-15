@@ -8,6 +8,30 @@ import sys
 
 _PROFILE_FLAGS = ('--profile', '-p')
 
+# Reserved meta-profile value: `--profile all` (and the `-A` / `--all-profiles`
+# aliases below) fan out across every eligible profile. A real profile may not
+# be named this; `modes` enforces that at resolution time.
+ALL_PROFILES = 'all'
+_ALL_PROFILE_FLAGS = ('-A', '--all-profiles')
+
+
+def normalize_all_flags(argv):
+    """Rewrite the `-A` / `--all-profiles` aliases to `--profile all`.
+
+    Pure/syntactic: collapses the short and long spellings to the single
+    canonical `--profile all` form so the rest of the fan-out path only ever
+    deals with one token. Order-stable, and idempotent against an explicit
+    `--profile all` already present (``parse_profiles`` de-dups the value).
+    """
+    out = []
+    for arg in argv:
+        if arg in _ALL_PROFILE_FLAGS:
+            out.append('--profile')
+            out.append(ALL_PROFILES)
+        else:
+            out.append(arg)
+    return out
+
 
 def parse_profiles(argv):
     """Extract repeated --profile/-p flags from argv.

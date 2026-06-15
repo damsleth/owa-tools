@@ -15,7 +15,7 @@ _owa_graph() {
     audiences=(graph outlook outlook365 teams azure keyvault storage sql substrate manage powerbi flow devops)
     flags=(
         --pretty --ndjson --retry --all --raw --curl --az --beta
-        --debug --verbose --version --help --profile --body --header
+        --debug --verbose --version --help --profile --all-profiles -A --body --header
         --query --select --top --filter --count --search --audience
     )
 
