@@ -40,6 +40,10 @@ per-tool subsections inside that release when useful.
   (no point following the cursor into strictly older pages), and the result is
   trimmed to messages at/after that time. Accepts a full ISO-8601 timestamp or a
   bare date; messages with no parseable timestamp are kept.
+- **`owa-teams messages --region <region>`.** Per-call chatsvc region override
+  (`emea`/`amer`/`apac`/...), so a multi-region profile no longer depends on the
+  single-valued `config.teams_region`. Normalized like the config value; falls
+  back to the configured/default region when omitted.
 
 ## v0.10.0 - 2026-06-12
 

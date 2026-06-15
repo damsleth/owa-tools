@@ -44,6 +44,20 @@ def test_chatsvc_setup_defaults_to_emea(monkeypatch):
     assert base.endswith('/chatsvc/emea/v1')
 
 
+def test_chatsvc_setup_region_override_wins_over_config(monkeypatch):
+    monkeypatch.setattr(auth_mod._core, 'get_token_for_config',
+                        lambda config, **k: _fake_token())
+    _token, base = auth_mod.chatsvc_setup({'teams_region': 'emea'}, region='  APAC ')
+    assert base.endswith('/chatsvc/apac/v1')
+
+
+def test_chatsvc_setup_empty_region_override_falls_back_to_config(monkeypatch):
+    monkeypatch.setattr(auth_mod._core, 'get_token_for_config',
+                        lambda config, **k: _fake_token())
+    _token, base = auth_mod.chatsvc_setup({'teams_region': 'amer'}, region='')
+    assert base.endswith('/chatsvc/amer/v1')
+
+
 def test_resolve_region():
     assert auth_mod.resolve_region({}) == 'emea'
     assert auth_mod.resolve_region({'teams_region': '  APAC '}) == 'apac'
