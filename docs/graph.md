@@ -54,8 +54,10 @@ on every call it shells out to `owa-piggy token --audience graph
 request with the right base URL and Bearer header.
 
 - JSON on stdout, logs on stderr.
-- `--pretty` prints tables for users / messages / drive items, indented
-  JSON for everything else.
+- `--pretty` prints tables for known collection shapes (users, groups,
+  messages, drives, sites, calendars, planner / to-do tasks, …) and renders a
+  single shallow object (e.g. `GET /me`) as a key/value table; it falls back to
+  indented JSON for nested objects and anything else.
 - `--curl` and `--az` print the equivalent shell command instead of
   executing - useful for sharing, scripting, or piping into `pbcopy`.
   By default the `Authorization` header renders a `$OWA_TOKEN`
