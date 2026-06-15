@@ -197,6 +197,23 @@ def test_handle_menu_action_cycle_persists(monkeypatch):
     assert 'tui_reading_pane' in cfg  # written for persistence
 
 
+def test_handle_menu_action_reset_settings(monkeypatch):
+    monkeypatch.setattr(tui, '_save_config', lambda c: None)
+    # Start from a fully non-default settings snapshot.
+    st = tui._State(_msgs(6), "Inbox",
+                    Settings(reading_pane='bottom', split_ratio=40, sort_by='sender',
+                             date_format='ddmm', date_custom='%d/%m'))
+    cfg = {}
+    quit_ = tui._handle_menu_action(FakeScreen(), st, 'reset_settings', cfg,
+                                    "base", "tok", False)
+    assert quit_ is False
+    assert st.settings == tui._SETTINGS_DEFAULTS
+    # Defaults were persisted to config.
+    assert cfg['tui_reading_pane'] == 'right'
+    assert cfg['tui_sort_by'] == 'date_desc'
+    assert 'reset' in st.status.lower()
+
+
 def test_handle_menu_action_quit():
     st = _state('off')
     assert tui._handle_menu_action(FakeScreen(), st, 'quit', {}, "base", "tok", False) is True

@@ -18,6 +18,7 @@ Strings returned by ``select()``:
     back            Navigate back (settings → top)
     cycle:<field>   Cycle the named setting to its next allowed value
     edit_custom     Open a text-entry prompt for ``date_custom``
+    reset_settings  Restore every setting to its default value
     help            Open the help screen
     none            No-op (e.g. cursor out of range)
 """
@@ -168,7 +169,8 @@ class Menu:
             return list(_TOP_ITEMS)
         # settings screen: placeholder action; resolved in select()
         meta = _get_settings_meta()
-        return [(m["label"], m["field"]) for m in meta] + [("Back", "back")]
+        return ([(m["label"], m["field"]) for m in meta]
+                + [("Reset to defaults", "reset"), ("Back", "back")])
 
     def items_for_settings(self, settings: Any) -> list[str]:
         """Return display labels for the settings screen (includes current values)."""
@@ -178,6 +180,7 @@ class Menu:
             field = m["field"]
             value = getattr(settings, field, "")
             rows.append(f"{m['label']}: {value}")
+        rows.append("Reset to defaults")
         rows.append("Back")
         return rows
 
@@ -225,6 +228,8 @@ class Menu:
         label, field = items[self._cursor]
         if field == "back":
             return "back"
+        if field == "reset":
+            return "reset_settings"
         if settings is None:
             # No settings object – fall back to cycle
             return f"cycle:{field}"
@@ -352,6 +357,7 @@ def _build_content(screen: str, cursor: int, settings: Any) -> list[str]:
             field = m["field"]
             value = getattr(settings, field, "")
             rows_with_back.append((f"{m['label']}: {value}", field))
+        rows_with_back.append(("Reset to defaults", "reset"))
         rows_with_back.append(("Back", "back"))
 
         for i, (label, _) in enumerate(rows_with_back):

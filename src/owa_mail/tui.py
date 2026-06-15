@@ -27,6 +27,7 @@ from .tui_layout import list_row as _layout_list_row
 from .tui_layout import regions as _regions
 from .tui_layout import wrap_body as _wrap_body
 from .tui_menu import Menu
+from .tui_settings import DEFAULTS as _SETTINGS_DEFAULTS
 from .tui_settings import cycle as _cycle_setting
 from .tui_settings import from_config as _settings_from_config
 from .tui_settings import to_config_dict as _settings_to_config_dict
@@ -455,6 +456,10 @@ def _handle_menu_action(stdscr, state, action, config, api_base, token, debug):
     elif action == 'help':
         state.menu_open = False
         state.status = HELP_LINE
+    elif action == 'reset_settings':
+        state.settings = _SETTINGS_DEFAULTS
+        _persist_settings(state, config)
+        state.status = 'settings reset to defaults'
     elif action.startswith('cycle:'):
         field = action[len('cycle:'):]
         state.settings = _cycle_setting(state.settings, field)
