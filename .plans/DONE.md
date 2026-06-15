@@ -54,3 +54,4 @@ pointing back here.
   Homebrew tap `damsleth/homebrew-tap` bumped 0.5.0 → 0.6.2
   (`Formula/owa-tools.rb`, GitHub source archive). cj-owa-tools skill updated in
   `skills-private`. (Patch bump: docs + tests over already-shipped behaviour.)
+- [x] owa --pretty: render shallow/simple objects (e.g. owa-graph get /me) as a table instead of JSON; make --pretty do more than just pretty-print JSON (2026-06-15)

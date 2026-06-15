@@ -32,7 +32,8 @@ def test_mutating_delete_pretty_and_ndjson(monkeypatch, capsys):
 
     monkeypatch.setattr(ctx_mod.api_mod, "api_request", lambda *args, **kwargs: {"id": "1"})
     assert _ctx(pretty=True).post("/me/sendMail", {"x": 1}) == 0
-    assert '"id": "1"' in capsys.readouterr().out
+    # --pretty renders the shallow result as a key/value table, not JSON.
+    assert capsys.readouterr().out.strip() == "id  1"
 
     assert _ctx(ndjson=True).patch("/me", {"x": 1}) == 0
     assert capsys.readouterr().out.strip() == '{"id": "1"}'

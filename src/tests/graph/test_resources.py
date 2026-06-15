@@ -155,18 +155,20 @@ def test_mail_delete_sends_delete(monkeypatch):
     assert seen['endpoint'].endswith('/me/messages/abc')
 
 
-def test_me_whoami_pretty_indents_json(monkeypatch, capsys):
+def test_me_whoami_pretty_renders_table(monkeypatch, capsys):
     """--pretty must be peeled off by the dispatcher before the handler
-    sees argv (otherwise _argv.parse rejects it as unknown). For a single
-    object format_pretty falls through to indented JSON."""
+    sees argv (otherwise _argv.parse rejects it as unknown). A single
+    shallow object renders as a key/value table, not JSON."""
     def _fake(method, base, endpoint, token, **k):
         return {'displayName': 'Kim', 'mail': 'kim@example.com'}
     monkeypatch.setattr(cli.api_mod, 'api_request', _fake)
     rc = _run(monkeypatch, 'me', 'whoami', '--pretty')
     out = capsys.readouterr().out
     assert rc == 0
-    # Indented form has newlines between fields; default JSON is one line.
-    assert '\n  "displayName"' in out
+    # Key/value table - no JSON braces, one aligned row per field.
+    assert '{' not in out
+    assert 'displayName  Kim' in out
+    assert 'mail         kim@example.com' in out
 
 
 def test_me_whoami_default_emits_json(monkeypatch, capsys):
