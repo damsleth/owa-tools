@@ -69,8 +69,26 @@ def graph_paginate(base, endpoint, access_token, debug=False, max_pages=50, retr
         return None
 
 
+def _page_reaches_before(messages, since_dt):
+    """True once a page holds any message older than the cutoff.
+
+    chatsvc pages newest-first and each `backwardLink` page is strictly older, so
+    the first page that dips below `since_dt` is the last one worth fetching.
+    """
+    for message in messages:
+        when = teams_mod.message_datetime(message)
+        if when is not None and when < since_dt:
+            return True
+    return False
+
+
+def _within_since(message, since_dt):
+    when = teams_mod.message_datetime(message)
+    return when is None or when >= since_dt
+
+
 def chatsvc_messages(base, conversation_id, access_token, *, page_size=50, max_pages=20,
-                     debug=False, retry=DEFAULT_RETRY):
+                     since_dt=None, debug=False, retry=DEFAULT_RETRY):
     """Fetch a conversation's chatsvc message stream, following backwardLink.
 
     Returns the concatenated raw `messages` (newest-first across pages), or
@@ -78,6 +96,11 @@ def chatsvc_messages(base, conversation_id, access_token, *, page_size=50, max_p
     can't page forever; callers that need a time window pass a small page count
     and filter by timestamp downstream. Each page request carries `retry` so a
     429 mid-pagination is ridden through (Retry-After) instead of aborting.
+
+    With `since_dt` (an aware datetime), pagination stops as soon as a page
+    reaches past the cutoff (no point following `backwardLink` into strictly
+    older pages) and the returned messages are filtered to that window;
+    messages with no parseable timestamp are kept.
     """
     url = teams_mod.conversation_messages_url(base, conversation_id, page_size=page_size)
     collected = []
@@ -93,8 +116,12 @@ def chatsvc_messages(base, conversation_id, access_token, *, page_size=50, max_p
             collected.extend(messages)
             url = (payload.get('_metadata') or {}).get('backwardLink') or ''
             pages += 1
+            if since_dt is not None and _page_reaches_before(messages, since_dt):
+                break
             if pages >= max_pages:
                 break
+        if since_dt is not None:
+            collected = [m for m in collected if _within_since(m, since_dt)]
         return collected
     except (AuthExpiredError, ScopeInsufficientError):
         raise

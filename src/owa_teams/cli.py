@@ -109,6 +109,8 @@ Messages:
   messages --chat <id>           Chat conversation id (19:...@unq.gbl.spaces);
                                  flat message list.
   --team <id>                    Team id, echoed into channel-message metadata.
+  --since <iso>                  Only messages at/after this ISO-8601 time; stops
+                                 paging older once the cutoff is crossed.
   --limit <n>                    Max pages to fetch (default 4, ~50 msgs/page).
   --all                          Include system events and empty bodies.
 
@@ -196,7 +198,7 @@ def cmd_chats(args, config):
 
 
 def cmd_messages(args, config):
-    channel = chat = team = ''
+    channel = chat = team = since = ''
     limit = 4
     pretty = include_system = False
     while args:
@@ -207,6 +209,8 @@ def cmd_messages(args, config):
             chat, args = _require_value(flag, args)
         elif flag == '--team':
             team, args = _require_value(flag, args)
+        elif flag == '--since':
+            since, args = _require_value(flag, args)
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
             limit = max(1, min(limit, 50))
@@ -219,12 +223,18 @@ def cmd_messages(args, config):
     if bool(channel) == bool(chat):
         raise UsageError('messages requires exactly one of --channel <id> or --chat <id>')
 
+    since_dt = None
+    if since:
+        since_dt = teams_mod.parse_iso(since)
+        if since_dt is None:
+            raise UsageError(f'--since requires an ISO-8601 timestamp, got: {since}')
+
     debug = _debug_enabled(config)
     access_token, base = auth_mod.chatsvc_setup(config, debug=debug)
     conversation_id = channel or chat
     raw = api_mod.chatsvc_messages(
         base, conversation_id, access_token,
-        page_size=_page_size(config), max_pages=limit, debug=debug,
+        page_size=_page_size(config), max_pages=limit, since_dt=since_dt, debug=debug,
     )
     if raw is None:
         return 1
@@ -321,6 +331,7 @@ _MESSAGES_FLAGS = [
     schema_mod.flag('--channel', value='<conv-id>', summary='Channel conversation id (threaded)'),
     schema_mod.flag('--chat', value='<conv-id>', summary='Chat conversation id (flat)'),
     schema_mod.flag('--team', value='<team-id>', summary='Team id, echoed into channel metadata'),
+    schema_mod.flag('--since', value='<iso>', summary='Only messages at/after this ISO-8601 time (stops paging older)'),
     schema_mod.flag('--limit', value='<n>', summary='Max pages to fetch (default 4)'),
     schema_mod.flag('--all', summary='Include system events and empty bodies'),
     schema_mod.flag('--pretty', summary='Human-readable view (default: JSON)'),
