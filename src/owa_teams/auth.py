@@ -49,16 +49,18 @@ def graph_setup(config, debug=False):
     return token.access_token, GRAPH_BASE
 
 
-def chatsvc_setup(config, debug=False):
+def chatsvc_setup(config, debug=False, region=None):
     """Return (access_token, base) for the regional chat service.
 
     `base` is `https://teams.microsoft.com/api/chatsvc/{region}/v1`; endpoints
-    hang off `/users/ME/conversations/...`.
+    hang off `/users/ME/conversations/...`. A non-empty `region` overrides the
+    configured/default region for this call only (it is normalized the same way
+    as `config.teams_region`); otherwise `resolve_region(config)` applies.
     """
     token = _core.get_token_for_config(
         config, tool_name=TOOL_NAME, audience=CHATSVC_AUDIENCE, debug=debug,
     )
-    region = resolve_region(config)
+    region = (region or '').strip().lower() or resolve_region(config)
     base = f'{CHATSVC_HOST}/api/chatsvc/{region}/v1'
     return token.access_token, base
 

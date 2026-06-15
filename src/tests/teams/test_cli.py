@@ -18,7 +18,7 @@ def stub_graph(monkeypatch):
 def stub_chatsvc(monkeypatch):
     monkeypatch.setattr(cli.config_mod, 'load_config', lambda: {})
     monkeypatch.setattr(cli.auth_mod, 'chatsvc_setup',
-                        lambda config, debug=False: ('tok', 'https://t/api/chatsvc/emea/v1'))
+                        lambda config, debug=False, region=None: ('tok', 'https://t/api/chatsvc/emea/v1'))
 
 
 # --- routing ------------------------------------------------------------------
@@ -92,6 +92,18 @@ def test_main_messages_since_forwarded(monkeypatch, capsys, stub_chatsvc):
 def test_main_messages_since_invalid_is_usage_error(stub_chatsvc):
     with pytest.raises(cli.UsageError, match='ISO-8601'):
         cli._main(['messages', '--chat', 'c', '--since', 'notadate'])
+
+
+def test_main_messages_region_override_forwarded(monkeypatch, capsys):
+    seen = {}
+    monkeypatch.setattr(cli.config_mod, 'load_config', lambda: {})
+    monkeypatch.setattr(cli.auth_mod, 'chatsvc_setup',
+                        lambda config, debug=False, region=None:
+                        seen.update(region=region) or ('tok', 'https://t/api/chatsvc/amer/v1'))
+    monkeypatch.setattr(cli.api_mod, 'chatsvc_messages', lambda base, cid, tok, **k: [])
+    assert cli._main(['messages', '--chat', '19:x@unq.gbl.spaces', '--region', 'amer']) == 0
+    assert seen['region'] == 'amer'
+    capsys.readouterr()
 
 
 def test_main_routes_messages_chat_is_flat(monkeypatch, capsys, stub_chatsvc):

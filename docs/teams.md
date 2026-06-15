@@ -34,12 +34,15 @@ The chat service is regional. The region is a short segment in the path
 (`emea`/`amer`/`apac`/`ind`/...); it defaults to `emea`. Pin another:
 
 ```sh
-owa-teams config --region amer
+owa-teams config --region amer                       # pin the default
+owa-teams messages --chat <id> --region amer         # override one read only
 owa-teams --profile work teams
 ```
 
 > Automatic region resolution (the authsvc `regionGtms` round-trip) is deferred;
-> non-EU tenants should pin `--region` for now.
+> non-EU tenants should pin `--region` for now. `messages --region <region>`
+> overrides the configured/default region for a single call — handy for
+> multi-region profiles without rewriting `config.teams_region`.
 
 ---
 
@@ -118,6 +121,7 @@ owa-teams messages --channel "19:abc@thread.tacv2" --team <id> --limit 4
 owa-teams messages --chat "19:def@unq.gbl.spaces"                 # a flat chat thread
 owa-teams messages --channel "19:abc@thread.tacv2" --all          # include system events
 owa-teams messages --chat "19:def@unq.gbl.spaces" --since 2026-06-01  # only since a date
+owa-teams messages --chat "19:def@unq.gbl.spaces" --region amer       # override region
 
 owa-teams config --region amer                            # pin the chatsvc region
 owa-teams config --profile work                           # pin a default profile
