@@ -72,10 +72,56 @@ def test_format_pretty_unknown_collection_falls_back_to_indented_json():
     assert '\n  ' in out
 
 
-def test_format_pretty_non_collection_dict_indents_json():
+def test_format_pretty_shallow_object_renders_table():
+    # A single shallow object (e.g. `/me`) becomes a key/value table, not
+    # indented JSON. No braces, one row per field, keys left-aligned.
     out = format_mod.format_pretty({'displayName': 'kim', 'id': 'x'})
+    assert '{' not in out
+    assert 'displayName  kim' in out
+    assert '\n' in out
+    # Keys are padded to a common width so values line up.
+    assert 'id           x' in out
+
+
+def test_format_pretty_shallow_object_renders_scalars():
+    out = format_mod.format_pretty({
+        'name': 'kim',
+        'enabled': True,
+        'disabled': False,
+        'manager': None,
+        'phones': ['111', '222'],
+    })
+    assert 'enabled   true' in out
+    assert 'disabled  false' in out
+    # None renders as an empty cell, list values comma-join.
+    assert 'phones    111, 222' in out
+    assert '{' not in out
+
+
+def test_format_pretty_shallow_object_drops_odata_metadata():
+    out = format_mod.format_pretty({
+        '@odata.context': 'https://graph.microsoft.com/$metadata#users/$entity',
+        'displayName': 'kim',
+    })
+    assert '@odata.context' not in out
+    assert 'displayName  kim' in out
+
+
+def test_format_pretty_nested_object_still_indents_json():
+    # A value that's a nested object (not scalar) means the table would
+    # hide structure - fall back to indented JSON.
+    out = format_mod.format_pretty({
+        'displayName': 'kim',
+        'manager': {'id': 'mgr-1'},
+    })
     assert '"displayName"' in out
     assert '\n  ' in out
+
+
+def test_format_pretty_object_with_only_odata_keys_indents_json():
+    # Nothing renderable after dropping metadata - keep the raw JSON.
+    out = format_mod.format_pretty({'@odata.context': 'x'})
+    assert '"@odata.context"' in out
 
 
 def test_format_pretty_empty_value_array_indents():
