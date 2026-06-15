@@ -8,6 +8,19 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### suite-wide
+
+- **`--profile all` fans out across every active, configured profile.** New
+  meta-profile that resolves to all eligible broker profiles, with `-A` and
+  `--all-profiles` as aliases (e.g. `owa-cal events --profile all`,
+  `owa-graph GET /me -A`, `owa-mail messages --all-profiles`). Reuses the
+  existing multi-profile fan-out machinery, so the merged, profile-keyed output
+  shape, per-profile isolation, and `0/1/2` exit codes are unchanged. An
+  explicit `all` request always uses the keyed shape, even for a single profile,
+  so consumers never special-case a length-1 result. Config-less and inactive
+  profiles are excluded; `all` is a reserved name (a profile named `all` is a
+  hard error); no eligible profiles is a usage error. See `docs/profile-model.md`.
+
 ### owa-graph
 
 - **`--pretty` now renders a single shallow object as a key/value table.**

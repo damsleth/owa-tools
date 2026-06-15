@@ -1,4 +1,4 @@
-from owa_core.profiles_args import parse_profiles
+from owa_core.profiles_args import normalize_all_flags, parse_profiles
 
 
 def test_no_profiles_returns_empty_and_argv_intact():
@@ -10,6 +10,22 @@ def test_no_profiles_returns_empty_and_argv_intact():
 def test_single_profile():
     profiles, rest = parse_profiles(['--profile', 'work', 'messages'])
     assert profiles == ['work']
+    assert rest == ['messages']
+
+
+def test_normalize_all_flags_rewrites_aliases():
+    assert normalize_all_flags(['-A', 'messages']) == ['--profile', 'all', 'messages']
+    assert normalize_all_flags(['--all-profiles', 'x']) == ['--profile', 'all', 'x']
+
+
+def test_normalize_all_flags_leaves_other_argv_untouched():
+    argv = ['--profile', 'work', 'messages', '--pretty']
+    assert normalize_all_flags(argv) == argv
+
+
+def test_normalize_all_flags_then_parse_yields_all_token():
+    profiles, rest = parse_profiles(normalize_all_flags(['-A', 'messages']))
+    assert profiles == ['all']
     assert rest == ['messages']
 
 

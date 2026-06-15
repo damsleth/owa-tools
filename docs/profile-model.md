@@ -85,6 +85,33 @@ The flag is order-preserving and de-duplicated: a repeated alias warns once on
 stderr (`warning: duplicate --profile <v> ignored`) and is dropped, so
 `--profile a --profile a` collapses to the single-profile path.
 
+### Fan out across *every* profile (`--profile all`)
+
+`all` is a reserved meta-profile that expands to every eligible profile, so you
+don't have to spell them out:
+
+```bash
+owa-cal   events --pretty --profile all
+owa-graph GET /me --all-profiles
+owa-mail  messages --all-profiles
+owa-todo  tasks -A
+```
+
+Three equivalent spellings: `--profile all`, the long alias `--all-profiles`,
+and the short alias `-A`. They all normalize to the same thing.
+
+- **Scope.** "Eligible" means **active and configured** — a profile registered
+  with `owa-piggy` that has a stored config. Inactive or config-less profiles
+  are not part of `all`.
+- **Reserved name.** No profile may be named `all`; if one is (e.g. a
+  hand-edited store), the command fails with a usage error rather than guessing.
+- **Shape follows intent, not count.** An explicit `all` request always produces
+  the profile-keyed `results` shape — even when it resolves to a single profile
+  — so scripts and agents never special-case "one profile came back flat".
+- **No eligible profiles** → usage error (`run owa-piggy login first`).
+- `all` composes with explicit aliases: `--profile work --profile all` keeps
+  `work` first, then appends the rest, de-duplicated.
+
 ### Output shapes
 
 - **JSON (default):** an envelope with a `results` array, one entry per profile.

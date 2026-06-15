@@ -17,7 +17,7 @@ _owa_vids() {
         'schema:Print the JSON command schema'
         'help:Show help'
     )
-    global_flags=(--profile --debug --verbose --version --help)
+    global_flags=(--profile --all-profiles -A --debug --verbose --version --help)
     source_flags=(--manifest-url --embed-url --region)
     get_flags=(--out -o --workdir --video-only --audio-only --pretty)
     config_flags=(--region --set-profile --profile)

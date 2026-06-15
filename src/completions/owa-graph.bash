@@ -16,7 +16,7 @@ _owa_graph() {
     local reserved="refresh config batch help"
     local groups="me mail calendar files users teams chats presence contacts groups planner todo sites directory"
     local audiences="graph outlook outlook365 teams azure keyvault storage sql substrate manage powerbi flow devops"
-    local flags="--pretty --ndjson --retry --all --raw --curl --az --beta --debug --verbose --version --help --profile --body --header --query --select --top --filter --count --search --audience"
+    local flags="--pretty --ndjson --retry --all --raw --curl --az --beta --debug --verbose --version --help --profile --all-profiles -A --body --header --query --select --top --filter --count --search --audience"
 
     # Value-completing flags (next arg is a value, not another flag).
     case "$prev" in
