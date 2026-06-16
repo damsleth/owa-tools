@@ -15,6 +15,7 @@ import urllib.parse
 from datetime import datetime, timedelta
 
 from owa_core import modes as mode_mod
+from owa_core import periods as periods_mod
 from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
 from owa_core.errors import UsageError, emit_error, emit_message
@@ -27,10 +28,8 @@ from . import events as events_mod
 from . import ics as ics_mod
 from . import profiles as profiles_mod
 from .dates import (
-    current_iso_week,
     iso_week_range,
     make_datetime,
-    resolve_date,
     today,
 )
 from .format import format_events_pretty
@@ -138,11 +137,18 @@ Commands:
   help                Show this help
 
 Events options:
-  --date <date>       Specific day (YYYY-MM-DD, today, tomorrow, yesterday)
-  --from <date>       Start of range
-  --to <date>         End of range
-  --week <n>          ISO week number
-  --year <n>          Year (default: current)
+  --date <date>       Specific day. YYYY-MM-DD, today/tomorrow/yesterday,
+                      a signed day offset (+1, -3), or a weekday name in the
+                      current ISO week with optional week offset
+                      (monday, monday+1, friday-2)
+  --from <date>       Start of range (same vocabulary as --date)
+  --to <date>         End of range (same vocabulary as --date)
+  --week <n|rel>      ISO week: a number (16), current/last/next, or +n/-n
+  --month <n|rel>     Calendar month: 1-12, current/last/next, or +n/-n
+                      (default when given without value: current)
+  --year <n|rel>      Year: a full year (2026), current/last/next, or +n/-n.
+                      Combine with --week/--month, or use alone for the
+                      whole year
   --search <term>     Search events by subject
   --pretty            Human-readable table (default: JSON)
   --limit <n>         Max results per page (default 50, cap 200)
@@ -208,6 +214,12 @@ argument (`owa-cal delete <id>` == `owa-cal delete --id <id>`).
 Examples:
   owa-cal events --pretty
   owa-cal events --week 16 --pretty
+  owa-cal events --week last --pretty          # previous ISO week
+  owa-cal events --week next                   # same as --week +1
+  owa-cal events --month --pretty              # this calendar month
+  owa-cal events --month next                  # next month
+  owa-cal events --year +1 --pretty            # whole next year
+  owa-cal events --date monday+1               # next Monday
   owa-cal events --from 2026-04-14 --to 2026-04-18 --pretty
   owa-cal create --subject "lunsj" --start 11:00 --end 11:30 --category "CC LUNCH"
   owa-cal create --subject "Standup" --date tomorrow --start 09:00 --end 09:30
@@ -231,6 +243,17 @@ def _require_value(flag, args):
     return args[0], args[1:]
 
 
+def _optional_value(args, default):
+    """Consume the next token as a value unless it is missing or is another
+    flag (`--xxx`), in which case return `default` and leave args untouched.
+    Lets bare `--month` mean the current month while `--month next` and
+    `--month -1` still work (signed offsets are values, not flags, because
+    every owa-cal flag is double-dashed)."""
+    if args and not args[0].startswith('--'):
+        return args[0], args[1:]
+    return default, args
+
+
 def _require_int(flag, args):
     v, args = _require_value(flag, args)
     try:
@@ -243,17 +266,19 @@ def _require_int(flag, args):
 # Subcommands
 # ---------------------------------------------------------------------------
 
-def _resolve_event_window(date_, from_, to_, week, year):
-    if week:
-        year = year or current_iso_week()[1]
-        from_, to_ = iso_week_range(week, year)
-    elif date_:
-        from_ = to_ = date_
-    elif not from_:
-        from_ = to_ = today()
-    if not to_:
-        to_ = from_
-    return from_, to_
+def _resolve_event_window(date_, from_, to_, week, month, year):
+    """Resolve listing flags to an inclusive (from, to) date range.
+
+    Delegates to the shared owa_core.periods resolver, supplying owa-cal's
+    Mon-Sun week shape. Accepts the full relative/semantic vocabulary
+    (current/last/next/+n/-n for --week/--month/--year, weekday names and
+    offsets for --date). Conflicting period flags raise UsageError.
+    """
+    return periods_mod.resolve_window(
+        iso_week_range=iso_week_range,
+        date_=date_, from_=from_, to_=to_,
+        week=week, month=month, year=year,
+    )
 
 
 def cmd_events_webcal(args, config):
@@ -265,21 +290,23 @@ def cmd_events_webcal(args, config):
     `--limit` is also enforced here).
     """
     date_ = from_ = to_ = search = ''
-    week = year = 0
+    week = month = year = ''
     pretty = False
     limit = 50
     while args:
         flag, args = args[0], args[1:]
         if flag == '--date':
-            v, args = _require_value(flag, args); date_ = resolve_date(v)
+            date_, args = _require_value(flag, args)
         elif flag == '--from':
-            v, args = _require_value(flag, args); from_ = resolve_date(v)
+            from_, args = _require_value(flag, args)
         elif flag == '--to':
-            v, args = _require_value(flag, args); to_ = resolve_date(v)
+            to_, args = _require_value(flag, args)
         elif flag == '--week':
-            week, args = _require_int(flag, args)
+            week, args = _require_value(flag, args)
+        elif flag == '--month':
+            month, args = _optional_value(args, 'current')
         elif flag == '--year':
-            year, args = _require_int(flag, args)
+            year, args = _require_value(flag, args)
         elif flag == '--search':
             search, args = _require_value(flag, args)
         elif flag == '--pretty':
@@ -295,7 +322,7 @@ def cmd_events_webcal(args, config):
         else:
             raise UsageError(f'Unknown flag: {flag}')
 
-    from_, to_ = _resolve_event_window(date_, from_, to_, week, year)
+    from_, to_ = _resolve_event_window(date_, from_, to_, week, month, year)
 
     debug = _debug_enabled(config)
     url = (config.get('webcal_url') or '').strip()
@@ -319,7 +346,7 @@ def cmd_events_webcal(args, config):
 
 def cmd_events(args, config, access_token, api_base):
     date_ = from_ = to_ = search = ''
-    week = year = 0
+    week = month = year = ''
     pretty = False
     all_pages = False
     limit = 50
@@ -327,15 +354,17 @@ def cmd_events(args, config, access_token, api_base):
     while args:
         flag, args = args[0], args[1:]
         if flag == '--date':
-            v, args = _require_value(flag, args); date_ = resolve_date(v)
+            date_, args = _require_value(flag, args)
         elif flag == '--from':
-            v, args = _require_value(flag, args); from_ = resolve_date(v)
+            from_, args = _require_value(flag, args)
         elif flag == '--to':
-            v, args = _require_value(flag, args); to_ = resolve_date(v)
+            to_, args = _require_value(flag, args)
         elif flag == '--week':
-            week, args = _require_int(flag, args)
+            week, args = _require_value(flag, args)
+        elif flag == '--month':
+            month, args = _optional_value(args, 'current')
         elif flag == '--year':
-            year, args = _require_int(flag, args)
+            year, args = _require_value(flag, args)
         elif flag == '--search':
             search, args = _require_value(flag, args)
         elif flag == '--pretty':
@@ -348,7 +377,7 @@ def cmd_events(args, config, access_token, api_base):
         else:
             raise UsageError(f'Unknown flag: {flag}')
 
-    from_, to_ = _resolve_event_window(date_, from_, to_, week, year)
+    from_, to_ = _resolve_event_window(date_, from_, to_, week, month, year)
 
     start_dt = f'{from_}T00:00:00'
     end_dt = f'{to_}T23:59:59'
@@ -400,7 +429,7 @@ def cmd_create(args, config, access_token, api_base):
         if flag == '--subject':
             subject, args = _require_value(flag, args)
         elif flag == '--date':
-            v, args = _require_value(flag, args); date_ = resolve_date(v)
+            v, args = _require_value(flag, args); date_ = periods_mod.resolve_day(v)
         elif flag == '--start':
             start_time, args = _require_value(flag, args)
         elif flag == '--end':
@@ -496,7 +525,7 @@ def cmd_update(args, config, access_token, api_base):
         elif flag == '--showas':
             fields['showas'], args = _require_value(flag, args)
         elif flag == '--date':
-            v, args = _require_value(flag, args); date_ = resolve_date(v)
+            v, args = _require_value(flag, args); date_ = periods_mod.resolve_day(v)
         elif flag == '--start':
             start_time, args = _require_value(flag, args)
         elif flag == '--end':
@@ -745,11 +774,12 @@ WEBCAL_READ_COMMANDS = {'events'}
 WEBCAL_REJECTED_COMMANDS = {'create', 'update', 'delete', 'respond', 'categories'}
 
 _EVENTS_FLAGS = [
-    schema_mod.flag('--date', value='<date>', summary='Specific day (YYYY-MM-DD, today, tomorrow, yesterday)'),
-    schema_mod.flag('--from', value='<date>', summary='Start of range'),
-    schema_mod.flag('--to', value='<date>', summary='End of range'),
-    schema_mod.flag('--week', value='<n>', summary='ISO week number'),
-    schema_mod.flag('--year', value='<n>', summary='Year (default: current)'),
+    schema_mod.flag('--date', value='<date>', summary='Specific day (YYYY-MM-DD, today/tomorrow/yesterday, +n/-n, weekday[+n])'),
+    schema_mod.flag('--from', value='<date>', summary='Start of range (same vocabulary as --date)'),
+    schema_mod.flag('--to', value='<date>', summary='End of range (same vocabulary as --date)'),
+    schema_mod.flag('--week', value='<n|rel>', summary='ISO week: number, current/last/next, or +n/-n'),
+    schema_mod.flag('--month', value='<n|rel>', summary='Month: 1-12, current/last/next, or +n/-n (bare = current)'),
+    schema_mod.flag('--year', value='<n|rel>', summary='Year: full year, current/last/next, or +n/-n'),
     schema_mod.flag('--search', value='<term>', summary='Search events by subject'),
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
     schema_mod.flag('--limit', value='<n>', summary='Max results per page (default 50, cap 200)'),

@@ -21,6 +21,23 @@ per-tool subsections inside that release when useful.
   profiles are excluded; `all` is a reserved name (a profile named `all` is a
   hard error); no eligible profiles is a usage error. See `docs/profile-model.md`.
 
+### owa-cal & owa-sched
+
+- **Relative & semantic period values for `--week` / `--month` / `--year` /
+  `--date`.** `owa-cal events` and `owa-sched availability` / `find-time` now
+  accept ergonomic period values instead of only absolute numbers:
+  `--week last`, `--week next`, `--week +1` / `-1`, `--week current`, and the
+  same vocabulary for the new `--month` flag (bare `--month` = the current
+  calendar month) and for `--year` (`+1` / `-1` / `current` / `last` / `next`;
+  a bare year must be ≥ 100 or signed). `--date` / `--from` / `--to` gain signed
+  day offsets (`+1`, `-3`) and weekday names anchored to the current ISO week
+  with an optional week offset (`monday`, `monday+1`, `friday-2`). Absolute
+  forms (`--week 16`, `--year 2026`, `--date 2026-04-18`) are unchanged.
+  Conflicting period flags (e.g. `--week` with `--month`) are a usage error;
+  `--year` alone selects the whole year. Logic lives in a shared
+  `owa_core.periods` resolver so both tools stay in sync (owa-cal keeps Mon–Sun
+  weeks, owa-sched keeps Mon–Fri work weeks). See `docs/cal.md`.
+
 ### owa-graph
 
 - **`--pretty` now renders a single shallow object as a key/value table.**

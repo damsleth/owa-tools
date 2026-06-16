@@ -134,7 +134,13 @@ confirmation envelope, not an event.
 
 ```sh
 owa-cal events --pretty                       # today
-owa-cal events --week 16 --pretty             # ISO week
+owa-cal events --week 16 --pretty             # ISO week (absolute)
+owa-cal events --week last --pretty           # previous week (also: --week -1)
+owa-cal events --week next                     # next week (also: --week +1)
+owa-cal events --month --pretty               # this calendar month
+owa-cal events --month next                    # next month (also: --month +1)
+owa-cal events --year +1 --pretty             # the whole of next year
+owa-cal events --date monday+1                 # next Monday
 owa-cal events --from 2026-04-14 --to 2026-04-18 --pretty
 owa-cal events --search "standup" --pretty
 
@@ -156,6 +162,24 @@ owa-cal config --profile work                 # pin a profile
 
 Events carry opaque ids: address one via `--id` or as a bare positional
 argument (`owa-cal delete <id>` == `owa-cal delete --id <id>`).
+
+### Relative & semantic period values
+
+`events` (and `owa-sched`) accept relative values for the period flags, so you
+rarely need to look up an absolute ISO week number:
+
+| Flag | Absolute | Relative vocabulary |
+| --- | --- | --- |
+| `--week` | `16` | `current`/`this`, `last`/`prev`, `next`, `+n`, `-n` |
+| `--month` | `1`–`12` | `current`/`this`, `last`/`prev`, `next`, `+n`, `-n` (bare `--month` = current) |
+| `--year` | `2026` (≥ 100) | `current`/`this`, `last`/`prev`, `next`, `+n`, `-n` |
+| `--date` / `--from` / `--to` | `2026-04-18` | `today`/`tomorrow`/`yesterday`, `+n`/`-n` (days), `monday`…`sunday` (this ISO week), `monday+1` / `friday-2` (weekday ± weeks) |
+
+Precedence when several are given: `--from`/`--to` > `--date` > `--week` >
+`--month` > `--year` (alone = whole year) > today. `--year` combines with
+`--week`/`--month` to set the year; combining flags from different tiers (e.g.
+`--week` with `--month`) is a usage error. Bare `--year` below 100 is rejected
+as ambiguous — use a full year or a signed offset.
 
 ---
 
