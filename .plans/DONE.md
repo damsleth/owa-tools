@@ -55,3 +55,6 @@ pointing back here.
   (`Formula/owa-tools.rb`, GitHub source archive). cj-owa-tools skill updated in
   `skills-private`. (Patch bump: docs + tests over already-shipped behaviour.)
 - [x] owa --pretty: render shallow/simple objects (e.g. owa-graph get /me) as a table instead of JSON; make --pretty do more than just pretty-print JSON (2026-06-15)
+- [x] owa-teams `messages --region <emea|amer|…>` — per-call region override so multi-region profiles don't depend on single-valued config (2026-06-16)
+- [x] owa-teams `messages --since <iso>` — stop following `backwardLink` past the cutoff (closes yaams' cold-start history gap) (2026-06-16)
+- [x] add owa-mail functionality for resetting settings to default (2026-06-16)
