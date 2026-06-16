@@ -260,6 +260,64 @@ def test_events_limit_is_clamped_to_200(capsys, monkeypatch):
     assert '9999' not in seen['ep']
 
 
+def _capture_events_window(monkeypatch, argv):
+    """Run cmd_events with a stubbed api_get and return (from_iso, to_iso)
+    parsed back out of the calendarView query string."""
+    import urllib.parse
+
+    import owa_cal.api as api_mod
+    from owa_cal.cli import cmd_events
+
+    seen = {}
+    monkeypatch.setattr(
+        api_mod, 'api_get',
+        lambda base, ep, tok, **k: seen.update(ep=ep) or {'value': []},
+    )
+    cmd_events(argv, {}, 'tok', 'https://example.invalid')
+    q = urllib.parse.parse_qs(urllib.parse.urlsplit(seen['ep']).query)
+    return q['startDateTime'][0][:10], q['endDateTime'][0][:10]
+
+
+def test_events_month_resolves_to_calendar_month(capsys, monkeypatch):
+    """`--month` (bare) selects the current calendar month range."""
+    import calendar
+    from datetime import date
+    start, end = _capture_events_window(monkeypatch, ['--month'])
+    capsys.readouterr()
+    today = date.today()
+    last = calendar.monthrange(today.year, today.month)[1]
+    assert start == today.replace(day=1).isoformat()
+    assert end == today.replace(day=last).isoformat()
+
+
+def test_events_week_relative_keyword(capsys, monkeypatch):
+    """`--week last` selects the previous ISO week (Mon-Sun)."""
+    from datetime import date, timedelta
+    start, end = _capture_events_window(monkeypatch, ['--week', 'last'])
+    capsys.readouterr()
+    iso = date.today().isocalendar()
+    last_monday = date.fromisocalendar(iso[0], iso[1], 1) - timedelta(weeks=1)
+    assert start == last_monday.isoformat()
+    assert end == (last_monday + timedelta(days=6)).isoformat()
+
+
+def test_events_week_and_month_conflict_errors():
+    from owa_cal.cli import cmd_events
+    with pytest.raises(UsageError) as exc:
+        cmd_events(['--week', 'current', '--month', 'current'],
+                   {}, 'tok', 'https://example.invalid')
+    assert exc.value.exit_code == 2
+    assert '--week' in exc.value.message and '--month' in exc.value.message
+
+
+def test_events_month_garbage_exits_clean():
+    from owa_cal.cli import cmd_events
+    with pytest.raises(UsageError) as exc:
+        cmd_events(['--month', 'someday'], {}, 'tok', 'https://example.invalid')
+    assert exc.value.exit_code == 2
+    assert '--month' in exc.value.message
+
+
 def test_update_accepts_positional_id(capsys, monkeypatch):
     import owa_cal.api as api_mod
     from owa_cal.cli import cmd_update

@@ -40,6 +40,24 @@ def _schedule_payload():
     }
 
 
+def test_resolve_window_week_is_mon_fri():
+    """owa-sched weeks are Mon-Fri (work week), unlike owa-cal's Mon-Sun."""
+    start, end = cli._resolve_window('', '', '', '19', '', '2026')
+    assert start == '2026-05-04'  # Monday
+    assert end == '2026-05-08'    # Friday
+
+
+def test_resolve_window_month_full_calendar_month():
+    start, end = cli._resolve_window('', '', '', '', '3', '2026')
+    assert start == '2026-03-01'
+    assert end == '2026-03-31'
+
+
+def test_resolve_window_conflicting_period_flags():
+    with pytest.raises(cli.UsageError):
+        cli._resolve_window('', '', '', '19', 'current', '')
+
+
 def test_main_schema_profile_and_debug(monkeypatch, capsys):
     seen = {}
 
