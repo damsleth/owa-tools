@@ -1,11 +1,8 @@
 # TODO
 
 - [ ] optional --pretty renderer for action commands (low priority; only if a human renderer is wanted)
-- [ ] add owa-mail functionality for resetting settings to default
 - [ ] add owa-mail functionality for switching profiles
 - [ ] add owa-mail "all inboxes" view across multiple/all stored profiles
-- [ ] owa-teams `messages --since <iso>` — stop following `backwardLink` past the cutoff (closes yaams' cold-start history gap)
-- [ ] owa-teams `messages --region <emea|amer|…>` — per-call region override so multi-region profiles don't depend on single-valued config
 
 ## Larger plans (standalone files)
 

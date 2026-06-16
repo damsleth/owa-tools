@@ -1,6 +1,11 @@
 # owa suite TUI rollout (v1)
 
-_Created 2026-06-12_
+_Created 2026-06-12 · architecture reconciled 2026-06-15: this is the **master TUI
+plan**. `owa_core/tui_kit/` (Step 0) is the shared foundation; every per-tool TUI —
+including the owa-graph FOCI explorer — is an adapter on top. See
+[owa-graph-explorer-tui.md](owa-graph-explorer-tui.md) for the owa-graph adapter,
+now re-cast as the flagship/most-complex consumer of `tui_kit` rather than a
+standalone mail-pattern copy._
 
 ## Goal
 
@@ -31,7 +36,7 @@ persisted view settings) is the template every other tool follows.
 | owa-ado     | Work-items list (assigned-to-me / current sprint), filterable, drill to detail                 |
 | owa-teams   | Chats list (1:1 + group) → read message thread                                                 |
 | owa-sched   | Free/busy availability grid (attendees × time slots)                                           |
-| owa-graph   | Request/response browser — pick method+path, scrollable/foldable JSON response                 |
+| owa-graph   | **Multi-audience FOCI explorer** — navigate/drill any FOCI audience owa-piggy can mint (flagship adapter; supersedes the old "request browser" framing). See owa-graph-explorer-tui.md |
 | owa-doctor  | Live health dashboard — profiles × audiences grid with pass/fail, refresh in place             |
 | owa-sites   | `lf`-like SharePoint browser (see decision below)                                              |
 
@@ -113,19 +118,46 @@ existing tests green). Mail keeps its mail-specific bits (reader pane, read/unre
 - **owa-doctor** — read-only dashboard; `r` re-runs checks.
 - **owa-sites** — navigate + open/download; read-only v1.
 
+## Parallelization & workflow execution
+
+This plan is a **barrier-then-fan-out** workflow:
+
+- **Step 0 (`tui_kit` extraction + mail refactor) is a hard barrier.** Nothing else
+  can start until the kit's callback contract (`fetch_items`/`render_row`/
+  `render_detail`/`actions`/`on_search`) is frozen and mail is green on top of it.
+  Single agent (OPUS — the abstraction shape is the whole bet). The contract it
+  freezes is the shared symbol every downstream adapter imports, so it must be
+  right before fan-out.
+- **After Step 0, each tool's adapter is region-disjoint** (`src/owa_<tool>/tui.py`
+  + `src/owa_<tool>/cli.py` dispatch + `src/tests/<tool>/`). No two adapters share a
+  file → they fan out cleanly. Use `pipeline(tools, build_adapter, verify_coverage)`
+  so each tool verifies its 90% gate as soon as it's built rather than at a barrier.
+- **Sequencing constraints inside the fan-out:**
+  - **owa-todo first, alone** (or as a tiny pilot batch) — it's the canonical CRUD
+    adapter and validates the kit's `actions` shape before 10 others copy it. Treat
+    its completion as a soft gate.
+  - **owa-cal TUI is blocked on the in-flight periods work (#9 / ergonomic-semantic-period-params)** — both edit `owa_cal/cli.py`. Build cal's adapter only after #9 lands, or accept a merge.
+  - **drive → sites are sequential** (sites generalizes drive's `lf` model).
+  - **owa-graph is the flagship adapter** — it carries its own deep plan
+    (owa-graph-explorer-tui.md) with a curses-safe auth/cache core and per-audience
+    nav engine that `tui_kit` does NOT absorb. Schedule it late and give it OPUS for
+    its two correctness cores. It is itself a sub-workflow.
+- Realistic fan-out width ~3–4 concurrent adapters (the per-tool coverage gate +
+  shared-kit churn make more than that risky to merge).
+
 ## Steps
 
-- [ ] Step 0: extract `owa_core/tui_kit/` (app/layout/menu/settings/keys) from owa-mail; refactor owa-mail onto it; keep mail tests green
-- [ ] owa-todo tui — two-pane lists+tasks, toggle done, create (validates adapter shape)
+- [ ] Step 0: extract `owa_core/tui_kit/` (app/layout/menu/settings/keys) from owa-mail; refactor owa-mail onto it; **freeze the callback contract**; keep mail tests green
+- [ ] owa-todo tui — two-pane lists+tasks, toggle done, create (validates adapter shape; soft gate before wide fan-out)
 - [ ] owa-people tui — searchable directory list → detail card (read-only quick win)
-- [ ] owa-cal tui — agenda list + event detail + respond action
+- [ ] owa-cal tui — agenda list + event detail + respond action **(BLOCKED on #9 periods — shares owa_cal/cli.py)**
 - [ ] owa-drive tui — `lf`-like folder/file navigation
-- [ ] owa-sites tui — `lf`-like sites→lists/libraries(+hidden toggle)→items/docs, `/` search
+- [ ] owa-sites tui — `lf`-like sites→lists/libraries(+hidden toggle)→items/docs, `/` search (after drive)
 - [ ] owa-ado tui — work-items list (assigned/sprint) → detail
 - [ ] owa-planner tui — plan→bucket→task drill, toggle complete
 - [ ] owa-teams tui — chats list → message thread (read-only)
 - [ ] owa-sched tui — free/busy availability grid (attendees × time slots)
-- [ ] owa-graph tui — request/response browser, foldable JSON (GET-first)
+- [ ] owa-graph tui — **flagship FOCI explorer adapter** on tui_kit (own sub-plan: owa-graph-explorer-tui.md; OPUS cores)
 - [ ] owa-doctor tui — live health dashboard (profiles × audiences), `r` refresh
 - [ ] (deferred) owa-vids — no v1 TUI; revisit download-queue view later
 

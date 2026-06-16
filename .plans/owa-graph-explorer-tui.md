@@ -2,6 +2,44 @@
 
 _Created 2026-06-01 · multi-audience/FOCI · multi-agent workflow plan · self-review round 1 (62-agent workflow, 49 gaps) + round 2 (5 parallel reviewers): fixed `_fetch_page` header-access contradiction, case-insensitive continuation header, `TokenInfo.scopes` source, first-mint/`curses.wrapper` lifecycle, stderr-teardown owner, `MANIFEST.in`→pyproject package-data, unowned test fixtures, output-mode-flag rejection, schema alias, atomic-guard boundary._
 
+## ⚠ ARCHITECTURE UPDATE (2026-06-15) — now the flagship `tui_kit` adapter
+
+**Decision (2026-06-15): this is no longer a standalone mail-pattern copy. It is the
+flagship/most-complex adapter on the shared `owa_core/tui_kit/` extracted by
+[owa-suite-tui-rollout.md](owa-suite-tui-rollout.md) Step 0.** That reframes the
+scaffolding layer of this plan; the **domain cores below stay valid as-is** and are
+exactly the parts `tui_kit` does NOT absorb:
+
+- **KEEP unchanged** — the genuinely graph-specific reasoning: the curses-safe
+  boundary invariant, Phase 1 A1 (per-audience nav engine: pagination shapes, link
+  heuristics, template normalization, tiers) and A2 (FOCI token-cache + `_ensure_token`
+  + settings), the audience model, and Phase 3 CLI wiring incl. the `modes.py`
+  `--profile` guard fix.
+- **SUPERSEDED by `tui_kit`** — the generic scaffolding this plan told C1 to build
+  from scratch: the event loop, list/detail draw helpers, resize/redraw, the esc-menu
+  state machine, view-settings cycle, and the test harness. These now come from
+  `tui_kit.{app,layout,menu,settings,keys}`, parameterized by callbacks. Specifically:
+  - **DO NOT** "re-implement `tui_menu.py`" (Phase 2) — use `tui_kit.menu` with a
+    graph title + items list passed in. The mail-coupling that motivated re-implementation
+    is gone once the menu is generic in the kit.
+  - **DO NOT** extract `FakeScreen` into a graph-local `conftest` — `tui_kit` ships the
+    shared test harness; import it.
+  - C1's Phase 2 work shrinks to **graph-specific callbacks** fed to `tui_kit.app`:
+    `fetch_items` (wraps A2 `_ensure_token` + A1 `_fetch_page` — this is where the
+    curses-safe invariant is enforced), `render_row` (A1 `build_rows`), `render_detail`
+    (the per-tier/`format_pretty`-graph-gated detail logic), and the graph `actions`
+    set (`a` audience-switch, `/` jump, `e` query, `n` page, `r`, `c`/`y`, `o`, `m`, `D`).
+- **PREREQUISITE:** `tui_kit` Step 0 must land and freeze its callback contract before
+  Phase 2 here starts. Phase 0/1 (data table, nav engine, auth-cache) are **independent
+  of the kit** and can proceed in parallel with Step 0. **`tui_kit.app`'s contract must
+  be curses-safe** to honor this plan's invariant — its `fetch_items` callback returns a
+  status/result without printing or raising; confirm this when freezing the contract.
+
+The phase text below predates this decision; where it conflicts with the four bullets
+above, the bullets win.
+
+---
+
 ## Goal
 
 Add an interactive, dependency-free curses TUI to `owa-graph` (`owa-graph tui`,
