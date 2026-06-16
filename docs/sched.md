@@ -54,10 +54,16 @@ See [profile-model.md](profile-model.md) for profile precedence.
 
 `availability` and `find-time` both require `--who <addr[,addr]>` (a
 comma-separated list of attendee emails) and accept the same window selectors:
-`--date <date>` (a single day, also `today` / `tomorrow` / `yesterday`),
-`--from` / `--to` for a range, or `--week <n>` (with optional `--year <n>`).
-`--start` / `--end` set the work-day window (defaults 08:00 / 17:00, or the
-`default_work_start` / `default_work_end` config values).
+`--date <date>` (a single day), `--from` / `--to` for a range, `--week`,
+`--month`, or `--year`. The period flags take the same relative/semantic
+vocabulary as `owa-cal events` — `current` / `last` / `next` / `+n` / `-n` for
+`--week` / `--month` / `--year`, and `today` / `tomorrow` / `yesterday`, signed
+day offsets, and weekday names (`monday`, `monday+1`, `friday-2`) for the date
+flags. See [cal.md](cal.md#relative--semantic-period-values) for the full table
+and precedence rules. Note owa-sched weeks are **Mon–Fri** (the work week),
+whereas owa-cal weeks are Mon–Sun. `--start` / `--end` set the work-day window
+(defaults 08:00 / 17:00, or the `default_work_start` / `default_work_end`
+config values).
 
 - `availability` adds `--interval <min>` (availabilityView granularity,
   default 30).
@@ -66,6 +72,8 @@ comma-separated list of attendee emails) and accept the same window selectors:
 
 ```bash
 owa-sched availability --who alice@example.com,bob@example.com --week 19
+owa-sched availability --who alice@example.com,bob@example.com --week next
+owa-sched availability --who you@example.com --month --pretty
 owa-sched availability --who you@example.com --date tomorrow --pretty
 
 owa-sched find-time --who alice@example.com,bob@example.com --duration 30 --week 19

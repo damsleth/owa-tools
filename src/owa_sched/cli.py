@@ -13,6 +13,7 @@ import os
 import sys
 
 from owa_core import modes as mode_mod
+from owa_core import periods as periods_mod
 from owa_core import schema as schema_mod
 from owa_core.errors import UsageError, emit_message
 
@@ -21,13 +22,10 @@ from . import api as api_mod
 from . import auth as auth_mod
 from . import config as config_mod
 from .dates import (
-    current_year,
     daterange,
     iso_week_range,
     make_local_iso,
     parse_hhmm,
-    resolve_date,
-    today,
 )
 from .format import format_availability_pretty, format_slots_pretty
 from .schedule import find_open_slots, normalize_attendee
@@ -59,22 +57,32 @@ def _require_int(flag, args):
         raise UsageError(f'{flag} requires an integer, got: {v}')
 
 
+def _optional_value(args, default):
+    """Consume the next token as a value unless it is missing or is another
+    flag (`--xxx`), so bare `--month` means the current month while
+    `--month next` / `--month -1` still work (every owa-sched flag is
+    double-dashed, so signed offsets read as values)."""
+    if args and not args[0].startswith('--'):
+        return args[0], args[1:]
+    return default, args
+
+
 def _split_csv(s):
     return [p.strip() for p in (s or '').split(',') if p.strip()]
 
 
-def _resolve_window(date_, from_, to_, week, year):
-    """Return (start_date, end_date) inclusive."""
-    if week:
-        year = year or current_year()
-        from_, to_ = iso_week_range(week, year)
-    elif date_:
-        from_ = to_ = date_
-    elif not from_:
-        from_ = to_ = today()
-    if not to_:
-        to_ = from_
-    return from_, to_
+def _resolve_window(date_, from_, to_, week, month, year):
+    """Return (start_date, end_date) inclusive.
+
+    Delegates to the shared owa_core.periods resolver with owa-sched's
+    Mon-Fri work-week shape. Accepts the full relative/semantic vocabulary
+    (current/last/next/+n/-n) and raises UsageError on conflicting flags.
+    """
+    return periods_mod.resolve_window(
+        iso_week_range=iso_week_range,
+        date_=date_, from_=from_, to_=to_,
+        week=week, month=month, year=year,
+    )
 
 
 def print_help():
@@ -96,11 +104,17 @@ Commands:
 
 availability options:
   --who <emails>      Comma-separated list of attendee emails (required).
-  --date <date>       Single day (YYYY-MM-DD, today, tomorrow, yesterday).
-  --from <date>       Start of range.
-  --to <date>         End of range.
-  --week <n>          ISO week number.
-  --year <n>          Year (default: current).
+  --date <date>       Single day. YYYY-MM-DD, today/tomorrow/yesterday, a
+                      signed day offset (+1, -3), or a weekday name in the
+                      current ISO week with optional week offset
+                      (monday, monday+1, friday-2).
+  --from <date>       Start of range (same vocabulary as --date).
+  --to <date>         End of range (same vocabulary as --date).
+  --week <n|rel>      ISO work week (Mon-Fri): number, current/last/next, +n/-n.
+  --month <n|rel>     Calendar month: 1-12, current/last/next, +n/-n
+                      (bare --month = current).
+  --year <n|rel>      Year: full year, current/last/next, +n/-n. Combine with
+                      --week/--month, or use alone for the whole year.
   --start <HH:MM>     Work-day window start (default: 08:00, or config
                       default_work_start).
   --end <HH:MM>       Work-day window end (default: 17:00, or config
@@ -112,7 +126,7 @@ find-time options:
   --who <emails>      Comma-separated attendees (required, includes self
                       if you want to be checked too).
   --duration <n>      Slot length in minutes (default: 30).
-  --date / --from / --to / --week / --year  - same as availability.
+  --date / --from / --to / --week / --month / --year  - same as availability.
   --start <HH:MM>     Work-day window start (default: 08:00, or config
                       default_work_start).
   --end <HH:MM>       Work-day window end (default: 17:00, or config
@@ -121,6 +135,8 @@ find-time options:
 
 Examples:
   owa-sched availability --who alice@x.com,bob@x.com --week 19 --pretty
+  owa-sched availability --who alice@x.com,bob@x.com --week next --pretty
+  owa-sched availability --who alice@x.com --month --pretty
   owa-sched availability --who vibeke@une.no --date tomorrow --pretty
   owa-sched find-time --who alice@x.com,bob@x.com --duration 30 --week 19 --pretty
   owa-sched --profile crayon find-time --who ole@example.com --date 2026-05-12
@@ -165,7 +181,7 @@ def _call_get_schedule(who, from_date, to_date, start_hhmm, end_hhmm,
 def cmd_availability(args, config, access_token, api_base):
     who_csv = ''
     date_ = from_ = to_ = ''
-    week = year = 0
+    week = month = year = ''
     start_hhmm = config.get('default_work_start') or '08:00'
     end_hhmm = config.get('default_work_end') or '17:00'
     interval = 30
@@ -175,15 +191,17 @@ def cmd_availability(args, config, access_token, api_base):
         if flag == '--who':
             who_csv, args = _require_value(flag, args)
         elif flag == '--date':
-            v, args = _require_value(flag, args); date_ = resolve_date(v)
+            date_, args = _require_value(flag, args)
         elif flag == '--from':
-            v, args = _require_value(flag, args); from_ = resolve_date(v)
+            from_, args = _require_value(flag, args)
         elif flag == '--to':
-            v, args = _require_value(flag, args); to_ = resolve_date(v)
+            to_, args = _require_value(flag, args)
         elif flag == '--week':
-            week, args = _require_int(flag, args)
+            week, args = _require_value(flag, args)
+        elif flag == '--month':
+            month, args = _optional_value(args, 'current')
         elif flag == '--year':
-            year, args = _require_int(flag, args)
+            year, args = _require_value(flag, args)
         elif flag == '--start':
             start_hhmm, args = _require_value(flag, args)
             parse_hhmm(start_hhmm)
@@ -201,7 +219,7 @@ def cmd_availability(args, config, access_token, api_base):
     if not who:
         raise UsageError('--who is required (comma-separated emails)')
 
-    from_, to_ = _resolve_window(date_, from_, to_, week, year)
+    from_, to_ = _resolve_window(date_, from_, to_, week, month, year)
     tz = config.get('default_timezone') or 'W. Europe Standard Time'
 
     attendees = _call_get_schedule(
@@ -221,7 +239,7 @@ def cmd_availability(args, config, access_token, api_base):
 def cmd_find_time(args, config, access_token, api_base):
     who_csv = ''
     date_ = from_ = to_ = ''
-    week = year = 0
+    week = month = year = ''
     duration = 30
     start_hhmm = config.get('default_work_start') or '08:00'
     end_hhmm = config.get('default_work_end') or '17:00'
@@ -233,15 +251,17 @@ def cmd_find_time(args, config, access_token, api_base):
         elif flag == '--duration':
             duration, args = _require_int(flag, args)
         elif flag == '--date':
-            v, args = _require_value(flag, args); date_ = resolve_date(v)
+            date_, args = _require_value(flag, args)
         elif flag == '--from':
-            v, args = _require_value(flag, args); from_ = resolve_date(v)
+            from_, args = _require_value(flag, args)
         elif flag == '--to':
-            v, args = _require_value(flag, args); to_ = resolve_date(v)
+            to_, args = _require_value(flag, args)
         elif flag == '--week':
-            week, args = _require_int(flag, args)
+            week, args = _require_value(flag, args)
+        elif flag == '--month':
+            month, args = _optional_value(args, 'current')
         elif flag == '--year':
-            year, args = _require_int(flag, args)
+            year, args = _require_value(flag, args)
         elif flag == '--start':
             start_hhmm, args = _require_value(flag, args)
             parse_hhmm(start_hhmm)
@@ -259,7 +279,7 @@ def cmd_find_time(args, config, access_token, api_base):
     if duration <= 0:
         raise UsageError('--duration must be positive')
 
-    from_, to_ = _resolve_window(date_, from_, to_, week, year)
+    from_, to_ = _resolve_window(date_, from_, to_, week, month, year)
     tz = config.get('default_timezone') or 'W. Europe Standard Time'
 
     # Use a fine-grained interval (15 min) so the slot finder can place
@@ -362,11 +382,12 @@ def _command_name(argv):
 
 _AVAILABILITY_FLAGS = [
     schema_mod.flag('--who', value='<addr[,addr]>', summary='Comma-separated attendee emails', required=True),
-    schema_mod.flag('--date', value='<date>', summary='Specific day (YYYY-MM-DD, today, tomorrow, yesterday)'),
+    schema_mod.flag('--date', value='<date>', summary='Specific day (YYYY-MM-DD, today/tomorrow/yesterday, +n/-n, weekday[+n])'),
     schema_mod.flag('--from', value='<date>', summary='Start of range'),
     schema_mod.flag('--to', value='<date>', summary='End of range'),
-    schema_mod.flag('--week', value='<n>', summary='ISO week number'),
-    schema_mod.flag('--year', value='<n>', summary='Year (default: current)'),
+    schema_mod.flag('--week', value='<n|rel>', summary='ISO work week: number, current/last/next, or +n/-n'),
+    schema_mod.flag('--month', value='<n|rel>', summary='Month: 1-12, current/last/next, or +n/-n (bare = current)'),
+    schema_mod.flag('--year', value='<n|rel>', summary='Year: full year, current/last/next, or +n/-n'),
     schema_mod.flag('--start', value='<HH:MM>', summary='Work-day start (default 08:00, or config default_work_start)'),
     schema_mod.flag('--end', value='<HH:MM>', summary='Work-day end (default 17:00, or config default_work_end)'),
     schema_mod.flag('--interval', value='<min>', summary='Resolution in minutes (default 30)'),
@@ -376,11 +397,12 @@ _AVAILABILITY_FLAGS = [
 _FIND_TIME_FLAGS = [
     schema_mod.flag('--who', value='<addr[,addr]>', summary='Comma-separated attendee emails', required=True),
     schema_mod.flag('--duration', value='<min>', summary='Meeting length in minutes (default 30)'),
-    schema_mod.flag('--date', value='<date>', summary='Specific day (YYYY-MM-DD, today, tomorrow, yesterday)'),
+    schema_mod.flag('--date', value='<date>', summary='Specific day (YYYY-MM-DD, today/tomorrow/yesterday, +n/-n, weekday[+n])'),
     schema_mod.flag('--from', value='<date>', summary='Start of range'),
     schema_mod.flag('--to', value='<date>', summary='End of range'),
-    schema_mod.flag('--week', value='<n>', summary='ISO week number'),
-    schema_mod.flag('--year', value='<n>', summary='Year (default: current)'),
+    schema_mod.flag('--week', value='<n|rel>', summary='ISO work week: number, current/last/next, or +n/-n'),
+    schema_mod.flag('--month', value='<n|rel>', summary='Month: 1-12, current/last/next, or +n/-n (bare = current)'),
+    schema_mod.flag('--year', value='<n|rel>', summary='Year: full year, current/last/next, or +n/-n'),
     schema_mod.flag('--start', value='<HH:MM>', summary='Work-day start (default 08:00, or config default_work_start)'),
     schema_mod.flag('--end', value='<HH:MM>', summary='Work-day end (default 17:00, or config default_work_end)'),
     schema_mod.flag('--pretty', summary='Human-readable view (default: JSON)'),
