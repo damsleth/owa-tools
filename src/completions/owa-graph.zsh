@@ -12,7 +12,7 @@ _owa_graph() {
     verbs=(GET POST PATCH PUT DELETE)
     reserved=(refresh config batch help)
     groups=(me mail calendar files users teams chats presence contacts groups planner todo sites directory)
-    audiences=(graph outlook outlook365 teams azure keyvault storage sql substrate manage powerbi flow devops)
+    audiences=(graph outlook outlook365 teams ic3 csa presence uis azure keyvault storage sql substrate manage powerbi flow devops)
     flags=(
         --pretty --ndjson --retry --all --raw --curl --az --beta
         --debug --verbose --version --help --profile --all-profiles -A --body --header

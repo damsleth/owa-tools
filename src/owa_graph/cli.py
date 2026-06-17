@@ -143,9 +143,10 @@ Per-call options:
   --retry                   Honor Retry-After once on 429/503 (capped at 60s).
   --beta                    Use https://graph.microsoft.com/beta (graph audience only).
   --audience <name>         Forward to owa-piggy. Default: graph.
-                            Known: graph, outlook, teams, azure, keyvault,
-                            storage, sql, outlook365, substrate, manage,
-                            powerbi, flow, devops.
+                            Known: graph, outlook, teams, ic3, csa,
+                            presence, uis, azure, keyvault, storage, sql,
+                            outlook365, substrate, manage, powerbi, flow,
+                            devops.
   --pretty                  Human-readable output (tables for users/messages/
                             drive items; indented JSON otherwise).
   --raw                     Print raw response bytes (no JSON parsing).
