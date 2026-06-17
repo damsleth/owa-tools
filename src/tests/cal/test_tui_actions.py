@@ -19,11 +19,40 @@ def _event(**kw):
     return base
 
 
-def _state(events=None):
-    spec, state = tui.build_session({}, 'tok', 'https://example.com/api/v2.0')
+def _state(events=None, config=None):
+    spec, state = tui.build_session(config or {}, 'tok', 'https://example.com/api/v2.0')
     if events is not None:
         state.items = events
     return state
+
+
+# ---------------------------------------------------------------------------
+# render_detail must not raise on a narrow/just-resized pane (regression)
+# ---------------------------------------------------------------------------
+
+def test_render_detail_narrow_width_does_not_raise():
+    event = _event(body='A long body line that would need wrapping ' * 5,
+                   organizer='boss@x.com', attendees=['a@x.com', 'b@x.com'])
+    for width in (1, 2, 3):
+        lines = tui.render_detail(event, width)  # textwrap width-2 <= 0 used to ValueError
+        assert isinstance(lines, list)
+
+
+# ---------------------------------------------------------------------------
+# on_drill must not silently trap focus (read as a hang)
+# ---------------------------------------------------------------------------
+
+def test_drill_focuses_detail_with_hint_when_pane_on():
+    state = _state([_event()])              # default reading_pane='right'
+    tui.on_drill(state, state.items[0])
+    assert state.focus == 'detail'
+    assert 'back' in state.status.lower()   # discoverable escape
+
+def test_drill_with_pane_off_hints_instead_of_trapping():
+    state = _state([_event()], config={'tui_reading_pane': 'off'})
+    tui.on_drill(state, state.items[0])
+    assert state.focus != 'detail'          # not trapped
+    assert 'reading pane' in state.status.lower()
 
 
 def _answer(monkeypatch, value):

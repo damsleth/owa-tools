@@ -54,6 +54,37 @@ def run(fake_screen, keys, *, settings=None, menu=None, inputs=None,
     return state, calls, screen
 
 
+class TestLoopResilience:
+    """A render/handler bug must not escape the loop or freeze the UI."""
+
+    def test_action_exception_does_not_kill_loop(self, fake_screen):
+        def boom(st):
+            raise RuntimeError("kaboom")
+        spec = app.BrowserSpec(
+            render_row=lambda it, w: f"row:{it}",
+            render_detail=lambda it, w: ["d"],
+            fetch_items=lambda st: setattr(st, "items", ["a"]),
+            actions={ord("x"): boom},
+        )
+        state = app.BrowserState(title="T")
+        screen = fake_screen(keys=[ord("x")])  # then falls back to 'q'
+        app._loop(screen, state, spec)          # must not propagate
+        assert state.running is False           # 'q' still quit it cleanly
+
+    def test_draw_exception_does_not_spin_or_kill(self, fake_screen):
+        def bad_row(it, w):
+            raise ValueError("bad render")
+        spec = app.BrowserSpec(
+            render_row=bad_row,
+            render_detail=lambda it, w: ["d"],
+            fetch_items=lambda st: setattr(st, "items", ["a"]),
+        )
+        state = app.BrowserState(title="T")
+        screen = fake_screen(keys=[ord("q")])   # getch is still reached after a bad frame
+        app._loop(screen, state, spec)           # must not raise or spin
+        assert state.running is False
+
+
 class TestFetchAndRender:
     def test_first_iteration_fetches(self, fake_screen):
         state, calls, _ = run(fake_screen, [ord("q")])
