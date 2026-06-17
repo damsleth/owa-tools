@@ -16,6 +16,14 @@ import curses
 import webbrowser
 from dataclasses import replace as _dc_replace
 
+# Shared curses primitives + text helpers (aliased to the names this module
+# and its tests already use).
+from owa_core.tui_kit.layout import pad as _pad
+from owa_core.tui_kit.layout import truncate as _truncate
+from owa_core.tui_kit.screen import init_colors as _init_colors
+from owa_core.tui_kit.screen import prompt as _prompt
+from owa_core.tui_kit.screen import safe_addstr as _safe_addstr
+
 from . import api as api_mod
 from . import folders as folders_mod
 from . import messages as messages_mod
@@ -115,52 +123,8 @@ def _set_read(api_base, token, message_id, read, debug):
 # Curses event loop
 # ---------------------------------------------------------------------------
 
-def _safe_addstr(win, y, x, text, attr=0):
-    """addstr that clips to the window width and never raises.
-
-    curses raises if you write to (or past) the bottom-right cell; we'd
-    rather silently clip than crash a viewer."""
-    height, width = win.getmaxyx()
-    if y < 0 or y >= height or x >= width:
-        return
-    text = text[: max(width - x - 1, 0)]
-    try:
-        win.addstr(y, x, text, attr)
-    except curses.error:
-        pass
-
-
-def _prompt(stdscr, label):
-    """Read a line of input at the bottom of the screen. Returns the
-    string (possibly empty) or None if the user pressed Esc."""
-    height, width = stdscr.getmaxyx()
-    curses.curs_set(1)
-    curses.echo()
-    _safe_addstr(stdscr, height - 1, 0, ' ' * (width - 1))
-    _safe_addstr(stdscr, height - 1, 0, label)
-    stdscr.refresh()
-    try:
-        raw = stdscr.getstr(height - 1, len(label), max(width - len(label) - 1, 1))
-    finally:
-        curses.noecho()
-        curses.curs_set(0)
-    if raw is None:
-        return None
-    return raw.decode('utf-8', 'replace').strip()
-
-
-def _pad(s, width):
-    """Left-justify *s* to exactly *width* characters."""
-    if len(s) >= width:
-        return s[:width]
-    return s + ' ' * (width - len(s))
-
-
-def _truncate(s, n):
-    """Hard-truncate *s* to at most *n* characters."""
-    if n <= 0:
-        return ''
-    return s[:n]
+# _safe_addstr / _prompt / _pad / _truncate are imported from
+# owa_core.tui_kit (screen + layout) at the top of this module.
 
 
 class _State:
@@ -479,14 +443,7 @@ def _handle_menu_action(stdscr, state, action, config, api_base, token, debug):
 
 
 def _loop(stdscr, state, api_base, token, debug, config):
-    curses.curs_set(0)
-    try:
-        curses.use_default_colors()
-        curses.init_pair(1, -1, -1)
-        stdscr.bkgd(' ', curses.color_pair(1))
-    except curses.error:
-        pass
-    stdscr.keypad(True)
+    _init_colors(stdscr)
     while True:
         # Lazily load the selected message body so the reading pane shows it.
         if (
