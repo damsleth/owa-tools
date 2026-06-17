@@ -43,6 +43,30 @@ def _rich_event(**kw):
 
 
 # ---------------------------------------------------------------------------
+# render_row date column (week/month views)
+# ---------------------------------------------------------------------------
+
+def test_render_row_day_view_has_no_date():
+    row = tui.render_row(_event(start='2026-06-05T08:00:00', end='2026-06-05T11:00:00'), 80)
+    assert '08:00-11:00' in row
+    assert '06-05' not in row          # day view: no date prefix
+
+
+def test_render_row_week_view_prefixes_weekday_date():
+    row = tui.render_row(
+        _event(start='2026-06-05T08:00:00', end='2026-06-05T11:00:00'), 80, show_date=True)
+    assert '06-05' in row              # date shown in week/month view
+    assert row.split()[0]              # leads with the weekday abbrev (locale-dependent)
+    assert '08:00-11:00' in row
+
+
+def test_render_row_bad_date_degrades():
+    # An unparseable start must not break the row when show_date is on.
+    row = tui.render_row(_event(start='', end=''), 80, show_date=True)
+    assert isinstance(row, str)
+
+
+# ---------------------------------------------------------------------------
 # render_detail basic vs full
 # ---------------------------------------------------------------------------
 
@@ -119,7 +143,7 @@ def test_build_session_wires_state_and_spec():
     assert state.debug is True
     assert state._respond_mode is False
     assert state.settings.day_range == 'week'        # caller override applied
-    assert spec.render_row is tui.render_row
+    assert callable(spec.render_row) and callable(spec.render_detail)
     # `y` arms respond mode; it does not send (the a/t/d second key does).
     assert tui._KEY_RESPOND in spec.actions
     assert tui._KEY_OPEN in spec.actions

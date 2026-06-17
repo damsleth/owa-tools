@@ -164,7 +164,8 @@ owa-cal tui                                   # interactive agenda browser
 ### Interactive agenda (`owa-cal tui`)
 
 `owa-cal tui` opens a dependency-free curses agenda browser: arrow through the
-period's events, read a full detail pane, and respond to invites with the
+period's events (week/month views prefix each row with the weekday + date),
+read a full detail pane, and respond to invites with the
 **`y` chord** — press `y` then `a` (accept), `t` (tentative) or `d` (decline);
 any other key cancels. The two-key gesture is the deliberate guard for that
 mutation (it emails the organizer), so there is no separate confirm prompt. It

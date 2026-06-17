@@ -99,8 +99,22 @@ def _range_for_setting(day_range):
 # Row and detail rendering (pure, unit-testable)
 # ---------------------------------------------------------------------------
 
-def render_row(event, width):
-    """One-line agenda row: time + subject + location/organizer."""
+def _weekday_date(start):
+    """`Thu 06-05` from an ISO datetime, or '' if it can't be parsed. The
+    weekday abbreviation is locale-aware (Norwegian shows `tor`)."""
+    date_part = (start or '').split('T', 1)[0]
+    try:
+        return date.fromisoformat(date_part).strftime('%a %m-%d')
+    except ValueError:
+        return ''
+
+
+def render_row(event, width, *, show_date=False):
+    """One-line agenda row: [date] time + subject + location.
+
+    `show_date` prefixes the weekday + date so week/month views are readable;
+    day view leaves it off (every row is the same day).
+    """
     start = event.get('start') or ''
     # Extract HH:MM from ISO datetime
     if 'T' in start:
@@ -125,11 +139,15 @@ def render_row(event, width):
     else:
         time_col = ''
 
-    # Build row: time | subject | location
+    # Leading columns: optional date, then time.
+    date_w = 10
     time_w = 12
-    time_str = time_col[:time_w].ljust(time_w) if time_col else ' ' * time_w
-    rest_w = max(width - time_w - 2, 1)
+    prefix = ''
+    if show_date:
+        prefix = _weekday_date(start)[:date_w].ljust(date_w)
+    prefix += time_col[:time_w].ljust(time_w) if time_col else ' ' * time_w
 
+    rest_w = max(width - len(prefix) - 2, 1)
     loc_hint = ''
     if location:
         loc_hint = f'  [{location[:20]}]'
@@ -137,7 +155,7 @@ def render_row(event, width):
     subj_w = max(rest_w - len(loc_hint), 1)
     subj_str = subject[:subj_w]
 
-    row = f'{time_str}  {subj_str}{loc_hint}'
+    row = f'{prefix}  {subj_str}{loc_hint}'
     return row[:width]
 
 
@@ -374,6 +392,10 @@ def on_menu_action(state, action):
         # the kit caches detail_lines by item id; invalidate it so a
         # detail-affecting setting (event_detail) re-renders immediately.
         state._detail_key = object()
+        # day_range / show_declined change which events are fetched or shown,
+        # so they need a re-fetch; the rest are pure render settings.
+        if field in ('day_range', 'show_declined'):
+            state.dirty = True
         return False
     return False
 
@@ -495,8 +517,10 @@ def build_session(config, access_token, api_base, *, debug=False, day_range=''):
     state._respond_mode = False
 
     spec = _app.BrowserSpec(
-        render_row=render_row,
-        # close over state so the pane honours the live event_detail setting
+        # close over state so rows/detail honour the live settings: show the
+        # date in multi-day (week/month) views, and the chosen detail level.
+        render_row=lambda item, w: render_row(
+            item, w, show_date=getattr(state.settings, 'day_range', 'today') != 'today'),
         render_detail=lambda item, w: render_detail(
             item, w, detail=getattr(state.settings, 'event_detail', 'full')),
         fetch_items=fetch_items,
