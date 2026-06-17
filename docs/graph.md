@@ -75,8 +75,24 @@ request with the right base URL and Bearer header.
   flat arrays are auto-wrapped in `{"requests": [...]}`.
 - `--beta` switches to `https://graph.microsoft.com/beta`.
 - `--audience` retargets at any FOCI audience `owa-piggy` knows about
-  (Outlook REST, Teams, Azure Mgmt, KeyVault, etc.) using the same
-  query ergonomics.
+  using the same query ergonomics. The 17 known audiences are:
+  - `graph` - Microsoft Graph (default)
+  - `outlook` - Outlook REST
+  - `outlook365` - Outlook REST (alternate)
+  - `teams` - Microsoft Teams middle-tier (mt/part, Skype audience)
+  - `ic3` - Microsoft Teams chatsvc / asyncgw (modern)
+  - `csa` - Microsoft Teams chat-service aggregator (updates, chatsAndTeams)
+  - `presence` - Microsoft Teams presence / pubsub (ups)
+  - `uis` - Microsoft Teams user/notification settings (nss)
+  - `azure` - Azure Resource Manager
+  - `keyvault` - Azure Key Vault
+  - `storage` - Azure Blob/Table/Queue Storage
+  - `sql` - Azure SQL
+  - `substrate` - Office Substrate (Copilot, search)
+  - `manage` - Office Management API
+  - `powerbi` - Power BI
+  - `flow` - Power Automate
+  - `devops` - Azure DevOps
 
 ## Resource shortcuts (v0.3+)
 
@@ -195,7 +211,7 @@ Coverage:
 - Graph paths after `owa-graph GET <TAB>` (~10 000 paths from the
   vendored CSDL manifest at `owa_graph/data/paths.json.gz`; `--beta`
   switches to beta paths)
-- `--audience <TAB>` lists the 13 known FOCI audiences
+- `--audience <TAB>` lists the 17 known FOCI audiences
 - the full flag set is suggested anywhere a flag can appear
 
 The path list itself is dumped by the package (used by the completion

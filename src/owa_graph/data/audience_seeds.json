@@ -1,0 +1,59 @@
+{
+  "$comment": "Per-audience seed entry points for the graph explorer. Keyed by KNOWN_AUDIENCES short name. Each value is a list of {path,label,note?} starting points. Tier C (opaque Teams) and Tier D (data-plane) seeds are best-effort.",
+  "graph": [
+    {"path": "me", "label": "Signed-in user", "note": "Tier A: self-describing"},
+    {"path": "users", "label": "Directory users"},
+    {"path": "groups", "label": "Groups"}
+  ],
+  "outlook": [
+    {"path": "me", "label": "Mailbox owner", "note": "Tier A: self-describing"},
+    {"path": "me/messages", "label": "Messages"}
+  ],
+  "outlook365": [
+    {"path": "me", "label": "Mailbox owner", "note": "Tier A: self-describing"},
+    {"path": "me/messages", "label": "Messages"}
+  ],
+  "teams": [
+    {"path": "v1/users/ME/properties", "label": "Teams user properties", "note": "opaque internal API; seed path"}
+  ],
+  "ic3": [
+    {"path": "v1/users/ME/endpoints", "label": "Teams endpoints (asyncgw)", "note": "opaque internal API; seed path"}
+  ],
+  "csa": [
+    {"path": "v1/users/ME/conversations", "label": "Conversations (chatsAndTeams)", "note": "opaque internal API; seed path"}
+  ],
+  "presence": [
+    {"path": "v1/me/presence", "label": "My presence", "note": "opaque internal API; seed path"}
+  ],
+  "uis": [
+    {"path": "v1/settings", "label": "User/notification settings (nss)", "note": "opaque internal API; seed path"}
+  ],
+  "azure": [
+    {"path": "subscriptions", "label": "Azure subscriptions", "note": "Tier B: append ?api-version=..."}
+  ],
+  "keyvault": [
+    {"path": "secrets", "label": "Key Vault secrets", "note": "Tier D: raw-request target, not a browse surface"}
+  ],
+  "storage": [
+    {"path": "", "label": "Storage account root", "note": "Tier D: raw-request target, not a browse surface"}
+  ],
+  "sql": [
+    {"path": "", "label": "Azure SQL endpoint", "note": "Tier D: raw-request target, not a browse surface"}
+  ],
+  "substrate": [
+    {"path": "cf/v2/me", "label": "Substrate profile", "note": "Tier B: Office Substrate"}
+  ],
+  "manage": [
+    {"path": "{tenant_id}/ServiceComms/CurrentStatus", "label": "Service health status", "note": "Tier B: {tenant_id} resolved from token tid"}
+  ],
+  "powerbi": [
+    {"path": "myorg/datasets", "label": "Power BI datasets"},
+    {"path": "myorg/groups", "label": "Power BI workspaces"}
+  ],
+  "flow": [
+    {"path": "providers/Microsoft.ProcessSimple/environments", "label": "Power Automate environments", "note": "Tier B: append ?api-version=..."}
+  ],
+  "devops": [
+    {"path": "_apis/projects", "label": "Azure DevOps projects", "note": "Tier B: append ?api-version=..."}
+  ]
+}

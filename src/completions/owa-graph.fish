@@ -12,7 +12,7 @@
 set -l owa_graph_verbs GET POST PATCH PUT DELETE
 set -l owa_graph_reserved refresh config batch help
 set -l owa_graph_groups me mail calendar files users teams chats presence contacts groups planner todo sites directory
-set -l owa_graph_audiences graph outlook outlook365 teams azure keyvault storage sql substrate manage powerbi flow devops
+set -l owa_graph_audiences graph outlook outlook365 teams ic3 csa presence uis azure keyvault storage sql substrate manage powerbi flow devops
 
 # --- first positional: verbs + groups + reserved ---------------------------
 

@@ -20,6 +20,14 @@ ALLOWED_KEYS = (
     'owa_piggy_profile',
     'default_audience',
     'debug',
+    # Interactive explorer (owa-graph tui) view settings + bookmarks.
+    'graph_tui_reading_pane',
+    'graph_tui_split_ratio',
+    'graph_tui_pretty_json',
+    'graph_tui_scope_warnings',
+    'graph_tui_default_audience',
+    'graph_tui_default_path',
+    'graph_tui_bookmarks',
 )
 
 DEFAULT_AUDIENCE = 'graph'
