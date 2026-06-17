@@ -13,8 +13,10 @@ Config key names (must match ALLOWED_KEYS in config.py):
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Final
+
+from owa_core.tui_kit import settings as _kit
 
 # ---------------------------------------------------------------------------
 # Allowed values (ordered tuples define cycle order)
@@ -92,18 +94,7 @@ def cycle(settings: Settings, field: str) -> Settings:
     Wraps around. *date_custom* is free-text and cannot be cycled; calling
     cycle() on it returns the same Settings unchanged.
     """
-    if field in _FREE_TEXT_FIELDS:
-        return settings
-    if field not in _ALLOWED:
-        raise ValueError(f'unknown settings field: {field!r}')
-    allowed = _ALLOWED[field]
-    current = getattr(settings, field)
-    try:
-        idx = list(allowed).index(current)
-    except ValueError:
-        idx = -1  # invalid current value; jump to first
-    next_val = allowed[(idx + 1) % len(allowed)]
-    return replace(settings, **{field: next_val})
+    return _kit.cycle(settings, field, allowed=_ALLOWED, free_text=_FREE_TEXT_FIELDS)
 
 
 def from_config(config: dict) -> Settings:
@@ -112,39 +103,14 @@ def from_config(config: dict) -> Settings:
     Unknown or invalid values fall back to the per-field default.
     *split_ratio* is stored as a string; we coerce to int here.
     """
-    kwargs: dict = {}
-
-    for field, key in _FIELD_TO_KEY.items():
-        raw = config.get(key)
-        default = getattr(DEFAULTS, field)
-
-        if raw is None:
-            # Key absent in config — use default
-            kwargs[field] = default
-            continue
-
-        if field == 'split_ratio':
-            try:
-                val = int(raw)
-            except (ValueError, TypeError):
-                val = default
-            if val not in SPLIT_RATIO_VALUES:
-                val = default
-            kwargs[field] = val
-
-        elif field in _FREE_TEXT_FIELDS:
-            # Accept any string
-            kwargs[field] = str(raw)
-
-        else:
-            # Enum field: validate against allowed tuple
-            allowed = _ALLOWED[field]
-            if raw in allowed:
-                kwargs[field] = raw
-            else:
-                kwargs[field] = default
-
-    return Settings(**kwargs)
+    return _kit.from_config(
+        config,
+        defaults=DEFAULTS,
+        field_to_key=_FIELD_TO_KEY,
+        allowed=_ALLOWED,
+        free_text=_FREE_TEXT_FIELDS,
+        coercers={'split_ratio': int},
+    )
 
 
 def to_config_dict(settings: Settings) -> dict[str, str]:
@@ -153,10 +119,4 @@ def to_config_dict(settings: Settings) -> dict[str, str]:
     All values are stored as strings. The dict keys match ALLOWED_KEYS in
     config.py.
     """
-    return {
-        _FIELD_TO_KEY['reading_pane']: settings.reading_pane,
-        _FIELD_TO_KEY['split_ratio']: str(settings.split_ratio),
-        _FIELD_TO_KEY['sort_by']: settings.sort_by,
-        _FIELD_TO_KEY['date_format']: settings.date_format,
-        _FIELD_TO_KEY['date_custom']: settings.date_custom,
-    }
+    return _kit.to_config_dict(settings, field_to_key=_FIELD_TO_KEY)
