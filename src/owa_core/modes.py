@@ -96,6 +96,7 @@ def _mode_environment(tool, command, err_json):
 def run_with_output_modes(
     tool, argv, dispatch, *,
     binary_stdout_commands=(), interactive_commands=(), fan_out_profiles=True,
+    audience=None, command_scopes=None,
 ):
     """Run a legacy CLI dispatcher with shared agent/error modes.
 
@@ -114,6 +115,17 @@ def run_with_output_modes(
     profile the original argv is passed through untouched, so behaviour is
     byte-identical to a single-profile run. Set False to opt out (the doctor
     surface does so, since `--doctor` is tool-global).
+
+    `audience` + `command_scopes` enable scope-aware fan-out filtering on the
+    `--profile all` path only. `audience` is the tool's broker audience (e.g.
+    'outlook'); `command_scopes` maps a command name to the set of delegated
+    scopes that grant it (any-of). When `--profile all` expands the registry,
+    a profile whose token for `audience` can't be minted or carries none of
+    the command's scopes is silently dropped, so a profile that structurally
+    can't run the command (e.g. a DevOps-only profile with no mail scopes) no
+    longer produces a permission error per profile. Explicit `--profile X`
+    runs are never filtered - they still error, since naming a profile is an
+    explicit request to run against it.
     """
     # Top-level --doctor surface. Intercept before
     # the legacy dispatcher so every owa-* binary picks it up via the
@@ -147,6 +159,9 @@ def run_with_output_modes(
             agent=agent, err_json=err_json,
             binary_stdout_commands=binary_stdout_commands,
             interactive_commands=interactive_commands,
+            all_requested=all_requested,
+            audience=audience,
+            command_scopes=command_scopes,
         )
 
     # N<=1: byte-identical path. Pass the ORIGINAL filtered argv straight to
@@ -258,9 +273,52 @@ def _multi_exit_code(records):
     return 2
 
 
+def _filter_profiles_by_scope(tool, profiles, audience, acceptable, *, debug):
+    """Drop profiles whose `audience` token can't be minted or carries none
+    of the `acceptable` scopes.
+
+    Used only on the `--profile all` fan-out path: a profile that structurally
+    can't run the command is silently skipped rather than failing with a
+    permission error. The filter is deliberately lenient - a profile is kept
+    unless it clearly can't run the command (token unmintable, or scope set
+    disjoint from `acceptable`) - so a partial scope match never silently
+    drops data that would have come back.
+
+    Token scopes are advisory (read from the JWT `scp`/`roles` claims), so a
+    successful mint already proves the audience is reachable; the scope
+    intersection is the finer "does it carry mail/cal/... access at all" gate.
+    """
+    from owa_core.auth import get_token
+    from owa_core.jwt import scopes_in_token
+
+    kept = []
+    for p in profiles:
+        try:
+            token = get_token(
+                tool_name=tool, audience=audience, profile=p, debug=debug,
+            )
+        except OwaError:
+            if debug:
+                print(
+                    f'DEBUG: skip profile {p!r}: cannot mint {audience} token',
+                    file=sys.stderr,
+                )
+            continue
+        if scopes_in_token(token.access_token) & acceptable:
+            kept.append(p)
+        elif debug:
+            print(
+                f'DEBUG: skip profile {p!r}: token lacks required scopes '
+                f'({"/".join(sorted(acceptable))})',
+                file=sys.stderr,
+            )
+    return kept
+
+
 def _run_multi_profile(
     tool, rest, profiles, dispatch, *,
     agent, err_json, binary_stdout_commands, interactive_commands,
+    all_requested=False, audience=None, command_scopes=None,
 ):
     """Run `dispatch` once per profile and merge the captured results.
 
@@ -290,6 +348,16 @@ def _run_multi_profile(
             command=command,
             err_json=err_json,
         )
+
+    # Scope-aware filtering: only when `all` expanded the registry (an
+    # explicit --profile X is an explicit request and must still error).
+    if all_requested and audience and command_scopes:
+        acceptable = command_scopes.get(command)
+        if acceptable:
+            profiles = _filter_profiles_by_scope(
+                tool, profiles, audience, acceptable,
+                debug='--debug' in rest,
+            )
 
     pretty = '--pretty' in rest
     ndjson = '--ndjson' in rest

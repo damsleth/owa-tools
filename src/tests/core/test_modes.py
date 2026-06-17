@@ -538,3 +538,116 @@ def test_all_meta_merges_with_explicit_profile(monkeypatch, capsys):
     payload = json.loads(capsys.readouterr().out)
     # b seen first, then a from the `all` expansion (b not repeated).
     assert payload['_owa']['profiles'] == ['b', 'a']
+
+
+# --- scope-aware fan-out filtering (--profile all only) -----------------------
+
+
+def _patch_scope_tokens(monkeypatch, scopes_by_profile):
+    """Stub get_token + scopes_in_token so a profile's scope set is `scopes_by_profile[alias]`.
+
+    A profile mapped to None raises AuthExpiredError on mint (audience
+    unreachable). The marker access_token is just the alias.
+    """
+    from owa_core.auth import BrokerToken
+
+    def fake_get_token(*, tool_name, audience, profile, debug=False):
+        if scopes_by_profile.get(profile) is None:
+            raise AuthExpiredError(f'cannot mint {audience} for {profile}')
+        return BrokerToken(access_token=profile, audience=audience, profile=profile)
+
+    monkeypatch.setattr('owa_core.auth.get_token', fake_get_token)
+    monkeypatch.setattr(
+        'owa_core.jwt.scopes_in_token',
+        lambda access_token: set(scopes_by_profile.get(access_token) or ()),
+    )
+
+
+_MAIL_SCOPES = {'Mail.Read', 'Mail.ReadWrite'}
+
+
+def test_all_meta_skips_profile_lacking_scopes(monkeypatch, capsys):
+    _patch_profiles(monkeypatch, [{'alias': 'mail'}, {'alias': 'ado'}])
+    _patch_scope_tokens(monkeypatch, {'mail': {'Mail.Read'}, 'ado': {'User.Read'}})
+
+    rc = modes.run_with_output_modes(
+        'owa-mail', ['--profile', 'all', 'messages'],
+        lambda av: print('{"id":"' + av[-1] + '"}') or 0,
+        audience='outlook', command_scopes={'messages': _MAIL_SCOPES},
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    # ado has no mail scope -> silently dropped from the fan-out entirely.
+    assert payload['_owa']['profiles'] == ['mail']
+    assert [r['profile'] for r in payload['results']] == ['mail']
+
+
+def test_all_meta_skips_profile_with_unmintable_token(monkeypatch, capsys):
+    _patch_profiles(monkeypatch, [{'alias': 'mail'}, {'alias': 'ado'}])
+    _patch_scope_tokens(monkeypatch, {'mail': {'Mail.ReadWrite'}, 'ado': None})
+
+    rc = modes.run_with_output_modes(
+        'owa-mail', ['--profile', 'all', 'messages', '--debug'],
+        lambda av: print('{"id":"' + av[-1] + '"}') or 0,
+        audience='outlook', command_scopes={'messages': _MAIL_SCOPES},
+    )
+
+    assert rc == 0
+    out = capsys.readouterr()
+    payload = json.loads(out.out)
+    assert [r['profile'] for r in payload['results']] == ['mail']
+    assert "skip profile 'ado': cannot mint outlook token" in out.err
+
+
+def test_explicit_multi_profile_is_not_scope_filtered(monkeypatch, capsys):
+    # Naming profiles explicitly is an explicit request: no silent skip, even
+    # when one lacks the scope (it must still run and surface its own error).
+    minted = []
+    monkeypatch.setattr(
+        'owa_core.auth.get_token',
+        lambda **_kw: minted.append(True),  # would be called only if filtering ran
+    )
+
+    rc = modes.run_with_output_modes(
+        'owa-mail', ['--profile', 'mail', '--profile', 'ado', 'messages'],
+        lambda av: print('{"id":"' + av[-1] + '"}') or 0,
+        audience='outlook', command_scopes={'messages': _MAIL_SCOPES},
+    )
+
+    assert rc == 0
+    assert minted == []  # filter never engaged for explicit profiles
+    payload = json.loads(capsys.readouterr().out)
+    assert [r['profile'] for r in payload['results']] == ['mail', 'ado']
+
+
+def test_all_meta_no_filter_for_unlisted_command(monkeypatch, capsys):
+    _patch_profiles(monkeypatch, [{'alias': 'a'}, {'alias': 'b'}])
+    minted = []
+    monkeypatch.setattr('owa_core.auth.get_token', lambda **_kw: minted.append(True))
+
+    rc = modes.run_with_output_modes(
+        'owa-mail', ['--profile', 'all', 'folders'],
+        lambda av: print('{"id":"' + av[-1] + '"}') or 0,
+        audience='outlook', command_scopes={'messages': _MAIL_SCOPES},  # folders absent
+    )
+
+    assert rc == 0
+    assert minted == []  # command not in table -> no scope mint, no filtering
+    payload = json.loads(capsys.readouterr().out)
+    assert [r['profile'] for r in payload['results']] == ['a', 'b']
+
+
+def test_all_meta_logs_skipped_profiles_under_debug(monkeypatch, capsys):
+    _patch_profiles(monkeypatch, [{'alias': 'mail'}, {'alias': 'ado'}])
+    _patch_scope_tokens(monkeypatch, {'mail': {'Mail.Read'}, 'ado': {'User.Read'}})
+
+    modes.run_with_output_modes(
+        'owa-mail', ['--profile', 'all', 'messages', '--debug'],
+        lambda av: print('{"id":"' + av[-1] + '"}') or 0,
+        audience='outlook', command_scopes={'messages': _MAIL_SCOPES},
+    )
+
+    err = capsys.readouterr().err
+    assert "skip profile 'ado'" in err
+    assert 'lacks required scopes' in err

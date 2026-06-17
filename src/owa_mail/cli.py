@@ -1036,6 +1036,24 @@ AUTHED_HANDLERS = {
     'tui': cmd_tui,
 }
 
+# Delegated scopes that grant each command (any-of), used by the --profile all
+# fan-out to silently skip profiles whose token carries no mail access at all
+# (e.g. a DevOps-only profile). Deliberately broad: the One Outlook Web client
+# owa-piggy borrows from carries Mail.ReadWrite, so any successfully-minted
+# outlook token satisfies every command - the gate really just separates
+# "has mail access" from "has none". Read/write/send precision can be tightened
+# later if needed.
+_MAIL_SCOPES = frozenset({
+    'Mail.Read', 'Mail.ReadBasic', 'Mail.ReadBasic.All',
+    'Mail.ReadWrite', 'Mail.Read.Shared', 'Mail.ReadWrite.Shared',
+    'Mail.Send', 'Mail.Send.Shared',
+})
+COMMAND_SCOPES = {
+    cmd: _MAIL_SCOPES
+    for cmd in AUTHED_HANDLERS
+    if cmd not in ('tui', 'attachment-get')  # can't fan out anyway
+}
+
 _MESSAGES_FLAGS = [
     schema_mod.flag('--folder', value='<name|id>', summary='Inbox|Drafts|SentItems|DeletedItems|Junk|Archive'),
     schema_mod.flag('--unread', summary='Only unread messages'),
@@ -1234,4 +1252,6 @@ def main(argv=None):
         _main,
         binary_stdout_commands=('attachment-get',),
         interactive_commands=('tui',),
+        audience=auth_mod.AUDIENCE,
+        command_scopes=COMMAND_SCOPES,
     )
