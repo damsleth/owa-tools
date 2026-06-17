@@ -311,41 +311,66 @@ def _handle_list_key(stdscr, state, spec, ch, prev_status):
         state.status = prev_status
 
 
+def _draw_error(stdscr, exc):  # pragma: no cover - only on an unexpected draw bug
+    """Last-resort error frame so a render bug can't blank the screen or, worse,
+    spin the loop without ever reaching ``getch`` (which would freeze the UI)."""
+    try:
+        height, width = stdscr.getmaxyx()
+        stdscr.erase()
+        _screen.safe_addstr(stdscr, 0, 0, f'render error: {exc}'[:max(width - 1, 1)])
+        _screen.safe_addstr(stdscr, min(1, height - 1), 0,
+                            'q quit · r retry · esc menu'[:max(width - 1, 1)])
+        stdscr.refresh()
+    except curses.error:
+        pass
+
+
 def _loop(stdscr, state, spec):
     _screen.init_colors(stdscr)
     while state.running:
         if state.dirty and spec.fetch_items is not None:
             state.dirty = False
-            spec.fetch_items(state)
+            spec.fetch_items(state)  # curses-safe by contract: never raises
 
-        if state.menu_open and state.menu is not None:
-            _draw_menu(stdscr, state)
-        else:
-            _draw(stdscr, state, spec)
+        # A render bug must never escape the loop (tearing down the wrapper) or
+        # retry without input (freezing the UI). Draw defensively; getch always
+        # runs below, so q/esc stay reachable even after a bad frame.
+        try:
+            if state.menu_open and state.menu is not None:
+                _draw_menu(stdscr, state)
+            else:
+                _draw(stdscr, state, spec)
+        except Exception as exc:  # noqa: BLE001
+            _draw_error(stdscr, exc)
 
         ch = stdscr.getch()
         prev_status = state.status
         state.status = ''
 
-        if state.menu_open and state.menu is not None:
-            _handle_menu_key(state, spec, ch, prev_status)
-            continue
+        try:
+            if state.menu_open and state.menu is not None:
+                _handle_menu_key(state, spec, ch, prev_status)
+                continue
 
-        if ch == curses.KEY_RESIZE:
-            try:
-                curses.resizeterm(*stdscr.getmaxyx())
-            except curses.error:
-                pass
-            stdscr.clear()
-            state.status = prev_status
-            continue
+            if ch == curses.KEY_RESIZE:
+                try:
+                    curses.resizeterm(*stdscr.getmaxyx())
+                except curses.error:
+                    pass
+                stdscr.clear()
+                state.status = prev_status
+                continue
 
-        if ch in _keys.QUIT:
-            state.running = False
-        elif ch == _keys.ESC and state.menu is not None:
-            state.menu.reset()
-            state.menu_open = True
-        elif state.focus == 'detail':
-            _handle_detail_key(stdscr, state, ch, prev_status)
-        else:
-            _handle_list_key(stdscr, state, spec, ch, prev_status)
+            if ch in _keys.QUIT:
+                state.running = False
+            elif ch == _keys.ESC and state.menu is not None:
+                state.menu.reset()
+                state.menu_open = True
+            elif state.focus == 'detail':
+                _handle_detail_key(stdscr, state, ch, prev_status)
+            else:
+                _handle_list_key(stdscr, state, spec, ch, prev_status)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as exc:  # noqa: BLE001 — a handler bug shouldn't kill the TUI
+            state.status = f'error: {exc}'

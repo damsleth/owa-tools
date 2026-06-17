@@ -190,7 +190,9 @@ def render_detail(event, width):
             if not para.strip():
                 lines.append('')
                 continue
-            for wrapped in textwrap.wrap(para, width - 2) or ['']:
+            # width can be 1-2 cols on a narrow/just-resized pane; textwrap
+            # raises ValueError for width <= 0, so floor it at 1.
+            for wrapped in textwrap.wrap(para, max(width - 2, 1)) or ['']:
                 lines.append(f'  {wrapped}')
 
     # Show event ID at the bottom for reference
@@ -288,8 +290,19 @@ def on_refresh(state):
 
 
 def on_drill(state, item):
-    """Focus detail pane on the selected event (no-op if pane is already shown)."""
+    """Enter on an event: focus the reading pane so a long body can be scrolled.
+
+    A flat agenda has nothing to drill *into*, so the only useful move is to
+    hand keyboard focus to the detail pane. Set a discoverable status hint so
+    the user isn't trapped (the previous version switched focus silently, which
+    read as a hang). When the pane is off there's nowhere to focus — say so.
+    """
+    placement = getattr(state.settings, 'reading_pane', 'off')
+    if placement == 'off':
+        state.status = 'enable the reading pane (Esc → Settings) to view details'
+        return
     state.focus = 'detail'
+    state.status = 'detail focus — j/k scroll · h/← back'
 
 
 def on_back(state):
@@ -453,53 +466,84 @@ def build_session(config, access_token, api_base, *, debug=False, day_range=''):
     return spec, state
 
 
+def _draw_error(stdscr, exc):  # pragma: no cover - only on an unexpected draw bug
+    """Last-resort error frame: a render bug must not blank the screen or spin."""
+    from owa_core.tui_kit import screen as _scr
+    try:
+        height, width = stdscr.getmaxyx()
+        stdscr.erase()
+        _scr.safe_addstr(stdscr, 0, 0, f'render error: {exc}'[:max(width - 1, 1)])
+        _scr.safe_addstr(stdscr, min(1, height - 1), 0, 'q to quit · r to retry'[:max(width - 1, 1)])
+        stdscr.refresh()
+    except curses.error:
+        pass
+
+
 def _cal_loop(stdscr, state, spec):  # pragma: no cover - curses loop (cf. kit app._loop)
-    """The kit's event loop plus a respond-sentinel drain that needs stdscr."""
+    """The kit's event loop plus a respond-sentinel drain that needs stdscr.
+
+    Every per-iteration step is guarded so a render/handler bug (or a too-small
+    terminal) can never escape the loop and tear down the wrapper, and so a
+    failing draw can never spin without reaching ``getch`` (which would freeze
+    the UI). ``KeyboardInterrupt``/``SystemExit`` still propagate so Ctrl-C and
+    ``q`` exit cleanly.
+    """
     from owa_core.tui_kit import app as _app_mod
     from owa_core.tui_kit import screen as _scr
     _scr.init_colors(stdscr)
     while state.running:
         if state.dirty and spec.fetch_items is not None:
             state.dirty = False
-            spec.fetch_items(state)
+            spec.fetch_items(state)  # curses-safe by contract: never raises
 
         if state._pending_respond:
             action = state._pending_respond
             state._pending_respond = None
-            _do_respond(stdscr, state, action)
+            try:
+                _do_respond(stdscr, state, action)
+            except Exception as exc:  # noqa: BLE001
+                state.status = f'respond error: {exc}'
             continue
 
-        if state.menu_open and state.menu is not None:
-            _app_mod._draw_menu(stdscr, state)
-        else:
-            _app_mod._draw(stdscr, state, spec)
+        try:
+            if state.menu_open and state.menu is not None:
+                _app_mod._draw_menu(stdscr, state)
+            else:
+                _app_mod._draw(stdscr, state, spec)
+        except Exception as exc:  # noqa: BLE001
+            _draw_error(stdscr, exc)
 
-        ch = stdscr.getch()
+        ch = stdscr.getch()  # always reached, so the UI never freezes
         prev_status = state.status
         state.status = ''
 
-        if state.menu_open and state.menu is not None:
-            _app_mod._handle_menu_key(state, spec, ch, prev_status)
-            continue
+        try:
+            if state.menu_open and state.menu is not None:
+                _app_mod._handle_menu_key(state, spec, ch, prev_status)
+                continue
 
-        if ch == curses.KEY_RESIZE:
-            try:
-                curses.resizeterm(*stdscr.getmaxyx())
-            except curses.error:
-                pass
-            stdscr.clear()
-            state.status = prev_status
-            continue
+            if ch == curses.KEY_RESIZE:
+                try:
+                    curses.resizeterm(*stdscr.getmaxyx())
+                except curses.error:
+                    pass
+                stdscr.clear()
+                state.status = prev_status
+                continue
 
-        if ch in _app_mod._keys.QUIT:
-            state.running = False
-        elif ch == _app_mod._keys.ESC and state.menu is not None:
-            state.menu.reset()
-            state.menu_open = True
-        elif state.focus == 'detail':
-            _app_mod._handle_detail_key(stdscr, state, ch, prev_status)
-        else:
-            _app_mod._handle_list_key(stdscr, state, spec, ch, prev_status)
+            if ch in _app_mod._keys.QUIT:
+                state.running = False
+            elif ch == _app_mod._keys.ESC and state.menu is not None:
+                state.menu.reset()
+                state.menu_open = True
+            elif state.focus == 'detail':
+                _app_mod._handle_detail_key(stdscr, state, ch, prev_status)
+            else:
+                _app_mod._handle_list_key(stdscr, state, spec, ch, prev_status)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as exc:  # noqa: BLE001
+            state.status = f'error: {exc}'
 
 
 def run(config, access_token, api_base, *, debug=False, day_range=''):  # pragma: no cover - curses entry
