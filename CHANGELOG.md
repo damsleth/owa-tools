@@ -6,6 +6,39 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## v0.11.1 - 2026-06-17
+
+### owa-cal
+
+- **New `owa-cal tui` interactive agenda browser** in a curses UI: arrow
+  through the period's events, read a detail pane, and respond to invites.
+  Built on the shared `tui_kit` foundation.
+  - Detail pane shows the full invite — organizer, every attendee with their
+    response, your own RSVP, and a body preview — with an **Event detail**
+    setting (`full`/`basic`) to trim it to title/time/location/status/category.
+  - Week/month views prefix each row with the weekday + date (day view stays
+    time-only).
+  - Respond to an invite with the **`y` chord**: `y` then `a`/`t`/`d` for
+    accept/tentative/decline (any other key cancels) — a deliberate guard for
+    the mutation, no separate confirm prompt.
+  - `/` search, `--day-range day|week|month`, persisted view settings via the
+    esc menu. Refuses to run non-interactively or under `--agent`.
+
+### suite-wide
+
+- **`--profile all` fan-out now skips profiles that can't run the command.** A
+  profile whose token for the tool's audience can't be minted, or carries none
+  of the command's delegated scopes, is silently dropped from the fan-out
+  instead of producing a per-profile permission error. Explicit `--profile X`
+  runs are never filtered.
+
+### internal
+
+- Extracted a shared, dependency-free curses TUI kit (`owa_core.tui_kit`) from
+  owa-mail; hardened its event loop so a render/handler bug can't freeze or
+  tear down a TUI. Landed the owa-graph FOCI explorer's nav engine, auth/token
+  cache, and curses front-end (phases 0-2; not yet exposed on the CLI).
+
 ## v0.11.0 - 2026-06-16
 
 ### suite-wide
