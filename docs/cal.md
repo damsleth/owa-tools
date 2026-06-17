@@ -168,7 +168,10 @@ period's events, read a full detail pane, and respond to invites with the
 **`y` chord** — press `y` then `a` (accept), `t` (tentative) or `d` (decline);
 any other key cancels. The two-key gesture is the deliberate guard for that
 mutation (it emails the organizer), so there is no separate confirm prompt. It
-is otherwise read-focused — no create/update/delete — and refuses to run
+is otherwise read-focused — no create/update/delete. The detail pane shows the
+full invite by default — organizer, every attendee with their response, your
+own RSVP, and a body preview; set **Event detail** to `basic` (esc → Settings)
+to show only title/time/location/status/category. It refuses to run
 without an interactive terminal
 (under `--agent` or a pipe), so scripted callers keep using `events` and
 `respond`. View settings (reading pane, split ratio, day range, show-declined)

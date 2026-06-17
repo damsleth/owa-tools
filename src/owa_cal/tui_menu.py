@@ -41,6 +41,7 @@ _SETTINGS_FIELDS: list[tuple[str, str]] = [
     ("split_ratio", "Split ratio"),
     ("day_range", "Day range"),
     ("show_declined", "Show declined"),
+    ("event_detail", "Event detail"),
 ]
 
 
