@@ -36,21 +36,23 @@ PAGE_SIZE = 50
 
 # Footer hint lines
 HELP_LINE = (
-    'j/k move · enter detail · / search · r refresh · a/d/t respond · o browser · esc menu · q quit'
+    'j/k move · enter detail · / search · r refresh · y respond (a/t/d) · o browser · esc menu · q quit'
 )
 
-# Respond actions supported in the TUI
+# Respond actions supported in the TUI: action name -> Outlook REST segment.
 _RESPOND_ACTIONS = {
     'accept': 'accept',
     'decline': 'decline',
     'tentative': 'tentativelyaccept',
 }
 
-# Key shortcuts for respond actions
-_KEY_ACCEPT = ord('a')
-_KEY_DECLINE = ord('d')
-_KEY_TENTATIVE = ord('t')
+# Responding is a deliberate two-key chord: `y` enters respond mode, then one of
+# a/t/d picks the action. This keeps an irreversible mutation (it emails the
+# organizer) behind an explicit gesture and frees `d` from colliding with the
+# kit's half-page-down scroll.
+_KEY_RESPOND = ord('y')
 _KEY_OPEN = ord('o')
+_RESPOND_KEYS = {ord('a'): 'accept', ord('t'): 'tentative', ord('d'): 'decline'}
 
 
 # ---------------------------------------------------------------------------
@@ -341,13 +343,26 @@ def _persist_settings(state):
 
 
 # ---------------------------------------------------------------------------
-# Respond action (mutates — requires explicit confirm keypress)
+# Respond action (mutates) — reached only via the `y` then a/t/d chord
 # ---------------------------------------------------------------------------
 
-def _do_respond(stdscr, state, action_key):
-    """Respond to the selected event's invite after an explicit confirm prompt.
+def _enter_respond_mode(state):
+    """`y`: arm respond mode. The next a/t/d picks the action (handled in the
+    loop); anything else cancels. The chord itself is the deliberate guard, so
+    there is no separate y/N confirm prompt."""
+    if state.current() is None:
+        state.status = 'no event selected'
+        return
+    state._respond_mode = True
+    state.status = 'respond: (a)ccept · (t)entative · (d)ecline · any other key cancels'
 
-    action_key is one of 'accept', 'decline', 'tentative'.
+
+def _do_respond(state, action_key):
+    """Send a meeting response for the selected event.
+
+    `action_key` is one of 'accept', 'decline', 'tentative'. Curses-safe: no
+    prompt, no stdscr — the y+a/t/d chord already confirmed intent. Never
+    raises; reports outcome via state.status and re-fetches on success.
     """
     item = state.current()
     if item is None:
@@ -358,19 +373,6 @@ def _do_respond(stdscr, state, action_key):
     subject = item.get('subject') or '(no subject)'
     if not event_id:
         state.status = 'event has no id'
-        return
-
-    # Show confirm prompt before sending. The prompt touches curses (curs_set/
-    # getstr/echo); guard it so a curses.error on a tiny terminal can't escape
-    # the loop and tear down the wrapper mid-frame.
-    prompt_text = f'{action_key} "{subject[:30]}"? (y/N): '
-    try:
-        answer = _screen.prompt(stdscr, prompt_text)
-    except Exception:
-        state.status = 'prompt error'
-        return
-    if answer is None or answer.strip().lower() not in ('y', 'yes'):
-        state.status = 'cancelled'
         return
 
     access_token = state.access_token
@@ -443,7 +445,7 @@ def build_session(config, access_token, api_base, *, debug=False, day_range=''):
     state.debug = debug
     state._config = config
     state._search = ''
-    state._pending_respond = None
+    state._respond_mode = False
 
     spec = _app.BrowserSpec(
         render_row=render_row,
@@ -455,9 +457,7 @@ def build_session(config, access_token, api_base, *, debug=False, day_range=''):
         on_refresh=on_refresh,
         on_menu_action=on_menu_action,
         actions={
-            _KEY_ACCEPT: lambda st: setattr(st, '_pending_respond', 'accept'),
-            _KEY_DECLINE: lambda st: setattr(st, '_pending_respond', 'decline'),
-            _KEY_TENTATIVE: lambda st: setattr(st, '_pending_respond', 'tentative'),
+            _KEY_RESPOND: _enter_respond_mode,
             _KEY_OPEN: _do_open_browser,
         },
         footer=HELP_LINE,
@@ -480,7 +480,7 @@ def _draw_error(stdscr, exc):  # pragma: no cover - only on an unexpected draw b
 
 
 def _cal_loop(stdscr, state, spec):  # pragma: no cover - curses loop (cf. kit app._loop)
-    """The kit's event loop plus a respond-sentinel drain that needs stdscr.
+    """The kit's event loop plus the `y`+a/t/d respond chord.
 
     Every per-iteration step is guarded so a render/handler bug (or a too-small
     terminal) can never escape the loop and tear down the wrapper, and so a
@@ -496,15 +496,6 @@ def _cal_loop(stdscr, state, spec):  # pragma: no cover - curses loop (cf. kit a
             state.dirty = False
             spec.fetch_items(state)  # curses-safe by contract: never raises
 
-        if state._pending_respond:
-            action = state._pending_respond
-            state._pending_respond = None
-            try:
-                _do_respond(stdscr, state, action)
-            except Exception as exc:  # noqa: BLE001
-                state.status = f'respond error: {exc}'
-            continue
-
         try:
             if state.menu_open and state.menu is not None:
                 _app_mod._draw_menu(stdscr, state)
@@ -516,6 +507,21 @@ def _cal_loop(stdscr, state, spec):  # pragma: no cover - curses loop (cf. kit a
         ch = stdscr.getch()  # always reached, so the UI never freezes
         prev_status = state.status
         state.status = ''
+
+        # Respond chord: `y` armed respond mode last iteration; this key picks
+        # the action (a/t/d) or cancels. Checked before normal dispatch so the
+        # second keystroke is consumed by the chord, not treated as nav.
+        if getattr(state, '_respond_mode', False):
+            state._respond_mode = False
+            action = _RESPOND_KEYS.get(ch)
+            if action:
+                try:
+                    _do_respond(state, action)
+                except Exception as exc:  # noqa: BLE001
+                    state.status = f'respond error: {exc}'
+            else:
+                state.status = 'respond cancelled'
+            continue
 
         try:
             if state.menu_open and state.menu is not None:
