@@ -635,10 +635,24 @@ def _main(argv):
     return 1
 
 
+# Delegated scopes that grant each drive command (any-of), used by the
+# --profile all fan-out to silently skip profiles with no OneDrive/SharePoint
+# file access (e.g. a DevOps-only graph token carrying no Files/Sites scope).
+# `get` is binary (can't fan out) and refresh/config are local, so absent.
+_DRIVE_SCOPES = frozenset({
+    'Files.Read', 'Files.ReadWrite',
+    'Files.Read.All', 'Files.ReadWrite.All',
+    'Sites.Read.All', 'Sites.ReadWrite.All',
+})
+COMMAND_SCOPES = {cmd: _DRIVE_SCOPES for cmd in ('ls', 'show', 'put', 'rm')}
+
+
 def main(argv=None):
     return mode_mod.run_with_output_modes(
         'owa-drive',
         sys.argv[1:] if argv is None else argv,
         _main,
         binary_stdout_commands=('get',),
+        audience=auth_mod.AUDIENCE,
+        command_scopes=COMMAND_SCOPES,
     )

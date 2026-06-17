@@ -496,7 +496,18 @@ def _main(argv):
     return 1
 
 
+# Delegated scopes that grant each scheduling command (any-of), used by the
+# --profile all fan-out to silently skip profiles with no calendar access
+# (getSchedule free/busy needs Calendars.Read). refresh/config are local.
+_SCHED_SCOPES = frozenset({
+    'Calendars.Read', 'Calendars.ReadWrite', 'Calendars.Read.Shared',
+})
+COMMAND_SCOPES = {cmd: _SCHED_SCOPES for cmd in ('availability', 'find-time')}
+
+
 def main(argv=None):
     return mode_mod.run_with_output_modes(
         'owa-sched', sys.argv[1:] if argv is None else argv, _main,
+        audience=auth_mod.AUDIENCE,
+        command_scopes=COMMAND_SCOPES,
     )
