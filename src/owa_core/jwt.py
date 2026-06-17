@@ -35,6 +35,21 @@ def decode_token_audience(access_token):
         return None
 
 
+def tenant_id(token):
+    """Return the `tid` (tenant GUID) claim, or the literal
+    'myorganization' when the claim is absent or the token can't be
+    decoded. The fallback is Graph's tenant-relative placeholder, so
+    callers can splice the result into a URL unconditionally."""
+    try:
+        payload = decode_jwt_segment(token.split('.')[1])
+        tid = payload.get('tid')
+        if isinstance(tid, str) and tid:
+            return tid
+    except Exception:
+        pass
+    return 'myorganization'
+
+
 def scopes_in_token(access_token):
     """Return the set of delegated scopes the JWT carries, or an empty
     set on any parse failure.
