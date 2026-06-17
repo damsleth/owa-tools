@@ -26,16 +26,69 @@ def _state(events=None, config=None):
     return state
 
 
+def _rich_event(**kw):
+    base = {
+        'subject': 'Hagefest', 'start': '2026-06-05T17:00:00',
+        'end': '2026-06-05T23:30:00', 'location': 'Villa Grande',
+        'showAs': 'Busy', 'categories': ['IGNORE'],
+        'organizer': 'Boss', 'response': 'tentativelyAccepted',
+        'body': 'HUSK PÅMELDINGSSKJEMA',
+        'attendees': [
+            {'name': 'Ada', 'address': 'ada@x.com', 'type': 'required', 'response': 'accepted'},
+            {'name': 'Bo', 'address': 'bo@x.com', 'type': 'optional', 'response': 'declined'},
+        ],
+    }
+    base.update(kw)
+    return base
+
+
+# ---------------------------------------------------------------------------
+# render_detail basic vs full
+# ---------------------------------------------------------------------------
+
+def test_render_detail_full_shows_attendees_organizer_body_response():
+    text = '\n'.join(tui.render_detail(_rich_event(), 80, detail='full'))
+    assert 'Organizer:Boss' in text
+    assert 'Attendees (2):' in text
+    assert 'Ada — accepted' in text
+    assert 'Bo — declined (optional)' in text   # optional flagged, response mapped
+    assert 'Response: tentative' in text         # own RSVP, label normalized
+    assert 'PÅMELDINGSSKJEMA' in text            # body preview
+
+
+def test_render_detail_basic_omits_rich_fields():
+    text = '\n'.join(tui.render_detail(_rich_event(), 80, detail='basic'))
+    # basic keeps the cheap fields...
+    assert 'Hagefest' in text
+    assert 'Villa Grande' in text
+    assert 'Busy' in text
+    assert 'IGNORE' in text
+    # ...and drops the heavy ones
+    assert 'Attendees' not in text
+    assert 'Organizer' not in text
+    assert 'PÅMELDINGSSKJEMA' not in text
+
+
+def test_render_detail_no_longer_shows_truncated_id():
+    text = '\n'.join(tui.render_detail(_rich_event(id='AAMkLONGID' * 5), 80))
+    assert 'ID:' not in text
+
+
+def test_render_detail_organizer_response_shown_for_organizer():
+    text = '\n'.join(tui.render_detail(_rich_event(isOrganizer=True), 80, detail='full'))
+    assert 'Response: organizer' in text
+
+
 # ---------------------------------------------------------------------------
 # render_detail must not raise on a narrow/just-resized pane (regression)
 # ---------------------------------------------------------------------------
 
 def test_render_detail_narrow_width_does_not_raise():
-    event = _event(body='A long body line that would need wrapping ' * 5,
-                   organizer='boss@x.com', attendees=['a@x.com', 'b@x.com'])
+    event = _rich_event()
     for width in (1, 2, 3):
-        lines = tui.render_detail(event, width)  # textwrap width-2 <= 0 used to ValueError
-        assert isinstance(lines, list)
+        for level in ('full', 'basic'):
+            lines = tui.render_detail(event, width, detail=level)  # width-2<=0 used to ValueError
+            assert isinstance(lines, list)
 
 
 # ---------------------------------------------------------------------------

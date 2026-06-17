@@ -25,6 +25,7 @@ READING_PANE_VALUES: Final[tuple[str, ...]] = ('right', 'bottom', 'off')
 SPLIT_RATIO_VALUES: Final[tuple[int, ...]] = (40, 50, 60)
 DAY_RANGE_VALUES: Final[tuple[str, ...]] = ('today', 'week', 'month')
 SHOW_DECLINED_VALUES: Final[tuple[str, ...]] = ('yes', 'no')
+EVENT_DETAIL_VALUES: Final[tuple[str, ...]] = ('full', 'basic')
 
 # Mapping of field -> allowed-values tuple (for enum fields only)
 _ALLOWED: Final[dict[str, tuple]] = {
@@ -32,6 +33,7 @@ _ALLOWED: Final[dict[str, tuple]] = {
     'split_ratio': SPLIT_RATIO_VALUES,
     'day_range': DAY_RANGE_VALUES,
     'show_declined': SHOW_DECLINED_VALUES,
+    'event_detail': EVENT_DETAIL_VALUES,
 }
 
 # Free-text fields (none for cal, but keep the frozenset shape)
@@ -43,6 +45,7 @@ _FIELD_TO_KEY: Final[dict[str, str]] = {
     'split_ratio': 'tui_split_ratio',
     'day_range': 'tui_day_range',
     'show_declined': 'tui_show_declined',
+    'event_detail': 'tui_event_detail',
 }
 _KEY_TO_FIELD: Final[dict[str, str]] = {v: k for k, v in _FIELD_TO_KEY.items()}
 
@@ -60,6 +63,7 @@ class Settings:
     split_ratio: int = 50
     day_range: str = 'today'
     show_declined: str = 'no'
+    event_detail: str = 'full'
 
 
 # ---------------------------------------------------------------------------

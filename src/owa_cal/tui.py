@@ -141,8 +141,43 @@ def render_row(event, width):
     return row[:width]
 
 
-def render_detail(event, width):
-    """Multi-line event detail card."""
+# Outlook response values -> short human label.
+_RESPONSE_LABEL = {
+    'accepted': 'accepted',
+    'declined': 'declined',
+    'tentativelyaccepted': 'tentative',
+    'tentative': 'tentative',
+    'notresponded': 'no reply',
+    'none': 'no reply',
+    'organizer': 'organizer',
+}
+
+
+def _response_label(resp):
+    return _RESPONSE_LABEL.get((resp or '').lower(), resp or '')
+
+
+def _attendee_line(att, width):
+    """One attendee row, tolerant of the {name,response,type} dict shape and a
+    bare string (legacy/synthetic shape)."""
+    if isinstance(att, dict):
+        name = att.get('name') or att.get('address') or '(unknown)'
+        resp = _response_label(att.get('response'))
+        suffix = f' — {resp}' if resp else ''
+        if (att.get('type') or '').lower() == 'optional':
+            suffix += ' (optional)'
+    else:
+        name, suffix = str(att), ''
+    return f'  {name}{suffix}'[:max(width, 1)]
+
+
+def render_detail(event, width, *, detail='full'):
+    """Multi-line event detail card.
+
+    `detail='basic'` shows only title, time, location, status and category;
+    `detail='full'` adds the caller's own response, organizer, the attendee
+    list with each person's response, and a body preview.
+    """
     lines = []
     subject = event.get('subject') or '(no subject)'
     lines.append(subject[:width])
@@ -160,7 +195,7 @@ def render_detail(event, width):
 
     location = event.get('location') or ''
     if location:
-        lines.append(f'Location: {location[:width - 10]}')
+        lines.append(f'Location: {location[:max(width - 10, 1)]}')
 
     show_as = event.get('showAs') or ''
     if show_as:
@@ -169,25 +204,35 @@ def render_detail(event, width):
     categories = event.get('categories') or []
     if categories:
         cat_str = ', '.join(categories)
-        lines.append(f'Category: {cat_str[:width - 10]}')
+        lines.append(f'Category: {cat_str[:max(width - 10, 1)]}')
+
+    if detail != 'full':
+        return lines
+
+    # --- full detail below ---------------------------------------------------
+    own_response = event.get('response') or ''
+    if event.get('isOrganizer'):
+        lines.append('Response: organizer')
+    elif own_response:
+        lines.append(f'Response: {_response_label(own_response)}')
 
     organizer = event.get('organizer') or ''
     if organizer:
-        lines.append(f'Organizer:{organizer[:width - 10]}')
+        lines.append(f'Organizer:{organizer[:max(width - 10, 1)]}')
 
     attendees = event.get('attendees') or []
     if attendees:
         lines.append('')
-        lines.append('Attendees:')
-        for att in attendees[:10]:  # cap at 10 for readability
-            att_str = str(att)[:width - 4]
-            lines.append(f'  {att_str}')
+        lines.append(f'Attendees ({len(attendees)}):')
+        for att in attendees[:12]:
+            lines.append(_attendee_line(att, width))
+        if len(attendees) > 12:
+            lines.append(f'  … +{len(attendees) - 12} more')
 
     body = (event.get('body') or '').strip()
     if body:
         lines.append('')
-        lines.append('Body:')
-        # Wrap body text to width
+        lines.append('Note:')
         for para in body.splitlines():
             if not para.strip():
                 lines.append('')
@@ -196,13 +241,6 @@ def render_detail(event, width):
             # raises ValueError for width <= 0, so floor it at 1.
             for wrapped in textwrap.wrap(para, max(width - 2, 1)) or ['']:
                 lines.append(f'  {wrapped}')
-
-    # Show event ID at the bottom for reference
-    event_id = event.get('id') or ''
-    if event_id:
-        lines.append('')
-        id_preview = event_id[:30] + '...' if len(event_id) > 30 else event_id
-        lines.append(f'ID: {id_preview}')
 
     return lines
 
@@ -222,7 +260,8 @@ def _build_event_query(access_token, api_base, from_date, to_date, debug):
         '$orderby': 'Start/DateTime',
         '$select': (
             'Id,Subject,Start,End,Location,Categories,ShowAs,IsAllDay,'
-            'OriginalStartTimeZone,OriginalEndTimeZone,Organizer,Attendees,Body'
+            'OriginalStartTimeZone,OriginalEndTimeZone,Organizer,Attendees,'
+            'BodyPreview,ResponseStatus,IsOrganizer'
         ),
     })
     return f'me/calendarView?{q}'
@@ -246,7 +285,7 @@ def fetch_items(state):
             state.status = 'fetch failed'
             return
 
-        normalized = events_mod.normalize_events(data)
+        normalized = events_mod.normalize_events_detail(data)
 
         # Filter declined events if show_declined == 'no'
         show_declined = getattr(state.settings, 'show_declined', 'no')
@@ -264,7 +303,11 @@ def fetch_items(state):
             normalized = [
                 e for e in normalized
                 if needle in (e.get('subject') or '').lower()
-                or any(needle in str(att).lower() for att in (e.get('attendees') or []))
+                or any(
+                    needle in (att.get('name', '') + att.get('address', '')).lower()
+                    for att in (e.get('attendees') or [])
+                    if isinstance(att, dict)
+                )
             ]
 
         state.items = normalized
@@ -321,12 +364,16 @@ def on_menu_action(state, action):
     if action == 'reset_settings':
         state.settings = _SETTINGS_DEFAULTS
         _persist_settings(state)
+        state._detail_key = object()  # force the detail pane to re-render
         state.status = 'settings reset to defaults'
         return False
     if action.startswith('cycle:'):
         field = action[len('cycle:'):]
         state.settings = _cycle_setting(state.settings, field)
         _persist_settings(state)
+        # the kit caches detail_lines by item id; invalidate it so a
+        # detail-affecting setting (event_detail) re-renders immediately.
+        state._detail_key = object()
         return False
     return False
 
@@ -449,7 +496,9 @@ def build_session(config, access_token, api_base, *, debug=False, day_range=''):
 
     spec = _app.BrowserSpec(
         render_row=render_row,
-        render_detail=render_detail,
+        # close over state so the pane honours the live event_detail setting
+        render_detail=lambda item, w: render_detail(
+            item, w, detail=getattr(state.settings, 'event_detail', 'full')),
         fetch_items=fetch_items,
         on_search=on_search,
         on_drill=on_drill,

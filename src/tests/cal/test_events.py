@@ -11,6 +11,7 @@ from owa_cal.events import (
     build_patch_json,
     is_dst_europe,
     normalize_event,
+    normalize_event_detail,
     normalize_events,
     to_local,
 )
@@ -38,6 +39,45 @@ def test_normalize_event_pascal():
 
 def test_normalize_events_empty():
     assert normalize_events({'value': []}) == []
+
+
+def test_normalize_event_detail_extracts_rich_fields():
+    e = {
+        'Id': 'AAA', 'Subject': 'Hagefest',
+        'Start': {'DateTime': '2026-06-05T17:00:00', 'TimeZone': 'UTC'},
+        'End': {'DateTime': '2026-06-05T23:30:00', 'TimeZone': 'UTC'},
+        'Organizer': {'EmailAddress': {'Name': 'Boss', 'Address': 'boss@x.com'}},
+        'IsOrganizer': False,
+        'ResponseStatus': {'Response': 'tentativelyAccepted'},
+        'BodyPreview': '  HUSK PÅMELDINGSSKJEMA!  ',
+        'Attendees': [
+            {'EmailAddress': {'Name': 'Ada', 'Address': 'ada@x.com'},
+             'Type': 'required', 'Status': {'Response': 'accepted'}},
+            {'EmailAddress': {'Name': 'Bo', 'Address': 'bo@x.com'},
+             'Type': 'optional', 'Status': {'Response': 'declined'}},
+        ],
+    }
+    out = normalize_event_detail(e)
+    # base fields still present
+    assert out['subject'] == 'Hagefest'
+    # rich fields the plain normalize_event drops
+    assert out['organizer'] == 'Boss'
+    assert out['response'] == 'tentativelyAccepted'
+    assert out['isOrganizer'] is False
+    assert out['body'] == 'HUSK PÅMELDINGSSKJEMA!'   # stripped
+    assert out['attendees'] == [
+        {'name': 'Ada', 'address': 'ada@x.com', 'type': 'required', 'response': 'accepted'},
+        {'name': 'Bo', 'address': 'bo@x.com', 'type': 'optional', 'response': 'declined'},
+    ]
+
+
+def test_normalize_event_detail_tolerates_lean_event():
+    # A lean event (no rich fields selected) degrades to empties, never raises.
+    out = normalize_event_detail({'Id': 'X', 'Subject': 'S'})
+    assert out['organizer'] == ''
+    assert out['attendees'] == []
+    assert out['body'] == ''
+    assert out['response'] == ''
 
 
 def test_is_dst_europe_winter():
