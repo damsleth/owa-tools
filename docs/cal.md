@@ -164,9 +164,12 @@ owa-cal tui                                   # interactive agenda browser
 ### Interactive agenda (`owa-cal tui`)
 
 `owa-cal tui` opens a dependency-free curses agenda browser: arrow through the
-period's events, read a full detail pane, and respond to invites
-(accept/decline/tentative) behind a confirm prompt. It is read-focused — no
-create/update/delete — and refuses to run without an interactive terminal
+period's events, read a full detail pane, and respond to invites with the
+**`y` chord** — press `y` then `a` (accept), `t` (tentative) or `d` (decline);
+any other key cancels. The two-key gesture is the deliberate guard for that
+mutation (it emails the organizer), so there is no separate confirm prompt. It
+is otherwise read-focused — no create/update/delete — and refuses to run
+without an interactive terminal
 (under `--agent` or a pipe), so scripted callers keep using `events` and
 `respond`. View settings (reading pane, split ratio, day range, show-declined)
 persist via the esc-menu; `--day-range N` sets the initial horizon.
