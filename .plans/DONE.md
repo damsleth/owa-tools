@@ -58,3 +58,4 @@ pointing back here.
 - [x] owa-teams `messages --region <emea|amer|…>` — per-call region override so multi-region profiles don't depend on single-valued config (2026-06-16)
 - [x] owa-teams `messages --since <iso>` — stop following `backwardLink` past the cutoff (closes yaams' cold-start history gap) (2026-06-16)
 - [x] add owa-mail functionality for resetting settings to default (2026-06-16)
+- [x] add owa-mail "all inboxes" view across multiple/all stored profiles (2026-06-16)

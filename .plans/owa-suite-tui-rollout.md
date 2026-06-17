@@ -147,17 +147,20 @@ This plan is a **barrier-then-fan-out** workflow:
 
 ## Steps
 
-- [ ] Step 0: extract `owa_core/tui_kit/` (app/layout/menu/settings/keys) from owa-mail; refactor owa-mail onto it; **freeze the callback contract**; keep mail tests green
+- [x] Step 0 (2026-06-16): extracted `owa_core/tui_kit/` (`app`/`layout`/`menu`/`settings`/`keys`/`screen`) from owa-mail; refactored owa-mail onto it (tui_layout re-exports geometry; tui_settings delegates to the engine; tui_menu subclasses the generic Menu; tui.py aliases the kit's `_safe_addstr`/`_prompt`/`_pad`/`_truncate`/`_init_colors`) — mail shrank ~558 lines. **Callback contract frozen** in `tui_kit/app.py` (`fetch_items`/`render_row`/`render_detail`/`on_search`/`on_drill`/`on_back`/`on_refresh`/`on_menu_action`/`actions`); fetch is curses-safe (sets `state.items`/`state.status`, never raises) and runs inside the loop on `state.dirty`, so an adapter can show a "minting…" frame first. Mail tests green; owa_core gate 96.42% (≥95), combined 90.39% (≥89). Kit tests under `src/tests/core/tui_kit/`.
+- [ ] Step 0.1 — **tui_kit: pass `stdscr` to action callbacks** (additive; see the kit-enhancement finding below). Land before the wide fan-out so new adapters don't reimplement the loop. Then retrofit: drop owa-cal's `_cal_loop`, make owa-graph's `a` a selectable audience overlay, add a pre-fetch redraw hook for the "minting…" frame.
 - [ ] owa-todo tui — two-pane lists+tasks, toggle done, create (validates adapter shape; soft gate before wide fan-out)
 - [ ] owa-people tui — searchable directory list → detail card (read-only quick win)
-- [ ] owa-cal tui — agenda list + event detail + respond action **(BLOCKED on #9 periods — shares owa_cal/cli.py)**
+- [x] owa-cal tui (2026-06-17) — agenda list + event detail + respond action (accept/decline/tentative behind a confirm prompt), `o` open in browser, `/` search, `--day-range` horizon. New `owa_cal/{tui,tui_settings,tui_menu}.py` + `cmd_tui` (refuses non-interactive AND under `--agent` via `interactive_commands`; rejected on webcal sources); docs section in `docs/cal.md`. ≈55 cal tests; `owa_cal/tui.py` 75% (curses loop pragma'd). First consumer of `tui_kit.app` alongside owa-graph.
 - [ ] owa-drive tui — `lf`-like folder/file navigation
 - [ ] owa-sites tui — `lf`-like sites→lists/libraries(+hidden toggle)→items/docs, `/` search (after drive)
 - [ ] owa-ado tui — work-items list (assigned/sprint) → detail
 - [ ] owa-planner tui — plan→bucket→task drill, toggle complete
 - [ ] owa-teams tui — chats list → message thread (read-only)
 - [ ] owa-sched tui — free/busy availability grid (attendees × time slots)
-- [ ] owa-graph tui — **flagship FOCI explorer adapter** on tui_kit (own sub-plan: owa-graph-explorer-tui.md; OPUS cores)
+- [~] owa-graph tui — **flagship FOCI explorer adapter** on tui_kit (own sub-plan: owa-graph-explorer-tui.md; OPUS cores). Phase 0/1/2 DONE (2026-06-16/17): audiences+seeds, nav engine, auth/cache, and the curses front-end on `tui_kit.app`. **Remaining: Phase 3 (CLI wiring — `cmd_tui`/schema/`modes.py` `--profile` guard) + Phase 4 (docs/version/R1).**
+
+**Kit-enhancement finding (surfaced by both first adapters):** `tui_kit.app`'s `actions[key](state)` contract passes no `stdscr`, so a tool action that must draw a prompt or overlay can't. Both adapters worked around it: owa-cal copied the kit `_loop` into a local `_cal_loop` that drains a `state._pending_respond` sentinel with `stdscr` in hand; owa-graph fell back to a round-robin `a` instead of a selectable audience overlay. **Proposed additive kit change (does not break the frozen contract): pass `stdscr` to action callbacks (or expose a `state`-level prompt/overlay hook) so adapters stop reimplementing the loop.** Also added in this pass: `tui_kit.screen.silence_os_fds()` (shared fd-silencer for browser/clipboard launches).
 - [ ] owa-doctor tui — live health dashboard (profiles × audiences), `r` refresh
 - [ ] (deferred) owa-vids — no v1 TUI; revisit download-queue view later
 
