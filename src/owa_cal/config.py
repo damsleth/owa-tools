@@ -24,6 +24,7 @@ ALLOWED_KEYS = (
     'tui_split_ratio',
     'tui_day_range',
     'tui_show_declined',
+    'tui_event_detail',
 )
 
 DEFAULT_TIMEZONE = 'W. Europe Standard Time'

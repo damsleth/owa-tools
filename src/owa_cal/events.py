@@ -213,6 +213,44 @@ def normalize_events(response):
     return [normalize_event(e) for e in response.get('value', [])]
 
 
+def _attendee_brief(att):
+    """Flatten one Outlook attendee to {name, address, type, response}."""
+    if not isinstance(att, dict):
+        return {'name': str(att), 'address': '', 'type': '', 'response': ''}
+    email = att.get('EmailAddress') or {}
+    return {
+        'name': email.get('Name') or email.get('Address') or '',
+        'address': email.get('Address') or '',
+        'type': att.get('Type') or '',
+        'response': (att.get('Status') or {}).get('Response') or '',
+    }
+
+
+def normalize_event_detail(event):
+    """`normalize_event` plus the heavier fields the TUI detail pane shows:
+    organizer, attendees (each with their response), a plain-text body preview,
+    the caller's own response, and whether the caller organizes it.
+
+    Outlook REST PascalCase. Any field absent from a lean query degrades to an
+    empty value, so this stays safe even when the heavy fields weren't selected.
+    """
+    base = normalize_event(event)
+    org_email = (event.get('Organizer') or {}).get('EmailAddress') or {}
+    base.update({
+        'organizer': org_email.get('Name') or org_email.get('Address') or '',
+        'attendees': [_attendee_brief(a) for a in (event.get('Attendees') or [])],
+        'body': (event.get('BodyPreview') or '').strip(),
+        'response': (event.get('ResponseStatus') or {}).get('Response') or '',
+        'isOrganizer': bool(event.get('IsOrganizer')),
+    })
+    return base
+
+
+def normalize_events_detail(response):
+    """Normalize a collection response with the TUI detail fields included."""
+    return [normalize_event_detail(e) for e in response.get('value', [])]
+
+
 def build_event_json(
     subject, start_dt, end_dt, tz,
     category='', location='', body_text='', allday=False, showas='',
