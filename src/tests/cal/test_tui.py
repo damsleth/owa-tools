@@ -53,7 +53,7 @@ def _make_state(events=None, token='tok', api_base='https://example.com'):
     state.debug = False
     state._config = {}
     state._search = ''
-    state._pending_respond = None
+    state._respond_mode = False
     if events is not None:
         state.items = events
     return state
@@ -262,11 +262,10 @@ class TestOnBack:
 # ---------------------------------------------------------------------------
 
 class TestDoRespond:
-    def _make_screen(self, FakeScreen, inputs=None):
-        return FakeScreen(inputs=inputs or [])
+    """`_do_respond(state, action)` sends directly — the y+a/t/d chord already
+    confirmed intent, so there is no stdscr / no y/N prompt."""
 
-    def test_respond_accept_requires_confirm(self, fake_screen, monkeypatch):
-        """Respond sends the API call when user confirms 'y'."""
+    def test_respond_accept_sends(self, monkeypatch):
         from owa_cal import api as api_mod
         called = []
         monkeypatch.setattr(
@@ -276,47 +275,26 @@ class TestDoRespond:
         )
         state = _make_state([_make_event()])
         state.selected = 0
-        screen = fake_screen(inputs=[b'y'])
-        _do_respond(screen, state, 'accept')
+        _do_respond(state, 'accept')
         assert len(called) == 1
         assert 'accept' in called[0]
+        assert state.dirty is True
 
-    def test_respond_decline_cancelled(self, fake_screen, monkeypatch):
-        """Respond does NOT call API when user answers 'n'."""
-        from owa_cal import api as api_mod
-        called = []
-        monkeypatch.setattr(
-            api_mod, 'api_request',
-            lambda method, base, endpoint, token, body=None, debug=False:
-                called.append(endpoint) or {},
-        )
-        state = _make_state([_make_event()])
-        state.selected = 0
-        screen = fake_screen(inputs=[b'n'])
-        _do_respond(screen, state, 'decline')
-        assert called == []
-        assert state.status == 'cancelled'
-
-    def test_respond_no_event_selected(self, fake_screen):
+    def test_respond_no_event_selected(self):
         state = _make_state([])
         state.selected = 0
-        screen = fake_screen()
-        _do_respond(screen, state, 'accept')
+        _do_respond(state, 'accept')
         assert state.status == 'no event selected'
 
-    def test_respond_api_failure(self, fake_screen, monkeypatch):
+    def test_respond_api_failure(self, monkeypatch):
         from owa_cal import api as api_mod
-        monkeypatch.setattr(
-            api_mod, 'api_request',
-            lambda *a, **kw: None,
-        )
+        monkeypatch.setattr(api_mod, 'api_request', lambda *a, **kw: None)
         state = _make_state([_make_event()])
         state.selected = 0
-        screen = fake_screen(inputs=[b'y'])
-        _do_respond(screen, state, 'tentative')
+        _do_respond(state, 'tentative')
         assert 'failed' in state.status
 
-    def test_respond_tentative_uses_tentativelyaccept(self, fake_screen, monkeypatch):
+    def test_respond_tentative_uses_tentativelyaccept(self, monkeypatch):
         from owa_cal import api as api_mod
         called = []
         monkeypatch.setattr(
@@ -326,14 +304,12 @@ class TestDoRespond:
         )
         state = _make_state([_make_event()])
         state.selected = 0
-        screen = fake_screen(inputs=[b'y'])
-        _do_respond(screen, state, 'tentative')
+        _do_respond(state, 'tentative')
         assert called
         assert 'tentativelyaccept' in called[0]
 
-    def test_respond_event_no_id(self, fake_screen):
+    def test_respond_event_no_id(self):
         state = _make_state([_make_event(id='')])
         state.selected = 0
-        screen = fake_screen()
-        _do_respond(screen, state, 'accept')
+        _do_respond(state, 'accept')
         assert state.status == 'event has no id'

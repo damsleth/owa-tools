@@ -55,11 +55,6 @@ def test_drill_with_pane_off_hints_instead_of_trapping():
     assert 'reading pane' in state.status.lower()
 
 
-def _answer(monkeypatch, value):
-    """Make the confirm prompt return *value* without driving real curses."""
-    monkeypatch.setattr(tui._screen, 'prompt', lambda stdscr, text: value)
-
-
 # ---------------------------------------------------------------------------
 # build_session
 # ---------------------------------------------------------------------------
@@ -69,12 +64,12 @@ def test_build_session_wires_state_and_spec():
     assert state.access_token == 'tok'
     assert state.api_base == 'base'
     assert state.debug is True
-    assert state._pending_respond is None
+    assert state._respond_mode is False
     assert state.settings.day_range == 'week'        # caller override applied
     assert spec.render_row is tui.render_row
-    # respond keys stash a sentinel rather than acting (no stdscr in actions)
-    spec.actions[tui._KEY_ACCEPT](state)
-    assert state._pending_respond == 'accept'
+    # `y` arms respond mode; it does not send (the a/t/d second key does).
+    assert tui._KEY_RESPOND in spec.actions
+    assert tui._KEY_OPEN in spec.actions
 
 
 def test_build_session_ignores_unknown_day_range():
@@ -83,57 +78,61 @@ def test_build_session_ignores_unknown_day_range():
 
 
 # ---------------------------------------------------------------------------
-# _do_respond — the mutating confirm flow
+# respond chord: `y` arms, then a/t/d sends (no separate confirm prompt)
 # ---------------------------------------------------------------------------
 
-def test_respond_confirmed_calls_api(monkeypatch):
+def test_enter_respond_mode_arms_when_event_selected():
+    state = _state([_event()])
+    tui._enter_respond_mode(state)
+    assert state._respond_mode is True
+    assert state.status.lower().startswith('respond:')
+
+
+def test_enter_respond_mode_noop_without_event():
+    state = _state([])
+    tui._enter_respond_mode(state)
+    assert state._respond_mode is False
+    assert state.status == 'no event selected'
+
+
+def test_respond_keys_map_to_actions():
+    assert tui._RESPOND_KEYS == {ord('a'): 'accept', ord('t'): 'tentative', ord('d'): 'decline'}
+
+
+def test_do_respond_sends_and_refetches(monkeypatch):
     calls = {}
 
     def fake_api(method, api_base, endpoint, token, *, body=None, debug=False):
         calls.update(method=method, endpoint=endpoint, body=body)
         return {'ok': True}
     monkeypatch.setattr(tui.api_mod, 'api_request', fake_api)
-    _answer(monkeypatch, 'y')
     state = _state([_event()])
-    tui._do_respond(object(), state, 'accept')
+    tui._do_respond(state, 'accept')        # no stdscr / no prompt
     assert calls['method'] == 'POST'
     assert calls['endpoint'].endswith('/accept')
     assert state.status.startswith('accepted')
     assert state.dirty is True
 
 
-def test_respond_cancelled_does_not_call_api(monkeypatch):
-    def boom(*a, **k):
-        raise AssertionError('must not send on a declined confirm')
-    monkeypatch.setattr(tui.api_mod, 'api_request', boom)
-    _answer(monkeypatch, 'n')
+def test_do_respond_tentative_endpoint(monkeypatch):
+    calls = {}
+    monkeypatch.setattr(tui.api_mod, 'api_request',
+                        lambda *a, **k: calls.update(endpoint=a[2]) or {'ok': True})
     state = _state([_event()])
-    tui._do_respond(object(), state, 'accept')
-    assert state.status == 'cancelled'
+    tui._do_respond(state, 'tentative')
+    assert calls['endpoint'].endswith('/tentativelyaccept')
 
 
-def test_respond_no_event_selected():
+def test_do_respond_no_event_selected():
     state = _state([])
-    tui._do_respond(object(), state, 'accept')
+    tui._do_respond(state, 'accept')
     assert state.status == 'no event selected'
 
 
-def test_respond_prompt_error_is_caught(monkeypatch):
-    def fake_prompt(stdscr, text):
-        raise RuntimeError('tiny terminal')
-    monkeypatch.setattr(tui._screen, 'prompt', fake_prompt)
+def test_do_respond_api_failure_reported(monkeypatch):
+    monkeypatch.setattr(tui.api_mod, 'api_request', lambda *a, **k: None)
     state = _state([_event()])
-    tui._do_respond(object(), state, 'accept')
-    assert state.status == 'prompt error'
-
-
-def test_respond_api_failure_reported(monkeypatch):
-    def fake_api(*a, **k):
-        return None
-    monkeypatch.setattr(tui.api_mod, 'api_request', fake_api)
-    _answer(monkeypatch, 'y')
-    state = _state([_event()])
-    tui._do_respond(object(), state, 'decline')
+    tui._do_respond(state, 'decline')
     assert state.status == 'respond failed'
 
 
