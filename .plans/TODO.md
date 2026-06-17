@@ -27,6 +27,7 @@
   `tui_kit.app`; checklist in [owa-suite-tui-rollout.md](owa-suite-tui-rollout.md).
 - [ ] owa-mail in-TUI profile switcher (CLI `--profile` override + `config
   --profile` persist already shipped; this is the curses-side switch only)
+- [ ] owa-cal tui: scroll upward past the top to load previous events — extend the window backwards by one day-range increment (day/week/month) per the current setting
 
 ## Larger plans (standalone files)
 
