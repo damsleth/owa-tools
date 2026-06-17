@@ -20,6 +20,10 @@ ALLOWED_KEYS = (
     'owa_piggy_profile',
     'default_timezone',
     'debug',
+    'tui_reading_pane',
+    'tui_split_ratio',
+    'tui_day_range',
+    'tui_show_declined',
 )
 
 DEFAULT_TIMEZONE = 'W. Europe Standard Time'

@@ -740,6 +740,33 @@ def cmd_config(args, config):
     return 0
 
 
+def cmd_tui(args, config, access_token, api_base):
+    """Interactive curses browser for calendar events.
+
+    Agent mode is refused upstream (the schema marks `tui` interactive); here
+    we also refuse a non-terminal stdin/stderr so `owa-cal tui | cat` fails
+    cleanly rather than launching curses against a pipe.
+    """
+    day_range = ''
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--day-range':
+            day_range, args = _require_value(flag, args)
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+
+    if not tty_mod.is_interactive():
+        raise UsageError('tui needs an interactive terminal (it cannot run under '
+                         '--agent or a pipe); use `events` instead')
+
+    from . import tui as tui_mod
+    return tui_mod.run(
+        config, access_token, api_base,
+        debug=_debug_enabled(config),
+        day_range=day_range,
+    )
+
+
 def cmd_refresh(args, config):
     if args:
         raise UsageError(f'Unknown flag: {args[0]}')
@@ -765,13 +792,13 @@ def cmd_refresh(args, config):
 # Dispatch
 # ---------------------------------------------------------------------------
 
-AUTHED_COMMANDS = {'events', 'create', 'update', 'delete', 'respond', 'categories'}
+AUTHED_COMMANDS = {'events', 'create', 'update', 'delete', 'respond', 'categories', 'tui'}
 
 # Commands the webcal/iCal source supports. The feed is read-only and
 # carries no category metadata, so write commands, RSVP, and `categories`
 # are rejected with a clear error before auth or HTTP is touched.
 WEBCAL_READ_COMMANDS = {'events'}
-WEBCAL_REJECTED_COMMANDS = {'create', 'update', 'delete', 'respond', 'categories'}
+WEBCAL_REJECTED_COMMANDS = {'create', 'update', 'delete', 'respond', 'categories', 'tui'}
 
 _EVENTS_FLAGS = [
     schema_mod.flag('--date', value='<date>', summary='Specific day (YYYY-MM-DD, today/tomorrow/yesterday, +n/-n, weekday[+n])'),
@@ -838,6 +865,10 @@ _CONFIG_FLAGS = [
     schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
 ]
 
+_TUI_FLAGS = [
+    schema_mod.flag('--day-range', value='<today|week|month>', summary='Period to show (default: from settings, initially today)'),
+]
+
 COMMAND_SCHEMA = [
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
     schema_mod.command('events', 'List calendar events', auth='outlook', flags=_EVENTS_FLAGS),
@@ -864,6 +895,13 @@ COMMAND_SCHEMA = [
     schema_mod.command('categories', 'List or add master categories', auth='outlook', mutates=True, flags=_CATEGORIES_FLAGS),
     schema_mod.command('profiles', 'List/add/delete calendar profiles', mutates=True, flags=_PROFILES_FLAGS),
     schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
+    schema_mod.command(
+        'tui',
+        'Browse calendar events interactively (curses)',
+        auth='outlook',
+        interactive=True,
+        flags=_TUI_FLAGS,
+    ),
 ]
 
 
@@ -1168,12 +1206,31 @@ def _main(argv):
         return cmd_respond(rest, config, access_token, api_base)
     if cmd == 'categories':
         return cmd_categories(rest, config, access_token, api_base)
+    if cmd == 'tui':
+        return cmd_tui(rest, config, access_token, api_base)
 
     # Unreachable: AUTHED_COMMANDS guarded above.
     return 1
 
 
+# Delegated scopes that grant each calendar command (any-of), used by the
+# --profile all fan-out to silently skip profiles with no calendar access at
+# all (e.g. a DevOps-only profile that can't even mint an outlook token).
+# Auth/local commands (refresh, config, profiles) are intentionally absent.
+_CAL_SCOPES = frozenset({
+    'Calendars.Read', 'Calendars.ReadWrite',
+    'Calendars.Read.Shared', 'Calendars.ReadWrite.Shared',
+})
+COMMAND_SCOPES = {
+    cmd: _CAL_SCOPES
+    for cmd in ('events', 'create', 'update', 'delete', 'respond', 'categories')
+}
+
+
 def main(argv=None):
     return mode_mod.run_with_output_modes(
         'owa-cal', sys.argv[1:] if argv is None else argv, _main,
+        interactive_commands=('tui',),
+        audience=auth_mod.AUDIENCE,
+        command_scopes=COMMAND_SCOPES,
     )
