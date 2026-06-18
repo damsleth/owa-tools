@@ -5,14 +5,18 @@ read the nearest local `AGENTS.md` for the files you are editing.
 
 ## Suite Purpose
 
-`owa-tools` is one suite distribution with thirteen console scripts:
+`owa-tools` is a CLI-only suite distribution with thirteen console scripts:
 `owa`, `owa-cal`, `owa-mail`, `owa-graph`, `owa-doctor`, `owa-people`,
 `owa-sched`, `owa-drive`, `owa-todo`, `owa-planner`, `owa-sites`,
 `owa-teams`, and `owa-vids`.
 `owa-piggy` is a separate auth broker repository.
 
-Because the suite is unreleased, do not add compatibility shims for old internal
-interfaces. Prefer direct migrations to the release contract.
+`owa-tui` (separate repo) is the graphical frontend; this repo is CLI-only.
+
+Do not add compatibility shims for old internal interfaces. Prefer direct
+migrations to the release contract. The no-shims rule applies to non-public
+internals; the stable library-API surface listed below is exempt — semver
+stability is the contract there.
 
 ## Global Contracts
 
@@ -77,6 +81,42 @@ the main `0/2/10-15/20` contract intact for normal command paths.
   `owa_core.http.paginate()`.
 - All broker stderr, HTTP bodies, debug payloads, and structured errors must go
   through `owa_core.secrets.redact()` before rendering.
+
+## Stable library-API surface
+
+The following symbols are importable by external consumers (primarily `owa-tui`)
+and are semver-stable. Everything else in `src/` is private/fluid — do not break
+these without a major-version bump.
+
+| Module | Stable symbols |
+|---|---|
+| `owa_core.auth` | `get_token(...)`, `get_token_for_config(...)`, `BrokerToken` |
+| `owa_core.conventions` | `OwaError` taxonomy (see `owa_core.errors`), `data_error()` |
+| `owa_core.http` | `request(...)`, `paginate(...)` |
+| `owa_core.config` | `load_config_file(...)` and related loaders |
+| `owa_cal.api` | `api_request(...)`, `api_get(...)` |
+| `owa_cal.events` | `normalize_event(...)`, `normalize_events(...)` |
+| `owa_mail.api` | `api_get(...)`, `api_request(...)`, `paginate_all(...)` |
+| `owa_mail.messages` | `build_list_query(...)`, `normalize_message(...)`, `normalize_messages(...)` |
+| `owa_graph.api` | `api_request(...)`, `paginate(...)` |
+
+Actual signatures (verified against source):
+
+- `owa_core.auth.get_token(...)` — line 109, `auth.py`
+- `owa_core.auth.get_token_for_config(config, *, tool_name, audience, scope=None, debug=False)` — line 163, `auth.py`
+- `owa_core.auth.BrokerToken` — dataclass, line 24, `auth.py`
+- `owa_core.conventions.data_error(...)` — line 104, `conventions.py`
+- `owa_core.http.request(...)` — line 104, `http.py`; `paginate(...)` — line 251, `http.py`
+- `owa_cal.api.api_request(method, base, endpoint, access_token, body=None, debug=False)` — line 24, `api.py`
+- `owa_cal.api.api_get(base, endpoint, access_token, debug=False)` — line 45, `api.py`
+- `owa_cal.events.normalize_event(event)` — line 188, `events.py`; `normalize_events(response)` — line 211, `events.py`
+- `owa_mail.api.api_request(method, base, endpoint, access_token, body=None, debug=False)` — line 25, `api.py`
+- `owa_mail.api.api_get(base, endpoint, access_token, debug=False)` — line 46, `api.py`
+- `owa_mail.api.paginate_all(base, endpoint, access_token, extra_headers=None, debug=False)` — line 50, `api.py`
+- `owa_mail.messages.build_list_query(unread=False, sender='', subject_q='', search='', ...)` — line 40, `messages.py`
+- `owa_mail.messages.normalize_message(raw)` — line 160, `messages.py`; `normalize_messages(raw, keep_body=False)` — line 192, `messages.py`
+- `owa_graph.api.api_request(method, base, endpoint, access_token, body=None, ...)` — line 36, `api.py`
+- `owa_graph.api.paginate(method, url, access_token, extra_headers=None, ...)` — line 93, `api.py`
 
 ## Repository Map
 

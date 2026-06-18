@@ -158,25 +158,9 @@ owa-cal categories --pretty                   # aligned table
 owa-cal profiles list                         # local + broker profile view
 owa-cal refresh                               # force token refresh
 owa-cal config --profile work                 # pin a profile
-owa-cal tui                                   # interactive agenda browser
 ```
 
-### Interactive agenda (`owa-cal tui`)
-
-`owa-cal tui` opens a dependency-free curses agenda browser: arrow through the
-period's events (week/month views prefix each row with the weekday + date),
-read a full detail pane, and respond to invites with the
-**`y` chord** — press `y` then `a` (accept), `t` (tentative) or `d` (decline);
-any other key cancels. The two-key gesture is the deliberate guard for that
-mutation (it emails the organizer), so there is no separate confirm prompt. It
-is otherwise read-focused — no create/update/delete. The detail pane shows the
-full invite by default — organizer, every attendee with their response, your
-own RSVP, and a body preview; set **Event detail** to `basic` (esc → Settings)
-to show only title/time/location/status/category. It refuses to run
-without an interactive terminal
-(under `--agent` or a pipe), so scripted callers keep using `events` and
-`respond`. View settings (reading pane, split ratio, day range, show-declined)
-persist via the esc-menu; `--day-range N` sets the initial horizon.
+For an interactive curses agenda browser, see [owa-tui](https://github.com/damsleth/owa-tui).
 
 Events carry opaque ids: address one via `--id` or as a bare positional
 argument (`owa-cal delete <id>` == `owa-cal delete --id <id>`).
