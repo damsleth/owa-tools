@@ -6,6 +6,24 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## Unreleased
+
+### Breaking changes
+
+- **Removed built-in TUIs** (moved to separate `owa-tui` package). The `owa-cal tui`,
+  `owa-mail tui`, and the owa-graph curses explorer are no longer part of this repo or
+  distribution. The shared `tui_kit` foundation has also been removed from `owa_core`.
+  Users of the interactive UIs should install `owa-tui` instead.
+
+### Library API
+
+- **Declared the stable library-API surface.** The following modules and their listed
+  symbols are now semver-stable and importable by external consumers (primarily `owa-tui`):
+  `owa_core.auth` (`get_token`, `get_token_for_config`, `BrokerToken`),
+  `owa_core.conventions` (`data_error`), `owa_core.http` (`request`, `paginate`),
+  `owa_core.config` loaders, `owa_cal.api`, `owa_cal.events`, `owa_mail.api`,
+  `owa_mail.messages`, `owa_graph.api`. See `AGENTS.md` for the full surface table.
+
 ## v0.11.1 - 2026-06-17
 
 ### owa-cal

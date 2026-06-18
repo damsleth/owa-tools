@@ -95,7 +95,6 @@ Commands:
   messages             List messages (default: Inbox, last 25)
   read                 Read one message by recency (--latest / -n N, no id)
   show                 Show full message body by --id
-  tui                  Browse and read messages interactively (curses)
   attachments          List a message's attachments by --id
   attachment-get       Download one file attachment to --out or stdout
   send                 Compose and send a new message
@@ -187,17 +186,6 @@ mark options:
   --read | --unread    Toggle IsRead
   --flag | --unflag    Toggle FlagStatus
 
-tui options:
-  --folder <name|id>   Folder to open (default: Inbox)
-
-  Interactive keys: j/k or arrows move the list; l/right focuses the reading
-  pane (j/k then scroll the body, h/left returns to the list); u/d half-page
-  scroll/move in the focused region; Enter opens the full-screen body (links
-  shown as footnotes); o opens in browser; r toggles read/unread; / searches;
-  g/G jump to top/bottom; Esc opens the menu (Resume/Settings/Help/Quit, where
-  Settings configures the reading pane, split ratio, sort order and date
-  format); q quits. Requires a terminal; refuses to run under --agent or a pipe.
-
 folders options:
   --all                Follow @odata.nextLink until exhausted
   --pretty             Human-readable table
@@ -223,7 +211,6 @@ Examples:
   owa-mail messages --folder SentItems --since 2026-04-01 --pretty
   owa-mail read --latest --pretty
   owa-mail read -n 2 --from anthropic --pretty
-  owa-mail tui
   owa-mail show --id AAMkAG... --pretty
   owa-mail attachments --id AAMkAG... --pretty
   owa-mail attachment-get --id AAMkAG... --attachment AAA... --out ./report.pdf
@@ -949,28 +936,6 @@ def cmd_folders(args, config, access_token, api_base):
     return 0
 
 
-def cmd_tui(args, config, access_token, api_base):
-    """Interactive curses browser. Agent mode is refused upstream (the
-    schema marks `tui` interactive); here we still refuse a non-terminal
-    stdin/stderr so `owa-mail tui | cat` fails cleanly rather than launching
-    curses against a pipe."""
-    folder = ''
-    while args:
-        flag, args = args[0], args[1:]
-        if flag == '--folder':
-            folder, args = _require_value(flag, args)
-        else:
-            raise UsageError(f'Unknown flag: {flag}')
-
-    if not tty_mod.is_interactive():
-        raise UsageError('tui needs an interactive terminal (it cannot run under '
-                         '--agent or a pipe); use `read` or `messages` instead')
-
-    from . import tui as tui_mod
-    return tui_mod.run(config, access_token, api_base, folder=folder,
-                       debug=_debug_enabled(config))
-
-
 def cmd_config(args, config):
     """Handled specially: no auth required."""
     profile = ''
@@ -1033,7 +998,6 @@ AUTHED_HANDLERS = {
     'move': cmd_move,
     'mark': cmd_mark,
     'folders': cmd_folders,
-    'tui': cmd_tui,
 }
 
 # Delegated scopes that grant each command (any-of), used by the --profile all
@@ -1153,10 +1117,6 @@ _FOLDERS_FLAGS = [
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
 ]
 
-_TUI_FLAGS = [
-    schema_mod.flag('--folder', value='<name|id>', summary='Folder to open (default: Inbox)'),
-]
-
 _CONFIG_FLAGS = [
     schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
 ]
@@ -1184,7 +1144,6 @@ COMMAND_SCHEMA = [
     schema_mod.command('move', 'Move a message', auth='outlook', mutates=True, idempotent=False, flags=_MOVE_FLAGS),
     schema_mod.command('mark', 'Mark a message', auth='outlook', mutates=True, idempotent=True, flags=_MARK_FLAGS),
     schema_mod.command('folders', 'List mail folders', auth='outlook', flags=_FOLDERS_FLAGS),
-    schema_mod.command('tui', 'Browse and read messages interactively', auth='outlook', mutates=True, idempotent=True, interactive=True, flags=_TUI_FLAGS),
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
     schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
 ]
