@@ -3,6 +3,8 @@
 Pipe-friendly Microsoft Graph CLI. One-off Graph queries with `owa-piggy`
 auth, no token plumbing, no `az login`, no app registration required.
 
+For a graphical Graph explorer, see [owa-tui](https://github.com/damsleth/owa-tui).
+
 ```sh
 owa-graph GET /me
 owa-graph GET '/users?$top=5' --pretty

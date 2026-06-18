@@ -136,7 +136,6 @@ owa-mail messages --search 'subject:invoice'         # KQL search
 owa-mail read --latest --pretty                      # newest message, full body, no id
 owa-mail read -n 2 --from anthropic --pretty         # 2nd newest from a sender
 owa-mail show --id AAMkAG... --pretty                # by explicit message id
-owa-mail tui                                         # interactive browse + read
 
 # Attachments (read)
 owa-mail attachments --id AAMkAG... --pretty            # list a message's attachments
@@ -192,44 +191,7 @@ Like `show`, JSON is the default and `--pretty` flattens HTML to readable
 text. URLs in the body are preserved as numbered `[n]` footnotes with a
 trailing `Links:` section, so login links and confirmations stay usable.
 
-### tui - interactive browser
-
-`owa-mail tui` opens a small full-screen browser (stdlib `curses`, no extra
-dependencies):
-
-```sh
-owa-mail tui                  # Inbox
-owa-mail tui --folder Archive
-```
-
-By default the list shows on the left and a reading pane on the right that
-previews the selected message's body (lazily fetched and cached).
-
-Keys:
-
-| Key | Action |
-| --- | --- |
-| `j`/`k` or arrows | Move the list cursor (or scroll the body when the pane is focused) |
-| `l`/`→` | Focus the reading pane ("reading mode"); with the pane off, opens the full-screen reader |
-| `h`/`←` | Return focus to the list |
-| `u`/`d` | Half-page up/down in whichever region is focused |
-| `Enter` | Open the full-screen body (links shown as footnotes) |
-| `g`/`G` | Jump to top/bottom of the focused region |
-| `o` | Open the message in a browser |
-| `r` | Toggle read/unread |
-| `/` | Search |
-| `Esc` | Open the overlay menu (Resume / Settings / Help / Quit) |
-| `q` | Quit |
-
-The **Settings** menu (under `Esc`) persists to `~/.config/owa-mail/config`
-and configures the reading pane placement (`off`/`right`/`bottom`), the
-list/pane split ratio, the sort order (date newest/oldest, sender, subject,
-unread-first) and the date format (ISO 8601, `DD.MM`, `DD.MM HH:MM`, or a
-custom strftime string). A **Reset to defaults** row restores every setting to
-its default in one step (and persists immediately).
-
-It needs a real terminal and refuses to run under `--agent` or a pipe (there
-is no JSON to emit) - use `read` or `messages` for scripted access.
+For an interactive full-screen mail browser, see [owa-tui](https://github.com/damsleth/owa-tui).
 
 ### Folder names
 

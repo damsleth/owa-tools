@@ -79,6 +79,10 @@ passed straight through.
 | `owa-ado` | Azure DevOps: work items (WIQL), boards/sprints, repos & pull requests, pipelines & runs. Auth via `owa-piggy --audience devops`. |
 | `owa` | Umbrella: suite meta (`owa list`, `owa schema`, `owa version`, `owa --doctor`) plus `owa <tool> ...` pass-through dispatch (e.g. `owa cal events`). |
 
+This repo is CLI-only. For interactive TUI frontends (curses agenda browser,
+mail reader, Graph explorer), see
+[`owa-tui`](https://github.com/damsleth/owa-tui).
+
 ## Multi-account / profiles
 
 Each tool delegates auth to `owa-piggy` and inherits its profile model. Pin a
