@@ -6,7 +6,10 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
-## Unreleased
+## v1.0.0 - 2026-06-18
+
+First stable release. The suite is now CLI-only; the interactive UIs move to the
+separate `owa-tui` package, and the importable library-API surface is declared stable.
 
 ### Breaking changes
 
