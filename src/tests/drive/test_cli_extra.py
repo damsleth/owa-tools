@@ -23,24 +23,19 @@ Covers api.py missing lines:
 - api_upload_session: non-dict session (emit + None), debug print on success
 """
 
-import io
 import json
-import sys
 
 import pytest
 
 from owa_core.errors import (
     AuthExpiredError,
-    InternalError,
     NetworkError,
     NotFoundError,
     OwaError,
-    ScopeInsufficientError,
 )
 from owa_core.http import Response
 from owa_drive import api as api_mod
 from owa_drive import cli
-
 
 # ---------------------------------------------------------------------------
 # Autouse fixture: stub config + auth + remote-exists (assume not present)

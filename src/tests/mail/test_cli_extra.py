@@ -15,7 +15,6 @@ import pytest
 from owa_mail import cli
 from owa_mail.dates import resolve_date, today, tomorrow, yesterday
 
-
 # ---------------------------------------------------------------------------
 # dates.py coverage (lines 10, 14, 18, 25, 27, 29)
 # ---------------------------------------------------------------------------

@@ -18,13 +18,11 @@ Targets:
 """
 
 import json
-import sys
 
 import pytest
 
-from owa_people import cli
 from owa_core.errors import UsageError
-
+from owa_people import cli
 
 # ---------------------------------------------------------------------------
 # Autouse fixture: stub config + auth for all tests
@@ -459,4 +457,5 @@ def test_main_subcommand_help_find(capsys):
     rc = cli._main(["find", "--help"])
     out = capsys.readouterr().out
     # schema_mod.maybe_emit_subcommand_help emits help when --help is in rest
-    assert rc == 0 or rc is not None  # accepted as long as no crash
+    assert rc == 0
+    assert "find" in out.lower()
