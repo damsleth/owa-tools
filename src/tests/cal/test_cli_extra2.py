@@ -43,11 +43,9 @@ from owa_cal.cli import (
     cmd_events,
     cmd_events_webcal,
     cmd_refresh,
-    cmd_respond,
     cmd_update,
     print_help,
 )
-
 
 # ---------------------------------------------------------------------------
 # Tiny helpers
