@@ -12,11 +12,8 @@ Targets uncovered paths:
 """
 from datetime import datetime
 
-import pytest
-
 from owa_cal import events as ev_mod
 from owa_cal import ics as ics_mod
-
 
 # ---------------------------------------------------------------------------
 # events._nth_weekday (lines 73-82)
