@@ -6,6 +6,14 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## v1.0.1 - 2026-06-18
+
+Fix-forward release. The v1.0.0 tag's CI/Release workflows failed at the lint gate
+(unused imports / a tautological assert in the new coverage tests), so v1.0.0 shipped
+to PyPI and Homebrew but produced no GitHub Release binaries. This release carries the
+lint fix so the full release pipeline (binaries + GitHub Release) completes. No runtime
+behavior change from v1.0.0.
+
 ## v1.0.0 - 2026-06-18
 
 First stable release. The suite is now CLI-only; the interactive UIs move to the
