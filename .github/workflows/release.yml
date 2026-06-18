@@ -92,8 +92,12 @@ jobs:
       matrix:
         include:
           - { os: ubuntu-latest, target: linux-x86_64 }
-          - { os: macos-13,      target: macos-x86_64 }
           - { os: macos-14,      target: macos-arm64 }
+          # macos-13 (Intel) dropped: GitHub's free Intel runners are deprecated
+          # and effectively unavailable - the job sat queued until the 24h limit
+          # auto-cancelled it, which skipped github-release and silently broke
+          # every release v0.9.0-v0.11.1. Intel Mac users: `pip install owa-tools`
+          # (works natively) or run the arm64 bundle under Rosetta.
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
