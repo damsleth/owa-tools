@@ -6,6 +6,16 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## v1.1.0 - 2026-06-20
+
+Maintenance release. Post-v1.0.0 dead-code sweep — no runtime behavior change.
+
+- Removed unused structured-logging helpers from `owa_core.conventions`
+  (`action_envelope`, `data_error`, `emit_action`, `emit_data_error`).
+- Dropped stale `tui_*` config keys from owa-cal, owa-mail, and owa-graph
+  (the built-in TUIs were removed in v1.0.0; nothing read these keys).
+- Deleted the speculative owa-vids shell completions (untested, undocumented).
+
 ## v1.0.1 - 2026-06-18
 
 Fix-forward release. The v1.0.0 tag's CI/Release workflows failed at the lint gate
