@@ -4,7 +4,6 @@
 
 ## TUI rollout — in flight (master plan: [owa-suite-tui-rollout.md](owa-suite-tui-rollout.md))
 
-- [ ] **tui_kit: pass `stdscr` to action callbacks** (additive — does NOT break
   the frozen `BrowserSpec` contract). Both first adapters had to work around
   `actions[key](state)` carrying no `stdscr`: owa-cal copied the kit `_loop`
   into a local `_cal_loop` that drains a `state._pending_respond` sentinel;
@@ -13,21 +12,16 @@
   overlay, and add a pre-fetch redraw hook so the "minting token…" frame paints
   before the blocking owa-piggy mint. (`tui_kit.screen.silence_os_fds()` for
   browser/clipboard launches already landed.)
-- [ ] **owa-graph TUI — Phase 3 (CLI wiring)**: `cmd_tui`/`explore` dispatch +
   schema (`interactive=True`, `explore` alias, `_TUI_FLAGS`) + reject under
   `--agent`/pipe, plus the co-requisite `owa_core/modes.py` `command_name`
   `--profile` guard fix (closes the identical `owa-mail tui` hole). One atomic
   diff. Gate: `tests/graph/test_tui_cli.py` + `tests/core/test_modes.py`. See
   [owa-graph-explorer-tui.md](owa-graph-explorer-tui.md) Phase 3.
-- [ ] **owa-graph TUI — Phase 4 (docs/version/R1)**: `docs/graph.md` Interactive
   explorer section, version bump (+ `test_version.py`), final adversarial
   review. See [owa-graph-explorer-tui.md](owa-graph-explorer-tui.md) Phase 4.
-- [ ] remaining per-tool TUIs: owa-todo / owa-people / owa-drive / owa-sites /
   owa-ado / owa-planner / owa-teams / owa-sched / owa-doctor — adapters on
   `tui_kit.app`; checklist in [owa-suite-tui-rollout.md](owa-suite-tui-rollout.md).
-- [ ] owa-mail in-TUI profile switcher (CLI `--profile` override + `config
   --profile` persist already shipped; this is the curses-side switch only)
-- [ ] owa-cal tui: scroll upward past the top to load previous events — extend the window backwards by one day-range increment (day/week/month) per the current setting
 
 ## Larger plans (standalone files)
 

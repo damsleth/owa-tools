@@ -5,7 +5,6 @@ contract layers that the owa-tools conventions require.
 """
 from __future__ import annotations
 
-import io
 import json
 
 from owa_core.conventions import (
@@ -14,10 +13,6 @@ from owa_core.conventions import (
   EXIT_USER_ERROR,
   DoctorFinding,
   DoctorPayload,
-  action_envelope,
-  data_error,
-  emit_action,
-  emit_data_error,
   emit_doctor,
   redact,
 )
@@ -33,44 +28,6 @@ def test_redaction_sentinel_does_not_leak():
   jwt = "eyJfake.payload-CANARY_SECRET_xxxx.padding1234"
   out = redact(f"Authorization: Bearer {jwt}")
   assert "CANARY_SECRET_xxxx" not in out
-
-
-def test_action_envelope_shape():
-  env = action_envelope(tool="owa-cal", command="create", ok=True, stats={"event_id": "x"})
-  assert env["tool"] == "owa-cal"
-  assert "version" in env
-  assert env["command"] == "create"
-  assert env["ok"] is True
-  assert env["stats"]["event_id"] == "x"
-
-
-def test_action_envelope_failure_carries_error():
-  env = action_envelope(
-    tool="owa-mail", command="send", ok=False,
-    error={"code": "auth_expired", "message": "M365 token expired"},
-  )
-  assert env["ok"] is False
-  assert env["error"]["code"] == "auth_expired"
-
-
-def test_emit_action_one_line():
-  buf = io.StringIO()
-  emit_action(action_envelope(tool="owa-cal", command="x", ok=True), stream=buf)
-  payload = json.loads(buf.getvalue())
-  assert payload["command"] == "x"
-
-
-def test_data_error_shape():
-  err = data_error(tool="owa-cal", command="events", code="auth_expired", message="m", hint="setup")
-  assert err["tool"] == "owa-cal"
-  assert err["ok"] is False
-  assert err["error"]["hint"] == "setup"
-
-
-def test_emit_data_error_one_line():
-  buf = io.StringIO()
-  emit_data_error(data_error(tool="owa-cal", command="x", code="c", message="m"), stream=buf)
-  assert json.loads(buf.getvalue())["ok"] is False
 
 
 def test_doctor_payload_to_dict():
@@ -95,26 +52,6 @@ def test_exit_constants():
   assert EXIT_OK == 0
   assert EXIT_USER_ERROR == 1
   assert EXIT_PARTIAL == 5
-
-
-def test_emit_data_error_defaults_to_stdout():
-  """By convention, structured JSON (success AND failure)
-  travels on stdout so suite-wide consumers parse one stream with
-  one discriminator (`ok` reserved key). This overrides the
-  owa-tools house "errors to stderr" rule for structured envelopes
-  only - free-text errors still belong on stderr."""
-  import io
-  import sys
-  buf = io.StringIO()
-  saved = sys.stdout
-  sys.stdout = buf
-  try:
-    emit_data_error(data_error(tool="owa-cal", command="x", code="c", message="m"))
-  finally:
-    sys.stdout = saved
-  payload = json.loads(buf.getvalue())
-  assert payload["ok"] is False
-  assert payload["tool"] == "owa-cal"
 
 
 def test_doctor_payload_optional_fields_in_dict():

@@ -63,83 +63,10 @@ __all__ = [
     "EXIT_NOT_FOUND",
     "EXIT_PARTIAL",
     "redact",
-    "action_envelope",
-    "emit_action",
-    "data_error",
-    "emit_data_error",
     "DoctorFinding",
     "DoctorPayload",
     "emit_doctor",
 ]
-
-
-def action_envelope(
-    *,
-    tool: str,
-    command: str,
-    ok: bool,
-    stats=None,
-    warnings=None,
-    error=None,
-    duration_ms=None,
-) -> dict:
-    return {
-        "tool": tool,
-        "version": _resolve_version(tool),
-        "command": command,
-        "ok": bool(ok),
-        "duration_ms": float(duration_ms) if duration_ms is not None else 0.0,
-        "stats": dict(stats or {}),
-        "warnings": list(warnings or []),
-        "error": dict(error) if error else None,
-    }
-
-
-def emit_action(envelope, stream=None) -> None:
-    stream = stream if stream is not None else sys.stdout
-    stream.write(json.dumps(envelope, ensure_ascii=False) + "\n")
-    stream.flush()
-
-
-def data_error(
-    *,
-    tool: str,
-    command: str,
-    code: str,
-    message: str,
-    hint: str | None = None,
-) -> dict:
-    err: dict[str, Any] = {"code": code, "message": message}
-    if hint:
-        err["hint"] = hint
-    return {
-        "tool": tool,
-        "version": _resolve_version(tool),
-        "command": command,
-        "ok": False,
-        "error": err,
-    }
-
-
-def emit_data_error(envelope, stream=None) -> None:
-    """Write a data-class error envelope on stdout.
-
-    By convention, structured JSON output - including
-    failure envelopes - travels on stdout so consumers parse one
-    stream with one discriminator (the reserved-key `ok` field).
-    This is a deliberate carve-out from the owa-tools house rule
-    "errors are diagnostics, send to stderr" because that rule
-    assumes human-readable error text; once the error is structured
-    JSON, sharing the stream with success output gives the cleanest
-    contract (`cmd | jq` works on both paths, suite-wide consumers
-    never need to interleave streams).
-
-    Free-text human errors and unstructured tracebacks still belong
-    on stderr - this only governs the structured envelope.
-    """
-    stream = stream if stream is not None else sys.stdout
-    stream.write(json.dumps(envelope, ensure_ascii=False) + "\n")
-    stream.flush()
 
 
 @dataclass
