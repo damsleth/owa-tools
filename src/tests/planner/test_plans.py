@@ -38,7 +38,7 @@ def test_normalize_plan():
         'id': 'p1', 'title': 'Team', 'owner': 'g1',
         'createdDateTime': '2026-06-01T00:00:00Z',
     })
-    assert p == {'id': 'p1', 'title': 'Team', 'owner': 'g1', 'created': '2026-06-01'}
+    assert p == {'id': 'p1', 'etag': None, 'title': 'Team', 'owner': 'g1', 'created': '2026-06-01'}
 
 
 def test_normalize_plan_falls_back_to_container_id():
@@ -49,7 +49,7 @@ def test_normalize_plan_falls_back_to_container_id():
 def test_normalize_bucket():
     assert plans.normalize_bucket(
         {'id': 'b1', 'name': 'Doing', 'planId': 'p1', 'orderHint': 'x'}
-    ) == {'id': 'b1', 'name': 'Doing', 'planId': 'p1', 'orderHint': 'x'}
+    ) == {'id': 'b1', 'etag': None, 'name': 'Doing', 'planId': 'p1', 'orderHint': 'x'}
 
 
 def test_normalize_task_flattens_fields():

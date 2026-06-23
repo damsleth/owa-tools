@@ -22,13 +22,13 @@ def test_sp_get_sends_nometadata_accept(monkeypatch):
     assert seen['headers']['Accept'] == api_mod.ACCEPT_JSON
 
 
-def test_sp_request_recoverable_returns_none(monkeypatch, capsys):
+def test_sp_request_recoverable_raises(monkeypatch):
     def boom(*a, **k):
         raise errors.NotFoundError('not found (404)')
 
     monkeypatch.setattr(api_mod.http, 'request', boom)
-    assert api_mod.sp_get('https://h', 'sites/x/_api/web', 'tok') is None
-    assert 'not found' in capsys.readouterr().err
+    with pytest.raises(errors.NotFoundError):
+        api_mod.sp_get('https://h', 'sites/x/_api/web', 'tok')
 
 
 def test_sp_request_auth_reraises(monkeypatch):
@@ -40,12 +40,13 @@ def test_sp_request_auth_reraises(monkeypatch):
         api_mod.sp_get('https://h', 'sites/x/_api/web', 'tok')
 
 
-def test_sp_request_generic_owaerror_returns_none(monkeypatch):
+def test_sp_request_generic_owaerror_raises(monkeypatch):
     def boom(*a, **k):
         raise errors.OwaError('weird')
 
     monkeypatch.setattr(api_mod.http, 'request', boom)
-    assert api_mod.sp_get('https://h', 'sites/x/_api/web', 'tok') is None
+    with pytest.raises(errors.OwaError):
+        api_mod.sp_get('https://h', 'sites/x/_api/web', 'tok')
 
 
 def test_paginate_sp_follows_nextlink(monkeypatch):
@@ -68,13 +69,13 @@ def test_paginate_sp_single_object(monkeypatch):
     assert api_mod.paginate_sp('https://h', 'sites/x/_api/web', 'tok') == [{'Title': 'X'}]
 
 
-def test_paginate_sp_recoverable_returns_none(monkeypatch, capsys):
+def test_paginate_sp_recoverable_raises(monkeypatch):
     def boom(method, url, **k):
         raise errors.NetworkError('service unavailable (503)')
 
     monkeypatch.setattr(api_mod.http, 'request', boom)
-    assert api_mod.paginate_sp('https://h', 'sites/x/_api/web/lists', 'tok') is None
-    assert 'service unavailable' in capsys.readouterr().err
+    with pytest.raises(errors.NetworkError):
+        api_mod.paginate_sp('https://h', 'sites/x/_api/web/lists', 'tok')
 
 
 def test_paginate_sp_auth_reraises(monkeypatch):

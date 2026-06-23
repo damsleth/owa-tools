@@ -21,8 +21,8 @@ def test_format_work_item_view():
         'assignedTo': 'Kim', 'url': 'u',
     })
     assert out.startswith('#12 T [Task]')
-    assert 'state: Active' in out
-    assert 'assignedTo: Kim' in out
+    assert 'state:\nActive' in out
+    assert 'assignedTo:\nKim' in out
 
 
 def test_format_work_item_handles_missing():

@@ -14,7 +14,7 @@ alice@example.com
 bob@example.com
   2026-05-05 11:00 - 2026-05-05 11:30 [tentative] Maybe call
 
-$ owa-sched find-time --who alice@example.com,bob@example.com --duration 30 --week 19 --pretty
+$ owa-sched find-time --who alice@example.com,bob@example.com --duration 30 --week 19 --server
 Open slots:
   2026-05-04 09:00 - 2026-05-04 09:30
   2026-05-04 14:00 - 2026-05-04 14:30
@@ -67,7 +67,15 @@ config values).
 
 - `availability` adds `--interval <min>` (availabilityView granularity,
   default 30).
-- `find-time` adds `--duration <min>` (slot length, default 30).
+- `find-time` adds `--duration <min>` (slot length, default 30), `--server`
+  for Graph `/me/findMeetingTimes`, `--max-candidates`,
+  `--min-attendee-pct`, `--attendee-type`, `--location`,
+  `--organizer-optional`, `--tz`, `--limit`/`--max`, and local
+  `--interval <min>`. `--interval` applies only to the local slot finder;
+  `--server` (findMeetingTimes) has no interval parameter and ignores it
+  (a note is printed if you pass it). In `--server` mode the `--start`/`--end`
+  work-day window is applied per day across a multi-day range, not just at the
+  range's outer edges.
 - `--profile <alias>` forwards to `owa-piggy` for one invocation.
 
 ```bash
@@ -77,6 +85,7 @@ owa-sched availability --who you@example.com --month --pretty
 owa-sched availability --who you@example.com --date tomorrow --pretty
 
 owa-sched find-time --who alice@example.com,bob@example.com --duration 30 --week 19
+owa-sched find-time --who alice@example.com,bob@example.com --duration 30 --week 19 --server --max-candidates 5
 owa-sched find-time --who you@example.com --date 2026-05-12 --start 09:00 --end 17:00
 
 owa-sched refresh
@@ -103,9 +112,9 @@ See [agent-integration.md](agent-integration.md) for the full contract.
 
 ## Caveats
 
-- The slot finder is naive: it uses a single per-day work-day window for
+- The local slot finder is naive: it uses a single per-day work-day window for
   everyone, and does not honour each attendee's individual `workingHours` from
-  Graph. Good enough for "find me half an hour with these two", not a full
-  Outlook scheduling assistant replacement.
+  Graph. Use `find-time --server` for Graph server-side ranking and
+  working-hours handling.
 - Graph's per-attendee error surface (e.g. mailbox not found, calendar hidden)
   is preserved on the JSON output; consult the `error` field on each attendee.

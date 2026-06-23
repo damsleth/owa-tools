@@ -62,33 +62,31 @@ def test_endpoint_starting_with_http_overrides_base(monkeypatch):
     assert seen['url'] == 'https://other.example/foo'
 
 
-def test_url_error_returns_none(monkeypatch, capsys):
+def test_url_error_raises(monkeypatch):
     def fake_request(*args, **kwargs):
         raise NetworkError('network error: connection refused')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_request('GET', 'https://x/y', 'a', 't') is None
-    assert 'connection refused' in capsys.readouterr().err
+    with pytest.raises(NetworkError):
+        api.api_request('GET', 'https://x/y', 'a', 't')
 
 
-def test_5xx_returns_none_with_debug_message(monkeypatch, capsys):
+def test_5xx_raises(monkeypatch):
     def fake_request(*args, **kwargs):
         raise NetworkError('service unavailable (500): server boom')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_request('GET', 'https://x/y', 'a', 't', debug=True) is None
-    err = capsys.readouterr().err
-    assert 'service unavailable' in err
-    assert 'server boom' in err
+    with pytest.raises(NetworkError):
+        api.api_request('GET', 'https://x/y', 'a', 't', debug=True)
 
 
-def test_internal_error_returns_none(monkeypatch, capsys):
+def test_internal_error_raises(monkeypatch):
     def fake_request(*args, **kwargs):
         raise InternalError('HTTP response was not valid JSON')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_request('GET', 'https://x/y', 'a', 't') is None
-    assert 'not valid JSON' in capsys.readouterr().err
+    with pytest.raises(InternalError):
+        api.api_request('GET', 'https://x/y', 'a', 't')
 
 
 def test_url_error_retried_once_when_retry_true(monkeypatch, capsys):
@@ -115,7 +113,8 @@ def test_url_error_not_retried_when_retry_false(monkeypatch):
         raise NetworkError('network error: reset')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_request('GET', 'https://x/y', 'a', 't', retry=False) is None
+    with pytest.raises(NetworkError):
+        api.api_request('GET', 'https://x/y', 'a', 't', retry=False)
     assert len(calls) == 1
 
 
@@ -127,7 +126,8 @@ def test_url_error_persistent_with_retry_surfaces_error(monkeypatch, capsys):
         raise NetworkError('network error: still reset')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_request('GET', 'https://x/y', 'a', 't', retry=True, debug=True) is None
+    with pytest.raises(NetworkError):
+        api.api_request('GET', 'https://x/y', 'a', 't', retry=True, debug=True)
     assert len(calls) == 2
     assert 'still reset' in capsys.readouterr().err
 

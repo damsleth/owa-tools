@@ -138,6 +138,80 @@ def test_task_requires_id():
         cli.cmd_task([], {}, 'tok', BASE)
 
 
+def test_create_task_posts_body(monkeypatch, capsys):
+    seen = {}
+
+    def fake_post(base, ep, tok, body=None, debug=False):
+        seen.update(base=base, ep=ep, tok=tok, body=body, debug=debug)
+        return _raw_task('t9', body['title'], 0, body.get('bucketId', ''))
+
+    monkeypatch.setattr(cli.api_mod, 'api_post', fake_post)
+    assert cli.cmd_create_task(
+        ['--plan', 'p1', '--title', 'Draft', '--bucket', 'b1', '--priority', '3'],
+        {}, 'tok', BASE,
+    ) == 0
+    assert seen['ep'] == 'planner/tasks'
+    assert seen['body']['planId'] == 'p1'
+    assert seen['body']['bucketId'] == 'b1'
+    assert json.loads(capsys.readouterr().out)['id'] == 't9'
+
+
+def test_update_task_sends_if_match_and_refreshes(monkeypatch, capsys):
+    calls = {}
+
+    def fake_patch(base, ep, tok, body=None, etag='', debug=False):
+        calls['patch'] = {'ep': ep, 'body': body, 'etag': etag}
+
+    def fake_get(base, ep, tok, **kwargs):
+        calls['get'] = ep
+        return _raw_task('t1', 'Renamed', 100, 'b1') | {'@odata.etag': 'W/"new"'}
+
+    monkeypatch.setattr(cli.api_mod, 'api_patch', fake_patch)
+    monkeypatch.setattr(cli.api_mod, 'api_get', fake_get)
+    assert cli.cmd_update_task(
+        ['t1', '--etag', 'W/"old"', '--title', 'Renamed', '--status', 'completed',
+         '--applied-category', 'category1=true'],
+        {}, 'tok', BASE,
+    ) == 0
+    assert calls['patch']['ep'] == 'planner/tasks/t1'
+    assert calls['patch']['etag'] == 'W/"old"'
+    assert calls['patch']['body']['percentComplete'] == 100
+    assert calls['patch']['body']['appliedCategories'] == {'category1': True}
+    assert json.loads(capsys.readouterr().out)['etag'] == 'W/"new"'
+
+
+def test_delete_task_requires_etag_and_confirm(monkeypatch, capsys):
+    seen = {}
+
+    def fake_delete(base, ep, tok, etag='', debug=False):
+        seen.update(ep=ep, etag=etag)
+
+    monkeypatch.setattr(cli.api_mod, 'api_delete', fake_delete)
+    assert cli.cmd_delete_task(['t1', '--etag', 'abc', '--confirm'], {}, 'tok', BASE) == 0
+    assert seen == {'ep': 'planner/tasks/t1', 'etag': 'abc'}
+    assert json.loads(capsys.readouterr().out) == {'deleted': 't1'}
+
+
+def test_update_plan_details_sets_categories(monkeypatch, capsys):
+    calls = {}
+
+    def fake_patch(base, ep, tok, body=None, etag='', debug=False):
+        calls['patch'] = {'ep': ep, 'body': body, 'etag': etag}
+
+    def fake_get(base, ep, tok, **kwargs):
+        return {'@odata.etag': 'next', 'categoryDescriptions': {'category1': 'Backlog'}}
+
+    monkeypatch.setattr(cli.api_mod, 'api_patch', fake_patch)
+    monkeypatch.setattr(cli.api_mod, 'api_get', fake_get)
+    assert cli.cmd_update_plan_details(
+        ['--plan', 'p1', '--etag', 'old', '--category', 'category1=Backlog'],
+        {}, 'tok', BASE,
+    ) == 0
+    assert calls['patch']['ep'] == 'planner/plans/p1/details'
+    assert calls['patch']['body'] == {'categoryDescriptions': {'category1': 'Backlog'}}
+    assert json.loads(capsys.readouterr().out)['categoryDescriptions']['category1'] == 'Backlog'
+
+
 def test_unknown_flag_rejected():
     with pytest.raises(cli.UsageError, match='Unknown flag'):
         cli.cmd_plans(['--nope'], {}, 'tok', BASE)

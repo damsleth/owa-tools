@@ -30,11 +30,11 @@ def test_graph_get_joins_base_and_endpoint(monkeypatch):
     assert seen['url'] == 'https://g/v1.0/me/joinedTeams'
 
 
-def test_graph_get_recoverable_returns_none(monkeypatch, capsys):
+def test_graph_get_recoverable_raises(monkeypatch):
     monkeypatch.setattr(api_mod.http, 'request',
                         lambda *a, **k: (_ for _ in ()).throw(errors.NotFoundError('nope (404)')))
-    assert api_mod.graph_get('https://g', 'x', 'tok') is None
-    assert 'nope' in capsys.readouterr().err
+    with pytest.raises(errors.NotFoundError):
+        api_mod.graph_get('https://g', 'x', 'tok')
 
 
 def test_graph_get_auth_reraises(monkeypatch):
@@ -44,10 +44,11 @@ def test_graph_get_auth_reraises(monkeypatch):
         api_mod.graph_get('https://g', 'x', 'tok')
 
 
-def test_graph_get_generic_owaerror_returns_none(monkeypatch):
+def test_graph_get_generic_owaerror_raises(monkeypatch):
     monkeypatch.setattr(api_mod.http, 'request',
                         lambda *a, **k: (_ for _ in ()).throw(errors.OwaError('weird')))
-    assert api_mod.graph_get('https://g', 'x', 'tok') is None
+    with pytest.raises(errors.OwaError):
+        api_mod.graph_get('https://g', 'x', 'tok')
 
 
 # --- graph_paginate -----------------------------------------------------------
@@ -65,12 +66,12 @@ def test_graph_paginate_auth_reraises(monkeypatch):
         api_mod.graph_paginate('https://g', 'me/chats', 'tok')
 
 
-def test_graph_paginate_recoverable_returns_none(monkeypatch, capsys):
+def test_graph_paginate_recoverable_raises(monkeypatch):
     def boom(url, **k):
         raise errors.NetworkError('503')
     monkeypatch.setattr(api_mod.http, 'paginate', boom)
-    assert api_mod.graph_paginate('https://g', 'me/chats', 'tok') is None
-    assert '503' in capsys.readouterr().err
+    with pytest.raises(errors.NetworkError):
+        api_mod.graph_paginate('https://g', 'me/chats', 'tok')
 
 
 # --- chatsvc_messages ---------------------------------------------------------
@@ -145,12 +146,12 @@ def test_chatsvc_messages_auth_reraises(monkeypatch):
         api_mod.chatsvc_messages('https://t/v1', 'c', 'tok')
 
 
-def test_chatsvc_messages_recoverable_returns_none(monkeypatch, capsys):
+def test_chatsvc_messages_recoverable_raises(monkeypatch):
     def boom(*a, **k):
         raise errors.RateLimitedError('429')
     monkeypatch.setattr(api_mod.http, 'request', boom)
-    assert api_mod.chatsvc_messages('https://t/v1', 'c', 'tok') is None
-    assert '429' in capsys.readouterr().err
+    with pytest.raises(errors.RateLimitedError):
+        api_mod.chatsvc_messages('https://t/v1', 'c', 'tok')
 
 
 # --- Retry-After budget (429 ride-through) ------------------------------------

@@ -15,7 +15,7 @@ import sys
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
-from owa_core.errors import UsageError, emit_error, emit_message
+from owa_core.errors import NotFoundError, UsageError, emit_error, emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -354,16 +354,19 @@ def cmd_show(args, config, access_token, api_base):
 
     debug = _debug_enabled(config)
     q = api_mod.build_query({'$select': messages_mod.SHOW_SELECT})
-    raw = api_mod.api_get(
-        api_base, f'{messages_mod.message_path(message_id)}?{q}', access_token, debug=debug
-    )
-    if raw is None:
+    try:
+        raw = api_mod.api_get(
+            api_base, f'{messages_mod.message_path(message_id)}?{q}', access_token, debug=debug
+        )
+    except NotFoundError:
         # The two ids in `messages` JSON look alike: `id` (AQMkAD...) is the
         # message; `conversation_id` (AAQkAD...) is not addressable by `show`.
+        # Print the hint, then re-raise so exit code 13 (not found) still
+        # propagates with the standard error envelope.
         if message_id[:4] == 'AAQk':
             _info("hint: that looks like a conversation_id; `show` needs the "
                   "message `id` (starts AQMk). Try `owa-mail read --latest`.")
-        return 1
+        raise
     flat = messages_mod.normalize_message(raw)
     if pretty:
         print(format_message_pretty(flat))

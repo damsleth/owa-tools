@@ -16,7 +16,6 @@ from owa_core.errors import (
     OwaError,
     RateLimitedError,
     ScopeInsufficientError,
-    emit_error,
 )
 
 
@@ -33,11 +32,9 @@ def api_request(method, base, endpoint, access_token, body=None, debug=False):
     except (AuthExpiredError, ScopeInsufficientError) as error:
         raise error
     except (ConflictError, InternalError, NetworkError, NotFoundError, RateLimitedError) as error:
-        emit_error(error)
-        return None
+        raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error
 
 
 def api_get(base, endpoint, access_token, debug=False):
@@ -58,11 +55,9 @@ def paginate_all(base, endpoint, access_token, debug=False):
     except (AuthExpiredError, ScopeInsufficientError) as error:
         raise error
     except (ConflictError, InternalError, NetworkError, NotFoundError, RateLimitedError) as error:
-        emit_error(error)
-        return None
+        raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error
 
 
 def build_query(params):

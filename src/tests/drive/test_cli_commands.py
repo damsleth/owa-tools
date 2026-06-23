@@ -224,7 +224,9 @@ def test_put_batch_per_file_failure_does_not_abort(monkeypatch, tmp_path, capfd)
     def fake_put(api_base, endpoint, token, data, debug=False):
         calls.append(endpoint)
         if endpoint.endswith("/a.txt:/content"):
-            return None  # genuine failure mid-batch
+            # Production api_put_binary RAISES recoverable OwaErrors (it does
+            # not return None); batch mode must catch and continue.
+            raise cli.NetworkError("upload failed: connection reset")
         return _drive_item(endpoint.rsplit("/", 1)[-1])
 
     monkeypatch.setattr(cli.api_mod, "api_put_binary", fake_put)

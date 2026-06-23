@@ -1,4 +1,6 @@
 """Pagination + retry coverage for the graph wrapper."""
+import pytest
+
 from owa_core.errors import RateLimitedError
 from owa_graph import api
 
@@ -84,23 +86,21 @@ def test_retry_flag_forwards_to_core_http(monkeypatch):
     assert seen['retry'] == 1
 
 
-def test_retry_caps_at_60s_and_returns_none(monkeypatch, capsys):
+def test_retry_caps_at_60s_and_raises(monkeypatch):
     def fake_request(*args, **kwargs):
         raise RateLimitedError('rate limited (429); server asked for 3600s (>cap 60s). Try again later.')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_request('GET', 'https://x', 'y', 'tok', retry=True) is None
-    err = capsys.readouterr().err
-    assert '3600s' in err
-    assert '>cap' in err
+    with pytest.raises(RateLimitedError, match='3600s'):
+        api.api_request('GET', 'https://x', 'y', 'tok', retry=True)
 
 
-def test_503_without_retry_returns_none(monkeypatch, capsys):
+def test_503_without_retry_raises(monkeypatch):
     from owa_core.errors import NetworkError
 
     def fake_request(*args, **kwargs):
         raise NetworkError('service unavailable (503)')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_request('GET', 'https://x', 'y', 'tok') is None
-    assert 'service unavailable' in capsys.readouterr().err
+    with pytest.raises(NetworkError):
+        api.api_request('GET', 'https://x', 'y', 'tok')
