@@ -28,10 +28,10 @@ def test_api_request_returns_core_http_json(monkeypatch):
     assert seen['kwargs']['token'] == 'fake-token'
 
 
-def test_api_request_not_found_returns_none(monkeypatch, capsys):
+def test_api_request_not_found_raises(monkeypatch):
     monkeypatch.setattr(api.http, 'request', lambda *a, **k: (_ for _ in ()).throw(NotFoundError('not found (404)')))
-    assert api.api_request('GET', 'https://outlook.test', 'missing', 'fake') is None
-    assert 'not found' in capsys.readouterr().err
+    with pytest.raises(NotFoundError):
+        api.api_request('GET', 'https://outlook.test', 'missing', 'fake')
 
 
 def test_api_request_auth_failure_reraises(monkeypatch):
@@ -47,10 +47,10 @@ def test_paginate_all_collects_items(monkeypatch):
     assert [i['Id'] for i in out] == ['1', '2']
 
 
-def test_paginate_all_recoverable_error_returns_none(monkeypatch, capsys):
+def test_paginate_all_recoverable_error_raises(monkeypatch):
     def boom(url, **k):
         raise NotFoundError('not found (404)')
 
     monkeypatch.setattr(api.http, 'paginate', boom)
-    assert api.paginate_all('https://outlook.test', 'me/tasks', 'fake') is None
-    assert 'not found' in capsys.readouterr().err
+    with pytest.raises(NotFoundError):
+        api.paginate_all('https://outlook.test', 'me/tasks', 'fake')

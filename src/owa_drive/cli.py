@@ -18,8 +18,11 @@ from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
 from owa_core.errors import (
     ConflictError,
+    InternalError,
+    NetworkError,
     NotFoundError,
     OwaError,
+    RateLimitedError,
     UsageError,
     emit_error,
     emit_message,
@@ -32,6 +35,17 @@ from . import config as config_mod
 from . import paths as paths_mod
 from .format import format_item_pretty, format_items_pretty
 from .items import normalize_item
+
+# Recoverable per-file errors that batch `put` tolerates: one bad file must
+# not abort the rest. Auth/scope errors are deliberately excluded so they
+# still propagate (re-auth is needed before any further file can succeed).
+_RECOVERABLE_UPLOAD_ERRORS = (
+    NetworkError,
+    NotFoundError,
+    ConflictError,
+    RateLimitedError,
+    InternalError,
+)
 
 
 def _error(msg):
@@ -355,11 +369,21 @@ def cmd_put(args, config, access_token, api_base):
                 skipped.append({'local': local, 'remote': remote})
                 continue
 
-        status, item = _upload_one(
-            local, remote,
-            config=config, access_token=access_token,
-            api_base=api_base, debug=debug,
-        )
+        try:
+            status, item = _upload_one(
+                local, remote,
+                config=config, access_token=access_token,
+                api_base=api_base, debug=debug,
+            )
+        except _RECOVERABLE_UPLOAD_ERRORS as exc:
+            # Batch mode is fault-tolerant per file: a transient upload error
+            # on one file must not abort the rest. Single-file mode re-raises
+            # so the typed exit code (10/13/14/15/20) still propagates.
+            if not batch:
+                raise
+            _error(f'failed {remote}: {exc}')
+            failed.append({'local': local, 'remote': remote})
+            continue
         if status == 'uploaded':
             uploaded.append({'local': local, 'remote': remote, 'item': item})
         else:

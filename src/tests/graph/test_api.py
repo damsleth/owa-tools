@@ -51,20 +51,22 @@ def test_403_raises_scope_error(monkeypatch):
     assert exc.value.exit_code == 12
 
 
-def test_404_returns_none(monkeypatch):
+def test_404_raises(monkeypatch):
     def fake_request(*args, **kwargs):
         raise NotFoundError('not found (404)')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_get('https://graph.microsoft.com/v1.0', 'missing', 't') is None
+    with pytest.raises(NotFoundError):
+        api.api_get('https://graph.microsoft.com/v1.0', 'missing', 't')
 
 
-def test_429_returns_none(monkeypatch):
+def test_429_raises(monkeypatch):
     def fake_request(*args, **kwargs):
         raise RateLimitedError('rate limited (429)')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_get('https://graph.microsoft.com/v1.0', 'me', 't') is None
+    with pytest.raises(RateLimitedError):
+        api.api_get('https://graph.microsoft.com/v1.0', 'me', 't')
 
 
 def test_build_url_basic():

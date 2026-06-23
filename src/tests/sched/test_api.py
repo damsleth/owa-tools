@@ -31,13 +31,13 @@ def test_api_request_returns_core_http_json(monkeypatch):
     assert seen['kwargs']['headers'] == {'Prefer': 'outlook.timezone="UTC"'}
 
 
-def test_api_request_not_found_preserves_none_contract(monkeypatch, capsys):
+def test_api_request_not_found_raises(monkeypatch):
     def fake_request(method, url, **kwargs):
         raise NotFoundError('not found (404)')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_request('POST', 'https://graph.microsoft.com/v1.0', '/missing', 'fake') is None
-    assert 'not found' in capsys.readouterr().err
+    with pytest.raises(NotFoundError):
+        api.api_request('POST', 'https://graph.microsoft.com/v1.0', '/missing', 'fake')
 
 
 def test_api_request_auth_failure_raises_typed_error(monkeypatch):

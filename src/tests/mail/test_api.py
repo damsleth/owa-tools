@@ -28,13 +28,13 @@ def test_api_request_returns_core_http_json(monkeypatch):
     assert seen['kwargs']['token'] == 'fake-token'
 
 
-def test_api_request_not_found_preserves_none_contract(monkeypatch, capsys):
+def test_api_request_not_found_raises(monkeypatch):
     def fake_request(method, url, **kwargs):
         raise NotFoundError('not found (404)')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_request('GET', 'https://outlook.office.com/api/v2.0', 'missing', 'fake') is None
-    assert 'not found' in capsys.readouterr().err
+    with pytest.raises(NotFoundError):
+        api.api_request('GET', 'https://outlook.office.com/api/v2.0', 'missing', 'fake')
 
 
 def test_api_request_auth_failure_raises_typed_error(monkeypatch):
@@ -62,13 +62,13 @@ def test_api_get_binary_returns_bytes(monkeypatch):
     assert out == b'rawbytes'
 
 
-def test_api_get_binary_recoverable_error_returns_none(monkeypatch, capsys):
+def test_api_get_binary_recoverable_error_raises(monkeypatch):
     def fake_request(method, url, **kwargs):
         raise NotFoundError('not found (404)')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_get_binary('https://b', 'e', 'tok') is None
-    assert 'not found' in capsys.readouterr().err
+    with pytest.raises(NotFoundError):
+        api.api_get_binary('https://b', 'e', 'tok')
 
 
 def test_api_get_binary_auth_error_raises(monkeypatch):
@@ -122,13 +122,13 @@ def test_api_upload_attachment_session_no_upload_url(monkeypatch, capsys):
     assert 'no uploadUrl' in capsys.readouterr().err
 
 
-def test_api_upload_attachment_session_create_failure_returns_none(monkeypatch, capsys):
+def test_api_upload_attachment_session_create_failure_raises(monkeypatch):
     def fake_request(method, url, **kwargs):
         raise NotFoundError('not found (404)')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_upload_attachment_session('https://b', 'e', 'tok', {}, b'x') is None
-    assert 'not found' in capsys.readouterr().err
+    with pytest.raises(NotFoundError):
+        api.api_upload_attachment_session('https://b', 'e', 'tok', {}, b'x')
 
 
 def test_api_upload_attachment_session_non_dict_body(monkeypatch, capsys):
@@ -140,7 +140,7 @@ def test_api_upload_attachment_session_non_dict_body(monkeypatch, capsys):
     assert 'returned no body' in capsys.readouterr().err
 
 
-def test_api_upload_attachment_session_upload_error_returns_none(monkeypatch, capsys):
+def test_api_upload_attachment_session_upload_error_raises(monkeypatch):
     from owa_core.errors import NetworkError
 
     def fake_request(method, url, **kwargs):
@@ -151,8 +151,8 @@ def test_api_upload_attachment_session_upload_error_returns_none(monkeypatch, ca
 
     monkeypatch.setattr(api.http, 'request', fake_request)
     monkeypatch.setattr(api.upload_mod, 'upload_session', fake_upload)
-    assert api.api_upload_attachment_session('https://b', 'e', 'tok', {}, b'x') is None
-    assert 'network error' in capsys.readouterr().err
+    with pytest.raises(NetworkError):
+        api.api_upload_attachment_session('https://b', 'e', 'tok', {}, b'x')
 
 
 def test_api_upload_attachment_session_auth_error_during_create(monkeypatch):

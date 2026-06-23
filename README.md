@@ -31,7 +31,7 @@ pipx install owa-piggy && pipx install owa-tools
 ```
 
 Either path lands fourteen binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
-`owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-drive`, `owa-todo`,
+`owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-places`, `owa-drive`, `owa-todo`,
 `owa-planner`, `owa-sites`, `owa-teams`, `owa-vids`, `owa-ado`) plus the
 `owa-piggy` auth broker.
 
@@ -69,6 +69,7 @@ passed straight through.
 | `owa-graph` | Microsoft Graph CLI: verb-first plus 14 resource shortcut groups. |
 | `owa-people` | People, directory, and contacts via Graph. |
 | `owa-sched` | Free/busy and slot finding for one or many attendees. |
+| `owa-places` | Best-effort Outlook room/location lookup via SchedulingB2. |
 | `owa-drive` | OneDrive CRUD plus binary up/download. |
 | `owa-doctor` | Health check across the suite, all profiles, all audiences. |
 | `owa-todo` | Microsoft To Do tasks: lists, create, update, complete, delete. |

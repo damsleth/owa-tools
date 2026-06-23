@@ -7,8 +7,8 @@ read the nearest local `AGENTS.md` for the files you are editing.
 
 `owa-tools` is a CLI-only suite distribution with thirteen console scripts:
 `owa`, `owa-cal`, `owa-mail`, `owa-graph`, `owa-doctor`, `owa-people`,
-`owa-sched`, `owa-drive`, `owa-todo`, `owa-planner`, `owa-sites`,
-`owa-teams`, and `owa-vids`.
+`owa-sched`, `owa-places`, `owa-drive`, `owa-todo`, `owa-planner`,
+`owa-sites`, `owa-teams`, and `owa-vids`.
 `owa-piggy` is a separate auth broker repository.
 
 `owa-tui` (separate repo) is the graphical frontend; this repo is CLI-only.
@@ -132,6 +132,7 @@ Actual signatures (verified against source):
 | `src/owa_doctor/AGENTS.md` | changing health checks |
 | `src/owa_people/AGENTS.md` | changing people, contacts, or directory behavior |
 | `src/owa_sched/AGENTS.md` | changing scheduling or availability behavior |
+| `src/owa_places/AGENTS.md` | changing room or meeting-location lookup behavior |
 | `src/owa_drive/AGENTS.md` | changing OneDrive behavior or binary transfers |
 | `src/owa_todo/AGENTS.md` | changing Microsoft To Do task behavior |
 | `src/owa_planner/AGENTS.md` | changing Microsoft Planner behavior |
@@ -287,3 +288,47 @@ fixed by publishing a higher version, not by rewriting history.
 
 `RELEASING.md` is the long-form companion to this section: pre-release
 checklist, deferred-work list, and detailed rollback steps.
+
+
+<!-- headroom:rtk-instructions -->
+# RTK (Rust Token Killer) - Token-Optimized Commands
+
+When running shell commands, **always prefix with `rtk`**. This reduces context
+usage by 60-90% with zero behavior change. If rtk has no filter for a command,
+it passes through unchanged — so it is always safe to use.
+
+## Key Commands
+```bash
+# Git (59-80% savings)
+rtk git status          rtk git diff            rtk git log
+
+# Files & Search (60-75% savings)
+rtk ls <path>           rtk read <file>         rtk grep <pattern>
+rtk find <pattern>      rtk diff <file>
+
+# Test (90-99% savings) — shows failures only
+rtk pytest tests/       rtk cargo test          rtk test <cmd>
+
+# Build & Lint (80-90% savings) — shows errors only
+rtk tsc                 rtk lint                rtk cargo build
+rtk prettier --check    rtk mypy                rtk ruff check
+
+# Analysis (70-90% savings)
+rtk err <cmd>           rtk log <file>          rtk json <file>
+rtk summary <cmd>       rtk deps                rtk env
+
+# GitHub (26-87% savings)
+rtk gh pr view <n>      rtk gh run list         rtk gh issue list
+
+# Infrastructure (85% savings)
+rtk docker ps           rtk kubectl get         rtk docker logs <c>
+
+# Package managers (70-90% savings)
+rtk pip list            rtk pnpm install        rtk npm run <script>
+```
+
+## Rules
+- In command chains, prefix each segment: `rtk git add . && rtk git commit -m "msg"`
+- For debugging, use raw command without rtk prefix
+- `rtk proxy <cmd>` runs command without filtering but tracks usage
+<!-- /headroom:rtk-instructions -->

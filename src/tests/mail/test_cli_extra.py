@@ -181,19 +181,26 @@ def test_show_unknown_flag_raises():
         cli.cmd_show(['--bogus'], {}, 'tok', 'https://outlook.test')
 
 
+def _raise_not_found(*a, **k):
+    raise cli.NotFoundError('not found (404)')
+
+
 def test_show_aaqk_id_hint(monkeypatch, capsys):
-    monkeypatch.setattr(cli.api_mod, 'api_get', lambda *a, **k: None)
-    rc = cli.cmd_show(['--id', 'AAQkXXXX'], {}, 'tok', 'https://outlook.test')
-    assert rc == 1
+    # api_get raises NotFoundError (404); cmd_show prints the conversation-id
+    # hint to stderr and re-raises so exit code 13 still propagates.
+    monkeypatch.setattr(cli.api_mod, 'api_get', _raise_not_found)
+    with pytest.raises(cli.NotFoundError):
+        cli.cmd_show(['--id', 'AAQkXXXX'], {}, 'tok', 'https://outlook.test')
     err = capsys.readouterr().err
     assert 'conversation_id' in err.lower() or 'conversation' in err
 
 
-def test_show_api_failure_non_aaqk(monkeypatch):
-    monkeypatch.setattr(cli.api_mod, 'api_get', lambda *a, **k: None)
-    # Regular AQMk id — no hint, just return 1
-    rc = cli.cmd_show(['--id', 'AQMkRegularId'], {}, 'tok', 'https://outlook.test')
-    assert rc == 1
+def test_show_api_failure_non_aaqk(monkeypatch, capsys):
+    # Regular AQMk id — no hint, the NotFoundError just propagates.
+    monkeypatch.setattr(cli.api_mod, 'api_get', _raise_not_found)
+    with pytest.raises(cli.NotFoundError):
+        cli.cmd_show(['--id', 'AQMkRegularId'], {}, 'tok', 'https://outlook.test')
+    assert 'conversation' not in capsys.readouterr().err
 
 
 # ---------------------------------------------------------------------------

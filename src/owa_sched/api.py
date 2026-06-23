@@ -10,7 +10,6 @@ from owa_core.errors import (
     OwaError,
     RateLimitedError,
     ScopeInsufficientError,
-    emit_error,
 )
 
 
@@ -25,11 +24,9 @@ def api_request(method, base, endpoint, access_token, body=None,
     except (AuthExpiredError, ScopeInsufficientError) as error:
         raise error
     except (ConflictError, InternalError, NetworkError, NotFoundError, RateLimitedError) as error:
-        emit_error(error)
-        return None
+        raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error
 
 
 def api_post(base, endpoint, access_token, body=None, extra_headers=None, debug=False):

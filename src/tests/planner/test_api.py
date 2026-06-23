@@ -17,13 +17,13 @@ def test_api_get_returns_json(monkeypatch):
     assert api_mod.api_get('https://g', 'me/planner/plans', 'tok') == {'value': [1, 2]}
 
 
-def test_api_request_recoverable_returns_none(monkeypatch, capsys):
+def test_api_request_recoverable_raises(monkeypatch):
     def boom(*a, **k):
         raise errors.NotFoundError('not found (404)')
 
     monkeypatch.setattr(api_mod.http, 'request', boom)
-    assert api_mod.api_get('https://g', 'planner/tasks/x', 'tok') is None
-    assert 'not found' in capsys.readouterr().err
+    with pytest.raises(errors.NotFoundError):
+        api_mod.api_get('https://g', 'planner/tasks/x', 'tok')
 
 
 def test_api_request_auth_reraises(monkeypatch):
@@ -53,29 +53,31 @@ def test_paginate_all(monkeypatch):
     ]
 
 
-def test_paginate_all_recoverable_returns_none(monkeypatch, capsys):
+def test_paginate_all_recoverable_raises(monkeypatch):
     def boom(url, **k):
         raise errors.NetworkError('service unavailable (503)')
 
     monkeypatch.setattr(api_mod.http, 'paginate', boom)
-    assert api_mod.paginate_all('https://g', 'me/planner/plans', 'tok') is None
-    assert 'service unavailable' in capsys.readouterr().err
+    with pytest.raises(errors.NetworkError):
+        api_mod.paginate_all('https://g', 'me/planner/plans', 'tok')
 
 
-def test_api_request_generic_owaerror_returns_none(monkeypatch, capsys):
+def test_api_request_generic_owaerror_raises(monkeypatch):
     def boom(*a, **k):
         raise errors.OwaError('weird')
 
     monkeypatch.setattr(api_mod.http, 'request', boom)
-    assert api_mod.api_get('https://g', 'me/planner/plans', 'tok') is None
+    with pytest.raises(errors.OwaError):
+        api_mod.api_get('https://g', 'me/planner/plans', 'tok')
 
 
-def test_paginate_all_generic_owaerror_returns_none(monkeypatch, capsys):
+def test_paginate_all_generic_owaerror_raises(monkeypatch):
     def boom(url, **k):
         raise errors.OwaError('weird')
 
     monkeypatch.setattr(api_mod.http, 'paginate', boom)
-    assert api_mod.paginate_all('https://g', 'me/planner/plans', 'tok') is None
+    with pytest.raises(errors.OwaError):
+        api_mod.paginate_all('https://g', 'me/planner/plans', 'tok')
 
 
 def test_build_query():

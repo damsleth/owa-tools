@@ -19,6 +19,7 @@ import urllib.error
 
 import pytest
 
+from owa_core.errors import InternalError
 from owa_mail import cli
 
 SENTINEL = 'CANARY_SECRET_xxxx'
@@ -87,10 +88,9 @@ def _install_transport(monkeypatch):
     return seen_bodies
 
 
-def _assert_no_leak(rc, capsys, seen_bodies):
+def _assert_no_leak(capsys, seen_bodies):
     captured = capsys.readouterr()
     # The command failed on the body-bearing call.
-    assert rc != 0
     # Non-vacuous: the sentinel really was transmitted in a request body.
     assert any(SENTINEL in b for b in seen_bodies)
     # ...but redaction kept it off both streams.
@@ -100,26 +100,29 @@ def _assert_no_leak(rc, capsys, seen_bodies):
 
 def test_send_failure_does_not_leak_body(monkeypatch, capsys):
     seen = _install_transport(monkeypatch)
-    rc = cli.cmd_send(
-        ['--to', 'a@example.com', '--subject', 'hi', '--body', f'secret {SENTINEL} here'],
-        {}, 'tok', 'https://outlook.test',
-    )
-    _assert_no_leak(rc, capsys, seen)
+    with pytest.raises(InternalError):
+        cli.cmd_send(
+            ['--to', 'a@example.com', '--subject', 'hi', '--body', f'secret {SENTINEL} here'],
+            {}, 'tok', 'https://outlook.test',
+        )
+    _assert_no_leak(capsys, seen)
 
 
 def test_reply_failure_does_not_leak_body(monkeypatch, capsys):
     seen = _install_transport(monkeypatch)
-    rc = cli.cmd_reply(
-        ['--id', 'm1', '--body', f'reply {SENTINEL} text'],
-        {}, 'tok', 'https://outlook.test',
-    )
-    _assert_no_leak(rc, capsys, seen)
+    with pytest.raises(InternalError):
+        cli.cmd_reply(
+            ['--id', 'm1', '--body', f'reply {SENTINEL} text'],
+            {}, 'tok', 'https://outlook.test',
+        )
+    _assert_no_leak(capsys, seen)
 
 
 def test_forward_failure_does_not_leak_body(monkeypatch, capsys):
     seen = _install_transport(monkeypatch)
-    rc = cli.cmd_forward(
-        ['--id', 'm1', '--to', 'c@example.com', '--body', f'fwd {SENTINEL} note'],
-        {}, 'tok', 'https://outlook.test',
-    )
-    _assert_no_leak(rc, capsys, seen)
+    with pytest.raises(InternalError):
+        cli.cmd_forward(
+            ['--id', 'm1', '--to', 'c@example.com', '--body', f'fwd {SENTINEL} note'],
+            {}, 'tok', 'https://outlook.test',
+        )
+    _assert_no_leak(capsys, seen)

@@ -36,11 +36,9 @@ def api_request(method, base, endpoint, access_token, body=None, debug=False):
     except (AuthExpiredError, ScopeInsufficientError) as error:
         raise error
     except (ConflictError, InternalError, NetworkError, NotFoundError, RateLimitedError) as error:
-        emit_error(error)
-        return None
+        raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error
 
 
 def api_get(base, endpoint, access_token, debug=False):
@@ -66,8 +64,7 @@ def paginate_all(base, endpoint, access_token, extra_headers=None, debug=False):
     except (AuthExpiredError, ScopeInsufficientError) as error:
         raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error
 
 
 def api_get_binary(base, endpoint, access_token, debug=False):
@@ -84,8 +81,7 @@ def api_get_binary(base, endpoint, access_token, debug=False):
     except (AuthExpiredError, ScopeInsufficientError) as error:
         raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error
 
 
 def api_upload_attachment_session(base, session_endpoint, access_token,
@@ -107,8 +103,7 @@ def api_upload_attachment_session(base, session_endpoint, access_token,
     except (AuthExpiredError, ScopeInsufficientError) as error:
         raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error
     if not isinstance(session, dict):
         emit_error(InternalError('attachment upload session returned no body'))
         return None
@@ -121,8 +116,7 @@ def api_upload_attachment_session(base, session_endpoint, access_token,
     except (AuthExpiredError, ScopeInsufficientError) as error:
         raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error
 
 
 def build_query(params):
