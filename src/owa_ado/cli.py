@@ -87,6 +87,8 @@ Commands:
                        --current       Only the current iteration.
   wi [<id>]            Without an id: list work items (WIQL). With an id:
                        show one.                          (alias: workitems)
+                       --detailed      (show) add description + attachments.
+                       --full          (show) raw full REST payload.
                        --mine          Assigned to me (default when no --query).
                        --state <s>     Filter by state.
                        --type <t>      Filter by work-item type.
@@ -190,6 +192,7 @@ def cmd_sprints(args, config, token, base):
 def cmd_wi(args, config, token, base):
     pretty = False
     mine = False
+    full = detailed = False
     state = wi_type = query = ''
     top = 50
     wi_id = ''
@@ -197,6 +200,10 @@ def cmd_wi(args, config, token, base):
         flag, args = args[0], args[1:]
         if flag == '--pretty':
             pretty = True
+        elif flag == '--full':
+            full = True
+        elif flag == '--detailed':
+            detailed = True
         elif flag == '--mine':
             mine = True
         elif flag == '--state':
@@ -217,16 +224,26 @@ def cmd_wi(args, config, token, base):
 
     debug = _debug_enabled(config)
 
-    # Show a single work item by id.
+    # Show a single work item by id. --full dumps the raw REST payload;
+    # --detailed adds description + attachments. Both need $expand (which
+    # can't be combined with a `fields` filter), so they fetch everything.
     if wi_id:
-        fields = ','.join(res.WI_FIELDS)
+        if full or detailed:
+            query_params = {'$expand': 'all' if full else 'relations'}
+        else:
+            query_params = {'fields': ','.join(res.WI_FIELDS)}
         payload = api_mod.ado_request(
             'GET', base, f'_apis/wit/workitems/{wi_id}', token,
-            query={'fields': fields}, debug=debug,
+            query=query_params, debug=debug,
         )
         if payload is None:
             return 1
-        item = res.normalize_work_item(payload)
+        # Raw payload only as JSON; --pretty falls through to the human view.
+        if full and not pretty:
+            print(json.dumps(payload))
+            return 0
+        item = (res.normalize_work_item_detailed(payload) if (detailed or full)
+                else res.normalize_work_item(payload))
         if pretty:
             print(fmt.format_work_item(item))
         else:
@@ -630,6 +647,8 @@ COMMAND_SCHEMA = [
                        auth='devops', aliases=['workitems'],
                        flags=[
                            schema_mod.flag('<id>', summary='Work-item id to show (positional)'),
+                           schema_mod.flag('--detailed', summary='(show) add description + attachments'),
+                           schema_mod.flag('--full', summary='(show) raw full REST payload'),
                            schema_mod.flag('--mine', summary='Assigned to me'),
                            schema_mod.flag('--state', value='<state>', summary='Filter by state'),
                            schema_mod.flag('--type', value='<type>', summary='Filter by work-item type'),

@@ -5,6 +5,8 @@ dicts (the JSON contract owa-ado emits) and the WIQL builder assembles a
 query string from CLI flags. Kept separate from api.py so it is trivially
 unit-testable without a network or token.
 """
+import html
+import re
 
 # Compact field set requested for work-item list/show, so the JSON stays
 # small and the same keys appear whether listing or showing.
@@ -73,6 +75,40 @@ def normalize_work_item(wi):
         'changed': fields.get('System.ChangedDate'),
         'url': wi.get('url'),
     }
+
+
+def _strip_html(value):
+    """Turn ADO's HTML description into plain text. Drop tags, unescape
+    entities, collapse whitespace. Not a real parser - good enough for a CLI."""
+    if not value:
+        return None
+    text = re.sub(r'<[^>]+>', ' ', value)
+    return re.sub(r'\s+', ' ', html.unescape(text)).strip() or None
+
+
+def work_item_attachments(wi):
+    """Pull attachment {name, url} pairs from a work item's relations
+    (requires the payload to have been fetched with $expand=relations)."""
+    out = []
+    for r in (wi.get('relations') or []):
+        if r.get('rel') == 'AttachedFile':
+            out.append({
+                'name': (r.get('attributes') or {}).get('name'),
+                'url': r.get('url'),
+            })
+    return out
+
+
+def normalize_work_item_detailed(wi):
+    """The thin work-item dict plus the description (HTML stripped) and
+    attachment urls - the useful extras without the full REST verbosity."""
+    item = normalize_work_item(wi)
+    if not item:
+        return item
+    fields = wi.get('fields') or {}
+    item['description'] = _strip_html(fields.get('System.Description'))
+    item['attachments'] = work_item_attachments(wi)
+    return item
 
 
 def normalize_repo(r):
