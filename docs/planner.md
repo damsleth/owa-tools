@@ -1,8 +1,8 @@
 # owa-planner
 
 Microsoft Planner CLI for Microsoft 365. Read your plans, buckets, and tasks
-from the terminal. Pipe-friendly JSON by default, `--pretty` for humans.
-**Read-only** in this version.
+from the terminal, and perform ETag-protected task writes. Pipe-friendly JSON
+by default, `--pretty` for humans.
 
 ```sh
 brew install damsleth/tap/owa-tools
@@ -112,6 +112,20 @@ default plan when `--plan` is omitted (`owa-planner config --plan <id>`).
 which Graph serves from a separate endpoint, so it is fetched only for the
 single-task view, not for list output.
 
+Write commands use Planner `@odata.etag` values and send them back as
+`If-Match`. Read the task, task details, or plan details first, then pass the
+returned `etag`:
+
+```sh
+owa-planner create-task --plan <plan-id> --title "Draft agenda"
+owa-planner update-task <task-id> --etag '<etag>' --status completed
+owa-planner update-task-details <task-id> --etag '<etag>' --description "Notes"
+owa-planner update-plan-details --plan <plan-id> --etag '<etag>' --category category1=Backlog
+owa-planner delete-task <task-id> --etag '<etag>' --confirm
+```
+
+`delete-task` is destructive and requires `--confirm` in non-interactive use.
+
 ---
 
 ## Machine / agent surface
@@ -130,10 +144,14 @@ Every owa binary exposes the same machine surface (see
 
 ## Notes
 
-- **Read-only.** Creating/completing/assigning tasks (writes) is deferred:
-  Planner PATCH requires the exact `@odata.etag` in an `If-Match` header and the
-  etag rotates on every write, so a write phase needs GET-then-PATCH plus
-  confirmation gating.
+- Planner PATCH and DELETE require exact `@odata.etag` values in an `If-Match`
+  header. ETags rotate on every write, so write commands refresh the affected
+  task/detail after successful mutations when Graph returns no body. The write
+  is already committed at that point, so a transient failure of the follow-up
+  read does not fail the command — it falls back to a minimal record and notes
+  the read failure on stderr.
+- `--priority` accepts an integer 0-10 (Planner's priority scale); other values
+  are rejected locally with a usage error.
 - `assignedTo` lists assignee user GUIDs; name resolution (cross-tool with
   owa-people) is deferred to keep list output to one round-trip.
 - The Teams "Tasks by Planner and To Do" app and Project for the Web use

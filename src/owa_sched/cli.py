@@ -178,6 +178,86 @@ def _call_get_schedule(who, from_date, to_date, start_hhmm, end_hhmm,
     return [normalize_attendee(it) for it in items]
 
 
+def _duration_iso(minutes):
+    hours, mins = divmod(minutes, 60)
+    if hours and mins:
+        return f'PT{hours}H{mins}M'
+    if hours:
+        return f'PT{hours}H'
+    return f'PT{mins}M'
+
+
+def _normalize_meeting_suggestions(payload):
+    suggestions = payload.get('meetingTimeSuggestions') or []
+    rows = []
+    for item in suggestions:
+        slot = item.get('meetingTimeSlot') or {}
+        start = slot.get('start') or {}
+        end = slot.get('end') or {}
+        rows.append({
+            'start': start.get('dateTime'),
+            'end': end.get('dateTime'),
+            'timeZone': start.get('timeZone') or end.get('timeZone'),
+            'confidence': item.get('confidence'),
+            'organizerAvailability': item.get('organizerAvailability'),
+            'attendeesAvailability': item.get('attendeeAvailability') or [],
+            'locations': item.get('locations') or [],
+            'reason': item.get('suggestionReason') or '',
+        })
+    return rows
+
+
+def _call_find_meeting_times(who, from_date, to_date, start_hhmm, end_hhmm,
+                             duration, tz, access_token, api_base, *,
+                             max_candidates, min_attendee_pct, attendee_type,
+                             location, organizer_optional, debug):
+    attendees = [
+        {
+            'type': attendee_type,
+            'emailAddress': {'address': email},
+        }
+        for email in who
+    ]
+    body = {
+        'attendees': attendees,
+        'timeConstraint': {
+            'activityDomain': 'work',
+            # One timeslot per day so the --start/--end work-day window is
+            # honored on every day in the range. A single from..to slot would
+            # let Graph suggest out-of-hours times (e.g. 02:00) on the
+            # intermediate days and across overnight gaps.
+            'timeslots': [
+                {
+                    'start': {'dateTime': make_local_iso(d, start_hhmm), 'timeZone': tz},
+                    'end': {'dateTime': make_local_iso(d, end_hhmm), 'timeZone': tz},
+                }
+                for d in daterange(from_date, to_date)
+            ],
+        },
+        'meetingDuration': _duration_iso(duration),
+        'maxCandidates': max_candidates,
+        'minimumAttendeePercentage': min_attendee_pct,
+        'isOrganizerOptional': organizer_optional,
+        'returnSuggestionReasons': True,
+    }
+    if location:
+        body['locationConstraint'] = {
+            'isRequired': False,
+            'suggestLocation': True,
+            'locations': [{'displayName': location}],
+        }
+    payload = api_mod.api_post(
+        api_base,
+        'me/findMeetingTimes',
+        access_token,
+        body=body,
+        debug=debug,
+    )
+    if payload is None:
+        return None
+    return _normalize_meeting_suggestions(payload)
+
+
 def cmd_availability(args, config, access_token, api_base):
     who_csv = ''
     date_ = from_ = to_ = ''
@@ -244,6 +324,16 @@ def cmd_find_time(args, config, access_token, api_base):
     start_hhmm = config.get('default_work_start') or '08:00'
     end_hhmm = config.get('default_work_end') or '17:00'
     pretty = False
+    server = False
+    interval = 15
+    interval_set = False
+    limit = None
+    max_candidates = 20
+    min_attendee_pct = 100.0
+    attendee_type = 'required'
+    location = ''
+    organizer_optional = False
+    tz_override = ''
     while args:
         flag, args = args[0], args[1:]
         if flag == '--who':
@@ -268,6 +358,29 @@ def cmd_find_time(args, config, access_token, api_base):
         elif flag == '--end':
             end_hhmm, args = _require_value(flag, args)
             parse_hhmm(end_hhmm)
+        elif flag == '--interval':
+            interval, args = _require_int(flag, args)
+            interval_set = True
+        elif flag in ('--limit', '--max'):
+            limit, args = _require_int(flag, args)
+        elif flag == '--server':
+            server = True
+        elif flag == '--max-candidates':
+            max_candidates, args = _require_int(flag, args)
+        elif flag == '--min-attendee-pct':
+            raw, args = _require_value(flag, args)
+            try:
+                min_attendee_pct = float(raw)
+            except ValueError as exc:
+                raise UsageError('--min-attendee-pct requires a number') from exc
+        elif flag == '--attendee-type':
+            attendee_type, args = _require_value(flag, args)
+        elif flag == '--location':
+            location, args = _require_value(flag, args)
+        elif flag == '--organizer-optional':
+            organizer_optional = True
+        elif flag == '--tz':
+            tz_override, args = _require_value(flag, args)
         elif flag == '--pretty':
             pretty = True
         else:
@@ -278,13 +391,45 @@ def cmd_find_time(args, config, access_token, api_base):
         raise UsageError('--who is required (comma-separated emails)')
     if duration <= 0:
         raise UsageError('--duration must be positive')
+    if interval < 5 or interval > 1440:
+        raise UsageError('--interval must be between 5 and 1440 minutes')
+    if limit is not None and limit < 0:
+        raise UsageError('--limit must be non-negative')
+    if len(who) > 20:
+        raise UsageError('--who supports at most 20 attendees')
+    if max_candidates <= 0:
+        raise UsageError('--max-candidates must be positive')
+    if min_attendee_pct < 0 or min_attendee_pct > 100:
+        raise UsageError('--min-attendee-pct must be between 0 and 100')
+    if attendee_type not in {'required', 'optional', 'resource'}:
+        raise UsageError('--attendee-type must be required, optional, or resource')
 
     from_, to_ = _resolve_window(date_, from_, to_, week, month, year)
-    tz = config.get('default_timezone') or 'W. Europe Standard Time'
+    tz = tz_override or config.get('default_timezone') or 'W. Europe Standard Time'
+
+    if server:
+        if interval_set:
+            _info('note: --interval is ignored in --server mode '
+                  '(findMeetingTimes has no interval parameter)')
+        suggestions = _call_find_meeting_times(
+            who, from_, to_, start_hhmm, end_hhmm, duration, tz,
+            access_token, api_base,
+            max_candidates=max_candidates,
+            min_attendee_pct=min_attendee_pct,
+            attendee_type=attendee_type,
+            location=location,
+            organizer_optional=organizer_optional,
+            debug=_debug_enabled(config),
+        )
+        if suggestions is None:
+            return 1
+        if limit is not None:
+            suggestions = suggestions[:limit]
+        print(json.dumps(suggestions, ensure_ascii=False, indent=2 if pretty else None))
+        return 0
 
     # Use a fine-grained interval (15 min) so the slot finder can place
     # candidates on quarter-hour boundaries even for 30-min meetings.
-    interval = 15
 
     attendees = _call_get_schedule(
         who, from_, to_, start_hhmm, end_hhmm, interval, tz,
@@ -303,6 +448,8 @@ def cmd_find_time(args, config, access_token, api_base):
         all_slots.extend(
             find_open_slots(attendees, day_start, day_end, duration)
         )
+    if limit is not None:
+        all_slots = all_slots[:limit]
 
     if pretty:
         print(format_slots_pretty(all_slots))
@@ -405,6 +552,16 @@ _FIND_TIME_FLAGS = [
     schema_mod.flag('--year', value='<n|rel>', summary='Year: full year, current/last/next, or +n/-n'),
     schema_mod.flag('--start', value='<HH:MM>', summary='Work-day start (default 08:00, or config default_work_start)'),
     schema_mod.flag('--end', value='<HH:MM>', summary='Work-day end (default 17:00, or config default_work_end)'),
+    schema_mod.flag('--interval', value='<min>', summary='Local finder resolution in minutes (5-1440, default 15)'),
+    schema_mod.flag('--limit', value='<n>', summary='Limit returned suggestions'),
+    schema_mod.flag('--max', value='<n>', summary='Alias for --limit'),
+    schema_mod.flag('--server', summary='Use Graph /me/findMeetingTimes server-side ranking'),
+    schema_mod.flag('--max-candidates', value='<n>', summary='Graph maxCandidates for --server'),
+    schema_mod.flag('--min-attendee-pct', value='<n>', summary='Graph minimumAttendeePercentage for --server'),
+    schema_mod.flag('--attendee-type', value='<required|optional|resource>', summary='Graph attendee type for --server'),
+    schema_mod.flag('--location', value='<name>', summary='Preferred location for --server'),
+    schema_mod.flag('--organizer-optional', summary='Set isOrganizerOptional for --server'),
+    schema_mod.flag('--tz', value='<timezone>', summary='Override configured Graph time zone'),
     schema_mod.flag('--pretty', summary='Human-readable view (default: JSON)'),
 ]
 

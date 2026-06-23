@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from owa_core.errors import NotFoundError
 from owa_sched import cli
 
 
@@ -171,3 +172,69 @@ def test_sched_config_and_refresh(monkeypatch, capsys):
     monkeypatch.setattr(cli.api_mod, "api_request", lambda *args, **kwargs: None)
     assert cli.cmd_refresh([], {}) == 1
     assert "Auth verification failed" in capsys.readouterr().err
+
+
+def test_find_time_server_posts_findmeetingtimes(monkeypatch, capsys):
+    calls = []
+
+    def fake_post(base, endpoint, token, body=None, debug=False):
+        calls.append((base, endpoint, token, body, debug))
+        return {
+            "meetingTimeSuggestions": [{
+                "confidence": 87.5,
+                "organizerAvailability": "free",
+                "suggestionReason": "Suggested because everyone is free.",
+                "meetingTimeSlot": {
+                    "start": {"dateTime": "2026-05-09T09:00:00", "timeZone": "UTC"},
+                    "end": {"dateTime": "2026-05-09T09:30:00", "timeZone": "UTC"},
+                },
+                "attendeeAvailability": [{"attendee": {"emailAddress": {"address": "ada@example.com"}}, "availability": "free"}],
+                "locations": [{"displayName": "Room 1"}],
+            }]
+        }
+
+    monkeypatch.setattr(cli.api_mod, "api_post", fake_post)
+    assert cli.cmd_find_time([
+        "--who", "ada@example.com,bob@example.com",
+        "--date", "2026-05-09",
+        "--duration", "30",
+        "--server",
+        "--max-candidates", "5",
+        "--min-attendee-pct", "50",
+        "--attendee-type", "optional",
+        "--location", "Room 1",
+        "--organizer-optional",
+        "--tz", "UTC",
+    ], {}, "tok", "https://graph.test") == 0
+    body = calls[0][3]
+    assert calls[0][1] == "me/findMeetingTimes"
+    assert body["meetingDuration"] == "PT30M"
+    assert body["maxCandidates"] == 5
+    assert body["minimumAttendeePercentage"] == 50.0
+    assert body["isOrganizerOptional"] is True
+    assert body["attendees"][0]["type"] == "optional"
+    assert body["timeConstraint"]["activityDomain"] == "work"
+    assert json.loads(capsys.readouterr().out)[0]["confidence"] == 87.5
+
+
+def test_find_time_local_limit(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_call_get_schedule", lambda *args, **kwargs: [])
+    monkeypatch.setattr(cli, "find_open_slots", lambda *args, **kwargs: [
+        ("2026-05-09T09:00:00", "2026-05-09T09:30:00"),
+        ("2026-05-09T09:30:00", "2026-05-09T10:00:00"),
+    ])
+    assert cli.cmd_find_time([
+        "--who", "ada@example.com",
+        "--date", "2026-05-09",
+        "--limit", "1",
+    ], {}, "tok", "https://graph.test") == 0
+    assert len(json.loads(capsys.readouterr().out)) == 1
+
+
+def test_cli_network_error_returns_typed_exit(monkeypatch, capsys):
+    def fake_post(*args, **kwargs):
+        raise NotFoundError("missing")
+
+    monkeypatch.setattr(cli.api_mod, "api_post", fake_post)
+    assert cli.main(["availability", "--who", "ada@example.com", "--date", "2026-05-09"]) == 13
+    assert "missing" in capsys.readouterr().err

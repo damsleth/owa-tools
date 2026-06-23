@@ -19,6 +19,7 @@ from owa_graph import resources as graph_resources  # noqa: E402
 from owa_graph.cli import COMMAND_SCHEMA as GRAPH_SCHEMA  # noqa: E402
 from owa_mail.cli import COMMAND_SCHEMA as MAIL_SCHEMA  # noqa: E402
 from owa_people.cli import COMMAND_SCHEMA as PEOPLE_SCHEMA  # noqa: E402
+from owa_places.cli import COMMAND_SCHEMA as PLACES_SCHEMA  # noqa: E402
 from owa_planner.cli import COMMAND_SCHEMA as PLANNER_SCHEMA  # noqa: E402
 from owa_sched.cli import COMMAND_SCHEMA as SCHED_SCHEMA  # noqa: E402
 from owa_sites.cli import COMMAND_SCHEMA as SITES_SCHEMA  # noqa: E402
@@ -32,6 +33,7 @@ DOCS = {
     'owa-graph': ('docs/graph.md', GRAPH_SCHEMA),
     'owa-doctor': ('docs/doctor.md', DOCTOR_SCHEMA),
     'owa-people': ('docs/people.md', PEOPLE_SCHEMA),
+    'owa-places': ('docs/places.md', PLACES_SCHEMA),
     'owa-sched': ('docs/sched.md', SCHED_SCHEMA),
     'owa-drive': ('docs/drive.md', DRIVE_SCHEMA),
     'owa-todo': ('docs/todo.md', TODO_SCHEMA),

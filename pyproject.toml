@@ -36,6 +36,7 @@ owa-graph = "owa_graph:main"
 owa-doctor = "owa_doctor:main"
 owa-people = "owa_people:main"
 owa-sched = "owa_sched:main"
+owa-places = "owa_places:main"
 owa-drive = "owa_drive:main"
 owa-todo = "owa_todo:main"
 owa-planner = "owa_planner:main"
@@ -55,9 +56,10 @@ packages = [
   "owa_graph.resources",
   "owa_graph.data",
   "owa_doctor",
-  "owa_people",
-  "owa_sched",
-  "owa_drive",
+    "owa_people",
+    "owa_sched",
+    "owa_places",
+    "owa_drive",
   "owa_todo",
   "owa_planner",
   "owa_sites",
@@ -92,6 +94,7 @@ source = [
   "owa_doctor",
   "owa_people",
   "owa_sched",
+  "owa_places",
   "owa_drive",
   "owa_todo",
   "owa_planner",

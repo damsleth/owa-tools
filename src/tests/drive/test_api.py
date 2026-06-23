@@ -115,22 +115,21 @@ def test_api_upload_session_missing_upload_url_returns_none(monkeypatch, capsys)
     assert 'uploadUrl' in capsys.readouterr().err
 
 
-def test_api_upload_session_session_conflict_returns_none(monkeypatch, capsys):
+def test_api_upload_session_session_conflict_raises(monkeypatch):
     def fake_request(method, url, **kwargs):
         raise ConflictError('conflict (409)')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    out = api.api_upload_session(
-        'https://graph.microsoft.com/v1.0',
-        'me/drive/root:/big.bin:/createUploadSession',
-        'fake-token',
-        b'x' * 100,
-    )
-    assert out is None
-    assert 'conflict' in capsys.readouterr().err
+    with pytest.raises(ConflictError):
+        api.api_upload_session(
+            'https://graph.microsoft.com/v1.0',
+            'me/drive/root:/big.bin:/createUploadSession',
+            'fake-token',
+            b'x' * 100,
+        )
 
 
-def test_api_upload_session_upload_failure_returns_none(monkeypatch, capsys):
+def test_api_upload_session_upload_failure_raises(monkeypatch):
     def fake_request(method, url, **kwargs):
         return Response(
             status=200, headers={},
@@ -142,23 +141,22 @@ def test_api_upload_session_upload_failure_returns_none(monkeypatch, capsys):
 
     monkeypatch.setattr(api.http, 'request', fake_request)
     monkeypatch.setattr(api.upload_mod, 'upload_session', fake_upload_session)
-    out = api.api_upload_session(
-        'https://graph.microsoft.com/v1.0',
-        'me/drive/root:/big.bin:/createUploadSession',
-        'fake-token',
-        b'x' * 100,
-    )
-    assert out is None
-    assert 'upload chunk failed' in capsys.readouterr().err
+    with pytest.raises(InternalError):
+        api.api_upload_session(
+            'https://graph.microsoft.com/v1.0',
+            'me/drive/root:/big.bin:/createUploadSession',
+            'fake-token',
+            b'x' * 100,
+        )
 
 
-def test_api_request_conflict_preserves_none_contract(monkeypatch, capsys):
+def test_api_request_conflict_raises(monkeypatch):
     def fake_request(method, url, **kwargs):
         raise ConflictError('conflict (409)')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_request('DELETE', 'https://graph.microsoft.com/v1.0', '/x', 'fake') is None
-    assert 'conflict' in capsys.readouterr().err
+    with pytest.raises(ConflictError):
+        api.api_request('DELETE', 'https://graph.microsoft.com/v1.0', '/x', 'fake')
 
 
 def test_api_request_auth_failure_raises_typed_error(monkeypatch):

@@ -1,4 +1,6 @@
 """Edge-case coverage: bad-input normalizers, config round-trip, api branches."""
+import pytest
+
 from owa_ado import api as api_mod
 from owa_ado import config as config_mod
 from owa_ado import resources as res
@@ -37,10 +39,11 @@ def test_parse_kv_stream_filters_to_allowlist():
     assert out == {'ado_org': 'X'}
 
 
-def test_ado_request_generic_owaerror_maps_to_none(monkeypatch):
+def test_ado_request_generic_owaerror_raises(monkeypatch):
     monkeypatch.setattr(api_mod.http, 'request',
                         lambda *a, **k: (_ for _ in ()).throw(OwaError('weird')))
-    assert api_mod.ado_request('GET', 'https://x', 'a', 'tok') is None
+    with pytest.raises(OwaError):
+        api_mod.ado_request('GET', 'https://x', 'a', 'tok')
 
 
 def test_ado_paginate_non_list_payload_returns_single(monkeypatch):
@@ -50,10 +53,11 @@ def test_ado_paginate_non_list_payload_returns_single(monkeypatch):
     assert api_mod.ado_paginate('https://x', 'a', 'tok') == [{'count': 0}]
 
 
-def test_ado_paginate_generic_owaerror_maps_to_none(monkeypatch):
+def test_ado_paginate_generic_owaerror_raises(monkeypatch):
     monkeypatch.setattr(api_mod.http, 'request',
                         lambda *a, **k: (_ for _ in ()).throw(OwaError('weird')))
-    assert api_mod.ado_paginate('https://x', 'a', 'tok') is None
+    with pytest.raises(OwaError):
+        api_mod.ado_paginate('https://x', 'a', 'tok')
 
 
 def test_json_patch_debug_logs(monkeypatch, capsys):

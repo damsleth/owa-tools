@@ -486,8 +486,8 @@ def test_main_profile_requires_value_raises():
 # api.py — uncovered branches
 # ===========================================================================
 
-def test_handle_owa_error_generic_owa_subclass_returns_none(capsys):
-    """A bare OwaError subclass not in the specific list should still emit+None."""
+def test_handle_owa_error_generic_owa_subclass_raises():
+    """A bare OwaError subclass propagates to the CLI mode wrapper."""
 
     class CustomOwaError(OwaError):
         pass
@@ -500,12 +500,10 @@ def test_handle_owa_error_generic_owa_subclass_returns_none(capsys):
     original = api.http.request
     api.http.request = fake_request
     try:
-        result = api.api_request("GET", "https://graph.test", "/x", "tok")
+        with pytest.raises(CustomOwaError):
+            api.api_request("GET", "https://graph.test", "/x", "tok")
     finally:
         api.http.request = original
-
-    assert result is None
-    assert "something went wrong" in capsys.readouterr().err
 
 
 def test_handle_owa_error_non_owa_exception_is_reraised():
@@ -524,24 +522,22 @@ def test_handle_owa_error_non_owa_exception_is_reraised():
         api.http.request = original
 
 
-def test_paginate_all_owa_error_returns_none(monkeypatch, capsys):
+def test_paginate_all_owa_error_raises(monkeypatch):
     monkeypatch.setattr(
         api_mod.http, "paginate",
         lambda url, token, headers, debug: (_ for _ in ()).throw(NetworkError("net fail")),
     )
-    result = api_mod.paginate_all("https://graph.test", "/me/drive/root/children", "tok")
-    assert result is None
-    assert "net fail" in capsys.readouterr().err
+    with pytest.raises(NetworkError):
+        api_mod.paginate_all("https://graph.test", "/me/drive/root/children", "tok")
 
 
-def test_api_get_binary_owa_error_returns_none(monkeypatch, capsys):
+def test_api_get_binary_owa_error_raises(monkeypatch):
     monkeypatch.setattr(
         api_mod.http, "request",
         lambda method, url, **kw: (_ for _ in ()).throw(NotFoundError("not found")),
     )
-    result = api_mod.api_get_binary("https://graph.test", "/content", "tok")
-    assert result is None
-    assert "not found" in capsys.readouterr().err
+    with pytest.raises(NotFoundError):
+        api_mod.api_get_binary("https://graph.test", "/content", "tok")
 
 
 def test_api_put_binary_debug_prints_to_stderr(monkeypatch, capsys):
@@ -553,14 +549,13 @@ def test_api_put_binary_debug_prints_to_stderr(monkeypatch, capsys):
     assert "DEBUG: PUT" in capsys.readouterr().err
 
 
-def test_api_put_binary_owa_error_returns_none(monkeypatch, capsys):
+def test_api_put_binary_owa_error_raises(monkeypatch):
     monkeypatch.setattr(
         api_mod.http, "request",
         lambda method, url, **kw: (_ for _ in ()).throw(NetworkError("net error")),
     )
-    result = api_mod.api_put_binary("https://graph.test", "/content", "tok", b"abc")
-    assert result is None
-    assert "net error" in capsys.readouterr().err
+    with pytest.raises(NetworkError):
+        api_mod.api_put_binary("https://graph.test", "/content", "tok", b"abc")
 
 
 def test_api_upload_session_non_dict_response_returns_none(monkeypatch, capsys):

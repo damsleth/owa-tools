@@ -16,7 +16,6 @@ from owa_core.errors import (
     OwaError,
     RateLimitedError,
     ScopeInsufficientError,
-    emit_error,
 )
 
 ACCEPT_JSON = 'application/json;odata=nometadata'
@@ -38,11 +37,9 @@ def sp_request(method, base, endpoint, access_token, body=None, debug=False):
     except (AuthExpiredError, ScopeInsufficientError) as error:
         raise error
     except _RECOVERABLE as error:
-        emit_error(error)
-        return None
+        raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error
 
 
 def sp_get(base, endpoint, access_token, debug=False):
@@ -78,8 +75,6 @@ def paginate_sp(base, endpoint, access_token, debug=False, max_pages=50):
     except (AuthExpiredError, ScopeInsufficientError) as error:
         raise error
     except _RECOVERABLE as error:
-        emit_error(error)
-        return None
+        raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error

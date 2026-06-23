@@ -17,32 +17,13 @@ import sys
 from urllib.parse import quote, urlencode
 
 from owa_core import http
-from owa_core.errors import (
-    AuthExpiredError,
-    ConflictError,
-    InternalError,
-    NetworkError,
-    NotFoundError,
-    OwaError,
-    RateLimitedError,
-    ScopeInsufficientError,
-    emit_error,
-)
+from owa_core.errors import OwaError
 
 DEFAULT_API_VERSION = '7.1'
 CONTINUATION_HEADER = 'x-ms-continuationtoken'
 
 
 def _handle_owa_error(error):
-    if isinstance(error, (AuthExpiredError, ScopeInsufficientError)):
-        raise error
-    if isinstance(error, (ConflictError, InternalError, NetworkError,
-                          NotFoundError, RateLimitedError)):
-        emit_error(error)
-        return None
-    if isinstance(error, OwaError):
-        emit_error(error)
-        return None
     raise error
 
 

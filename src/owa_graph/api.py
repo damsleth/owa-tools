@@ -12,7 +12,6 @@ from owa_core.errors import (
     OwaError,
     RateLimitedError,
     ScopeInsufficientError,
-    emit_error,
 )
 
 RETRY_AFTER_CAP_SECONDS = http.RETRY_AFTER_CAP_SECONDS
@@ -78,16 +77,12 @@ def api_request(method, base, endpoint, access_token, body=None,
             except (AuthExpiredError, ScopeInsufficientError) as retry_error:
                 raise retry_error
             except OwaError as retry_error:
-                emit_error(retry_error)
-                return None
-        emit_error(error)
-        return None
+                raise retry_error
+        raise error
     except (ConflictError, InternalError, NotFoundError, RateLimitedError) as error:
-        emit_error(error)
-        return None
+        raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error
 
 
 def paginate(method, url, access_token, extra_headers=None,

@@ -89,6 +89,7 @@ def normalize_plan(plan):
     container = plan.get('container') or {}
     return {
         'id': plan.get('id'),
+        'etag': plan.get('@odata.etag'),
         'title': plan.get('title'),
         'owner': plan.get('owner') or container.get('containerId'),
         'created': _local_date(plan.get('createdDateTime') or ''),
@@ -102,6 +103,7 @@ def normalize_plans(response):
 def normalize_bucket(bucket):
     return {
         'id': bucket.get('id'),
+        'etag': bucket.get('@odata.etag'),
         'name': bucket.get('name'),
         'planId': bucket.get('planId'),
         'orderHint': bucket.get('orderHint'),
@@ -118,6 +120,7 @@ def normalize_task(task):
     assignments = task.get('assignments') or {}
     return {
         'id': task.get('id'),
+        'etag': task.get('@odata.etag'),
         'planId': task.get('planId'),
         'bucketId': task.get('bucketId'),
         'title': task.get('title'),
@@ -154,6 +157,7 @@ def normalize_task_detail(detail):
         if isinstance(ref, dict)
     ]
     return {
+        'etag': detail.get('@odata.etag'),
         'description': detail.get('description') or '',
         'checklist': checklist,
         'references': references,

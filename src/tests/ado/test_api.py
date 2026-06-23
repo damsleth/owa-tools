@@ -56,12 +56,13 @@ def test_ado_request_auth_error_reraises(monkeypatch):
         api.ado_request('GET', 'https://x', 'a', 'tok')
 
 
-def test_ado_request_notfound_maps_to_none(monkeypatch, capsys):
+def test_ado_request_notfound_raises(monkeypatch):
     def fake_request(*a, **k):
         raise NotFoundError('gone')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.ado_request('GET', 'https://x', 'a', 'tok') is None
+    with pytest.raises(NotFoundError):
+        api.ado_request('GET', 'https://x', 'a', 'tok')
 
 
 def test_ado_paginate_follows_continuation_header(monkeypatch):

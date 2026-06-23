@@ -23,7 +23,6 @@ from owa_core.errors import (
     OwaError,
     RateLimitedError,
     ScopeInsufficientError,
-    emit_error,
 )
 
 from . import teams as teams_mod
@@ -47,11 +46,9 @@ def graph_get(base, endpoint, access_token, debug=False, retry=DEFAULT_RETRY):
     except (AuthExpiredError, ScopeInsufficientError):
         raise
     except _RECOVERABLE as error:
-        emit_error(error)
-        return None
+        raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error
 
 
 def graph_paginate(base, endpoint, access_token, debug=False, max_pages=50, retry=DEFAULT_RETRY):
@@ -62,11 +59,9 @@ def graph_paginate(base, endpoint, access_token, debug=False, max_pages=50, retr
     except (AuthExpiredError, ScopeInsufficientError):
         raise
     except _RECOVERABLE as error:
-        emit_error(error)
-        return None
+        raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error
 
 
 def _page_reaches_before(messages, since_dt):
@@ -126,8 +121,6 @@ def chatsvc_messages(base, conversation_id, access_token, *, page_size=50, max_p
     except (AuthExpiredError, ScopeInsufficientError):
         raise
     except _RECOVERABLE as error:
-        emit_error(error)
-        return None
+        raise error
     except OwaError as error:
-        emit_error(error)
-        return None
+        raise error
