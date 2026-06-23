@@ -51,15 +51,21 @@ def format_work_items(items):
 def format_work_item(wi):
     if not wi:
         return '(no work item)'
-    lines = [f"#{wi.get('id')} {wi.get('title') or '(no title)'} [{wi.get('type')}]"]
+    # Key on its own line, value below it, blank line between fields.
+    blocks = [f"#{wi.get('id')} {wi.get('title') or '(no title)'} [{wi.get('type')}]"]
     for label, key in (
         ('state', 'state'), ('assignedTo', 'assignedTo'),
         ('iteration', 'iteration'), ('area', 'area'),
         ('tags', 'tags'), ('changed', 'changed'), ('url', 'url'),
+        ('description', 'description'),
     ):
         if wi.get(key):
-            lines.append(f"  {label}: {wi.get(key)}")
-    return '\n'.join(lines)
+            blocks.append(f"{label}:\n{wi.get(key)}")
+    atts = wi.get('attachments') or []
+    if atts:
+        lines = [f"{a.get('name')} -> {a.get('url')}" for a in atts]
+        blocks.append('attachments:\n' + '\n'.join(lines))
+    return '\n\n'.join(blocks)
 
 
 def format_repos(items):
