@@ -6,6 +6,17 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## Unreleased
+
+Bug fixes — silent data loss / correctness.
+
+- **owa-drive `get`**: `--out` into an existing local file is now refused
+  (exit 15 `CONFLICT`) unless `--force` is passed. Previously a download
+  silently clobbered the local file.
+- **owa-ado `prs --repo`**: the repository name is now URL-encoded before
+  it's interpolated into the request path, so a name with reserved chars
+  (e.g. `/`) can't break out of its path segment.
+
 ## v1.1.0 - 2026-06-20
 
 Maintenance release. Post-v1.0.0 dead-code sweep — no runtime behavior change.

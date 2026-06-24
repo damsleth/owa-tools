@@ -206,11 +206,14 @@ def cmd_show(args, config, access_token, api_base):
 
 def cmd_get(args, config, access_token, api_base):
     out_path = ''
+    force = False
     path = ''
     while args:
         flag, args = args[0], args[1:]
         if flag == '--out':
             out_path, args = _require_value(flag, args)
+        elif flag == '--force':
+            force = True
         elif flag.startswith('-') and flag != '-':
             raise UsageError(f'Unknown flag: {flag}')
         elif not path:
@@ -220,6 +223,13 @@ def cmd_get(args, config, access_token, api_base):
 
     if not path:
         raise UsageError('get requires a path')
+
+    # Refuse to clobber an existing local file unless --force (exit 15).
+    # Mirrors `put`'s overwrite guard - downloads are data-loss too.
+    if out_path and not force and os.path.exists(out_path):
+        raise ConflictError(
+            f'local file already exists: {out_path} (pass --force to overwrite)'
+        )
 
     try:
         endpoint = paths_mod.content_endpoint(path)
@@ -535,6 +545,7 @@ _SHOW_FLAGS = [
 _GET_FLAGS = [
     schema_mod.flag('<path>', summary='Remote item path (positional)', required=True),
     schema_mod.flag('--out', value='<local-path>', summary='Write to file instead of stdout'),
+    schema_mod.flag('--force', summary='Overwrite an existing local --out file (default: refuse with exit 15)'),
 ]
 
 _PUT_FLAGS = [

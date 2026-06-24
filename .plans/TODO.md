@@ -16,9 +16,9 @@
 
 ### P0 — correctness / contract
 - [ ] **exit-code taxonomy collapses to 1** across all 11 networked tools — see [exit-code-taxonomy-fix.md](exit-code-taxonomy-fix.md) (plan)
-- [ ] P0 owa-drive: put --force silently overwrites files >4MiB (upload session hardcodes conflictBehavior replace) — thread fail/replace/rename through api_upload_session
-- [ ] P0 owa-drive: get --out clobbers existing local file silently — refuse unless --force
-- [ ] P0 owa-ado: PR --repo interpolated unencoded into request path — URL-encode it
+- [x] P0 owa-drive: put --force silently overwrites files >4MiB — RESOLVED earlier: the `_remote_exists` + `--force` preflight (exit 15) gates both the small PUT and the large upload-session path, so no silent overwrite. Per-file fail/replace/rename granularity remains a P2 nice-to-have, not data-loss.
+- [x] P0 owa-drive: get --out clobbers existing local file silently — FIXED: refuses with exit 15 unless --force
+- [x] P0 owa-ado: PR --repo interpolated unencoded into request path — FIXED: quote(repo, safe='') + build_url keeps '%' safe
 
 ### P1 — cheap, agent-facing
 - [ ] P1 suite-wide cleanup (post exit-code refactor): the per-tool api.py `try/except OwaError: raise` blocks are now no-ops — owa_core.http already raises the typed errors (the new owa_places/api.py shows the correct bare shape). Delete the dead wrappers + `_handle_owa_error` (owa-ado/owa-drive), the leftover `if x is None: return 1` guards, and the stale module docstrings still describing the abandoned "returns None on 404/429" contract. Also hoist the verbatim-duplicated `build_query` (6x) and `_require_value` (3x) into owa_core. Found during the 2026-06-23 code review.

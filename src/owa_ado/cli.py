@@ -15,6 +15,7 @@ the default output; `--pretty` renders a table for humans.
 import json
 import os
 import sys
+from urllib.parse import quote
 
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
@@ -472,7 +473,9 @@ def cmd_prs(args, config, token, base):
         return 0
 
     if repo:
-        endpoint = f'{project}/_apis/git/repositories/{repo}/pullrequests'
+        # Pre-encode the repo segment so a name with reserved chars (notably
+        # '/') can't break out of its path segment; build_url keeps '%' safe.
+        endpoint = f'{project}/_apis/git/repositories/{quote(repo, safe="")}/pullrequests'
     else:
         endpoint = f'{project}/_apis/git/pullrequests'
     query = {'$top': top}

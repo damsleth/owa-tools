@@ -38,7 +38,9 @@ def build_url(base, endpoint, *, query=None, api_version=DEFAULT_API_VERSION):
     # spaces (e.g. "NOCOS Team") and stdlib's http client rejects a raw space
     # with InvalidURL. Keep '/' (segment separators), '$' (the `$Type` route
     # in work-item create), and ':' safe so those structural chars survive.
-    path = quote(endpoint.lstrip('/'), safe="/$:")
+    # '%' is safe so callers that pre-encode a free-text segment (e.g. a repo
+    # name with a '/') aren't double-encoded here (%2F -> %252F).
+    path = quote(endpoint.lstrip('/'), safe="/$:%")
     url = f'{base}/{path}'
     params = {k: v for k, v in (query or {}).items() if v is not None}
     if api_version is not None:

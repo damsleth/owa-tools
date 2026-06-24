@@ -185,6 +185,20 @@ def test_prs_repo_scopes_endpoint(monkeypatch, tmp_config, clean_env, capsys):
     assert seen['endpoint'] == 'Proj/_apis/git/repositories/NOCOS-Main/pullrequests'
 
 
+def test_prs_repo_is_url_encoded(monkeypatch, tmp_config, clean_env, capsys):
+    """A repo name with reserved chars is encoded so it can't break out of
+    its path segment (the '/' becomes %2F, not a new segment)."""
+    seen = {}
+
+    def fake_request(method, base, endpoint, token, **kwargs):
+        seen['endpoint'] = endpoint
+        return {'value': []}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+    _run(['prs', '--repo', 'My Repo/sub'], tmp_config, clean_env)
+    assert seen['endpoint'] == 'Proj/_apis/git/repositories/My%20Repo%2Fsub/pullrequests'
+
+
 def test_repos_endpoint(monkeypatch, tmp_config, clean_env, capsys):
     seen = {}
 

@@ -177,6 +177,35 @@ def test_put_force_overwrites_existing(monkeypatch, tmp_path, capfd):
     assert json.loads(capfd.readouterr().out)["name"] == "upload.txt"
 
 
+def test_get_refuses_clobber_without_force(monkeypatch, tmp_path):
+    """get --out into an existing local file raises ConflictError (exit 15)
+    so a download can't silently overwrite local data."""
+    from owa_core.errors import ConflictError
+    monkeypatch.setattr(
+        cli.api_mod, "api_get_binary",
+        lambda *a, **k: pytest.fail("download attempted despite existing file"),
+    )
+    out = tmp_path / "exists.txt"
+    out.write_bytes(b"keep me")
+    with pytest.raises(ConflictError, match="--force to overwrite"):
+        cli.cmd_get(
+            ["/Documents/report.txt", "--out", str(out)],
+            {}, "tok", "https://graph.test",
+        )
+    assert out.read_bytes() == b"keep me"
+
+
+def test_get_force_overwrites_local(monkeypatch, tmp_path, capfd):
+    monkeypatch.setattr(cli.api_mod, "api_get_binary", lambda *a, **k: b"new")
+    out = tmp_path / "exists.txt"
+    out.write_bytes(b"old")
+    assert cli.cmd_get(
+        ["/Documents/report.txt", "--out", str(out), "--force"],
+        {}, "tok", "https://graph.test",
+    ) == 0
+    assert out.read_bytes() == b"new"
+
+
 def test_put_batch_skips_existing_uploads_rest(monkeypatch, tmp_path, capfd):
     """The headline batch contract: an existing remote file MUST NOT
     abort the upload of the other files. Skips and successes coexist
