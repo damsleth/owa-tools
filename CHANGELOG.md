@@ -28,6 +28,10 @@ P1 fixes & cleanup.
   pages); a truncation note is emitted when output hits the page cap.
 - **owa-graph**: dropped the stale `--app-client-id` reference from `config` help.
 - **owa-people `show`**: corrected a misleading comment about email-vs-id branching.
+- **owa umbrella**: meta-commands (`list`/`schema`/`version`) now route through
+  `run_with_output_modes`, so they honor `--agent`/`--err-json` like real
+  subcommands; `owa schema` aggregates each tool's `COMMAND_SCHEMA` in-process
+  instead of spawning ~13 subprocesses.
 - Internal: removed dead typed-error try/except wrappers and unreachable
   `None`-guards left by the exit-code-taxonomy refactor; hoisted the duplicated
   `build_query`/`_require_value` helpers into `owa_core`.

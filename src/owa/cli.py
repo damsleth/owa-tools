@@ -26,8 +26,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from owa_core.modes import is_doctor_invocation
+from owa_core.modes import is_doctor_invocation, run_with_output_modes
 from owa_core.registry import CONSUMER_TOOLS
+from owa_core.schema import schema_for
 
 from . import __version__
 
@@ -173,11 +174,10 @@ def cmd_dispatch(short: str, argv: list[str]) -> int:
 
 
 def cmd_schema(argv: list[str]) -> int:
-    """Aggregate `<tool> schema` output across installed consumers.
+    """Aggregate each consumer's COMMAND_SCHEMA in-process.
 
-    Each consumer either ships a JSON schema (Phase 3+) or doesn't.
-    Tools that don't yet support `schema` get a stub entry with
-    ``"schema_supported": false``. With ``--tool <name>``, fetches a
+    Imports each tool's ``cli.COMMAND_SCHEMA`` directly instead of
+    shelling out to a subprocess.  With ``--tool <name>``, fetches a
     single tool only.
     """
     only = None
@@ -190,27 +190,23 @@ def cmd_schema(argv: list[str]) -> int:
     for name in CONSUMERS:
         if only and name != only:
             continue
-        path = _which(name)
-        if path is None:
-            aggregate.append({"tool": name, "installed": False})
-            continue
-        entry: dict[str, object] = {"tool": name, "installed": True, "path": path}
-        try:
-            proc = subprocess.run(
-                [path, "schema"], capture_output=True, text=True, timeout=5,
-            )
-        except (subprocess.TimeoutExpired, OSError) as e:
-            entry["schema_supported"] = False
-            entry["error"] = str(e)
+        short = name[len("owa-"):] if name.startswith("owa-") else name
+        package = TOOL_PACKAGES.get(short)
+        entry: dict[str, object] = {"tool": name}
+        if package is None:
+            entry["installed"] = False
             aggregate.append(entry)
             continue
-        if proc.returncode == 0 and proc.stdout.strip():
-            try:
-                entry["schema"] = json.loads(proc.stdout)
-                entry["schema_supported"] = True
-            except json.JSONDecodeError:
-                entry["schema_supported"] = False
-                entry["error"] = "non-JSON output from `schema`"
+        try:
+            module = importlib.import_module(f"{package}.cli")
+        except ImportError:
+            entry["installed"] = False
+            aggregate.append(entry)
+            continue
+        entry["installed"] = True
+        if hasattr(module, "COMMAND_SCHEMA"):
+            entry["schema"] = schema_for(name, module.COMMAND_SCHEMA)
+            entry["schema_supported"] = True
         else:
             entry["schema_supported"] = False
         aggregate.append(entry)
@@ -240,14 +236,13 @@ COMMANDS = {
 }
 
 
-def main(argv: list[str] | None = None) -> int:
-    argv = list(sys.argv[1:] if argv is None else argv)
-    # Top-level --doctor: the flag form is the machine-readable contract
-    # surface that downstream consumers depend on. The `owa doctor` subcommand
-    # is the human-facing discovery command and delegates to owa-doctor.
-    if is_doctor_invocation(argv):
-        from owa_core.conventions import emit_doctor
-        return emit_doctor("owa", "--json" in argv)
+def _meta_dispatch(argv: list[str]) -> int:
+    """Inner dispatcher for umbrella meta-commands.
+
+    Called by run_with_output_modes after --agent/--err-json are stripped.
+    Handles list/schema/version/help; unknown first tokens fall through to
+    tool dispatch so pass-through still works.
+    """
     if not argv:
         return cmd_help([])
     cmd, rest = argv[0], argv[1:]
@@ -261,6 +256,21 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_dispatch(short, rest)
     sys.stderr.write(f"unknown command: {cmd}\n")
     return 2
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    # Top-level --doctor: the flag form is the machine-readable contract
+    # surface that downstream consumers depend on. The `owa doctor` subcommand
+    # is the human-facing discovery command and delegates to owa-doctor.
+    if is_doctor_invocation(argv):
+        from owa_core.conventions import emit_doctor
+        return emit_doctor("owa", "--json" in argv)
+    if not argv:
+        return cmd_help([])
+    return run_with_output_modes(
+        "owa", argv, _meta_dispatch, fan_out_profiles=False,
+    )
 
 
 if __name__ == "__main__":
