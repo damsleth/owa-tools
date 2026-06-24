@@ -207,13 +207,43 @@ def test_channels_pretty_via_team_flag(monkeypatch, capsys, stub_graph):
     assert 'standard' in capsys.readouterr().out
 
 
-def test_messages_all_includes_system(monkeypatch, capsys, stub_chatsvc):
+def test_messages_system_events_includes_system(monkeypatch, capsys, stub_chatsvc):
     monkeypatch.setattr(cli.api_mod, 'chatsvc_messages', lambda base, cid, tok, **k: [
         {'id': 's', 'messagetype': 'ThreadActivity/AddMember', 'content': '', 'properties': {}},
     ])
-    assert cli._main(['messages', '--channel', 'c', '--all']) == 0
+    assert cli._main(['messages', '--channel', 'c', '--system-events']) == 0
     out = json.loads(capsys.readouterr().out)
     assert out and out[0]['messageType'] == 'ThreadActivity/AddMember'
+
+
+def test_messages_all_flag_is_rejected(stub_chatsvc):
+    """--all was renamed to --system-events; the old flag must raise UsageError."""
+    with pytest.raises(cli.UsageError, match='Unknown flag'):
+        cli._main(['messages', '--channel', 'c', '--all'])
+
+
+def test_messages_truncation_note_on_stderr(monkeypatch, capsys, stub_chatsvc):
+    """When raw messages == page_size * limit, a truncation note goes to stderr."""
+    # default page_size is 50, default limit is 4 → 200 messages triggers the note
+    page_size = 50
+    limit = 4
+    raw = [{'id': str(i), 'messagetype': 'Text', 'content': 'x',
+            'imdisplayname': 'A', 'from': '8:orgid:A', 'properties': {}}
+           for i in range(page_size * limit)]
+    monkeypatch.setattr(cli.api_mod, 'chatsvc_messages', lambda base, cid, tok, **k: raw)
+    assert cli._main(['messages', '--chat', '19:x@unq.gbl.spaces']) == 0
+    captured = capsys.readouterr()
+    assert 'truncated' in captured.err
+
+
+def test_messages_no_truncation_note_below_cap(monkeypatch, capsys, stub_chatsvc):
+    """When raw messages < page_size * limit, no truncation note is emitted."""
+    raw = [{'id': '1', 'messagetype': 'Text', 'content': 'hi',
+            'imdisplayname': 'A', 'from': '8:orgid:A', 'properties': {}}]
+    monkeypatch.setattr(cli.api_mod, 'chatsvc_messages', lambda base, cid, tok, **k: raw)
+    assert cli._main(['messages', '--chat', '19:x@unq.gbl.spaces']) == 0
+    captured = capsys.readouterr()
+    assert 'truncated' not in captured.err
 
 
 def test_refresh_auth_failure_returns_exit_code(monkeypatch, capsys):

@@ -144,6 +144,9 @@ owa-cal events --date monday+1                 # next Monday
 owa-cal events --from 2026-04-14 --to 2026-04-18 --pretty
 owa-cal events --search "standup" --pretty
 
+owa-cal show --id <event-id>                  # full detail: attendees, organizer, body
+owa-cal show <event-id>                        # id is also positional
+
 owa-cal create --subject "lunsj" --start 11:00 --end 11:30 --category "CC LUNCH"
 owa-cal update --id <event-id> --category "ProjectX"
 owa-cal delete --id <event-id>

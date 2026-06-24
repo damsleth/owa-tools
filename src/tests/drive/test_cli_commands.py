@@ -311,7 +311,9 @@ def test_drive_validation_confirm_and_failures(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(cli.api_mod, "api_get_binary", lambda *args, **kwargs: None)
     monkeypatch.setattr(cli.api_mod, "api_put_binary", lambda *args, **kwargs: None)
 
-    assert cli.cmd_ls([], {}, "tok", "https://graph.test") == 1
+    # (No `cmd_ls([]) == 1` here: api helpers now raise typed OwaError on
+    # failure instead of returning None, so the bare None->1 guard is gone.
+    # The remaining cases below all fail pre-API on validation/path guards.)
     with pytest.raises(cli.UsageError, match='show requires'):
         cli.cmd_show([], {}, "tok", "https://graph.test")
     with pytest.raises(cli.UsageError, match='get requires'):

@@ -19,7 +19,7 @@ from urllib.parse import quote
 
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
-from owa_core.errors import UsageError
+from owa_core.errors import UsageError, _require_value
 
 from . import __version__
 from . import api as api_mod
@@ -40,12 +40,6 @@ def _info(msg):
 
 def _debug_enabled(config):
     return bool(config.get('debug')) or os.environ.get('ADO_DEBUG') == '1'
-
-
-def _require_value(flag, args):
-    if not args:
-        raise UsageError(f'{flag} requires a value')
-    return args[0], args[1:]
 
 
 def _resolve_org(config):
@@ -194,7 +188,7 @@ def cmd_wi(args, config, token, base):
     pretty = False
     mine = False
     full = detailed = False
-    state = wi_type = query = ''
+    state = wi_type = query = iteration = ''
     top = 50
     wi_id = ''
     while args:
@@ -211,6 +205,8 @@ def cmd_wi(args, config, token, base):
             state, args = _require_value(flag, args)
         elif flag == '--type':
             wi_type, args = _require_value(flag, args)
+        elif flag == '--iteration':
+            iteration, args = _require_value(flag, args)
         elif flag == '--query':
             query, args = _require_value(flag, args)
         elif flag == '--top':
@@ -237,8 +233,6 @@ def cmd_wi(args, config, token, base):
             'GET', base, f'_apis/wit/workitems/{wi_id}', token,
             query=query_params, debug=debug,
         )
-        if payload is None:
-            return 1
         # Raw payload only as JSON; --pretty falls through to the human view.
         if full and not pretty:
             print(json.dumps(payload))
@@ -254,17 +248,15 @@ def cmd_wi(args, config, token, base):
     # List via WIQL. Default to "assigned to me" when no raw query given.
     project = _resolve_project(config)
     if not query:
-        if not (mine or state or wi_type):
+        if not (mine or state or wi_type or iteration):
             mine = True
         query = res.build_wiql(project=project, mine=mine, state=state,
-                               wi_type=wi_type)
+                               wi_type=wi_type, iteration=iteration)
     # WIQL has no TOP clause; cap the id set server-side with $top instead.
     wiql = api_mod.ado_request(
         'POST', base, f'{project}/_apis/wit/wiql', token,
         body={'query': query}, query={'$top': top}, debug=debug,
     )
-    if wiql is None:
-        return 1
     ids = [str(w['id']) for w in (wiql.get('workItems') or []) if w.get('id')]
     ids = ids[:top]
     if not ids:
@@ -356,8 +348,6 @@ def cmd_wi_create(args, config, token, base):
     endpoint = f'{project}/_apis/wit/workitems/${wi_type}'
     payload = api_mod.json_patch('POST', base, endpoint, token,
                                  operations=ops, debug=_debug_enabled(config))
-    if payload is None:
-        return 1
     print(json.dumps(res.normalize_work_item(payload)))
     return 0
 
@@ -411,8 +401,6 @@ def cmd_wi_update(args, config, token, base):
         'PATCH', base, f'_apis/wit/workitems/{wi_id}', token,
         operations=ops, debug=_debug_enabled(config),
     )
-    if payload is None:
-        return 1
     print(json.dumps(res.normalize_work_item(payload)))
     return 0
 
@@ -445,6 +433,11 @@ def cmd_prs(args, config, token, base):
             repo, args = _require_value(flag, args)
         elif flag == '--status':
             status, args = _require_value(flag, args)
+            _PR_STATUSES = ('active', 'completed', 'abandoned', 'all')
+            if status not in _PR_STATUSES:
+                raise UsageError(
+                    f'--status must be one of: {", ".join(_PR_STATUSES)}'
+                )
         elif flag == '--top':
             raw, args = _require_value(flag, args)
             top = _parse_int(raw, '--top')
@@ -463,8 +456,6 @@ def cmd_prs(args, config, token, base):
             'GET', base, f'{project}/_apis/git/pullrequests/{pr_id}', token,
             debug=debug,
         )
-        if payload is None:
-            return 1
         pr = res.normalize_pr(payload)
         if pretty:
             print(fmt.format_pr(pr))

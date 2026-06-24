@@ -24,6 +24,7 @@ from owa_core.errors import (
     OwaError,
     RateLimitedError,
     UsageError,
+    _require_value,
     emit_error,
     emit_message,
 )
@@ -58,12 +59,6 @@ def _info(msg):
 
 def _debug_enabled(config):
     return bool(config.get('debug')) or os.environ.get('DRIVE_DEBUG') == '1'
-
-
-def _require_value(flag, args):
-    if not args:
-        raise UsageError(f'{flag} requires a value')
-    return args[0], args[1:]
 
 
 def print_help():
@@ -150,8 +145,6 @@ def cmd_ls(args, config, access_token, api_base):
         items = api_mod.paginate_all(
             api_base, endpoint, access_token, debug=_debug_enabled(config),
         )
-        if items is None:
-            return 1
         out = [normalize_item(i) for i in items]
         if pretty:
             print(format_items_pretty(out))
@@ -162,8 +155,6 @@ def cmd_ls(args, config, access_token, api_base):
         'GET', api_base, endpoint, access_token,
         debug=_debug_enabled(config),
     )
-    if payload is None:
-        return 1
     items = payload.get('value') or []
     out = [normalize_item(i) for i in items]
     if pretty:
@@ -194,8 +185,6 @@ def cmd_show(args, config, access_token, api_base):
         'GET', api_base, endpoint, access_token,
         debug=_debug_enabled(config),
     )
-    if payload is None:
-        return 1
     item = normalize_item(payload)
     if pretty:
         print(format_item_pretty(item))
@@ -241,8 +230,6 @@ def cmd_get(args, config, access_token, api_base):
         api_base, endpoint, access_token,
         debug=_debug_enabled(config),
     )
-    if content is None:
-        return 1
 
     if out_path:
         with open(out_path, 'wb') as fh:
@@ -457,12 +444,10 @@ def cmd_rm(args, config, access_token, api_base):
             _info('aborted')
             return 1
 
-    payload = api_mod.api_request(
+    api_mod.api_request(
         'DELETE', api_base, endpoint, access_token,
         debug=_debug_enabled(config),
     )
-    if payload is None:
-        return 1
     _info(f'deleted: {path}')
     return 0
 

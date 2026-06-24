@@ -59,6 +59,15 @@ def test_ls_single_page_without_all(monkeypatch, capsys):
     assert [r["name"] for r in rows] == ["a.txt"]
 
 
-def test_ls_all_recoverable_error(monkeypatch, capsys):
-    monkeypatch.setattr(cli.api_mod, "paginate_all", lambda *a, **k: None)
-    assert cli.cmd_ls(["--all"], {}, "tok", "https://graph.test") == 1
+def test_ls_all_propagates_api_error(monkeypatch, capsys):
+    # paginate_all raises a typed OwaError on failure (the exit-code-taxonomy
+    # contract); cmd_ls lets it propagate to the mode wrapper rather than
+    # swallowing it into a bare `return 1`.
+    from owa_core.errors import NetworkError
+
+    def boom(*a, **k):
+        raise NetworkError("graph 503")
+
+    monkeypatch.setattr(cli.api_mod, "paginate_all", boom)
+    with pytest.raises(NetworkError):
+        cli.cmd_ls(["--all"], {}, "tok", "https://graph.test")

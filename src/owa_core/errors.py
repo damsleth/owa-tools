@@ -119,3 +119,14 @@ def emit_message(message, *, stream=None, exit_code=ExitCode.USAGE):
     error = UsageError(message)
     error.exit_code = exit_code
     return emit_error(error, stream=stream)
+
+
+def _require_value(flag, args):
+    """Consume the next positional token from `args` as the value for `flag`.
+
+    Returns ``(value, remaining_args)``. Raises ``UsageError`` when `args`
+    is empty (i.e. the flag was the last token with no value following it).
+    """
+    if not args:
+        raise UsageError(f'{flag} requires a value')
+    return args[0], args[1:]
