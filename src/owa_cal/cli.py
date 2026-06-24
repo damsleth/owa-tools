@@ -18,7 +18,7 @@ from owa_core import modes as mode_mod
 from owa_core import periods as periods_mod
 from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
-from owa_core.errors import UsageError, emit_error, emit_message
+from owa_core.errors import UsageError, _require_value, emit_error, emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -42,6 +42,14 @@ _EVENTS_SELECT = (
     'OriginalStartTimeZone,OriginalEndTimeZone'
 )
 _EVENTS_ORDERBY = 'Start/DateTime'
+
+# Fields fetched by `show --id` to populate normalize_event_detail:
+# the base event fields plus the heavier attendee/organizer/body fields
+# that calendarView omits by default.
+_DETAIL_SELECT = (
+    'Id,Subject,Start,End,Location,Categories,ShowAs,IsAllDay,'
+    'Organizer,IsOrganizer,Attendees,ResponseStatus,BodyPreview'
+)
 
 
 def _error(msg):
@@ -237,12 +245,6 @@ Examples:
     print(schema_mod.MACHINE_SURFACE_HELP)
 
 
-def _require_value(flag, args):
-    if not args:
-        raise UsageError(f'{flag} requires a value')
-    return args[0], args[1:]
-
-
 def _optional_value(args, default):
     """Consume the next token as a value unless it is missing or is another
     flag (`--xxx`), in which case return `default` and leave args untouched.
@@ -418,6 +420,33 @@ def cmd_events(args, config, access_token, api_base):
         print(format_events_pretty(normalized))
     else:
         print(json.dumps(normalized))
+    return 0
+
+
+def cmd_show(args, config, access_token, api_base):
+    """Fetch a single event by id and emit its full detail via normalize_event_detail.
+
+    Requests the detail-select fields (Organizer, Attendees, ResponseStatus,
+    BodyPreview) that calendarView omits, then routes the response through
+    normalize_event_detail so attendees, organizer, and body are reachable.
+    """
+    event_id, args = schema_mod.pop_positional_id(args)
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--id':
+            event_id, args = _require_value(flag, args)
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+
+    if not event_id:
+        raise UsageError('--id is required')
+
+    debug = _debug_enabled(config)
+    q = api_mod.build_query({'$select': _DETAIL_SELECT})
+    raw = api_mod.api_get(api_base, f'{_event_path(event_id)}?{q}', access_token, debug=debug)
+    if raw is None:
+        return 1
+    print(json.dumps(events_mod.normalize_event_detail(raw)))
     return 0
 
 
@@ -765,7 +794,7 @@ def cmd_refresh(args, config):
 # Dispatch
 # ---------------------------------------------------------------------------
 
-AUTHED_COMMANDS = {'events', 'create', 'update', 'delete', 'respond', 'categories'}
+AUTHED_COMMANDS = {'events', 'show', 'create', 'update', 'delete', 'respond', 'categories'}
 
 # Commands the webcal/iCal source supports. The feed is read-only and
 # carries no category metadata, so write commands, RSVP, and `categories`
@@ -796,6 +825,10 @@ _CREATE_FLAGS = [
     schema_mod.flag('--body', value='<text>', summary='Description'),
     schema_mod.flag('--allday', summary='All-day event'),
     schema_mod.flag('--showas', value='<status>', summary='busy, free, tentative, oof'),
+]
+
+_SHOW_FLAGS = [
+    schema_mod.flag('--id', value='<event-id>', summary='Event ID (flag or positional)', required=True),
 ]
 
 _UPDATE_FLAGS = [
@@ -841,6 +874,7 @@ _CONFIG_FLAGS = [
 COMMAND_SCHEMA = [
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
     schema_mod.command('events', 'List calendar events', auth='outlook', flags=_EVENTS_FLAGS),
+    schema_mod.command('show', 'Show full detail for a single event (attendees, organizer, body)', auth='outlook', flags=_SHOW_FLAGS),
     schema_mod.command('create', 'Create an event', auth='outlook', mutates=True, idempotent=False, flags=_CREATE_FLAGS),
     schema_mod.command('update', 'Update an event', auth='outlook', mutates=True, idempotent=True, flags=_UPDATE_FLAGS),
     schema_mod.command(

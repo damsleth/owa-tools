@@ -3,6 +3,7 @@ import sys
 import urllib.parse
 
 from owa_core import http
+from owa_core.query import build_query
 from owa_core.errors import (
     AuthExpiredError,
     ConflictError,
@@ -117,15 +118,6 @@ def paginate(method, url, access_token, extra_headers=None,
 def api_get(base, endpoint, access_token, extra_headers=None, debug=False, raw=False):
     return api_request('GET', base, endpoint, access_token,
                        extra_headers=extra_headers, debug=debug, raw=raw)
-
-
-def build_query(params):
-    """Build an OData query string. Values are URL-encoded, keys are
-    not (they are $-prefixed OData system params)."""
-    parts = []
-    for k, v in params.items():
-        parts.append(f'{k}={urllib.parse.quote(str(v), safe="")}')
-    return '&'.join(parts)
 
 
 def build_url(base, path, query_pairs=None):

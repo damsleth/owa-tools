@@ -17,7 +17,7 @@ import sys
 
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
-from owa_core.errors import InternalError, UsageError
+from owa_core.errors import InternalError, UsageError, _require_value
 
 from . import __version__
 from . import config as config_mod
@@ -34,12 +34,6 @@ def _info(msg):
 
 def _debug_enabled(config):
     return bool(config.get('debug')) or os.environ.get('VIDS_DEBUG') == '1'
-
-
-def _require_value(flag, args):
-    if not args:
-        raise UsageError(f'{flag} requires a value')
-    return args[0], args[1:]
 
 
 def print_help():

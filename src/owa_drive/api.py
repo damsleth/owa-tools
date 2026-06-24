@@ -10,26 +10,19 @@ import sys
 
 from owa_core import http
 from owa_core import upload as upload_mod
-from owa_core.errors import InternalError, OwaError, emit_error
+from owa_core.errors import InternalError, emit_error
 
 UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024
 
 
-def _handle_owa_error(error):
-    raise error
-
-
 def api_request(method, base, endpoint, access_token, body=None,
                 extra_headers=None, debug=False):
-    """JSON in / JSON out (or empty for 204)."""
+    """JSON in / JSON out (or empty for 204). Raises OwaError on failure."""
     url = f'{base}/{endpoint.lstrip("/")}'
     headers = dict(extra_headers or {})
-    try:
-        return http.request(
-            method, url, token=access_token, body=body, headers=headers, debug=debug,
-        ).json
-    except OwaError as error:
-        return _handle_owa_error(error)
+    return http.request(
+        method, url, token=access_token, body=body, headers=headers, debug=debug,
+    ).json
 
 
 def paginate_all(base, endpoint, access_token, extra_headers=None, debug=False):
@@ -37,29 +30,21 @@ def paginate_all(base, endpoint, access_token, extra_headers=None, debug=False):
 
     Builds the first-page URL the same way api_request does, then
     delegates to the shared `owa_core.http.paginate` generator and
-    collects every `value` item into a list. Returns the list on
-    success, or None on the recoverable errors api_request maps to None
-    (auth/scope errors re-raise), matching the single-page contract.
+    collects every `value` item into a list. Raises OwaError on failure.
     """
     url = f'{base}/{endpoint.lstrip("/")}'
     headers = dict(extra_headers or {})
-    try:
-        return list(http.paginate(
-            url, token=access_token, headers=headers, debug=debug,
-        ))
-    except OwaError as error:
-        return _handle_owa_error(error)
+    return list(http.paginate(
+        url, token=access_token, headers=headers, debug=debug,
+    ))
 
 
 def api_get_binary(base, endpoint, access_token, debug=False):
-    """GET that returns raw bytes (for /content endpoints)."""
+    """GET that returns raw bytes (for /content endpoints). Raises OwaError on failure."""
     url = f'{base}/{endpoint.lstrip("/")}'
-    try:
-        return http.request(
-            'GET', url, token=access_token, raw=True, debug=debug,
-        ).bytes
-    except OwaError as error:
-        return _handle_owa_error(error)
+    return http.request(
+        'GET', url, token=access_token, raw=True, debug=debug,
+    ).bytes
 
 
 def api_put_binary(base, endpoint, access_token, content_bytes, debug=False):
@@ -82,17 +67,14 @@ def api_put_binary(base, endpoint, access_token, content_bytes, debug=False):
             f'limited to {UPLOAD_LIMIT_BYTES} bytes. Use api_upload_session '
             'for larger files.',
         )
-    try:
-        return http.request(
-            'PUT',
-            url,
-            token=access_token,
-            body=content_bytes,
-            headers={'Content-Type': 'application/octet-stream'},
-            debug=debug,
-        ).json
-    except OwaError as error:
-        return _handle_owa_error(error)
+    return http.request(
+        'PUT',
+        url,
+        token=access_token,
+        body=content_bytes,
+        headers={'Content-Type': 'application/octet-stream'},
+        debug=debug,
+    ).json
 
 
 def api_upload_session(base, session_endpoint, access_token, content_bytes,
@@ -103,17 +85,13 @@ def api_upload_session(base, session_endpoint, access_token, content_bytes,
     (e.g. `me/drive/root:/path:/createUploadSession`), then hands the
     pre-authorized uploadUrl and the bytes to the generic
     owa_core.upload.upload_session driver. Returns the final driveItem
-    JSON, or None if session creation surfaced a recoverable OwaError
-    (matching the api_request None contract).
+    JSON, or None if the session response was malformed.
     """
     url = f'{base}/{session_endpoint.lstrip("/")}'
     body = {'item': {'@microsoft.graph.conflictBehavior': 'replace'}}
-    try:
-        session = http.request(
-            'POST', url, token=access_token, body=body, debug=debug,
-        ).json
-    except OwaError as error:
-        return _handle_owa_error(error)
+    session = http.request(
+        'POST', url, token=access_token, body=body, debug=debug,
+    ).json
     if not isinstance(session, dict):
         emit_error(InternalError('upload session creation returned no body'))
         return None
@@ -123,9 +101,6 @@ def api_upload_session(base, session_endpoint, access_token, content_bytes,
         return None
     if debug:
         print('DEBUG: created upload session', file=sys.stderr)
-    try:
-        return upload_mod.upload_session(
-            upload_url, content_bytes, chunk_size=chunk_size, debug=debug,
-        )
-    except OwaError as error:
-        return _handle_owa_error(error)
+    return upload_mod.upload_session(
+        upload_url, content_bytes, chunk_size=chunk_size, debug=debug,
+    )

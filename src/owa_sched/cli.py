@@ -15,7 +15,7 @@ import sys
 from owa_core import modes as mode_mod
 from owa_core import periods as periods_mod
 from owa_core import schema as schema_mod
-from owa_core.errors import UsageError, emit_message
+from owa_core.errors import UsageError, _require_value, emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -41,12 +41,6 @@ def _info(msg):
 
 def _debug_enabled(config):
     return bool(config.get('debug')) or os.environ.get('SCHED_DEBUG') == '1'
-
-
-def _require_value(flag, args):
-    if not args:
-        raise UsageError(f'{flag} requires a value')
-    return args[0], args[1:]
 
 
 def _require_int(flag, args):

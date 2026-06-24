@@ -87,5 +87,6 @@ def test_build_url_preserves_existing_query():
 
 
 def test_build_query_url_encodes_values():
-    out = api.build_query({'$filter': "startswith(name,'A')"})
+    from owa_core.query import build_query
+    out = build_query({'$filter': "startswith(name,'A')"})
     assert out == "$filter=startswith%28name%2C%27A%27%29"

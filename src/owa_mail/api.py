@@ -1,13 +1,6 @@
-"""Outlook REST HTTP helper.
-
-One function: api_request. Returns parsed JSON or None (for
-return-to-caller failures). For auth/permission failures we exit the
-process with a clear message - owa-mail is a CLI, not a library, and
-there is no recovery path for a 401 except telling the user to re-run.
-"""
-import urllib.parse
-
+"""Outlook REST HTTP helper for owa-mail."""
 from owa_core import http
+from owa_core.query import build_query
 from owa_core import upload as upload_mod
 from owa_core.errors import (
     AuthExpiredError,
@@ -119,10 +112,3 @@ def api_upload_attachment_session(base, session_endpoint, access_token,
         raise error
 
 
-def build_query(params):
-    """Build an OData query string. Values are URL-encoded, keys are
-    not (they are $-prefixed OData system params)."""
-    parts = []
-    for k, v in params.items():
-        parts.append(f'{k}={urllib.parse.quote(str(v), safe="")}')
-    return '&'.join(parts)

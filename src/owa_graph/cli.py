@@ -15,7 +15,7 @@ import sys
 from owa_core import jwt as jwt_mod
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
-from owa_core.errors import UsageError, emit_message
+from owa_core.errors import UsageError, _require_value, emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -97,12 +97,6 @@ def _debug_enabled(config):
     return bool(config.get('debug')) or os.environ.get('GRAPH_DEBUG') == '1'
 
 
-def _require_value(flag, args):
-    if not args:
-        raise UsageError(f'{flag} requires a value')
-    return args[0], args[1:]
-
-
 def print_help():
     groups_block_lines = [
         f"  {name:<10}  {resources_mod.GROUP_DESCRIPTIONS.get(name, '')}"
@@ -115,7 +109,7 @@ Usage: owa-graph <METHOD> <path> [options]
        owa-graph <group> <shortcut> [options]
        owa-graph batch <file|-> [--ndjson] [--pretty] [--retry]
        owa-graph refresh
-       owa-graph config [--profile <alias>] [--app-client-id <id>] [--audience <name>]
+       owa-graph config [--profile <alias>] [--audience <name>]
 
 METHOD: GET | POST | PATCH | PUT | DELETE  (case-insensitive)
 path:   /me, /users, '/users?$top=5', me/messages/<id>  (leading slash optional)
