@@ -255,6 +255,21 @@ def test_config_unknown_flag(monkeypatch, loaded_config, capsys):
     assert 'Unknown flag' in capsys.readouterr().err
 
 
+def test_config_rejects_app_client_id(monkeypatch, loaded_config, capsys):
+    """--app-client-id was removed from cmd_config; verify it is rejected
+    and that the help text no longer advertises it."""
+    rc = _run(monkeypatch, 'config', '--app-client-id', 'deadbeef')
+    assert rc == 1
+    assert 'Unknown flag' in capsys.readouterr().err
+
+
+def test_help_does_not_mention_app_client_id(monkeypatch, capsys):
+    rc = _run(monkeypatch, 'help')
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert '--app-client-id' not in out
+
+
 # ---------------------------------------------------------------------------
 # Error / boundary paths
 # ---------------------------------------------------------------------------

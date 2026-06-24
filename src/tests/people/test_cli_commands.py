@@ -85,6 +85,23 @@ def test_find_directory_show_me_and_contacts(monkeypatch, capsys):
     assert calls[-1][3]["extra_headers"] == {"ConsistencyLevel": "eventual"}
 
 
+def test_show_accepts_email_and_object_id(monkeypatch):
+    """Graph /users accepts UPNs and object ids at the same endpoint — no branching."""
+    endpoints_called = []
+
+    def fake_get(api_base, endpoint, access_token, **kwargs):
+        endpoints_called.append(endpoint)
+        return {"id": "u1", "displayName": "Ada", "mail": "ada@example.com"}
+
+    monkeypatch.setattr(cli.api_mod, "api_get", fake_get)
+
+    assert cli.cmd_show(["ada@example.com"], {}, "tok", "https://graph.test") == 0
+    assert endpoints_called[-1] == "users/ada@example.com"
+
+    assert cli.cmd_show(["00000000-0000-0000-0000-000000000001"], {}, "tok", "https://graph.test") == 0
+    assert endpoints_called[-1] == "users/00000000-0000-0000-0000-000000000001"
+
+
 def test_people_validation_and_api_failures(monkeypatch, capsys):
     monkeypatch.setattr(cli.api_mod, "api_get", lambda *args, **kwargs: None)
 

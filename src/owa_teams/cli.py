@@ -19,7 +19,7 @@ import sys
 
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
-from owa_core.errors import OwaError, UsageError, emit_error, emit_message
+from owa_core.errors import OwaError, UsageError, _require_value, emit_error, emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -58,12 +58,6 @@ def _command_name(argv):
             continue
         return arg
     return ''
-
-
-def _require_value(flag, args):
-    if not args:
-        raise UsageError(f'{flag} requires a value')
-    return args[0], args[1:]
 
 
 def _require_int(flag, args):
@@ -219,7 +213,7 @@ def cmd_messages(args, config):
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
             limit = max(1, min(limit, 50))
-        elif flag == '--all':
+        elif flag == '--system-events':
             include_system = True
         elif flag == '--pretty':
             pretty = True
@@ -251,6 +245,9 @@ def cmd_messages(args, config):
         rows = teams_mod.normalize_chat_messages(
             raw, chat_id=chat, include_system=include_system,
         )
+    # Warn when we hit the page cap so the user knows output may be incomplete.
+    if len(raw) >= _page_size(config) * limit:
+        _info(f'note: output may be truncated (page cap {limit}); use --limit to fetch more')
     print(format_messages_pretty(rows) if pretty else json.dumps(rows))
     return 0
 
@@ -339,7 +336,7 @@ _MESSAGES_FLAGS = [
     schema_mod.flag('--region', value='<region>', summary='Chatsvc region for this call only (overrides config)'),
     schema_mod.flag('--since', value='<iso>', summary='Only messages at/after this ISO-8601 time (stops paging older)'),
     schema_mod.flag('--limit', value='<n>', summary='Max pages to fetch (default 4)'),
-    schema_mod.flag('--all', summary='Include system events and empty bodies'),
+    schema_mod.flag('--system-events', summary='Include system events and empty bodies (e.g. AddMember)'),
     schema_mod.flag('--pretty', summary='Human-readable view (default: JSON)'),
 ]
 

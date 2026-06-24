@@ -1,13 +1,6 @@
-"""Graph HTTP helper.
-
-One function: api_request. Returns parsed JSON or None for
-return-to-caller failures. For 401/403 we exit with a clear message
-- owa-people is a CLI, not a library, and there is no recovery path
-for an auth failure except telling the user to re-run.
-"""
-import urllib.parse
-
+"""Graph HTTP helper for owa-people."""
 from owa_core import http
+from owa_core.query import build_query
 from owa_core.errors import (
     AuthExpiredError,
     ConflictError,
@@ -61,9 +54,3 @@ def paginate_all(base, endpoint, access_token, extra_headers=None, debug=False):
         raise error
 
 
-def build_query(params):
-    """Build an OData-style query string. Values are URL-encoded."""
-    parts = []
-    for k, v in params.items():
-        parts.append(f'{k}={urllib.parse.quote(str(v), safe="")}')
-    return '&'.join(parts)

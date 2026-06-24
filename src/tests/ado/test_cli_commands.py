@@ -241,7 +241,3 @@ def test_sprints_default_team_name(monkeypatch, tmp_config, clean_env, capsys):
     assert seen['query'] == {'$timeframe': 'current'}
 
 
-def test_api_none_propagates_exit_1(monkeypatch, tmp_config, clean_env):
-    monkeypatch.setattr(api_mod, 'ado_request', lambda *a, **k: None)
-    rc = _run(['projects'], tmp_config, clean_env)
-    assert rc == 1

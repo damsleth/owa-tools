@@ -7,8 +7,9 @@ from owa_todo import api
 
 
 def test_build_query_encodes_values():
-    assert api.build_query({'$top': 50}) == '$top=50'
-    out = api.build_query({'$filter': "Status eq 'Completed'"})
+    from owa_core.query import build_query
+    assert build_query({'$top': 50}) == '$top=50'
+    out = build_query({'$filter': "Status eq 'Completed'"})
     assert out.startswith('$filter=') and '%20' in out and "%27" in out
 
 

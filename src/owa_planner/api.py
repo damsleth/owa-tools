@@ -1,12 +1,6 @@
-"""Microsoft Graph HTTP helper for owa-planner.
-
-Mirrors owa_todo/api.py: one request function plus a paginating reader.
-Returns parsed JSON or None for recoverable failures; auth/scope errors
-re-raise so the dispatcher maps them to the shared exit-code taxonomy.
-"""
-import urllib.parse
-
+"""Microsoft Graph HTTP helper for owa-planner."""
 from owa_core import http
+from owa_core.query import build_query
 from owa_core.errors import (
     AuthExpiredError,
     ConflictError,
@@ -82,10 +76,3 @@ def paginate_all(base, endpoint, access_token, debug=False):
         raise error
 
 
-def build_query(params):
-    """Build an OData query string. Values are URL-encoded; keys are not
-    (they are $-prefixed OData system params)."""
-    parts = []
-    for k, v in params.items():
-        parts.append(f'{k}={urllib.parse.quote(str(v), safe="")}')
-    return '&'.join(parts)

@@ -96,3 +96,15 @@ def test_build_wiql_filters_and_escapes_quotes():
 def test_build_wiql_no_filters_has_no_where():
     q = res.build_wiql()
     assert 'WHERE' not in q
+
+
+def test_build_wiql_iteration_clause():
+    # WIQL string literals take a literal backslash for IterationPath
+    # separators - no backslash escaping (only single quotes are doubled).
+    q = res.build_wiql(project='NOCOS', iteration='NOCOS\\Sprint 1')
+    assert "[System.IterationPath] = 'NOCOS\\Sprint 1'" in q
+
+
+def test_build_wiql_iteration_escapes_quotes():
+    q = res.build_wiql(iteration="O'Brien\\Sprint 1")
+    assert "[System.IterationPath] = 'O''Brien\\Sprint 1'" in q

@@ -9,7 +9,7 @@ import sys
 
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
-from owa_core.errors import UsageError, emit_message
+from owa_core.errors import UsageError, _require_value, emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -30,12 +30,6 @@ def _info(msg):
 
 def _debug_enabled(config):
     return bool(config.get('debug')) or os.environ.get('PEOPLE_DEBUG') == '1'
-
-
-def _require_value(flag, args):
-    if not args:
-        raise UsageError(f'{flag} requires a value')
-    return args[0], args[1:]
 
 
 def _require_int(flag, args):
@@ -215,8 +209,8 @@ def cmd_show(args, config, access_token, api_base):
             raise UsageError(f'Unexpected argument: {flag}')
     if not target:
         raise UsageError('show requires an id or email')
-    # Heuristic: looks like an email -> /users/<email>; otherwise treat
-    # as a Graph object id.
+    # Graph /users accepts both a UPN (email) and an object id at the same
+    # endpoint, so no branching is needed.
     endpoint = f'users/{target}'
     payload = api_mod.api_get(
         api_base, endpoint, access_token,

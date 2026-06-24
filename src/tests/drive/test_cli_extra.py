@@ -15,11 +15,8 @@ Covers cli.py missing lines:
                   all canonical aliases (list/download/upload/delete)
 
 Covers api.py missing lines:
-- _handle_owa_error: generic OwaError branch (emit + None), non-OwaError re-raise
-- paginate_all: OwaError maps to None
-- api_get_binary: OwaError maps to None
-- api_put_binary: debug print path
-- api_put_binary: OwaError maps to None
+- api_request/paginate_all/api_get_binary: OwaError propagation
+- api_put_binary: debug print path, size guard
 - api_upload_session: non-dict session (emit + None), debug print on success
 """
 
@@ -126,13 +123,6 @@ def test_ls_all_pages_pretty(monkeypatch, capsys):
     assert capsys.readouterr().out != ""
 
 
-def test_ls_all_pages_returns_none(monkeypatch):
-    monkeypatch.setattr(
-        cli.api_mod, "paginate_all",
-        lambda base, endpoint, token, debug=False: None,
-    )
-    assert cli.cmd_ls(["--all"], {}, "tok", "https://graph.test") == 1
-
 
 # ===========================================================================
 # cmd_show
@@ -174,10 +164,6 @@ def test_show_pretty_output(monkeypatch, capsys):
     assert capsys.readouterr().out != ""
 
 
-def test_show_api_none_returns_1(monkeypatch):
-    monkeypatch.setattr(cli.api_mod, "api_request", lambda *a, **kw: None)
-    assert cli.cmd_show(["/Documents/report.txt"], {}, "tok", "https://graph.test") == 1
-
 
 # ===========================================================================
 # cmd_get
@@ -208,11 +194,6 @@ def test_get_out_flag_writes_file(monkeypatch, tmp_path, capsys):
     assert rc == 0
     assert out_file.read_bytes() == b"hello!"
     assert "6 bytes" in capsys.readouterr().err
-
-
-def test_get_api_none_returns_1(monkeypatch):
-    monkeypatch.setattr(cli.api_mod, "api_get_binary", lambda *a, **kw: None)
-    assert cli.cmd_get(["/a.txt"], {}, "tok", "https://graph.test") == 1
 
 
 def test_get_invalid_path_returns_1(monkeypatch, capsys):
@@ -290,12 +271,6 @@ def test_rm_unknown_flag_raises():
 def test_rm_extra_positional_raises():
     with pytest.raises(cli.UsageError, match="Unexpected argument"):
         cli.cmd_rm(["/a.txt", "/b.txt"], {}, "tok", "https://graph.test")
-
-
-def test_rm_api_none_returns_1(monkeypatch):
-    monkeypatch.setattr(cli.api_mod, "api_request", lambda *a, **kw: None)
-    rc = cli.cmd_rm(["/Documents/old.txt", "--confirm"], {}, "tok", "https://graph.test")
-    assert rc == 1
 
 
 def test_rm_succeeds_with_confirm(monkeypatch, capsys):

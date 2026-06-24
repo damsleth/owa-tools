@@ -81,5 +81,6 @@ def test_paginate_all_generic_owaerror_raises(monkeypatch):
 
 
 def test_build_query():
-    assert api_mod.build_query({'$top': 5}) == '$top=5'
-    assert api_mod.build_query({'$select': 'a,b'}) == '$select=a%2Cb'
+    from owa_core.query import build_query
+    assert build_query({'$top': 5}) == '$top=5'
+    assert build_query({'$select': 'a,b'}) == '$select=a%2Cb'

@@ -17,6 +17,21 @@ Bug fixes — silent data loss / correctness.
   it's interpolated into the request path, so a name with reserved chars
   (e.g. `/`) can't break out of its path segment.
 
+P1 fixes & cleanup.
+
+- **owa-cal `show`**: new command — `owa-cal show --id <event-id>` emits full
+  single-event detail (attendees, organizer, body) via `normalize_event_detail`.
+- **owa-ado `wi`**: `--iteration` now filters by `System.IterationPath`; `--status`
+  on `prs` is validated against the allowed set.
+- **owa-teams `messages`**: the `--all` flag (include system events) was renamed
+  to `--system-events` to stop colliding with the suite-wide `--all` (exhaust
+  pages); a truncation note is emitted when output hits the page cap.
+- **owa-graph**: dropped the stale `--app-client-id` reference from `config` help.
+- **owa-people `show`**: corrected a misleading comment about email-vs-id branching.
+- Internal: removed dead typed-error try/except wrappers and unreachable
+  `None`-guards left by the exit-code-taxonomy refactor; hoisted the duplicated
+  `build_query`/`_require_value` helpers into `owa_core`.
+
 ## v1.1.0 - 2026-06-20
 
 Maintenance release. Post-v1.0.0 dead-code sweep — no runtime behavior change.

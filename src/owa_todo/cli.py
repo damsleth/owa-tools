@@ -18,7 +18,7 @@ from datetime import date, timedelta
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
-from owa_core.errors import UsageError, emit_error, emit_message
+from owa_core.errors import UsageError, _require_value, emit_error, emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -70,12 +70,6 @@ def _command_name(argv):
             continue
         return arg
     return ''
-
-
-def _require_value(flag, args):
-    if not args:
-        raise UsageError(f'{flag} requires a value')
-    return args[0], args[1:]
 
 
 def _require_int(flag, args):
