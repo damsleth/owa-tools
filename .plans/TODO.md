@@ -23,12 +23,12 @@
 ### P1 — cheap, agent-facing
 - [x] P1 suite-wide cleanup (post exit-code refactor): DONE — deleted the dead `try/except OwaError: raise` wrappers + `_handle_owa_error` (owa-ado/owa-drive), removed unreachable `if x is None: return 1` guards, fixed stale docstrings; hoisted `build_query` into owa_core/query.py (6 importers) and `_require_value` into owa_core.errors (all tools).
 - [x] P1 owa-graph: drop stale --app-client-id from config help text — DONE
-- [ ] P1 owa-sites: schema/help claim positional --site but cmd_site only parses the flag — reconcile one or the other  *(agent rate-limited; retrying)*
+- [x] P1 owa-sites: positional --site — NO-OP: cmd_site already accepts the bare positional via pop_positional_id (line 139) and the help/schema already say "flag or positional"; regression tests test_site_positional + test_main_routes_site exist. Stale finding.
 - [x] P1 owa-people: dead show comment describes email-vs-id branching — DONE: comment corrected (Graph /users accepts both UPN and id at one endpoint, no branching needed)
 - [x] P1 owa-cal: wire dead-but-tested normalize_event_detail into a show --id command — DONE (`owa-cal show --id <id>`)
 - [x] P1 owa-ado: wire --iteration to build_wiql(iteration=); validate --status — DONE
 - [x] P1 owa-teams: rename messages --all → --system-events; add truncation signal at page cap — DONE
-- [ ] P1 owa umbrella: route meta-commands (list/schema/version) through run_with_output_modes for --agent/--err-json/--pretty; build schema in-process not via 13 subprocesses  *(agent rate-limited; retrying)*
+- [x] P1 owa umbrella: route meta-commands (list/schema/version) through run_with_output_modes — DONE (meta-commands now honor --agent/--err-json); schema built in-process via importlib import of each tool's COMMAND_SCHEMA, no more 13 subprocesses.
 
 ### P2 — feature gaps
 - [ ] P2 owa-cal: add attendees on create/update, --reminder, repeatable --category, recurrence; send Prefer outlook.timezone on calendarView window (off-by-one near midnight)
