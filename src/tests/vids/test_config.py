@@ -21,6 +21,28 @@ def test_config_set_rejects_unknown_key(tmp_config):
         config_mod.config_set('bad_key', 'x')
 
 
+def test_set_region_is_per_profile(tmp_config):
+    config_mod.set_region({'owa_piggy_profile': 'swon'}, 'swon-mediap.svc.ms')
+    # a later invocation reloads from disk before caching another profile
+    cfg = config_mod.load_config()
+    cfg['owa_piggy_profile'] = 'crayon'
+    config_mod.set_region(cfg, 'crayon-mediap.svc.ms')
+
+    final = config_mod.load_config()
+    assert config_mod.get_region({**final, 'owa_piggy_profile': 'swon'}) == 'swon-mediap.svc.ms'
+    assert config_mod.get_region({**final, 'owa_piggy_profile': 'crayon'}) == 'crayon-mediap.svc.ms'
+
+
+def test_get_region_falls_back_to_legacy_key(tmp_config):
+    # an existing single-tenant config (pre per-profile) still resolves
+    assert config_mod.get_region({'region': 'old-mediap.svc.ms'}) == 'old-mediap.svc.ms'
+
+
+def test_set_region_uses_default_bucket_without_profile(tmp_config):
+    config_mod.set_region({}, 'def-mediap.svc.ms')
+    assert config_mod.get_region(config_mod.load_config()) == 'def-mediap.svc.ms'
+
+
 def test_migrate_json_config_imports_old_keys(tmp_config, capsys):
     legacy = tmp_config.parent / 'config.json'
     legacy.parent.mkdir(parents=True)

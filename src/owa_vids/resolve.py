@@ -61,15 +61,9 @@ def resolve_url(url, config, region_override, debug):
     low = url.lower()
     if 'videomanifest' in low:
         return resolve_manifest_url(url, config, debug)
-    region = region_override or config.get('region')
-    if not region:
-        raise UsageError(
-            'media region unknown for this URL. Run once with the videomanifest '
-            'URL (from DevTools) to cache it, or pass --region <host>.'
-        )
     if 'uniqueid=' in low:
         return resolve_embed_url(url, config, region_override, debug)
-    return _job_from_shares(_share_target(url), config, region, debug)
+    return _job_from_shares(_share_target(url), config, region_override, debug)
 
 
 def _share_target(url):
@@ -98,10 +92,9 @@ def resolve_manifest_url(manifest_url, config, debug):
         raise UsageError('manifest URL has no docid param')
     spo_host = urlsplit(docid_raw).netloc
     ctag = unquote((q.get("cTag") or q.get("ctag") or [""])[0]) or None
-    # remember the (tenant-wide) region for later --embed-url runs
-    if region and config.get('region') != region:
-        config_mod.config_set('region', region)
-        config['region'] = region
+    # remember the region for this profile so later runs skip discovery
+    if region and config_mod.get_region(config) != region:
+        config_mod.set_region(config, region)
     job = Job(spo_host=spo_host, docid=_docid_base(docid_raw), ctag=ctag, region=region)
     _attach_drive_item(job)
     if job.drive_id and not job.title:
@@ -139,19 +132,12 @@ def resolve_embed_url(embed_url, config, region_override, debug):
     if not uid:
         raise UsageError('embed URL has no uniqueId param')
     site = re.sub(r"/_layouts/.*$", "", sp.path)  # /personal/<user>
-    region = region_override or config.get('region')
-    if not region:
-        raise UsageError(
-            'media region unknown for --embed-url. Run once with --manifest-url '
-            '(copied from DevTools) to cache it, or pass --region <host>.'
-        )
-
     http_client = Http(debug)
     spo_tok = auth_mod.get_spo_token(config, spo_host, debug=debug)
     # uniqueId -> server-relative URL, then hand the file webUrl to /shares.
     f = graph_get_spo(http_client, spo_tok, spo_host, site, uid)
     web_url = f"https://{spo_host}{quote(f['ServerRelativeUrl'])}"
-    return _job_from_shares(web_url, config, region, debug)
+    return _job_from_shares(web_url, config, region_override, debug)
 
 
 def _personal_site(path):
@@ -162,8 +148,13 @@ def _personal_site(path):
     return ''
 
 
-def _job_from_shares(target_url, config, region, debug):
-    """Graph /shares on a webUrl or sharing link -> driveId/itemId/cTag Job."""
+def _job_from_shares(target_url, config, region_override, debug):
+    """Graph /shares on a webUrl or sharing link -> driveId/itemId/cTag Job.
+
+    The media region is taken from --region, then the per-profile cache, then
+    auto-discovered from the item's thumbnails (and cached) - so no DevTools
+    manifest grab is needed even on the first run.
+    """
     spo_host = urlsplit(target_url).netloc
     http_client = Http(debug)
     gtok = auth_mod.get_graph_token(config, debug=debug)
@@ -175,11 +166,33 @@ def _job_from_shares(target_url, config, region, debug):
     item_id = d.get("id")
     if not (drive_id and item_id):
         raise NotFoundError('could not resolve driveId/itemId from the URL')
+    region = (region_override or config_mod.get_region(config)
+              or _discover_region(http_client, gtok, drive_id, item_id, config))
     site = _personal_site(urlsplit(d.get("webUrl") or "").path)
     docid = (f"https://{spo_host}{site}/_api/v2.0/drives/{drive_id}"
              f"/items/{item_id}?version=Published")
     return Job(spo_host=spo_host, docid=docid, ctag=d.get("cTag"), region=region,
                title=d.get("name"), drive_id=drive_id, item_id=item_id)
+
+
+# The transform service that streams the media; its host is the geo-specific
+# media region we need. Item thumbnails are served from that same host.
+_MEDIAP_RE = re.compile(r'https://([a-z0-9-]+-mediap\.svc\.ms)')
+
+
+def _discover_region(http_client, gtok, drive_id, item_id, config):
+    """Learn (and cache) the *-mediap.svc.ms region from the item thumbnails."""
+    d = graph_get(http_client, gtok,
+                  f"{auth_mod.GRAPH_BASE}/drives/{drive_id}/items/{item_id}/thumbnails")
+    m = _MEDIAP_RE.search(json.dumps(d))
+    if not m:
+        raise UsageError(
+            'could not auto-detect the media region for this recording; '
+            'pass --region <host> (e.g. switzerlandwest1-mediap.svc.ms)'
+        )
+    region = m.group(1)
+    config_mod.set_region(config, region)
+    return region
 
 
 def graph_get_spo(http_client, spo_tok, spo_host, site, uid):

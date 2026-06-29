@@ -33,15 +33,13 @@ def test_resolve_manifest_url_caches_region(monkeypatch):
     written = []
     monkeypatch.setattr(resolve_mod, '_fetch_title', lambda *a, **k: None)
     monkeypatch.setattr(
-        resolve_mod.config_mod, 'config_set',
-        lambda key, value: written.append((key, value)),
+        resolve_mod.config_mod, 'set_region',
+        lambda config, region: written.append(region),
     )
 
-    config = {}
-    resolve_mod.resolve_manifest_url(MANIFEST_URL, config, debug=False)
+    resolve_mod.resolve_manifest_url(MANIFEST_URL, {}, debug=False)
 
-    assert written == [('region', 'swon-mediap.svc.ms')]
-    assert config['region'] == 'swon-mediap.svc.ms'
+    assert written == ['swon-mediap.svc.ms']
 
 
 def test_resolve_manifest_url_skips_cache_when_region_unchanged(monkeypatch):
@@ -103,11 +101,31 @@ def test_resolve_embed_url_calls_spo_and_graph(monkeypatch):
     assert '/drives/b!DRV/items/01ITEM' in job.docid
 
 
-def test_resolve_embed_url_missing_region_raises_usage_error():
+def test_resolve_embed_url_auto_discovers_region_when_uncached(monkeypatch):
+    monkeypatch.setattr(resolve_mod.auth_mod, 'get_spo_token', lambda *a, **k: 'spo-tok')
+    monkeypatch.setattr(resolve_mod.auth_mod, 'get_graph_token', lambda *a, **k: 'graph-tok')
+    monkeypatch.setattr(
+        resolve_mod, 'graph_get_spo',
+        lambda *a: {'ServerRelativeUrl': '/personal/u/Documents/rec.mp4'})
+
+    def fake_graph_get(http_client, tok, url):
+        if '/thumbnails' in url:
+            return {'value': [{'large': {
+                'url': 'https://swedencentral1-mediap.svc.ms/transform/thumbnail?x=1'}}]}
+        return {'id': '01ITEM', 'name': 'rec.mp4', 'cTag': 'ct',
+                'parentReference': {'driveId': 'b!DRV'}}
+
+    monkeypatch.setattr(resolve_mod, 'graph_get', fake_graph_get)
+    saved = []
+    monkeypatch.setattr(resolve_mod.config_mod, 'set_region',
+                        lambda config, region: saved.append(region))
+
     embed = ('https://contoso-my.sharepoint.com/personal/u/_layouts/15/'
              'embed.aspx?uniqueId=GUID-1')
-    with pytest.raises(UsageError):
-        resolve_mod.resolve_embed_url(embed, {}, region_override='', debug=False)
+    job = resolve_mod.resolve_embed_url(embed, {}, region_override='', debug=False)
+
+    assert job.region == 'swedencentral1-mediap.svc.ms'
+    assert saved == ['swedencentral1-mediap.svc.ms']  # cached for next time
 
 
 def test_resolve_embed_url_missing_unique_id_raises_usage_error():
@@ -152,23 +170,19 @@ def test_resolve_url_routes_manifest(monkeypatch):
     assert out == 'manifest-job'
 
 
-def test_resolve_url_needs_region_for_non_manifest():
-    with pytest.raises(UsageError):
-        resolve_mod.resolve_url('https://h/p/stream.aspx?id=%2Fa', {}, '', debug=False)
-
-
 def test_resolve_url_stream_page_builds_weburl(monkeypatch):
     seen = []
     monkeypatch.setattr(resolve_mod, '_job_from_shares',
-                        lambda target, config, region, debug: seen.append((target, region)) or 'j')
+                        lambda target, config, region_override, debug:
+                        seen.append((target, region_override)) or 'j')
     stream = ('https://contoso-my.sharepoint.com/personal/u/_layouts/15/stream.aspx'
               '?id=%2Fpersonal%2Fu%2FDocuments%2FRecordings%2Frec.mp4&referrer=Teams')
-    out = resolve_mod.resolve_url(stream, {'region': 'r'}, '', debug=False)
+    out = resolve_mod.resolve_url(stream, {}, 'r-override', debug=False)
     assert out == 'j'
-    target, region = seen[0]
+    target, region_override = seen[0]
     assert target == ('https://contoso-my.sharepoint.com'
                       '/personal/u/Documents/Recordings/rec.mp4')
-    assert region == 'r'
+    assert region_override == 'r-override'  # --region passed straight through
 
 
 def test_resolve_url_stream_page_without_id_raises():
@@ -205,12 +219,29 @@ def test_job_from_shares_builds_docid_with_site(monkeypatch):
     })
     job = resolve_mod._job_from_shares(
         'https://contoso-my.sharepoint.com/personal/u/Documents/rec.mp4',
-        {}, region='r', debug=False)
+        {}, 'r', debug=False)
     assert job.drive_id == 'b!DRV'
     assert job.item_id == '01ITEM'
     assert job.title == 'rec.mp4'
     assert '/personal/u/_api/v2.0/drives/b!DRV/items/01ITEM' in job.docid
     assert job.docid.endswith('?version=Published')
+
+
+def test_discover_region_extracts_and_caches_host(monkeypatch):
+    monkeypatch.setattr(resolve_mod, 'graph_get', lambda *a: {'value': [
+        {'small': {'url': 'https://norwayeast1-mediap.svc.ms/transform/thumb?a=1'}}]})
+    saved = []
+    monkeypatch.setattr(resolve_mod.config_mod, 'set_region',
+                        lambda config, region: saved.append(region))
+    region = resolve_mod._discover_region(object(), 'gtok', 'b!D', '01I', {})
+    assert region == 'norwayeast1-mediap.svc.ms'
+    assert saved == ['norwayeast1-mediap.svc.ms']
+
+
+def test_discover_region_no_host_raises(monkeypatch):
+    monkeypatch.setattr(resolve_mod, 'graph_get', lambda *a: {'value': []})
+    with pytest.raises(UsageError):
+        resolve_mod._discover_region(object(), 'gtok', 'b!D', '01I', {})
 
 
 def test_resolve_embed_url_missing_ids_raises_not_found(monkeypatch):
