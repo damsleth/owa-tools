@@ -150,7 +150,8 @@ def test_main_config_persists_profile_and_region(capsys, clean_env, tmp_config):
     from owa_vids import config as config_mod
     saved = config_mod.load_config()
     assert saved['owa_piggy_profile'] == 'globex'
-    assert saved['region'] == 'globex-mediap.svc.ms'  # normalized to lowercase
+    # region is cached per profile, normalized to lowercase
+    assert config_mod.get_region(saved) == 'globex-mediap.svc.ms'
 
 
 def test_main_debug_flag_sets_config(clean_env, tmp_config, monkeypatch, capsys):
