@@ -1,6 +1,5 @@
 """Graph HTTP helper for owa-people."""
 from owa_core import http
-from owa_core.query import build_query
 from owa_core.errors import (
     AuthExpiredError,
     ConflictError,
@@ -11,6 +10,7 @@ from owa_core.errors import (
     RateLimitedError,
     ScopeInsufficientError,
 )
+from owa_core.query import build_query  # noqa: F401  (re-exported for cli.py)
 
 
 def api_request(method, base, endpoint, access_token, body=None,
