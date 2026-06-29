@@ -3,8 +3,8 @@
 Subcommands: info, get, check, config. A recording is addressed by a
 pasted URL (auto-detected: videomanifest, the Stream "watch in browser"
 page, or the "Copy link" sharing URL) or the explicit `--manifest-url` /
-`--embed-url` flags. Everything but the videomanifest URL needs the
-cached media region (learned once from a manifest URL, or via --region).
+`--embed-url` flags. The media region is auto-detected from the item's
+thumbnails and cached per profile (override with --region).
 
 Auth is deferred into each command handler rather than minted once in
 `_main` (the suite's usual shape): the SPO token's scope is derived from
@@ -64,8 +64,8 @@ Commands (unix-style verbs; suite-canonical aliases in parentheses):
   - the Stream "watch in browser" page  (.../stream.aspx?id=...)
   - the "Copy link" sharing URL          (.../:v:/r/...)
   - the videomanifest URL from DevTools  (...svc.ms/.../videomanifest?...)
-                      The first two need the media region; it's cached the
-                      first time you use a videomanifest URL, or pass --region.
+                      The media region is auto-detected and cached per
+                      profile on first use; --region pins it explicitly.
   --region <host>     Media region, e.g. switzerlandwest1-mediap.svc.ms
   --manifest-url / --embed-url   Explicit forms of the above (back-compat).
 
@@ -262,18 +262,21 @@ def cmd_config(args, config):
     changed = False
     if profile:
         config_mod.config_set('owa_piggy_profile', profile)
+        config['owa_piggy_profile'] = profile  # so --region attaches to it
         _info(f'default profile saved: {profile}')
         changed = True
     if region:
-        config_mod.config_set('region', region.strip().lower())
-        _info(f'region saved: {region.strip().lower()}')
+        config_mod.set_region(config, region.strip().lower())
+        _info(f'region saved for profile {config_mod._profile(config)}: '
+              f'{region.strip().lower()}')
         changed = True
     if changed:
         return 0
 
     _info(f'Config file: {config_mod.CONFIG_PATH}')
     _info(f"  owa_piggy_profile={config.get('owa_piggy_profile') or '(not set - owa-piggy picks its default)'}")
-    _info(f"  region={config.get('region') or '(not set - learned from --manifest-url)'}")
+    _info(f"  region[{config_mod._profile(config)}]="
+          f"{config_mod.get_region(config) or '(not set - auto-detected on first use)'}")
     return 0
 
 
