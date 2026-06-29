@@ -125,3 +125,44 @@ def test_paths_are_sorted_within_endpoint():
     than `2n with shuffling. Cheap invariant to lock."""
     paths = paths_mod.all_paths('v1.0')
     assert paths == sorted(paths)
+
+
+# --- next_segments: segment-wise (one tier per tab) completion -----------
+
+def test_next_descends_into_complete_node():
+    """`/me` is a complete node, so a tab descends into its children."""
+    out = paths_mod.next_segments('/me')
+    assert '/me/manager' in out          # leaf: no trailing slash
+    assert '/me/messages/' in out        # parent: trailing slash invites another tab
+    assert all(c.startswith('/me/') for c in out)
+
+
+def test_next_trailing_slash_also_descends():
+    assert paths_mod.next_segments('/me/') == paths_mod.next_segments('/me')
+
+
+def test_next_partial_segment_returns_siblings_for_shell_to_filter():
+    """A partial last segment ('/me/mess') yields the sibling tier; the
+    shell does the prefix filtering, so '/me/messages' must be present."""
+    out = paths_mod.next_segments('/me/mess')
+    assert '/me/messages/' in out
+    assert '/me/manager' in out          # sibling, filtered out by the shell
+
+
+def test_next_empty_word_is_top_level():
+    out = paths_mod.next_segments('')
+    assert '/me/' in out
+    assert all(c.count('/') == 1 or c.count('/') == 2 and c.endswith('/') for c in out)
+
+
+def test_next_leaf_has_no_children():
+    assert paths_mod.next_segments('/me/manager') == []
+
+
+def test_dump_next_emits_one_per_line(monkeypatch):
+    monkeypatch.setattr(sys, 'argv', ['owa-graph', '__complete', 'next', 'v1.0', '/me'])
+    buf = io.StringIO()
+    monkeypatch.setattr(sys, 'stdout', buf)
+    assert cli.main() == 0
+    lines = [ln for ln in buf.getvalue().splitlines() if ln]
+    assert '/me/manager' in lines
