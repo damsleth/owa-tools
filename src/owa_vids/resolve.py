@@ -1,4 +1,4 @@
-"""Source resolution: turn --manifest-url / --embed-url into a Job."""
+"""Source resolution: turn a pasted recording URL into a Job."""
 import base64
 import json
 import re
@@ -37,13 +37,56 @@ def _docid_base(docid):
     return base + "?version=Published"
 
 
-def _resolve(manifest_url, embed_url, region_override, config, debug):
+def _resolve(manifest_url, embed_url, source_url, region_override, config, debug):
     """Dispatch on the source kind. Exactly one of the URLs must be set."""
     if manifest_url:
         return resolve_manifest_url(manifest_url, config, debug)
     if embed_url:
         return resolve_embed_url(embed_url, config, region_override, debug)
-    raise UsageError('need a source: --manifest-url or --embed-url')
+    if source_url:
+        return resolve_url(source_url, config, region_override, debug)
+    raise UsageError('need a source: paste a recording URL '
+                     '(or use --manifest-url / --embed-url)')
+
+
+def resolve_url(url, config, region_override, debug):
+    """Auto-detect a pasted recording URL and route to the right resolver.
+
+    Accepts the videomanifest URL (full source of truth, also caches the
+    media region) or any SharePoint URL that names the file: the Stream
+    "watch in browser" page (stream.aspx?id=<server-rel path>), the "Copy
+    link" sharing URL (.../:v:/r/...), or the embed page (uniqueId). All
+    but the manifest URL need the cached/explicit media region.
+    """
+    low = url.lower()
+    if 'videomanifest' in low:
+        return resolve_manifest_url(url, config, debug)
+    region = region_override or config.get('region')
+    if not region:
+        raise UsageError(
+            'media region unknown for this URL. Run once with the videomanifest '
+            'URL (from DevTools) to cache it, or pass --region <host>.'
+        )
+    if 'uniqueid=' in low:
+        return resolve_embed_url(url, config, region_override, debug)
+    return _job_from_shares(_share_target(url), config, region, debug)
+
+
+def _share_target(url):
+    """The URL to hand to Graph /shares for a non-manifest source.
+
+    A sharing link (".../:v:/r/...?<token>") is handed over verbatim - Graph
+    accepts the whole signed link. A stream.aspx watch page carries the
+    server-relative file path in its `id` param; rebuild the file webUrl from
+    it, which /shares accepts just as well.
+    """
+    sp = urlsplit(url)
+    if 'stream.aspx' in sp.path.lower():
+        sid = unquote((parse_qs(sp.query).get('id') or [''])[0])
+        if not sid:
+            raise UsageError('stream URL has no id param')
+        return f"https://{sp.netloc}{quote(sid)}"
+    return url
 
 
 def resolve_manifest_url(manifest_url, config, debug):
@@ -105,24 +148,38 @@ def resolve_embed_url(embed_url, config, region_override, debug):
 
     http_client = Http(debug)
     spo_tok = auth_mod.get_spo_token(config, spo_host, debug=debug)
-    # 1) uniqueId -> server-relative URL + name
+    # uniqueId -> server-relative URL, then hand the file webUrl to /shares.
     f = graph_get_spo(http_client, spo_tok, spo_host, site, uid)
-    server_rel = f["ServerRelativeUrl"]
-    web_url = f"https://{spo_host}{quote(server_rel)}"
-    # 2) webUrl -> driveId/itemId/cTag via Graph shares (works cross-user)
+    web_url = f"https://{spo_host}{quote(f['ServerRelativeUrl'])}"
+    return _job_from_shares(web_url, config, region, debug)
+
+
+def _personal_site(path):
+    """/personal/<user>/... or /sites/<site>/... -> the site path, else ''."""
+    parts = [p for p in path.split('/') if p]
+    if len(parts) >= 2 and parts[0] in ('personal', 'sites', 'teams'):
+        return f'/{parts[0]}/{parts[1]}'
+    return ''
+
+
+def _job_from_shares(target_url, config, region, debug):
+    """Graph /shares on a webUrl or sharing link -> driveId/itemId/cTag Job."""
+    spo_host = urlsplit(target_url).netloc
+    http_client = Http(debug)
     gtok = auth_mod.get_graph_token(config, debug=debug)
-    share = "u!" + quote(base64.urlsafe_b64encode(web_url.encode()).decode().rstrip("="))
+    share = "u!" + quote(base64.urlsafe_b64encode(target_url.encode()).decode().rstrip("="))
     d = graph_get(http_client, gtok,
                   f"{auth_mod.GRAPH_BASE}/shares/{share}/driveItem"
-                  f"?$select=id,name,cTag,parentReference")
+                  f"?$select=id,name,cTag,parentReference,webUrl")
     drive_id = (d.get("parentReference") or {}).get("driveId")
     item_id = d.get("id")
     if not (drive_id and item_id):
-        raise NotFoundError('could not resolve driveId/itemId from the embed URL')
+        raise NotFoundError('could not resolve driveId/itemId from the URL')
+    site = _personal_site(urlsplit(d.get("webUrl") or "").path)
     docid = (f"https://{spo_host}{site}/_api/v2.0/drives/{drive_id}"
              f"/items/{item_id}?version=Published")
     return Job(spo_host=spo_host, docid=docid, ctag=d.get("cTag"), region=region,
-               title=d.get("name") or f.get("Name"), drive_id=drive_id, item_id=item_id)
+               title=d.get("name"), drive_id=drive_id, item_id=item_id)
 
 
 def graph_get_spo(http_client, spo_tok, spo_host, site, uid):
