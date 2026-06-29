@@ -55,6 +55,9 @@ on every call it shells out to `owa-piggy token --audience graph
 --json`, takes the access token from stdout, and issues the HTTP
 request with the right base URL and Bearer header.
 
+- The HTTP verb is optional and defaults to `GET`, so `owa-graph /me` is
+  shorthand for `owa-graph GET /me` (a bare resource-group name like
+  `owa-graph me` still shows the group's shortcuts, not `GET /me`).
 - JSON on stdout, logs on stderr.
 - `--pretty` prints tables for known collection shapes (users, groups,
   messages, drives, sites, calendars, planner / to-do tasks, …) and renders a
@@ -192,36 +195,45 @@ The manifest is hand-curated and intentionally sparse; see
 ## Shell completion (v0.5+)
 
 Hand-written completion scripts ship under `src/completions/`. No
-`argcomplete` dependency.
+`argcomplete` dependency. Install all three shells with the bundled
+Makefile target (symlinks the scripts into each shell's completion dir):
+
+```sh
+make install-completions     # zsh + bash + fish
+make uninstall-completions
+```
+
+Or install one shell by hand:
 
 ```sh
 # Bash (macOS Homebrew)
-ln -s "$(brew --prefix owa-tools)/completions/owa-graph.bash" \
-      "$(brew --prefix)/etc/bash_completion.d/owa-graph"
-
-# Zsh (anywhere on $fpath named exactly _owa-graph)
-cp src/completions/owa-graph.zsh "$(brew --prefix)/share/zsh/site-functions/_owa-graph"
-
+ln -sf "$PWD/src/completions/owa-graph.bash" "$(brew --prefix)/etc/bash_completion.d/owa-graph"
+# Zsh (anywhere on $fpath, named exactly _owa-graph)
+ln -sf "$PWD/src/completions/owa-graph.zsh" "$(brew --prefix)/share/zsh/site-functions/_owa-graph"
 # Fish
-cp src/completions/owa-graph.fish ~/.config/fish/completions/owa-graph.fish
+ln -sf "$PWD/src/completions/owa-graph.fish" ~/.config/fish/completions/owa-graph.fish
 ```
 
 Coverage:
 
 - HTTP verbs, resource groups, and reserved subcommands at the top level
 - per-group shortcuts after `owa-graph mail <TAB>` etc.
-- Graph paths after `owa-graph GET <TAB>` (~10 000 paths from the
-  vendored CSDL manifest at `owa_graph/data/paths.json.gz`; `--beta`
-  switches to beta paths)
+- Graph paths after `owa-graph GET <TAB>` **or** `owa-graph /<TAB>` (the
+  verb is optional - see below). Paths complete **one tier per tab**
+  (`/me/<TAB>` -> `/me/calendar`, `/me/messages`, ...) instead of dumping
+  the whole ~3.5k-path tree; parents get a trailing `/` so the next tab
+  descends. `--beta` switches to beta paths.
 - `--audience <TAB>` lists the 17 known FOCI audiences
 - the full flag set is suggested anywhere a flag can appear
 
-The path list itself is dumped by the package (used by the completion
-scripts):
+The completion scripts ask the package for each tier on demand via the
+hidden `__complete` subcommand (`__complete paths` dumps the whole tree;
+`__complete next [endpoint] [word]` returns just the next tier under
+`word`). The path list is also available directly:
 
 ```sh
-python -m owa_graph.paths           # v1.0 paths, one per line
-python -m owa_graph.paths beta      # beta paths
+python -m owa_graph.paths                       # v1.0 paths, one per line
+python -m owa_graph.paths beta                  # beta paths
 ```
 
 The vendored manifest at `owa_graph/data/paths.json.gz` is a committed

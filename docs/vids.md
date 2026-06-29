@@ -24,15 +24,31 @@ have legitimate access to.
 
 ## Sources
 
-Every authenticated command takes exactly one source:
+Every authenticated command takes exactly one source. Just paste the
+recording's URL - the kind is auto-detected:
+
+- **The Stream "watch in browser" page** -
+  `https://tenant-my.sharepoint.com/personal/user/_layouts/15/stream.aspx?id=...`.
+  The file path is read from the `id` parameter.
+- **The "Copy link" sharing URL** -
+  `https://tenant-my.sharepoint.com/:v:/r/personal/user/.../rec.mp4?...`.
+  Handed straight to Graph `/shares`.
+
+owa-vids resolves the item's `driveId`/`itemId`/`cTag` via Graph `/shares`
+and builds the `videomanifest` URL itself, so there is no DevTools step.
+
+The media region (`*-mediap.svc.ms`) is **auto-detected** from the item's
+thumbnail URLs on first use and cached per profile; `--region <host>`
+overrides it. See [config](#owa-vids-config).
+
+Two explicit source flags remain for back-compat:
 
 - `--manifest-url '<...svc.ms/transform/videomanifest?...&format=dash>'` -
-  copy from DevTools while the recording plays: Network tab, filter
-  `videomanifest`, the `application/dash+xml` request, Copy URL. The media
-  region host is parsed from this URL and cached for later runs.
+  the full manifest URL copied from DevTools (Network tab, filter
+  `videomanifest`, the `application/dash+xml` request). The region is parsed
+  straight from it.
 - `--embed-url '<...embed.aspx?uniqueId=...>'` - the Teams/Stream player
-  page URL. Needs the media region: it's cached automatically the first time
-  you use a `--manifest-url`, or pass `--region <host>` once.
+  page URL.
 
 ## Commands
 
@@ -43,7 +59,7 @@ counts, and region. JSON by default, `--pretty` for a human summary.
 Alias: `show`.
 
 ```bash
-owa-vids info --manifest-url 'https://swon-mediap.svc.ms/transform/videomanifest?docid=...&format=dash' --profile swon --pretty
+owa-vids info 'https://tenant-my.sharepoint.com/personal/user/_layouts/15/stream.aspx?id=...' --profile swon --pretty
 ```
 
 ### `owa-vids get`
@@ -61,11 +77,11 @@ Download all tracks and mux to MP4. Alias: `download`.
 Prints a JSON result line on success: `{"out": ..., "bytes": ..., "title": ...}`.
 
 ```bash
-# Manifest-URL path
-owa-vids get --manifest-url 'https://swon-mediap.svc.ms/transform/videomanifest?docid=...&format=dash' --profile swon -o meeting.mp4
+# Just paste the watch-in-browser or sharing URL
+owa-vids get 'https://tenant-my.sharepoint.com/:v:/r/personal/user/.../rec.mp4?...' --profile swon -o meeting.mp4
 
-# Embed-URL path (region must already be cached or --region passed)
-owa-vids get --embed-url 'https://tenant-my.sharepoint.com/personal/user/_layouts/15/embed.aspx?uniqueId=...' --profile swon
+# Explicit manifest URL still works
+owa-vids get --manifest-url 'https://swon-mediap.svc.ms/transform/videomanifest?docid=...&format=dash' --profile swon
 ```
 
 ### `owa-vids check`
@@ -74,23 +90,27 @@ Validate auth, manifest, and the first segments of each track without a
 full download. Alias: `probe`.
 
 ```bash
-owa-vids check --manifest-url 'https://swon-mediap.svc.ms/transform/videomanifest?docid=...&format=dash' --profile swon
+owa-vids check 'https://tenant-my.sharepoint.com/personal/user/_layouts/15/stream.aspx?id=...' --profile swon
 ```
 
 ### `owa-vids config`
 
 View or update configuration (`~/.config/owa-vids/config`).
 
-- `--region <host>` - pin the media region host (tenant-wide), e.g.
-  `switzerlandwest1-mediap.svc.ms`.
+- `--region <host>` - pin the media region host, e.g.
+  `switzerlandwest1-mediap.svc.ms`. Cached **per profile** (tenants differ
+  per profile); normally auto-detected on first use, so you rarely set it.
 - `--profile <alias>` - pin a default owa-piggy profile
   (`--set-profile` is accepted as an alias).
 
 ```bash
-owa-vids config --region switzerlandwest1-mediap.svc.ms
+owa-vids config --profile swon --region switzerlandwest1-mediap.svc.ms
 owa-vids config --profile swon
-owa-vids config            # show current values
+owa-vids config            # show current values (region shown per profile)
 ```
+
+The region is stored in a `regions` JSON map keyed by profile; the legacy
+single `region` key is still read as a fallback for pre-1.1.1 configs.
 
 Users of the old standalone `owa-vids` script: the legacy
 `~/.config/owa-vids/config.json` is migrated to the suite-standard
