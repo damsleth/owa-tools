@@ -18,21 +18,23 @@ set -l owa_graph_audiences graph outlook outlook365 teams ic3 csa presence uis a
 
 complete -c owa-graph -n "__fish_is_first_token" -a "$owa_graph_verbs $owa_graph_reserved $owa_graph_groups" -f
 
-# --- path completion right after an HTTP verb ------------------------------
+# --- path completion (segment-wise) ----------------------------------------
 #
-# Shells out to `owa-graph __complete paths` once per tab-press. fast
-# enough (~30ms) and avoids hard-coding the manifest into this script.
+# Shells out to `owa-graph __complete next` once per tab-press, passing the
+# token being completed so we only return the next tier (e.g. /me -> /me/*)
+# instead of the whole ~3.5k-path tree. Fires after an explicit verb, or when
+# the verb is omitted and the token is a /path (`owa-graph /me`).
 
 function __owa_graph_paths
     set -l endpoint v1.0
     if contains -- --beta (commandline -opc)
         set endpoint beta
     end
-    owa-graph __complete paths $endpoint 2>/dev/null
+    owa-graph __complete next $endpoint (commandline -ct) 2>/dev/null
 end
 
 complete -c owa-graph \
-    -n "__fish_seen_subcommand_from GET POST PATCH PUT DELETE; and not __fish_seen_subcommand_from (string match -- '/*' (commandline -opc))" \
+    -n "__fish_seen_subcommand_from GET POST PATCH PUT DELETE; or string match -q -- '/*' (commandline -ct)" \
     -a "(__owa_graph_paths)" -f
 
 # --- per-group shortcuts ---------------------------------------------------

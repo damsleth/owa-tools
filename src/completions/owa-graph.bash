@@ -57,18 +57,23 @@ _owa_graph() {
         esac
     done
 
-    # Path completion: when the head is an HTTP verb and we're filling
-    # the slot right after it, complete from the vendored Graph path
-    # manifest. --beta switches the source endpoint.
-    if [[ "$head_kind" == "verb" && ${COMP_CWORD} -eq $((i+1)) && "$cur" != -* ]]; then
+    # Path completion: right after an HTTP verb, or when the verb is omitted
+    # and the first arg is a /path (`owa-graph /me` == `owa-graph GET /me`).
+    # We complete one tier per tab (segment-wise) from the vendored manifest
+    # rather than dumping the whole tree. --beta switches the source endpoint.
+    if [[ ( "$head_kind" == "verb" && ${COMP_CWORD} -eq $((i+1)) ) || \
+          ( ${COMP_CWORD} -eq 1 && "$cur" == /* ) ]] && [[ "$cur" != -* ]]; then
         local endpoint="v1.0"
         local w
         for w in "${COMP_WORDS[@]}"; do
             [[ "$w" == "--beta" ]] && endpoint="beta"
         done
-        local paths
-        paths="$(owa-graph __complete paths "$endpoint" 2>/dev/null)"
-        COMPREPLY=( $(compgen -W "$paths" -- "$cur") )
+        local cands
+        cands="$(owa-graph __complete next "$endpoint" "$cur" 2>/dev/null)"
+        COMPREPLY=( $(compgen -W "$cands" -- "$cur") )
+        # Parents come back with a trailing slash; suppress the space so the
+        # next tab descends (no-op on bash 3.2, which lacks compopt).
+        compopt -o nospace 2>/dev/null
         return 0
     fi
 

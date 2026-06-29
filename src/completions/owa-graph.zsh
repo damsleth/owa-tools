@@ -47,17 +47,29 @@ _owa_graph() {
         return
     fi
 
-    # Path completion right after an HTTP verb. --beta anywhere in the
-    # words list switches to the beta path manifest.
-    if [[ "$head_kind" == "verb" && $CURRENT -eq $((i+1)) ]]; then
-        local endpoint="v1.0"
-        local w
-        for w in "${words[@]}"; do
-            [[ "$w" == "--beta" ]] && endpoint="beta"
+    # Path completion. Either right after an explicit HTTP verb, or the verb
+    # was omitted and the user is typing a /path as the first arg
+    # (`owa-graph /me` == `owa-graph GET /me`). --beta anywhere switches to the
+    # beta manifest. We complete one tier per tab (segment-wise) so a tab never
+    # dumps the whole ~3.5k-path tree.
+    local cur="${words[CURRENT]}"
+    if [[ ( "$head_kind" == "verb" && $CURRENT -eq $((i+1)) ) || \
+          ( $CURRENT -eq 2 && "$cur" == /* ) ]]; then
+        local endpoint="v1.0" x
+        for x in "${words[@]}"; do
+            [[ "$x" == "--beta" ]] && endpoint="beta"
         done
-        local -a graph_paths
-        graph_paths=("${(@f)$(owa-graph __complete paths $endpoint 2>/dev/null)}")
-        _values 'path' "${graph_paths[@]}"
+        local -a cands parents leaves
+        cands=("${(@f)$(owa-graph __complete next $endpoint "$cur" 2>/dev/null)}")
+        local c
+        for c in "${cands[@]}"; do
+            [[ -z "$c" ]] && continue
+            if [[ "$c" == */ ]]; then parents+=("${c%/}"); else leaves+=("$c"); fi
+        done
+        # Parents keep a trailing slash and no space, so the next tab descends;
+        # leaves complete normally. Both groups are filtered by what's typed.
+        (( ${#parents} )) && compadd -S / -- "${parents[@]}"
+        (( ${#leaves} )) && compadd -- "${leaves[@]}"
         return
     fi
 
