@@ -1,6 +1,5 @@
 """Microsoft Graph HTTP helper for owa-planner."""
 from owa_core import http
-from owa_core.query import build_query
 from owa_core.errors import (
     AuthExpiredError,
     ConflictError,
