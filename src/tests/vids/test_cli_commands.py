@@ -156,7 +156,7 @@ def test_main_config_persists_profile_and_region(capsys, clean_env, tmp_config):
 def test_main_debug_flag_sets_config(clean_env, tmp_config, monkeypatch, capsys):
     seen = {}
 
-    def fake_resolve(manifest_url, embed_url, region, config, debug):
+    def fake_resolve(manifest_url, embed_url, source_url, region, config, debug):
         seen['debug'] = debug
         return _job()
 

@@ -124,14 +124,93 @@ def test_resolve_dispatches_embed_url(monkeypatch):
         resolve_mod, 'resolve_embed_url',
         lambda url, config, region, debug: seen.append((url, region)) or 'job',
     )
-    out = resolve_mod._resolve('', 'https://h/embed.aspx?uniqueId=g', 'r1', {}, debug=False)
+    out = resolve_mod._resolve('', 'https://h/embed.aspx?uniqueId=g', '', 'r1', {}, debug=False)
     assert out == 'job'
     assert seen == [('https://h/embed.aspx?uniqueId=g', 'r1')]
 
 
+def test_resolve_dispatches_source_url(monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        resolve_mod, 'resolve_url',
+        lambda url, config, region, debug: seen.append((url, region)) or 'job',
+    )
+    out = resolve_mod._resolve('', '', 'https://h/x/stream.aspx?id=%2Fa', 'r1', {}, debug=False)
+    assert out == 'job'
+    assert seen == [('https://h/x/stream.aspx?id=%2Fa', 'r1')]
+
+
 def test_resolve_requires_a_source():
     with pytest.raises(UsageError):
-        resolve_mod._resolve('', '', '', {}, debug=False)
+        resolve_mod._resolve('', '', '', '', {}, debug=False)
+
+
+def test_resolve_url_routes_manifest(monkeypatch):
+    monkeypatch.setattr(resolve_mod, 'resolve_manifest_url',
+                        lambda url, config, debug: 'manifest-job')
+    out = resolve_mod.resolve_url(MANIFEST_URL, {}, '', debug=False)
+    assert out == 'manifest-job'
+
+
+def test_resolve_url_needs_region_for_non_manifest():
+    with pytest.raises(UsageError):
+        resolve_mod.resolve_url('https://h/p/stream.aspx?id=%2Fa', {}, '', debug=False)
+
+
+def test_resolve_url_stream_page_builds_weburl(monkeypatch):
+    seen = []
+    monkeypatch.setattr(resolve_mod, '_job_from_shares',
+                        lambda target, config, region, debug: seen.append((target, region)) or 'j')
+    stream = ('https://contoso-my.sharepoint.com/personal/u/_layouts/15/stream.aspx'
+              '?id=%2Fpersonal%2Fu%2FDocuments%2FRecordings%2Frec.mp4&referrer=Teams')
+    out = resolve_mod.resolve_url(stream, {'region': 'r'}, '', debug=False)
+    assert out == 'j'
+    target, region = seen[0]
+    assert target == ('https://contoso-my.sharepoint.com'
+                      '/personal/u/Documents/Recordings/rec.mp4')
+    assert region == 'r'
+
+
+def test_resolve_url_stream_page_without_id_raises():
+    stream = 'https://contoso-my.sharepoint.com/personal/u/_layouts/15/stream.aspx?foo=bar'
+    with pytest.raises(UsageError):
+        resolve_mod.resolve_url(stream, {'region': 'r'}, '', debug=False)
+
+
+def test_resolve_url_sharing_link_passed_verbatim(monkeypatch):
+    seen = []
+    monkeypatch.setattr(resolve_mod, '_job_from_shares',
+                        lambda target, config, region, debug: seen.append(target) or 'j')
+    link = 'https://contoso-my.sharepoint.com/:v:/r/personal/u/Documents/rec.mp4?csf=1&web=1&e=x'
+    resolve_mod.resolve_url(link, {'region': 'r'}, '', debug=False)
+    assert seen == [link]
+
+
+def test_resolve_url_uniqueid_routes_embed(monkeypatch):
+    seen = []
+    monkeypatch.setattr(resolve_mod, 'resolve_embed_url',
+                        lambda url, config, region, debug: seen.append(url) or 'j')
+    embed = 'https://contoso-my.sharepoint.com/personal/u/_layouts/15/embed.aspx?uniqueId=G'
+    resolve_mod.resolve_url(embed, {'region': 'r'}, '', debug=False)
+    assert seen == [embed]
+
+
+def test_job_from_shares_builds_docid_with_site(monkeypatch):
+    monkeypatch.setattr(resolve_mod.auth_mod, 'get_graph_token', lambda *a, **k: 'gtok')
+    monkeypatch.setattr(resolve_mod, 'Http', lambda debug: object())
+    monkeypatch.setattr(resolve_mod, 'graph_get', lambda *a: {
+        'id': '01ITEM', 'name': 'rec.mp4', 'cTag': 'ct',
+        'parentReference': {'driveId': 'b!DRV'},
+        'webUrl': 'https://contoso-my.sharepoint.com/personal/u/Documents/rec.mp4',
+    })
+    job = resolve_mod._job_from_shares(
+        'https://contoso-my.sharepoint.com/personal/u/Documents/rec.mp4',
+        {}, region='r', debug=False)
+    assert job.drive_id == 'b!DRV'
+    assert job.item_id == '01ITEM'
+    assert job.title == 'rec.mp4'
+    assert '/personal/u/_api/v2.0/drives/b!DRV/items/01ITEM' in job.docid
+    assert job.docid.endswith('?version=Published')
 
 
 def test_resolve_embed_url_missing_ids_raises_not_found(monkeypatch):
