@@ -1,8 +1,10 @@
 """Argument parsing and dispatch for the `owa-graph` command.
 
 owa-graph is verb-first: `owa-graph GET /me`, `owa-graph POST /me/sendMail
---body @msg.json`. JSON on stdout, logs on stderr, --pretty for humans,
---curl/--az to render the equivalent shell command without executing.
+--body @msg.json`. The verb is optional and defaults to GET, so
+`owa-graph /me` == `owa-graph GET /me`. JSON on stdout, logs on stderr,
+--pretty for humans, --curl/--az to render the equivalent shell command
+without executing.
 
 Subcommands are parsed manually (no argparse subparsers) to keep the
 code flat and to mirror owa-cal/owa-mail. Each cmd_* fn is responsible
@@ -29,7 +31,6 @@ from . import resources as resources_mod
 from . import scopes as scopes_mod
 
 HTTP_VERBS = {'GET', 'POST', 'PATCH', 'PUT', 'DELETE'}
-RESERVED_SUBCOMMANDS = {'refresh', 'config', 'batch', 'help'}
 
 _VERB_FLAGS = [
     schema_mod.flag('<path>', summary='Graph path (positional, leading / optional)', required=True),
@@ -105,13 +106,13 @@ def print_help():
     groups_block = '\n'.join(groups_block_lines)
     print("""owa-graph - Microsoft Graph CLI for one-off queries
 
-Usage: owa-graph <METHOD> <path> [options]
+Usage: owa-graph [METHOD] <path> [options]
        owa-graph <group> <shortcut> [options]
        owa-graph batch <file|-> [--ndjson] [--pretty] [--retry]
        owa-graph refresh
        owa-graph config [--profile <alias>] [--audience <name>]
 
-METHOD: GET | POST | PATCH | PUT | DELETE  (case-insensitive)
+METHOD: GET | POST | PATCH | PUT | DELETE  (case-insensitive; omit for GET)
 path:   /me, /users, '/users?$top=5', me/messages/<id>  (leading slash optional)
 
 Resource groups (run `owa-graph <group>` for shortcuts):
@@ -190,6 +191,7 @@ Scope caveat:
   audience. See docs/graph.md "Scope matrix" for per-shortcut details.
 
 Examples:
+  owa-graph /me                            # verb omitted -> GET /me
   owa-graph GET /me
   owa-graph GET '/users?$top=5' --pretty
   owa-graph GET /users --all --ndjson | jq -c .displayName
@@ -244,7 +246,8 @@ def _cmd_internal_complete(args):
     enough for them to depend on; deliberately not advertised in help.
 
     Usage:
-      owa-graph __complete paths [v1.0|beta]   # one path per line
+      owa-graph __complete paths [v1.0|beta]          # whole tree, one per line
+      owa-graph __complete next [v1.0|beta] [<word>]  # next tier under <word>
     """
     if not args:
         return 1
@@ -252,6 +255,11 @@ def _cmd_internal_complete(args):
     if head == 'paths':
         endpoint = rest[0] if rest else 'v1.0'
         paths_mod.dump_paths(endpoint)
+        return 0
+    if head == 'next':
+        endpoint = rest[0] if rest else 'v1.0'
+        word = rest[1] if len(rest) > 1 else ''
+        paths_mod.dump_next(word, endpoint)
         return 0
     return 1
 
@@ -800,18 +808,17 @@ def _main(argv):
         return _dispatch_resource_group(head, rest, config)
 
     method = head.upper()
-    if method not in HTTP_VERBS:
-        raise UsageError(
-            f"Unknown command: {head!r}. "
-            f"Expected an HTTP verb ({', '.join(sorted(HTTP_VERBS))}) "
-            f"or one of: {', '.join(sorted(RESERVED_SUBCOMMANDS))}. "
-            f"Run 'owa-graph help' for usage."
-        )
+    if method in HTTP_VERBS:
+        if not rest:
+            raise UsageError(f'{method} requires a path (e.g. `owa-graph {method} /me`)')
+        path, request_args = rest[0], rest[1:]
+        return cmd_request(method, path, request_args, config)
 
-    if not rest:
-        raise UsageError(f'{method} requires a path (e.g. `owa-graph {method} /me`)')
-    path, request_args = rest[0], rest[1:]
-    return cmd_request(method, path, request_args, config)
+    # Verb omitted: default to GET and treat head as the path. So
+    # `owa-graph /me` and `owa-graph me/events` mean `owa-graph GET <path>`.
+    # Bare resource-group names (handled above) still win, so `owa-graph me`
+    # shows the group's shortcuts rather than GETting /me.
+    return cmd_request('GET', head, rest, config)
 
 
 def main(argv=None):

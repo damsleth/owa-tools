@@ -50,6 +50,56 @@ def all_paths(endpoint: str = 'v1.0') -> List[str]:
     return list(paths) if isinstance(paths, list) else []
 
 
+def next_segments(word: str, endpoint: str = 'v1.0') -> List[str]:
+    """Next-tier completion candidates for the path fragment `word`.
+
+    Given what the user has typed so far ('/me', '/me/', '/me/set'), return
+    the full paths exactly one segment deeper, deduped. Parents (candidates
+    that themselves have children) get a trailing '/' so the shell can offer
+    another tab. This keeps each tab-press to one tier (~tens of entries)
+    instead of dumping the whole ~3.5k-path tree.
+
+    Rules:
+      - '/me'      -> descends into /me (it's a complete node) -> /me/calendar, ...
+      - '/me/'     -> same (trailing slash means "show children")
+      - '/me/set'  -> siblings under /me, shell filters down to /me/settings
+      - ''         -> top-level paths
+    """
+    paths = all_paths(endpoint)
+    pset = set(paths)
+    w = word or '/'
+    # Descend when the word names a complete node or ends in '/'; otherwise the
+    # last segment is partial, so complete siblings under its parent dir.
+    descend = w.endswith('/') or (w.rstrip('/') in pset and w != '/')
+    base = w.rstrip('/') if descend else w.rsplit('/', 1)[0]
+    prefix = base + '/' if base else '/'
+    out: dict = {}
+    for p in paths:
+        if not p.startswith(prefix):
+            continue
+        rest = p[len(prefix):]
+        if not rest:
+            continue
+        seg = rest.split('/', 1)[0]
+        cand = prefix + seg
+        out[cand] = out.get(cand, False) or ('/' in rest)
+    return [c + '/' if is_parent else c for c, is_parent in sorted(out.items())]
+
+
+def dump_next(word: str, endpoint: str = 'v1.0', stream=None) -> int:
+    """Print next-tier candidates one per line for the completion scripts."""
+    out = stream or sys.stdout
+    written = 0
+    try:
+        for c in next_segments(word, endpoint):
+            out.write(c)
+            out.write('\n')
+            written += 1
+    except BrokenPipeError:
+        pass
+    return written
+
+
 def dump_paths(endpoint: str = 'v1.0', stream=None) -> int:
     """Print every path on its own line. Used by the completion
     scripts via `owa-graph __complete paths`. Returns the number of
