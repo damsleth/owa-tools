@@ -6,7 +6,36 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
-## Unreleased
+## v1.2.0 - 2026-06-29
+
+New features, a breaking flag rename, and correctness fixes.
+
+### Breaking
+
+- **owa-teams `messages`**: the `--all` flag (include system events) was renamed
+  to `--system-events` to stop colliding with the suite-wide `--all` (exhaust
+  pages).
+
+### owa-vids
+
+- **Paste the recording URL directly.** `info`/`get`/`check` now accept the
+  Stream "watch in browser" page (`stream.aspx?id=...`) or the "Copy link"
+  sharing URL as a bare argument; the kind is auto-detected and resolved via
+  Graph `/shares`. No more grepping the `videomanifest` URL out of DevTools.
+  The `--manifest-url`/`--embed-url` flags remain for back-compat.
+- **Media region auto-detected.** The `*-mediap.svc.ms` region is learned
+  from the item's thumbnail URLs on first use (no manifest URL needed) and
+  cached **per profile** (tenants differ per profile). The legacy single
+  `region` config key is still read as a fallback; `--region` still overrides.
+
+### owa-graph
+
+- **Verb optional.** `owa-graph /me` is shorthand for `owa-graph GET /me`
+  (a bare resource-group name like `owa-graph me` still shows its shortcuts).
+- **Segment-wise path completion.** Tab completion now descends one tier per
+  tab (`/me/<TAB>` -> `/me/calendar`, ...) via `__complete next` instead of
+  dumping the whole ~3.5k-path tree, and fires on `owa-graph /<TAB>` too. A
+  `make install-completions` target installs the zsh/bash/fish scripts.
 
 Bug fixes — silent data loss / correctness.
 
@@ -23,9 +52,8 @@ P1 fixes & cleanup.
   single-event detail (attendees, organizer, body) via `normalize_event_detail`.
 - **owa-ado `wi`**: `--iteration` now filters by `System.IterationPath`; `--status`
   on `prs` is validated against the allowed set.
-- **owa-teams `messages`**: the `--all` flag (include system events) was renamed
-  to `--system-events` to stop colliding with the suite-wide `--all` (exhaust
-  pages); a truncation note is emitted when output hits the page cap.
+- **owa-teams `messages`**: a truncation note is emitted when output hits the
+  page cap (see the flag rename under Breaking, above).
 - **owa-graph**: dropped the stale `--app-client-id` reference from `config` help.
 - **owa-people `show`**: corrected a misleading comment about email-vs-id branching.
 - **owa umbrella**: meta-commands (`list`/`schema`/`version`) now route through
