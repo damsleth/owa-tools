@@ -191,3 +191,71 @@ def test_chatsvc_messages_passes_retry_budget(monkeypatch):
     monkeypatch.setattr(api_mod.http, 'request', fake_request)
     api_mod.chatsvc_messages('https://t/v1', 'c', 'tok')
     assert seen['retry'] == api_mod.DEFAULT_RETRY
+
+
+# --- graph_collect ------------------------------------------------------------
+
+def test_graph_collect_caps_at_top_and_signals_truncation(monkeypatch):
+    def fake_paginate(url, **k):
+        yield from [{'id': '1'}, {'id': '2'}, {'id': '3'}]
+
+    monkeypatch.setattr(api_mod.http, 'paginate', fake_paginate)
+    rows, truncated = api_mod.graph_collect('https://g/v1.0', 'me/chats', 'tok', top=2)
+    assert [r['id'] for r in rows] == ['1', '2']
+    assert truncated is True
+
+
+def test_graph_collect_no_truncation_when_under_top(monkeypatch):
+    monkeypatch.setattr(api_mod.http, 'paginate', lambda url, **k: iter([{'id': '1'}]))
+    rows, truncated = api_mod.graph_collect('https://g/v1.0', 'me/chats', 'tok', top=50)
+    assert [r['id'] for r in rows] == ['1']
+    assert truncated is False
+
+
+def test_graph_collect_top_none_walks_all(monkeypatch):
+    monkeypatch.setattr(api_mod.http, 'paginate',
+                        lambda url, **k: iter([{'id': str(i)} for i in range(5)]))
+    rows, truncated = api_mod.graph_collect('https://g/v1.0', 'me/chats', 'tok', top=None)
+    assert len(rows) == 5
+    assert truncated is False
+
+
+def test_graph_collect_auth_reraises(monkeypatch):
+    def boom(url, **k):
+        raise errors.ScopeInsufficientError('403')
+
+    monkeypatch.setattr(api_mod.http, 'paginate', lambda url, **k: (_ for _ in ()).throw(errors.ScopeInsufficientError('403')))
+    with pytest.raises(errors.ScopeInsufficientError):
+        list(api_mod.graph_collect('https://g', 'x', 'tok', top=5))
+
+
+# --- chatsvc_post -------------------------------------------------------------
+
+def test_chatsvc_post_targets_messages_endpoint(monkeypatch):
+    seen = {}
+
+    def fake_request(method, url, **k):
+        seen.update(method=method, url=url, body=k.get('body'), headers=k.get('headers'))
+        return _resp({'OriginalArrivalTime': 42})
+
+    monkeypatch.setattr(api_mod.http, 'request', fake_request)
+    out = api_mod.chatsvc_post('https://t/api/chatsvc/emea/v1', '19:x@unq.gbl.spaces',
+                               {'content': 'hi'}, 'tok')
+    assert seen['method'] == 'POST'
+    assert seen['url'].endswith('/users/ME/conversations/19%3Ax%40unq.gbl.spaces/messages')
+    assert seen['body'] == {'content': 'hi'}
+    assert out['OriginalArrivalTime'] == 42
+
+
+def test_chatsvc_post_auth_reraises(monkeypatch):
+    monkeypatch.setattr(api_mod.http, 'request',
+                        lambda *a, **k: (_ for _ in ()).throw(errors.AuthExpiredError('401')))
+    with pytest.raises(errors.AuthExpiredError):
+        api_mod.chatsvc_post('https://t/v1', 'c', {}, 'tok')
+
+
+def test_chatsvc_post_recoverable_reraises(monkeypatch):
+    monkeypatch.setattr(api_mod.http, 'request',
+                        lambda *a, **k: (_ for _ in ()).throw(errors.RateLimitedError('429')))
+    with pytest.raises(errors.RateLimitedError):
+        api_mod.chatsvc_post('https://t/v1', 'c', {}, 'tok')

@@ -168,7 +168,17 @@ Create options:
   --date <date>       Date (default: today)
   --start <HH:MM>     Start time (default: 09:00)
   --end <HH:MM>       End time (default: 10:00)
-  --category <name>   Category name
+  --category <name>   Category name (repeatable)
+  --attendee <email>  Required attendee (repeatable)
+  --optional-attendee <email>
+                      Optional attendee (repeatable)
+  --reminder <min>    Reminder minutes before start (turns the reminder on)
+  --recur <daily|weekly>
+                      Recurrence pattern (anchored on the event's start day;
+                      weekly repeats on that weekday)
+  --recur-interval <n>  Every n days/weeks (default 1)
+  --recur-count <n>     End after n occurrences
+  --recur-until <date>  End on YYYY-MM-DD (mutually exclusive with --recur-count)
   --location <place>  Location
   --body <text>       Description
   --allday            All-day event
@@ -176,8 +186,10 @@ Create options:
 
 Update options:
   --id <event-id>     Event ID (required)
-  --subject, --date, --start, --end, --category,
-  --location, --body, --showas
+  --subject, --date, --start, --end, --category, --attendee,
+  --optional-attendee, --reminder, --recur, --recur-interval,
+  --recur-count, --recur-until, --location, --body, --showas
+  (--category/--attendee/--optional-attendee replace the existing set)
 
 Delete options:
   --id <event-id>     Event ID (required)
@@ -400,13 +412,24 @@ def cmd_events(args, config, access_token, api_base):
         '$orderby': orderby_field,
         '$select': select_fields,
     })
+    # Render event times in the configured timezone so calendarView's
+    # window edges line up with the user's day (fixes an off-by-one where
+    # Outlook's default UTC rendering shifted events across midnight).
+    tz = config.get('default_timezone') or config_mod.DEFAULT_TIMEZONE
+    prefer_headers = {'Prefer': f'outlook.timezone="{tz}"'}
     if all_pages:
-        items = api_mod.paginate_all(api_base, f'me/calendarView?{q}', access_token, debug=debug)
+        items = api_mod.paginate_all(
+            api_base, f'me/calendarView?{q}', access_token,
+            debug=debug, headers=prefer_headers,
+        )
         if items is None:
             return 1
         data = {'value': items}
     else:
-        data = api_mod.api_get(api_base, f'me/calendarView?{q}', access_token, debug=debug)
+        data = api_mod.api_get(
+            api_base, f'me/calendarView?{q}', access_token,
+            debug=debug, headers=prefer_headers,
+        )
         if data is None:
             return 1
     normalized = events_mod.normalize_events(data)
@@ -451,8 +474,15 @@ def cmd_show(args, config, access_token, api_base):
 
 
 def cmd_create(args, config, access_token, api_base):
-    subject = date_ = start_time = end_time = category = location = body_text = showas = ''
+    subject = date_ = start_time = end_time = location = body_text = showas = ''
     allday = False
+    categories = []
+    required_att = []
+    optional_att = []
+    reminder = None
+    recur = recur_until = ''
+    recur_interval = 1
+    recur_count = 0
     while args:
         flag, args = args[0], args[1:]
         if flag == '--subject':
@@ -464,7 +494,21 @@ def cmd_create(args, config, access_token, api_base):
         elif flag == '--end':
             end_time, args = _require_value(flag, args)
         elif flag == '--category':
-            category, args = _require_value(flag, args)
+            v, args = _require_value(flag, args); categories.append(v)
+        elif flag == '--attendee':
+            v, args = _require_value(flag, args); required_att.append(v)
+        elif flag == '--optional-attendee':
+            v, args = _require_value(flag, args); optional_att.append(v)
+        elif flag == '--reminder':
+            reminder, args = _require_int(flag, args)
+        elif flag == '--recur':
+            recur, args = _require_value(flag, args)
+        elif flag == '--recur-interval':
+            recur_interval, args = _require_int(flag, args)
+        elif flag == '--recur-count':
+            recur_count, args = _require_int(flag, args)
+        elif flag == '--recur-until':
+            recur_until, args = _require_value(flag, args)
         elif flag == '--location':
             location, args = _require_value(flag, args)
         elif flag == '--body':
@@ -478,6 +522,10 @@ def cmd_create(args, config, access_token, api_base):
 
     if not subject:
         raise UsageError('--subject is required')
+    if recur_count and recur_until:
+        raise UsageError('--recur-count and --recur-until are mutually exclusive')
+    if (recur_interval != 1 or recur_count or recur_until) and not recur:
+        raise UsageError('--recur-interval/--recur-count/--recur-until require --recur')
     date_ = date_ or today()
     if allday:
         start_dt = make_datetime(date_, '00:00')
@@ -490,10 +538,20 @@ def cmd_create(args, config, access_token, api_base):
 
     tz = config.get('default_timezone') or config_mod.DEFAULT_TIMEZONE
     debug = _debug_enabled(config)
+    attendees = events_mod.build_attendees(required_att, optional_att)
+    try:
+        recurrence = events_mod.build_recurrence(
+            recur, date_, interval=recur_interval,
+            count=recur_count, until=recur_until,
+        )
+    except ValueError as exc:
+        raise UsageError(str(exc))
     body = events_mod.build_event_json(
         subject, start_dt, end_dt, tz,
-        category=category, location=location, body_text=body_text,
+        location=location, body_text=body_text,
         allday=allday, showas=showas,
+        categories=categories, attendees=attendees,
+        reminder=reminder, recurrence=recurrence,
     )
     if debug:
         print(f'DEBUG: creating event: {json.dumps(body)[:500]}', file=sys.stderr)
@@ -539,6 +597,13 @@ def cmd_update(args, config, access_token, api_base):
     event_id, args = schema_mod.pop_positional_id(args)
     fields = {}
     date_ = start_time = end_time = ''
+    categories = []
+    required_att = []
+    optional_att = []
+    have_attendees = False
+    recur = recur_until = ''
+    recur_interval = 1
+    recur_count = 0
     while args:
         flag, args = args[0], args[1:]
         if flag == '--id':
@@ -546,7 +611,21 @@ def cmd_update(args, config, access_token, api_base):
         elif flag == '--subject':
             fields['subject'], args = _require_value(flag, args)
         elif flag == '--category':
-            fields['category'], args = _require_value(flag, args)
+            v, args = _require_value(flag, args); categories.append(v)
+        elif flag == '--attendee':
+            v, args = _require_value(flag, args); required_att.append(v); have_attendees = True
+        elif flag == '--optional-attendee':
+            v, args = _require_value(flag, args); optional_att.append(v); have_attendees = True
+        elif flag == '--reminder':
+            fields['reminder'], args = _require_int(flag, args)
+        elif flag == '--recur':
+            recur, args = _require_value(flag, args)
+        elif flag == '--recur-interval':
+            recur_interval, args = _require_int(flag, args)
+        elif flag == '--recur-count':
+            recur_count, args = _require_int(flag, args)
+        elif flag == '--recur-until':
+            recur_until, args = _require_value(flag, args)
         elif flag == '--location':
             fields['location'], args = _require_value(flag, args)
         elif flag == '--body':
@@ -564,10 +643,21 @@ def cmd_update(args, config, access_token, api_base):
 
     if not event_id:
         raise UsageError('--id is required')
+    if recur_count and recur_until:
+        raise UsageError('--recur-count and --recur-until are mutually exclusive')
+    if (recur_interval != 1 or recur_count or recur_until) and not recur:
+        raise UsageError('--recur-interval/--recur-count/--recur-until require --recur')
+    if categories:
+        fields['categories'] = categories
+    if have_attendees:
+        fields['attendees'] = events_mod.build_attendees(required_att, optional_att)
 
     debug = _debug_enabled(config)
 
-    if start_time or end_time or date_:
+    # Recurrence patterns anchor on the event's start date. Reuse the new
+    # --date if given; otherwise fetch the existing event to read it.
+    recur_anchor = date_
+    if start_time or end_time or date_ or recur:
         # Merge against existing event so partial date/time edits do not
         # clobber the other half of the range.
         existing_raw = api_mod.api_get(api_base, _event_path(event_id), access_token, debug=debug)
@@ -578,6 +668,7 @@ def cmd_update(args, config, access_token, api_base):
         existing_end = existing.get('end') or ''
         existing_start_date, existing_start_time = _split_datetime(existing_start)
         existing_end_date, existing_end_time = _split_datetime(existing_end)
+        recur_anchor = date_ or existing_start_date
         patch_start_date = date_ or existing_start_date
         patch_end_date = existing_end_date or patch_start_date
         if date_:
@@ -593,11 +684,23 @@ def cmd_update(args, config, access_token, api_base):
         elif date_:
             fields['end'] = make_datetime(patch_end_date, existing_end_time)
 
+    if recur:
+        try:
+            recurrence = events_mod.build_recurrence(
+                recur, recur_anchor, interval=recur_interval,
+                count=recur_count, until=recur_until,
+            )
+        except ValueError as exc:
+            raise UsageError(str(exc))
+        if recurrence:
+            fields['recurrence'] = recurrence
+
     if not fields:
         _error(
             'update requires at least one field '
             '(--subject, --category, --location, --body, --showas, '
-            '--date, --start, --end)'
+            '--date, --start, --end, --attendee, --optional-attendee, '
+            '--reminder, --recur)'
         )
         return 1
 
@@ -820,7 +923,14 @@ _CREATE_FLAGS = [
     schema_mod.flag('--date', value='<date>', summary='Date (default: today)'),
     schema_mod.flag('--start', value='<HH:MM>', summary='Start time (default: 09:00)'),
     schema_mod.flag('--end', value='<HH:MM>', summary='End time (default: 10:00)'),
-    schema_mod.flag('--category', value='<name>', summary='Category name'),
+    schema_mod.flag('--category', value='<name>', summary='Category name', repeatable=True),
+    schema_mod.flag('--attendee', value='<email>', summary='Required attendee', repeatable=True),
+    schema_mod.flag('--optional-attendee', value='<email>', summary='Optional attendee', repeatable=True),
+    schema_mod.flag('--reminder', value='<minutes>', summary='Reminder minutes before start'),
+    schema_mod.flag('--recur', value='<daily|weekly>', summary='Recurrence pattern'),
+    schema_mod.flag('--recur-interval', value='<n>', summary='Recurrence interval (default 1)'),
+    schema_mod.flag('--recur-count', value='<n>', summary='Number of occurrences'),
+    schema_mod.flag('--recur-until', value='<YYYY-MM-DD>', summary='Recur until date'),
     schema_mod.flag('--location', value='<place>', summary='Location'),
     schema_mod.flag('--body', value='<text>', summary='Description'),
     schema_mod.flag('--allday', summary='All-day event'),
@@ -837,7 +947,14 @@ _UPDATE_FLAGS = [
     schema_mod.flag('--date', value='<date>', summary='New date'),
     schema_mod.flag('--start', value='<HH:MM>', summary='New start time'),
     schema_mod.flag('--end', value='<HH:MM>', summary='New end time'),
-    schema_mod.flag('--category', value='<name>', summary='New category'),
+    schema_mod.flag('--category', value='<name>', summary='Replace categories', repeatable=True),
+    schema_mod.flag('--attendee', value='<email>', summary='Replace required attendees', repeatable=True),
+    schema_mod.flag('--optional-attendee', value='<email>', summary='Replace optional attendees', repeatable=True),
+    schema_mod.flag('--reminder', value='<minutes>', summary='Reminder minutes before start'),
+    schema_mod.flag('--recur', value='<daily|weekly>', summary='Recurrence pattern'),
+    schema_mod.flag('--recur-interval', value='<n>', summary='Recurrence interval (default 1)'),
+    schema_mod.flag('--recur-count', value='<n>', summary='Number of occurrences'),
+    schema_mod.flag('--recur-until', value='<YYYY-MM-DD>', summary='Recur until date'),
     schema_mod.flag('--location', value='<place>', summary='New location'),
     schema_mod.flag('--body', value='<text>', summary='New description'),
     schema_mod.flag('--showas', value='<status>', summary='busy, free, tentative, oof'),

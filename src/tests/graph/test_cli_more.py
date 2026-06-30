@@ -87,6 +87,29 @@ def test_get_raw_writes_bytes_to_stdout_buffer(monkeypatch, stub_auth, loaded_co
     assert b'\x89PNG' in out
 
 
+def test_raw_rejected_under_agent_env(monkeypatch, stub_auth, loaded_config, capsys):
+    monkeypatch.setenv('OWA_AGENT', '1')
+    monkeypatch.setattr(cli.api_mod, 'api_request', lambda *a, **k: b'bytes')
+    rc = _run(monkeypatch, 'GET', '/me/photo/$value', '--raw')
+    assert rc != 0
+    assert '--raw emits non-JSON output and cannot run under --agent' in capsys.readouterr().err
+
+
+def test_curl_rejected_under_agent_flag(monkeypatch, stub_auth, loaded_config, capsys):
+    monkeypatch.setattr(sys, 'argv', ['owa-graph', 'GET', '/me', '--curl', '--agent'])
+    rc = cli.main()
+    err = capsys.readouterr().err
+    assert rc != 0
+    assert '--curl emits non-JSON output and cannot run under --agent' in err
+
+
+def test_az_rejected_under_agent_env(monkeypatch, stub_auth, loaded_config, capsys):
+    monkeypatch.setenv('OWA_AGENT', '1')
+    rc = _run(monkeypatch, 'GET', '/me', '--az')
+    assert rc != 0
+    assert '--az emits non-JSON output and cannot run under --agent' in capsys.readouterr().err
+
+
 def test_post_with_file_body_reads_file(monkeypatch, stub_auth, loaded_config, tmp_path, capsys):
     body_file = tmp_path / 'body.json'
     body_file.write_text('{"subject":"hi"}')

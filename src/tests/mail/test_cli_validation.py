@@ -323,7 +323,7 @@ def test_reply_save_draft_without_body_skips_patch(monkeypatch):
     assert rc == 0
     assert calls == [
         ('POST', 'me/messages/X/createReply', None),
-        ('GET', 'me/messages/DRAFT1?$select=Id%2CConversationId%2CReceivedDateTime%2CSubject%2CFrom%2CToRecipients%2CCcRecipients%2CBccRecipients%2CBodyPreview%2CIsRead%2CHasAttachments%2CImportance%2CFlag%2CWebLink%2CParentFolderId', None),
+        ('GET', 'me/messages/DRAFT1?$select=Id%2CConversationId%2CReceivedDateTime%2CSubject%2CFrom%2CToRecipients%2CCcRecipients%2CBccRecipients%2CBodyPreview%2CIsRead%2CHasAttachments%2CImportance%2CFlag%2CWebLink%2CParentFolderId%2CCategories', None),
     ]
 
 

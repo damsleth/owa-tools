@@ -113,7 +113,9 @@ availability options:
                       default_work_start).
   --end <HH:MM>       Work-day window end (default: 17:00, or config
                       default_work_end).
-  --interval <n>      availabilityView granularity in minutes (default: 30).
+  --interval <n>      availabilityView granularity in minutes (5-1440,
+                      default: 30).
+  --tz <timezone>     Override the configured Graph time zone.
   --pretty            Human-readable output (default: JSON).
 
 find-time options:
@@ -260,6 +262,7 @@ def cmd_availability(args, config, access_token, api_base):
     end_hhmm = config.get('default_work_end') or '17:00'
     interval = 30
     pretty = False
+    tz_override = ''
     while args:
         flag, args = args[0], args[1:]
         if flag == '--who':
@@ -284,6 +287,8 @@ def cmd_availability(args, config, access_token, api_base):
             parse_hhmm(end_hhmm)
         elif flag == '--interval':
             interval, args = _require_int(flag, args)
+        elif flag == '--tz':
+            tz_override, args = _require_value(flag, args)
         elif flag == '--pretty':
             pretty = True
         else:
@@ -292,9 +297,14 @@ def cmd_availability(args, config, access_token, api_base):
     who = _split_csv(who_csv)
     if not who:
         raise UsageError('--who is required (comma-separated emails)')
+    if interval < 5 or interval > 1440:
+        raise UsageError('--interval must be between 5 and 1440 minutes')
+    if len(who) > 20:
+        raise UsageError('--who supports at most 20 attendees '
+                         '(getSchedule caps schedules at 20)')
 
     from_, to_ = _resolve_window(date_, from_, to_, week, month, year)
-    tz = config.get('default_timezone') or 'W. Europe Standard Time'
+    tz = tz_override or config.get('default_timezone') or 'W. Europe Standard Time'
 
     attendees = _call_get_schedule(
         who, from_, to_, start_hhmm, end_hhmm, interval, tz,
@@ -390,7 +400,8 @@ def cmd_find_time(args, config, access_token, api_base):
     if limit is not None and limit < 0:
         raise UsageError('--limit must be non-negative')
     if len(who) > 20:
-        raise UsageError('--who supports at most 20 attendees')
+        raise UsageError('--who supports at most 20 attendees '
+                         '(getSchedule caps schedules at 20)')
     if max_candidates <= 0:
         raise UsageError('--max-candidates must be positive')
     if min_attendee_pct < 0 or min_attendee_pct > 100:
@@ -531,7 +542,8 @@ _AVAILABILITY_FLAGS = [
     schema_mod.flag('--year', value='<n|rel>', summary='Year: full year, current/last/next, or +n/-n'),
     schema_mod.flag('--start', value='<HH:MM>', summary='Work-day start (default 08:00, or config default_work_start)'),
     schema_mod.flag('--end', value='<HH:MM>', summary='Work-day end (default 17:00, or config default_work_end)'),
-    schema_mod.flag('--interval', value='<min>', summary='Resolution in minutes (default 30)'),
+    schema_mod.flag('--interval', value='<min>', summary='availabilityView resolution in minutes (5-1440, default 30)'),
+    schema_mod.flag('--tz', value='<timezone>', summary='Override configured Graph time zone'),
     schema_mod.flag('--pretty', summary='Human-readable view (default: JSON)'),
 ]
 

@@ -27,7 +27,7 @@ def test_delete_no_confirm_aborts_on_n(monkeypatch, capsys):
 
     api_calls = []
 
-    def fake_get(base, endpoint, token, debug=False):
+    def fake_get(base, endpoint, token, debug=False, headers=None):
         api_calls.append(('GET', endpoint))
         return {
             'Id': 'evt-1',
@@ -103,7 +103,7 @@ def test_events_week_range_query(monkeypatch, capsys):
 
     captured = {}
 
-    def fake_get(base, endpoint, token, debug=False):
+    def fake_get(base, endpoint, token, debug=False, headers=None):
         captured['endpoint'] = endpoint
         return {'value': []}
 

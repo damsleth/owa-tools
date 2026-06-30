@@ -31,10 +31,24 @@ covers both enumeration and message bodies under owa-piggy's FOCI client.
   direction), NOT Graph's `@odata.nextLink`, so `api.chatsvc_messages` follows
   it itself rather than reusing `owa_core.http.paginate`. Graph collections do
   use the shared paginator (`api.graph_paginate`).
-- **v1 is read-only.** Posting messages (chatsvc POST, destructive + confirm),
-  team members (`/teams/{id}/members`, scope-gated - teaminal sidesteps it via
-  message MRI + `imdisplayname`), and Teams meeting metadata (an onlineMeeting
-  surface that belongs with owa-cal) are deferred.
+- **Sending (`send`) is live.** A chatsvc POST to the same
+  `/users/ME/conversations/{id}/messages` path (no query) accepts the `ic3`
+  bearer directly - verified 2026-06-30, 201 + `{OriginalArrivalTime}`; the
+  bearer carries `Endpoint.ReadWrite.All`. It is mutating + confirm-gated
+  (`tty.require_confirm_or_tty`) and idempotent via a generated `clientmessageid`.
+  Channel replies set `properties.rootMessageId`; @-mentions are an `<at id>`
+  tag in `content` plus a `properties.mentions` JSON string; link cards go in
+  `properties.files`. Body builders + the result normalizer live in `teams.py`.
+- **`members` is split by the FOCI wall.** `members --chat` reads
+  `/chats/{id}/members` on the Graph token (200). `members --channel`/team
+  members need `ChannelMember.Read.All`/`TeamMember.Read.All`, which the client
+  cannot get (403 -> ScopeInsufficientError, exit 12); the endpoint is built but
+  walled. teaminal sidesteps it via message MRI + `imdisplayname`.
+- `channels`/`chats` page Graph collections via `api.graph_collect` (`--top <n>`
+  caps + stops nextLink early, `--all` walks every page); it returns
+  `(rows, truncated)` and the truncation note goes to stderr.
+- Teams meeting metadata (an onlineMeeting surface that belongs with owa-cal)
+  remains deferred.
 - Command spec: `COMMAND_SCHEMA` in `cli.py`. Docs live in `docs/teams.md`.
 
 Nearest tests: `src/tests/teams/`.

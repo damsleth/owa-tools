@@ -78,19 +78,29 @@ hides that detail.
 owa-todo lists                                # task folders (To Do lists), JSON
 owa-todo lists --pretty                       # marked default with *
 
+owa-todo list-create --name "Groceries"       # create a To Do list
+owa-todo list-rename --id "Groceries" --name "Food"   # rename (by name or id)
+owa-todo list-delete --id "Food"              # prompts unless --confirm
+
 owa-todo tasks                                # all tasks across folders
 owa-todo tasks --pretty                       # checklist view
 owa-todo tasks --folder "Groceries"           # one folder (by name or id)
 owa-todo tasks --status notstarted --pretty   # filter by status
-owa-todo tasks --search milk                  # filter by subject
+owa-todo tasks --search milk                  # client-side subject filter
+owa-todo tasks --filter "Importance eq 'High'"        # server-side $filter
+owa-todo tasks --orderby "DueDateTime/DateTime asc"   # server-side $orderby
 
 owa-todo create --subject "Buy milk" --due tomorrow --importance high
 owa-todo create --subject "Email Ada" --folder "Work" --body "re: Q3 plan"
+owa-todo create --subject "Standup" --recurrence daily --reminder 2026-06-01T09:00
+owa-todo create --subject "Pay rent" --category bills --category home
 
 owa-todo update --id <task-id> --due 2026-06-01
 owa-todo update --id <task-id> --status inprogress
+owa-todo update --id <task-id> --reminder 2026-06-01T09:00 --recurrence weekly
 
 owa-todo done --id <task-id>                  # mark completed
+owa-todo undone --id <task-id>                # reopen (status -> notStarted)
 
 owa-todo delete --id <task-id>                # prompts unless --confirm
 
@@ -103,9 +113,18 @@ owa-todo refresh                              # force token refresh
 `yesterday`. `--importance` is `low`, `normal`, or `high`. `--status` accepts
 `notstarted`, `inprogress`, `completed`, `waiting`, or `deferred`.
 
-`create`, `update`, and `done` return the single normalized task. `delete` is
-guarded: in a non-interactive context it requires `--confirm`, otherwise it
-prompts before deleting.
+`--reminder` takes an ISO datetime (`YYYY-MM-DDTHH:MM`), anchored in the
+configured timezone, and turns the task's reminder on. `--recurrence` is a
+documented minimal subset — `daily` or `weekly` — emitted as an open-ended
+`PatternedRecurrence`. `--category` is repeatable and sets the task's
+categories. On `tasks`, `--filter` and `--orderby` pass straight through as
+OData `$filter` / `$orderby` (applied server-side, before the client-side
+`--status` / `--search` narrowing).
+
+`create`, `update`, `done`, and `undone` return the single normalized task;
+`list-create` and `list-rename` return the normalized list. `delete` and
+`list-delete` are guarded: in a non-interactive context they require
+`--confirm`, otherwise they prompt before deleting.
 
 Tasks carry opaque ids: address one via `--id` or as a bare positional argument
 (`owa-todo done <id>` == `owa-todo done --id <id>`).

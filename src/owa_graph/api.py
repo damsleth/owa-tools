@@ -86,13 +86,18 @@ def api_request(method, base, endpoint, access_token, body=None,
 
 
 def paginate(method, url, access_token, extra_headers=None,
-             debug=False, retry=False, max_pages=None):
+             debug=False, retry=False, max_pages=None, on_truncate=None):
     """Yield items from a paginated Graph collection response.
 
     Walks `@odata.nextLink` until exhausted or `max_pages` reached. The
     caller passes a fully-built first-page URL; subsequent URLs come
     from the server (skiptokens are opaque). Non-collection responses
     (a single entity) yield once and stop.
+
+    When `max_pages` is hit while the server still advertises a
+    `@odata.nextLink`, pagination stops early and `on_truncate(pages,
+    next_link)` is invoked once (if provided) so the caller can surface a
+    truncation signal. Natural exhaustion never fires the callback.
     """
     pages = 0
     while url:
@@ -111,6 +116,8 @@ def paginate(method, url, access_token, extra_headers=None,
             return
         pages += 1
         if max_pages is not None and pages >= max_pages:
+            if url and on_truncate is not None:
+                on_truncate(pages, url)
             return
 
 

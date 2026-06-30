@@ -110,6 +110,36 @@ def decode_content_bytes(raw):
     return base64.b64decode(b64)
 
 
+def attachment_resource(raw):
+    """Shape a full (item/reference) attachment resource for emission.
+
+    Used as the fallback when `$value` yields no raw bytes: returns the
+    normalized metadata plus whatever content the resource carries
+    (`item` for itemAttachment, `source_url` for referenceAttachment).
+    Never includes base64 file bytes - those go down the `$value` path.
+    """
+    flat = normalize_attachment(raw)
+    if not isinstance(raw, dict):
+        return flat
+    item = _pick_dict_local(raw, 'Item', 'item')
+    if item:
+        flat['item'] = item
+    source = _pick_str(raw, 'SourceUrl', 'sourceUrl')
+    if source:
+        flat['source_url'] = source
+    return flat
+
+
+def _pick_dict_local(d, *keys):
+    if not isinstance(d, dict):
+        return {}
+    for k in keys:
+        v = d.get(k)
+        if isinstance(v, dict):
+            return v
+    return {}
+
+
 def read_file_attachment(path):
     """Read a local file into an (name, content_bytes) pair.
 

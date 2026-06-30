@@ -133,6 +133,10 @@ owa-mail messages --pretty                           # Inbox, last 25
 owa-mail messages --unread --limit 10 --pretty
 owa-mail messages --folder SentItems --since 2026-04-01 --pretty
 owa-mail messages --search 'subject:invoice'         # KQL search
+owa-mail messages --has-attachments --importance high --pretty
+owa-mail messages --category Red --skip 25 --limit 25      # page 2 of a category
+owa-mail messages --orderby 'Subject asc' --pretty         # custom OData $orderby
+owa-mail thread --id AAQkAG... --pretty                    # messages in a conversation
 owa-mail read --latest --pretty                      # newest message, full body, no id
 owa-mail read -n 2 --from anthropic --pretty         # 2nd newest from a sender
 owa-mail show --id AAMkAG... --pretty                # by explicit message id
@@ -161,6 +165,10 @@ owa-mail folders --pretty
 owa-mail mark --id AAMkAG... --read
 owa-mail mark --id AAMkAG... --flag
 owa-mail move --id AAMkAG... --to Archive
+owa-mail move --id AAMkAG... --to "Project X"        # by folder display name
+owa-mail copy --id AAMkAG... --to Archive            # copy instead of move
+owa-mail categories --id AAMkAG... --category Red --category Urgent
+owa-mail categories --id AAMkAG...                   # clear all categories
 owa-mail delete --id AAMkAG... --confirm
 
 owa-mail refresh
@@ -195,8 +203,8 @@ For an interactive full-screen mail browser, see [owa-tui](https://github.com/da
 
 ### Folder names
 
-The `--folder` and `--to` (move) flags accept these well-known names
-(case-insensitive, with common aliases):
+The `--folder` and `--to` (move / copy) flags accept these well-known
+names (case-insensitive, with common aliases):
 
 | Canonical      | Aliases                |
 | -------------- | ---------------------- |
@@ -208,8 +216,55 @@ The `--folder` and `--to` (move) flags accept these well-known names
 | `Outbox`       |                        |
 | `Archive`      | `archived`             |
 
-Anything else is treated as an opaque folder id (look one up via
-`owa-mail folders | jq '.[] | {name, id}'`).
+For `move` and `copy`, anything that isn't a well-known name is first
+looked up as a folder **display name** (exact, case-insensitive); if no
+folder matches it is passed through as an opaque folder id. So
+`owa-mail move --id ... --to "Project X"` works without a manual
+`folders` lookup. (`--folder` on listings still takes only well-known
+names or ids.) Either way you can find an id via
+`owa-mail folders | jq '.[] | {name, id}'`.
+
+### Filtering and paging
+
+`messages` adds server-side OData filters on top of `--unread` /
+`--from` / `--subject`:
+
+- `--category <name>` - only messages tagged with that category.
+- `--has-attachments` - only messages with attachments.
+- `--importance low|normal|high` - only messages of that importance.
+- `--orderby <field>` - OData `$orderby` passthrough (e.g.
+  `--orderby 'Subject asc'`). Overrides the default newest-first order.
+- `--skip <n>` - OData `$skip` passthrough for offset paging alongside
+  `--limit`.
+
+These compose with each other but, like the other filters, cannot be
+combined with `--search` (`$search` and `$filter` are mutually
+exclusive in Outlook REST).
+
+### Categories
+
+`categories --id <message-id> --category <name>` sets the categories on
+a message. `--category` is repeatable; the supplied list replaces the
+message's categories wholesale (idempotent), so passing none clears
+them. Filter a listing by category with `messages --category <name>`.
+
+```sh
+owa-mail categories --id AAMkAG... --category Red --category Urgent
+owa-mail categories --id AAMkAG...                  # clear all
+owa-mail messages --category Red --pretty
+```
+
+### Threads / conversations
+
+`thread --id <conversation-id>` (alias `conversation`) lists every
+message in a conversation, newest first, across all folders. The id is
+the `conversation_id` field surfaced in `messages` / `show` JSON (it
+starts `AAQk`, not the `AQMk` message `id`).
+
+```sh
+owa-mail thread --id AAQkAG... --pretty
+owa-mail conversation --id AAQkAG... --all | jq length
+```
 
 ### Scheduled send
 
@@ -246,6 +301,13 @@ owa-mail attachment-get --id AAMkAG... --attachment AAA... > report.pdf
 `attachment-get` streams the raw bytes to stdout by default (use it
 with a redirect or pipe), or writes them to `--out <path>`. It fetches
 the attachment's `$value` endpoint, so the bytes are exactly as stored.
+
+File attachments have a `$value`; **item** attachments (an embedded
+message/event) and **reference** attachments (a link to a cloud file)
+do not. For those, `attachment-get` falls back to fetching the full
+attachment resource and emits its metadata as JSON instead - including
+the embedded `item` for item attachments and the `source_url` for
+reference attachments - rather than failing.
 
 **Sending.** `--attach <file>` is repeatable and works on `send`,
 `reply`, `reply-all`, and `forward`:

@@ -1,9 +1,9 @@
 # owa-teams
 
 Microsoft Teams CLI for Microsoft 365. List your joined teams and their
-channels, list your chats, and read **channel** and **chat messages** — with
-channel replies threaded. Pipe-friendly JSON by default, `--pretty` for humans.
-**Read-only** in this version.
+channels, list your chats and their members, read **channel** and **chat
+messages** — with channel replies threaded — and **send** or **reply** to
+messages. Pipe-friendly JSON by default, `--pretty` for humans.
 
 ```sh
 brew install damsleth/tap/owa-tools
@@ -115,22 +115,63 @@ owa-teams channels 3360397c-8ad3-499e-8d71-a83856c0f252   # team id as a positio
 
 owa-teams chats --pretty                                  # my chats
 owa-teams chats --type meeting                            # only meeting chats
+owa-teams chats --top 20                                  # cap at 20 (default 50)
+owa-teams channels --team <id> --all                      # fetch every page
 
 owa-teams messages --channel "19:abc@thread.tacv2" --pretty       # channel posts + replies
 owa-teams messages --channel "19:abc@thread.tacv2" --team <id> --limit 4
 owa-teams messages --chat "19:def@unq.gbl.spaces"                 # a flat chat thread
-owa-teams messages --channel "19:abc@thread.tacv2" --all          # include system events
+owa-teams messages --channel "19:abc@thread.tacv2" --system-events  # include system events
 owa-teams messages --chat "19:def@unq.gbl.spaces" --since 2026-06-01  # only since a date
 owa-teams messages --chat "19:def@unq.gbl.spaces" --region amer       # override region
+
+owa-teams members --chat "19:def@unq.gbl.spaces" --pretty         # chat members
+owa-teams members --channel "19:abc@thread.tacv2" --team <id>     # channel members (walled)
+
+owa-teams send --chat "19:def@unq.gbl.spaces" --text "hi there"   # send a chat message
+owa-teams send --channel "19:abc@thread.tacv2" --text "new topic" --subject "Q3 plan"
+owa-teams send --channel "19:abc@thread.tacv2" --reply-to 1665994613428 --text "agreed"
+owa-teams send --chat "19:def@unq.gbl.spaces" --text "ping" --mention "8:orgid:<oid>=Ada"
+owa-teams send --chat "19:def@unq.gbl.spaces" --html --text "<b>bold</b>"
+owa-teams send --chat "19:def@unq.gbl.spaces" --text "see doc" --attachment "Spec=https://x/f"
 
 owa-teams config --region amer                            # pin the chatsvc region
 owa-teams config --profile work                           # pin a default profile
 owa-teams refresh                                         # verify Graph access
 ```
 
-`channels` requires `--team` (flag or bare positional). `messages` requires
-exactly one of `--channel` or `--chat`; `--team` is optional and is echoed into
-each channel message's metadata.
+`channels` requires `--team` (flag or bare positional). `messages`, `members`,
+and `send` each require exactly one of `--channel` or `--chat`; for `messages`
+`--team` is optional and echoed into each channel message's metadata, and for
+`members --channel` it is required.
+
+### Paging
+
+`channels` and `chats` page Graph collections. `--top <n>` caps output at `n`
+items (default 50) and stops following `@odata.nextLink` early; `--all` fetches
+every page. When more items remain unfetched, a truncation note is written to
+stderr (stdout stays valid JSON).
+
+### Sending and replying
+
+`send` posts to the regional chat service (the same `ic3` door `messages`
+reads from — verified live: the `ic3` bearer carries `Endpoint.ReadWrite.All`
+and the POST returns `201`). It is **mutating** and confirmation-gated: it
+prompts on a TTY and refuses to run non-interactively without `--confirm`. Each
+POST carries a generated `clientmessageid` idempotency key (the chat service
+dedups on it), echoed back in the result:
+
+```json
+{"sent": true, "conversationId": "19:def@unq.gbl.spaces", "clientMessageId": "12876…", "originalArrivalTime": 1782782299302}
+```
+
+- `--text <msg>` is the message body; plain text is HTML-escaped. `--html`
+  sends `--text` as a raw HTML body untouched.
+- `--reply-to <root-id>` threads the post under a channel thread's root
+  (`rootMessageId`); `--subject <text>` titles a *new* channel thread.
+- `--mention "<mri[=Name]>"` (repeatable) adds an @-mention: each prepends an
+  `<at id="N">` tag to the body and a structured entry to `properties.mentions`.
+- `--attachment "<url>"` or `"<name=url>"` (repeatable) adds a link card.
 
 ---
 
@@ -150,13 +191,23 @@ Every owa binary exposes the same machine surface (see
 
 ## Notes
 
-- **Read-only.** Posting a channel/chat message (chatsvc POST, destructive +
-  confirmation-gated), team members, and Teams meeting metadata (an
-  onlineMeeting surface that overlaps owa-cal) are deferred to a later phase.
+- **Members.** `members --chat` works on the plain Graph token
+  (`/chats/{id}/members`, 200). **Channel and team members are walled**: Graph's
+  `/teams/{id}/channels/{id}/members` and `/teams/{id}/members` require
+  `ChannelMember.Read.All` / `TeamMember.Read.All`, which owa-piggy's FOCI client
+  cannot obtain (live probe 2026-06-30: `403`). `members --channel` is
+  implemented against the documented endpoint but surfaces that `403` as a
+  scope-insufficient error (exit `12`).
+- **Sending is open.** Unlike channel *message reads* (which Graph walls and the
+  chat service serves), the chat-service POST accepts the `ic3` bearer directly —
+  no skypetoken/authsvc exchange. Channel replies set `rootMessageId` in the POST
+  body; new channel threads carry a `subject`.
 - Channel replies are **not** reachable on Graph (the `/replies` endpoint needs
   `ChannelMessage.Read.All`); they arrive in the flat chatsvc stream instead and
   are threaded via `rootMessageId`. Do not route channel reads back onto Graph.
 - The chat service pages via `_metadata.backwardLink` (older direction), not
   Graph's `@odata.nextLink`; `--limit` bounds how many pages are fetched.
+- Teams meeting metadata (an onlineMeeting surface that overlaps owa-cal) remains
+  deferred.
 
 See [`AGENTS.md`](../src/owa_teams/AGENTS.md) for repo layout and ground rules.

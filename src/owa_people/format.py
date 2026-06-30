@@ -26,6 +26,23 @@ def format_people_pretty(people):
     return '\n'.join(out)
 
 
+def format_groups_pretty(groups):
+    if not groups:
+        return '(no groups)'
+    rows = [('name', 'mail', 'type')]
+    for g in groups:
+        rows.append((
+            _truncate(g.get('displayName'), 40),
+            _truncate(g.get('mail'), 36),
+            _truncate(g.get('type'), 24),
+        ))
+    widths = [max(len(r[i]) for r in rows) for i in range(3)]
+    out = []
+    for row in rows:
+        out.append('  '.join(c.ljust(w) for c, w in zip(row, widths)).rstrip())
+    return '\n'.join(out)
+
+
 def format_person_pretty(p):
     if not p:
         return '(no person)'

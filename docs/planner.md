@@ -78,6 +78,24 @@ InProgress, `100` → Completed). `priorityLabel` maps Planner's 0–10 priority
 `YYYY-MM-DD`. List commands cap at a single page; pass `--all` to follow
 `@odata.nextLink` until exhausted.
 
+### OData passthrough
+
+The read commands (`plans`, `buckets`, `tasks`, `task`) accept `--select` and
+`--expand` for raw OData passthrough:
+
+```sh
+owa-planner tasks --plan <plan-id> --select id,title,percentComplete
+owa-planner task <task-id> --expand details
+```
+
+Planner's Graph surface has **limited** OData support, so only the two params
+that Graph actually honours are wired. `$filter` and `$orderby` are **not**
+exposed: the `/planner` endpoints reject them with HTTP 400. That is exactly why
+`tasks` does its `--status` and `--bucket` filtering client-side. To sort or
+filter, pipe through `jq` (e.g. `owa-planner tasks | jq 'sort_by(.due)'`).
+Selecting a subset with `--select` may blank out normalized fields whose source
+property you dropped.
+
 ---
 
 ## Commands
@@ -100,6 +118,8 @@ owa-planner task --id <task-id> --pretty
 
 owa-planner config --plan <plan-id>           # pin a default plan
 owa-planner config --profile work             # pin a default profile
+owa-planner config --unset plan               # remove a pinned key (profile/plan)
+owa-planner config --clear                    # delete the config file
 owa-planner refresh                           # force token refresh
 ```
 

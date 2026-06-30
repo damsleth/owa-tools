@@ -128,6 +128,107 @@ def test_events_create_update_delete_categories(monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out)["DisplayName"] == "Green"
 
 
+def test_create_p2_flags(monkeypatch, capsys):
+    requests = []
+
+    def fake_get(api_base, endpoint, access_token, **kwargs):
+        return {"value": []}
+
+    def fake_request(method, api_base, endpoint, access_token, **kwargs):
+        requests.append((method, endpoint, kwargs.get("body")))
+        return _raw_event("new", "Created")
+
+    monkeypatch.setattr(cli.api_mod, "api_get", fake_get)
+    monkeypatch.setattr(cli.api_mod, "api_request", fake_request)
+
+    # 2026-05-11 is a Monday.
+    assert cli.cmd_create([
+        "--subject", "Sync", "--date", "2026-05-11",
+        "--start", "09:00", "--end", "09:30",
+        "--category", "Blue", "--category", "Green",
+        "--attendee", "a@x.com", "--optional-attendee", "b@x.com",
+        "--reminder", "15",
+        "--recur", "weekly", "--recur-interval", "2", "--recur-count", "5",
+    ], {"default_timezone": "UTC"}, "tok", "https://outlook.test") == 0
+    capsys.readouterr()
+    body = requests[-1][2]
+    assert body["Categories"] == ["Blue", "Green"]
+    assert body["Attendees"] == [
+        {"EmailAddress": {"Address": "a@x.com"}, "Type": "Required"},
+        {"EmailAddress": {"Address": "b@x.com"}, "Type": "Optional"},
+    ]
+    assert body["ReminderMinutesBeforeStart"] == 15
+    assert body["IsReminderOn"] is True
+    assert body["Recurrence"]["Pattern"] == {
+        "Type": "Weekly", "Interval": 2, "DaysOfWeek": ["Monday"],
+    }
+    assert body["Recurrence"]["Range"]["NumberOfOccurrences"] == 5
+
+
+def test_create_recur_validation():
+    with pytest.raises(cli.UsageError, match="mutually exclusive"):
+        cli.cmd_create(
+            ["--subject", "S", "--recur", "daily", "--recur-count", "3",
+             "--recur-until", "2026-12-31"],
+            {"default_timezone": "UTC"}, "tok", "https://outlook.test",
+        )
+    with pytest.raises(cli.UsageError, match="require --recur"):
+        cli.cmd_create(
+            ["--subject", "S", "--recur-count", "3"],
+            {"default_timezone": "UTC"}, "tok", "https://outlook.test",
+        )
+    with pytest.raises(cli.UsageError, match="unsupported --recur"):
+        cli.cmd_create(
+            ["--subject", "S", "--recur", "hourly"],
+            {"default_timezone": "UTC"}, "tok", "https://outlook.test",
+        )
+
+
+def test_update_p2_flags(monkeypatch, capsys):
+    requests = []
+
+    def fake_get(api_base, endpoint, access_token, **kwargs):
+        return _raw_event(start="2026-05-11T09:00:00", end="2026-05-11T10:00:00")
+
+    def fake_request(method, api_base, endpoint, access_token, **kwargs):
+        requests.append((method, endpoint, kwargs.get("body")))
+        return _raw_event("e1", "Updated")
+
+    monkeypatch.setattr(cli.api_mod, "api_get", fake_get)
+    monkeypatch.setattr(cli.api_mod, "api_request", fake_request)
+
+    assert cli.cmd_update([
+        "--id", "e1",
+        "--category", "Red",
+        "--attendee", "a@x.com",
+        "--reminder", "30",
+        "--recur", "weekly",
+    ], {"default_timezone": "UTC"}, "tok", "https://outlook.test") == 0
+    capsys.readouterr()
+    patch = requests[-1][2]
+    assert patch["Categories"] == ["Red"]
+    assert patch["Attendees"] == [
+        {"EmailAddress": {"Address": "a@x.com"}, "Type": "Required"},
+    ]
+    assert patch["ReminderMinutesBeforeStart"] == 30
+    assert patch["IsReminderOn"] is True
+    # Recurrence anchors on the existing event's Monday start date.
+    assert patch["Recurrence"]["Pattern"]["DaysOfWeek"] == ["Monday"]
+
+
+def test_events_sends_prefer_timezone_header(monkeypatch, capsys):
+    seen = {}
+
+    def fake_get(api_base, endpoint, access_token, **kwargs):
+        seen["headers"] = kwargs.get("headers")
+        return {"value": []}
+
+    monkeypatch.setattr(cli.api_mod, "api_get", fake_get)
+    assert cli.cmd_events(["--date", "2026-05-09"], {"default_timezone": "W. Europe Standard Time"}, "tok", "https://outlook.test") == 0
+    capsys.readouterr()
+    assert seen["headers"] == {"Prefer": 'outlook.timezone="W. Europe Standard Time"'}
+
+
 def test_respond_accept_decline_tentative(monkeypatch, capsys):
     requests = []
 

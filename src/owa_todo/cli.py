@@ -48,6 +48,10 @@ def _folder_tasks_path(folder_id):
     return f'me/taskfolders/{urllib.parse.quote(folder_id, safe="")}/tasks'
 
 
+def _folder_path(folder_id):
+    return f'me/taskfolders/{urllib.parse.quote(folder_id, safe="")}'
+
+
 def _resolve_date(value):
     if value == 'today':
         return date.today().strftime('%Y-%m-%d')
@@ -93,10 +97,14 @@ Global options:
 
 Commands:
   lists               List task folders (To Do lists)
+  list-create         Create a To Do list
+  list-rename         Rename a To Do list
+  list-delete         Delete a To Do list
   tasks               List tasks (default: across all folders)
   create              Create a task
   update              Update a task
   done                Mark a task completed
+  undone              Mark a task not started (reopen)
   delete              Delete a task
   config              View or update configuration
   refresh             Force a token refresh and verify auth
@@ -106,6 +114,8 @@ Tasks options:
   --folder <id|name>  Limit to one folder (default: all, or config default_folder)
   --status <status>   Filter: notstarted, inprogress, completed, waiting, deferred
   --search <term>     Filter tasks by subject
+  --filter <odata>    Server-side $filter passthrough
+  --orderby <odata>   Server-side $orderby passthrough
   --pretty            Human-readable checklist (default: JSON)
   --limit <n>         Max results per page (default 50, cap 200)
   --all               Follow @odata.nextLink until exhausted
@@ -115,15 +125,24 @@ Create options:
   --folder <id|name>  Target folder (default: the default Tasks list)
   --due <date>        Due date (YYYY-MM-DD, today, tomorrow)
   --start <date>      Start date
+  --reminder <iso>    Reminder datetime (YYYY-MM-DDTHH:MM)
+  --recurrence <r>    Recurrence: daily or weekly
+  --category <name>   Category (repeatable)
   --importance <level>  low|normal|high
   --body <text>       Notes
 
 Update options:
   --id <task-id>      Task ID (required)
-  --subject, --due, --start, --status, --importance, --body
+  --subject, --due, --start, --reminder, --recurrence, --category,
+  --status, --importance, --body
 
-Done options:
+Done / Undone options:
   --id <task-id>      Task ID (required)
+
+List options:
+  list-create --name <name>
+  list-rename --id <id|name> --name <name>
+  list-delete --id <id|name> [--confirm]
 
 Delete options:
   --id <task-id>      Task ID (required)
@@ -148,7 +167,11 @@ Examples:
   owa-todo tasks --folder "Groceries" --status notstarted --pretty
   owa-todo create --subject "Buy milk" --due tomorrow --importance high
   owa-todo update --id AAMk... --due 2026-06-01
+  owa-todo create --subject "Standup" --recurrence daily --reminder 2026-06-01T09:00
+  owa-todo create --subject "Pay rent" --category bills --category home
   owa-todo done --id AAMk...
+  owa-todo undone --id AAMk...
+  owa-todo list-create --name "Groceries"
   owa-todo delete --id AAMk...""")
     print()
     print(schema_mod.MULTI_PROFILE_HELP)
@@ -214,8 +237,95 @@ def cmd_lists(args, config, access_token, api_base):
     return 0
 
 
+def cmd_list_create(args, config, access_token, api_base):
+    name = ''
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--name':
+            name, args = _require_value(flag, args)
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+    if not name:
+        raise UsageError('--name is required')
+    debug = _debug_enabled(config)
+    result = api_mod.api_request(
+        'POST', api_base, 'me/taskfolders', access_token,
+        body=tasks_mod.build_folder_json(name), debug=debug,
+    )
+    if not result:
+        return 1
+    print(json.dumps(tasks_mod.normalize_folder(result)))
+    return 0
+
+
+def cmd_list_rename(args, config, access_token, api_base):
+    folder = name = ''
+    folder, args = schema_mod.pop_positional_id(args)
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--id':
+            folder, args = _require_value(flag, args)
+        elif flag == '--name':
+            name, args = _require_value(flag, args)
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+    if not folder:
+        raise UsageError('--id is required')
+    if not name:
+        raise UsageError('--name is required')
+    debug = _debug_enabled(config)
+    folder_id, rc = _resolve_folder(folder, access_token, api_base, debug)
+    if folder_id is None:
+        return rc
+    result = api_mod.api_request(
+        'PATCH', api_base, _folder_path(folder_id), access_token,
+        body=tasks_mod.build_folder_json(name), debug=debug,
+    )
+    if not result:
+        return 1
+    print(json.dumps(tasks_mod.normalize_folder(result)))
+    return 0
+
+
+def cmd_list_delete(args, config, access_token, api_base):
+    folder = ''
+    confirm = False
+    folder, args = schema_mod.pop_positional_id(args)
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--id':
+            folder, args = _require_value(flag, args)
+        elif flag == '--confirm':
+            confirm = True
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+    if not folder:
+        raise UsageError('--id is required')
+
+    debug = _debug_enabled(config)
+    folder_id, rc = _resolve_folder(folder, access_token, api_base, debug)
+    if folder_id is None:
+        return rc
+    if not confirm:
+        try:
+            tty_mod.require_confirm_or_tty(action='delete list')
+        except UsageError as error:
+            return emit_error(error)
+        if not tty_mod.confirm(
+            f"\033[33mDelete list '{folder}'? (y/N): \033[0m"
+        ):
+            _info('Aborted.')
+            return 0
+
+    result = api_mod.api_request('DELETE', api_base, _folder_path(folder_id), access_token, debug=debug)
+    if result is None:
+        return 1
+    _info('Deleted.')
+    return 0
+
+
 def cmd_tasks(args, config, access_token, api_base):
-    folder = status = search = ''
+    folder = status = search = filter_q = orderby = ''
     pretty = all_pages = False
     limit = 50
     while args:
@@ -226,6 +336,10 @@ def cmd_tasks(args, config, access_token, api_base):
             status, args = _require_value(flag, args)
         elif flag == '--search':
             search, args = _require_value(flag, args)
+        elif flag == '--filter':
+            filter_q, args = _require_value(flag, args)
+        elif flag == '--orderby':
+            orderby, args = _require_value(flag, args)
         elif flag == '--pretty':
             pretty = True
         elif flag == '--all':
@@ -246,7 +360,12 @@ def cmd_tasks(args, config, access_token, api_base):
     else:
         base_endpoint = 'me/tasks'
 
-    endpoint = f'{base_endpoint}?{api_mod.build_query({"$top": limit})}'
+    params = {'$top': limit}
+    if filter_q:
+        params['$filter'] = filter_q
+    if orderby:
+        params['$orderby'] = orderby
+    endpoint = f'{base_endpoint}?{api_mod.build_query(params)}'
     data = _fetch_tasks(endpoint, all_pages, access_token, api_base, debug)
     if data is None:
         return 1
@@ -278,8 +397,17 @@ def _resolve_create_folder(folder, config, access_token, api_base, debug):
     return _folder_tasks_path(folder_id), None
 
 
+def _resolve_recurrence(value):
+    pattern = tasks_mod.normalize_recurrence(value)
+    if pattern is None:
+        raise UsageError(f'--recurrence must be one of: daily, weekly (got: {value})')
+    return pattern
+
+
 def cmd_create(args, config, access_token, api_base):
-    subject = folder = due = start = importance = body_text = ''
+    subject = folder = due = start = importance = body_text = reminder = ''
+    recurrence = None
+    categories = []
     while args:
         flag, args = args[0], args[1:]
         if flag == '--subject':
@@ -294,6 +422,12 @@ def cmd_create(args, config, access_token, api_base):
             importance, args = _require_value(flag, args)
         elif flag == '--body':
             body_text, args = _require_value(flag, args)
+        elif flag == '--reminder':
+            reminder, args = _require_value(flag, args)
+        elif flag == '--recurrence':
+            v, args = _require_value(flag, args); recurrence = _resolve_recurrence(v)
+        elif flag == '--category':
+            v, args = _require_value(flag, args); categories.append(v)
         else:
             raise UsageError(f'Unknown flag: {flag}')
 
@@ -304,7 +438,8 @@ def cmd_create(args, config, access_token, api_base):
     tz = config.get('default_timezone') or config_mod.DEFAULT_TIMEZONE
     body = tasks_mod.build_task_json(
         subject, importance=importance, due=due, start=start,
-        body_text=body_text, tz=tz,
+        body_text=body_text, tz=tz, reminder=reminder,
+        recurrence=recurrence, categories=categories,
     )
     endpoint, rc = _resolve_create_folder(folder, config, access_token, api_base, debug)
     if endpoint is None:
@@ -335,6 +470,13 @@ def cmd_update(args, config, access_token, api_base):
             v, args = _require_value(flag, args); fields['due'] = _resolve_date(v)
         elif flag == '--start':
             v, args = _require_value(flag, args); fields['start'] = _resolve_date(v)
+        elif flag == '--reminder':
+            fields['reminder'], args = _require_value(flag, args)
+        elif flag == '--recurrence':
+            v, args = _require_value(flag, args); fields['recurrence'] = _resolve_recurrence(v)
+        elif flag == '--category':
+            v, args = _require_value(flag, args)
+            fields.setdefault('categories', []).append(v)
         else:
             raise UsageError(f'Unknown flag: {flag}')
 
@@ -343,7 +485,8 @@ def cmd_update(args, config, access_token, api_base):
     if not fields:
         _error(
             'update requires at least one field '
-            '(--subject, --status, --importance, --due, --start, --body)'
+            '(--subject, --status, --importance, --due, --start, --body, '
+            '--reminder, --recurrence, --category)'
         )
         return 1
 
@@ -371,6 +514,27 @@ def cmd_done(args, config, access_token, api_base):
     result = api_mod.api_request(
         'PATCH', api_base, _task_path(task_id), access_token,
         body={'Status': 'Completed'}, debug=debug,
+    )
+    if not result:
+        return 1
+    print(json.dumps(tasks_mod.normalize_task(result)))
+    return 0
+
+
+def cmd_undone(args, config, access_token, api_base):
+    task_id, args = schema_mod.pop_positional_id(args)
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--id':
+            task_id, args = _require_value(flag, args)
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+    if not task_id:
+        raise UsageError('--id is required')
+    debug = _debug_enabled(config)
+    result = api_mod.api_request(
+        'PATCH', api_base, _task_path(task_id), access_token,
+        body={'Status': 'NotStarted'}, debug=debug,
     )
     if not result:
         return 1
@@ -473,7 +637,10 @@ def cmd_refresh(args, config):
 # Dispatch
 # ---------------------------------------------------------------------------
 
-AUTHED_COMMANDS = {'lists', 'tasks', 'create', 'update', 'done', 'delete'}
+AUTHED_COMMANDS = {
+    'lists', 'list-create', 'list-rename', 'list-delete',
+    'tasks', 'create', 'update', 'done', 'undone', 'delete',
+}
 
 _LISTS_FLAGS = [
     schema_mod.flag('--pretty', summary='Human-readable listing (default: JSON)'),
@@ -484,6 +651,8 @@ _TASKS_FLAGS = [
     schema_mod.flag('--folder', value='<id|name>', summary='Limit to one folder'),
     schema_mod.flag('--status', value='<status>', summary='notstarted, inprogress, completed, waiting, deferred'),
     schema_mod.flag('--search', value='<term>', summary='Filter tasks by subject'),
+    schema_mod.flag('--filter', value='<odata>', summary='Server-side $filter passthrough'),
+    schema_mod.flag('--orderby', value='<odata>', summary='Server-side $orderby passthrough'),
     schema_mod.flag('--pretty', summary='Human-readable checklist (default: JSON)'),
     schema_mod.flag('--limit', value='<n>', summary='Max results per page (default 50, cap 200)'),
     schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
@@ -494,6 +663,9 @@ _CREATE_FLAGS = [
     schema_mod.flag('--folder', value='<id|name>', summary='Target folder (default: default Tasks list)'),
     schema_mod.flag('--due', value='<date>', summary='Due date (YYYY-MM-DD, today, tomorrow)'),
     schema_mod.flag('--start', value='<date>', summary='Start date'),
+    schema_mod.flag('--reminder', value='<iso>', summary='Reminder datetime (YYYY-MM-DDTHH:MM)'),
+    schema_mod.flag('--recurrence', value='<daily|weekly>', summary='Recurrence cadence'),
+    schema_mod.flag('--category', value='<name>', summary='Category (repeatable)', repeatable=True),
     schema_mod.flag('--importance', value='<level>', summary='low|normal|high'),
     schema_mod.flag('--body', value='<text>', summary='Notes'),
 ]
@@ -503,6 +675,9 @@ _UPDATE_FLAGS = [
     schema_mod.flag('--subject', value='<title>', summary='New title'),
     schema_mod.flag('--due', value='<date>', summary='New due date'),
     schema_mod.flag('--start', value='<date>', summary='New start date'),
+    schema_mod.flag('--reminder', value='<iso>', summary='Reminder datetime (YYYY-MM-DDTHH:MM)'),
+    schema_mod.flag('--recurrence', value='<daily|weekly>', summary='Recurrence cadence'),
+    schema_mod.flag('--category', value='<name>', summary='Category (repeatable)', repeatable=True),
     schema_mod.flag('--status', value='<status>', summary='notstarted, inprogress, completed, waiting, deferred'),
     schema_mod.flag('--importance', value='<level>', summary='low|normal|high'),
     schema_mod.flag('--body', value='<text>', summary='New notes'),
@@ -510,6 +685,24 @@ _UPDATE_FLAGS = [
 
 _DONE_FLAGS = [
     schema_mod.flag('--id', value='<task-id>', summary='Task ID (flag or positional)', required=True),
+]
+
+_UNDONE_FLAGS = [
+    schema_mod.flag('--id', value='<task-id>', summary='Task ID (flag or positional)', required=True),
+]
+
+_LIST_CREATE_FLAGS = [
+    schema_mod.flag('--name', value='<name>', summary='New list name', required=True),
+]
+
+_LIST_RENAME_FLAGS = [
+    schema_mod.flag('--id', value='<id|name>', summary='List ID or name (flag or positional)', required=True),
+    schema_mod.flag('--name', value='<name>', summary='New list name', required=True),
+]
+
+_LIST_DELETE_FLAGS = [
+    schema_mod.flag('--id', value='<id|name>', summary='List ID or name (flag or positional)', required=True),
+    schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
 ]
 
 _DELETE_FLAGS = [
@@ -524,10 +717,23 @@ _CONFIG_FLAGS = [
 
 COMMAND_SCHEMA = [
     schema_mod.command('lists', 'List task folders (To Do lists)', auth='outlook', flags=_LISTS_FLAGS),
+    schema_mod.command('list-create', 'Create a To Do list', auth='outlook', mutates=True, idempotent=False, flags=_LIST_CREATE_FLAGS),
+    schema_mod.command('list-rename', 'Rename a To Do list', auth='outlook', mutates=True, idempotent=True, flags=_LIST_RENAME_FLAGS),
+    schema_mod.command(
+        'list-delete',
+        'Delete a To Do list',
+        auth='outlook',
+        mutates=True,
+        destructive=True,
+        confirmation=True,
+        idempotent=False,
+        flags=_LIST_DELETE_FLAGS,
+    ),
     schema_mod.command('tasks', 'List tasks', auth='outlook', flags=_TASKS_FLAGS),
     schema_mod.command('create', 'Create a task', auth='outlook', mutates=True, idempotent=False, flags=_CREATE_FLAGS),
     schema_mod.command('update', 'Update a task', auth='outlook', mutates=True, idempotent=True, flags=_UPDATE_FLAGS),
     schema_mod.command('done', 'Mark a task completed', auth='outlook', mutates=True, idempotent=True, flags=_DONE_FLAGS),
+    schema_mod.command('undone', 'Mark a task not started (reopen)', auth='outlook', mutates=True, idempotent=True, flags=_UNDONE_FLAGS),
     schema_mod.command(
         'delete',
         'Delete a task',
@@ -613,6 +819,12 @@ def _main(argv):
 
     if cmd == 'lists':
         return cmd_lists(rest, config, access_token, api_base)
+    if cmd == 'list-create':
+        return cmd_list_create(rest, config, access_token, api_base)
+    if cmd == 'list-rename':
+        return cmd_list_rename(rest, config, access_token, api_base)
+    if cmd == 'list-delete':
+        return cmd_list_delete(rest, config, access_token, api_base)
     if cmd == 'tasks':
         return cmd_tasks(rest, config, access_token, api_base)
     if cmd == 'create':
@@ -621,6 +833,8 @@ def _main(argv):
         return cmd_update(rest, config, access_token, api_base)
     if cmd == 'done':
         return cmd_done(rest, config, access_token, api_base)
+    if cmd == 'undone':
+        return cmd_undone(rest, config, access_token, api_base)
     if cmd == 'delete':
         return cmd_delete(rest, config, access_token, api_base)
 

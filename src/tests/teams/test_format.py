@@ -46,3 +46,17 @@ def test_format_messages_pretty_empty():
 def test_format_messages_pretty_falls_back_to_sender_id():
     out = fmt.format_messages_pretty([{'from': {'id': 'OID', 'name': ''}, 'timestamp': '', 'content': 'hi'}])
     assert 'OID' in out
+
+
+def test_format_members_pretty_empty():
+    assert fmt.format_members_pretty([]) == 'No members found.'
+
+
+def test_format_members_pretty_row():
+    out = fmt.format_members_pretty([{'displayName': 'Ada', 'roles': ['owner'], 'email': 'a@x'}])
+    assert 'Ada' in out and 'owner' in out and 'a@x' in out
+
+
+def test_format_members_pretty_defaults_role_to_member():
+    out = fmt.format_members_pretty([{'displayName': 'Bo', 'roles': [], 'email': 'b@x'}])
+    assert 'member' in out
