@@ -6,7 +6,7 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
-## Unreleased
+## v1.3.0 - 2026-06-30
 
 Suite-wide P2 feature sweep — new flags, commands, and behaviors across nearly
 every tool — plus the systemic exit-code fix and owa-planner write support.
