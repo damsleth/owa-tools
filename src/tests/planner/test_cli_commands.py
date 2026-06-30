@@ -180,6 +180,19 @@ def test_update_task_sends_if_match_and_refreshes(monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out)['etag'] == 'W/"new"'
 
 
+def test_update_task_stale_etag_propagates_conflict(monkeypatch):
+    """A 412 on write (stale etag) surfaces as ConflictError, not a swallowed
+    None — the shared run_with_output_modes chain maps it to exit 15."""
+    from owa_core.errors import ConflictError
+
+    def fake_patch(base, ep, tok, body=None, etag='', debug=False):
+        raise ConflictError('precondition failed (412)')
+
+    monkeypatch.setattr(cli.api_mod, 'api_patch', fake_patch)
+    with pytest.raises(ConflictError):
+        cli.cmd_update_task(['t1', '--etag', 'W/"stale"', '--title', 'X'], {}, 'tok', BASE)
+
+
 def test_delete_task_requires_etag_and_confirm(monkeypatch, capsys):
     seen = {}
 
