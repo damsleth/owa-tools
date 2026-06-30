@@ -8,9 +8,7 @@
 >
 > Two findings are large enough to be standalone plans:
 > [done/owa-planner-write-support.md](done/owa-planner-write-support.md) (DONE 2026-06-29),
-> [owa-sched-findmeetingtimes.md](owa-sched-findmeetingtimes.md).
-
-- [ ] optional --pretty renderer for action commands (low priority; only if a human renderer is wanted)
+> [done/owa-sched-findmeetingtimes.md](done/owa-sched-findmeetingtimes.md) (DONE 2026-06-30).
 
 ## Suite review findings (2026-06-23)
 
@@ -31,16 +29,6 @@
 - [x] P1 owa umbrella: route meta-commands (list/schema/version) through run_with_output_modes — DONE (meta-commands now honor --agent/--err-json); schema built in-process via importlib import of each tool's COMMAND_SCHEMA, no more 13 subprocesses.
 
 ### P2 — feature gaps
-- [ ] P2 owa-cal: add attendees on create/update, --reminder, repeatable --category, recurrence; send Prefer outlook.timezone on calendarView window (off-by-one near midnight)
-- [ ] P2 owa-mail: attachment-get fallback for item/reference attachments (no $value), move-by-display-name + copy command, --orderby/--skip, categories set/filter, --has-attachments/--importance filters, thread/conversation command
-- [ ] P2 owa-graph: --max-pages safety valve on --all, reconcile --raw/--curl/--az with --agent (binary_stdout_commands), force graph audience for batch
-- [ ] P2 owa-people: manager/direct-reports/org-chart, contact CRUD, photo, presence (verify scope), group membership, --top alias, --select/--filter passthrough
-- [ ] P2 owa-todo: --reminder, --recurrence, --category on write, undone/uncomplete command, lists create/rename/delete, server-side $filter/$orderby
-- [ ] P2 owa-sites: --all/paging on items (silent 50-page cap), $filter/$orderby/$expand, by-id/by-URL addressing, item/file detail by id
-- [ ] P2 owa-teams: paging on chats/channels (--top/--all), message send/reply, members command, structured mentions/attachments arrays, --html raw body option
-- [ ] P2 owa-ado: --all on prs/runs, wi comment + relation/link mgmt + wi-delete, --api-version escape hatch
-- [ ] P2 owa-doctor: broker-reachability + audience-mismatch warning, multi-audience/scope-coverage check, --timeout, repeatable --profile/subset
-- [ ] P2 suite-wide: OData passthrough (--select/--filter/--orderby/--expand) where missing (graph/mail/people/todo/planner/sites); config --unset/clear (planner/sites/ado)
 
 ## TUI rollout — in flight (master plan: [owa-suite-tui-rollout.md](owa-suite-tui-rollout.md))
 
