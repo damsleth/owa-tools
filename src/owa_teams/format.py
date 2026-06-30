@@ -41,6 +41,19 @@ def format_chats_pretty(chats):
     return '\n'.join(out)
 
 
+def format_members_pretty(members):
+    if not members:
+        return 'No members found.'
+    out = []
+    for member in members:
+        roles = ','.join(member.get('roles') or []) or 'member'
+        out.append(
+            f"{pad(truncate(member.get('displayName') or '', 30), 30)}  "
+            f"{pad(roles, 8)}  {member.get('email') or ''}"
+        )
+    return '\n'.join(out)
+
+
 def format_messages_pretty(messages):
     """Render channel/chat messages chronologically.
 

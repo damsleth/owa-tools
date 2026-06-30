@@ -211,3 +211,91 @@ def test_normalize_chat_messages_drops_system_and_empty():
         {'id': 'e', 'messagetype': 'Text', 'content': '   '},
     ]
     assert teams.normalize_chat_messages(raw, chat_id='c') == []
+
+
+# --- endpoint builders --------------------------------------------------------
+
+def test_chat_members_endpoint_quotes_id():
+    assert teams.chat_members_endpoint('19:c@thread.v2') == 'chats/19%3Ac%40thread.v2/members'
+
+
+def test_channel_members_endpoint_quotes_ids():
+    ep = teams.channel_members_endpoint('T1', '19:c@thread.tacv2')
+    assert ep == 'teams/T1/channels/19%3Ac%40thread.tacv2/members'
+
+
+def test_conversation_post_url_drops_query():
+    url = teams.conversation_post_url('https://t/api/chatsvc/emea/v1', '19:x@unq.gbl.spaces')
+    assert url == 'https://t/api/chatsvc/emea/v1/users/ME/conversations/19%3Ax%40unq.gbl.spaces/messages'
+    assert '?' not in url
+
+
+# --- message body builders ----------------------------------------------------
+
+def test_build_message_body_escapes_plain_text():
+    body = teams.build_message_body('a < b & c')
+    assert body['content'] == 'a &lt; b &amp; c'
+    assert body['messagetype'] == 'RichText/Html'
+    assert body['clientmessageid']  # idempotency key present
+
+
+def test_build_message_body_html_passthrough():
+    body = teams.build_message_body('<b>hi</b>', html=True)
+    assert body['content'] == '<b>hi</b>'
+
+
+def test_build_message_body_prepends_mention_tags_and_serializes():
+    m = teams.build_mention(0, '8:orgid:oid', 'Ada')
+    body = teams.build_message_body('hello', mentions=[m])
+    assert '<at id="0">Ada</at>' in body['content']
+    assert body['content'].endswith('hello')
+    import json as _json
+    assert _json.loads(body['properties']['mentions'])[0]['mri'] == '8:orgid:oid'
+
+
+def test_build_message_body_attachments_and_thread_props():
+    f = teams.build_file_attachment(0, 'doc', 'https://x/f')
+    body = teams.build_message_body('hi', attachments=[f], root_message_id='99', subject='Topic')
+    import json as _json
+    files = _json.loads(body['properties']['files'])
+    assert files[0]['objectUrl'] == 'https://x/f'
+    assert body['properties']['rootMessageId'] == '99'
+    assert body['properties']['subject'] == 'Topic'
+
+
+def test_build_message_body_no_properties_when_plain():
+    body = teams.build_message_body('hi')
+    assert 'properties' not in body
+
+
+def test_client_message_id_is_unique():
+    a = teams.build_message_body('x')['clientmessageid']
+    b = teams.build_message_body('x')['clientmessageid']
+    assert a != b and a.isdigit()
+
+
+# --- members + send normalizers -----------------------------------------------
+
+def test_normalize_members_maps_fields():
+    payload = {'value': [{'id': 'm1', 'displayName': 'Ada', 'email': 'a@x',
+                          'userId': 'u1', 'roles': ['owner']}]}
+    rows = teams.normalize_members(payload)
+    assert rows == [{'id': 'm1', 'displayName': 'Ada', 'email': 'a@x',
+                     'userId': 'u1', 'roles': ['owner']}]
+
+
+def test_normalize_members_defaults_roles_to_empty_list():
+    rows = teams.normalize_members({'value': [{'id': 'm1'}]})
+    assert rows[0]['roles'] == []
+
+
+def test_normalize_send_result_echoes_key_and_arrival():
+    body = {'clientmessageid': '123'}
+    row = teams.normalize_send_result('19:x', body, {'OriginalArrivalTime': 7})
+    assert row == {'sent': True, 'conversationId': '19:x',
+                   'clientMessageId': '123', 'originalArrivalTime': 7}
+
+
+def test_normalize_send_result_tolerates_non_dict_payload():
+    row = teams.normalize_send_result('c', {'clientmessageid': '1'}, None)
+    assert row['originalArrivalTime'] is None

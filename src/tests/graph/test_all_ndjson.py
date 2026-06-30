@@ -134,3 +134,59 @@ def test_retry_flag_forwarded_to_paginate(monkeypatch):
     monkeypatch.setattr(cli.api_mod, 'paginate', _capture)
     _run(monkeypatch, 'GET', '/users', '--all', '--retry')
     assert seen['retry'] is True
+
+
+def test_max_pages_forwarded_to_paginate(monkeypatch):
+    seen = {}
+    def _capture(method, url, token, **k):
+        seen['max_pages'] = k.get('max_pages')
+        return iter([{'id': 1}])
+    monkeypatch.setattr(cli.api_mod, 'paginate', _capture)
+    _run(monkeypatch, 'GET', '/users', '--all', '--max-pages', '3')
+    assert seen['max_pages'] == 3
+
+
+def test_max_pages_truncation_warns_and_marks(monkeypatch, capsys):
+    # Simulate paginate hitting the cap with more pages remaining.
+    def _capture(method, url, token, **k):
+        k['on_truncate'](2, 'https://x/next')
+        return iter([{'id': 1}, {'id': 2}])
+    monkeypatch.setattr(cli.api_mod, 'paginate', _capture)
+    rc = _run(monkeypatch, 'GET', '/users', '--all', '--max-pages', '2')
+    cap = capsys.readouterr()
+    assert rc == 0
+    assert json.loads(cap.out) == {
+        'value': [{'id': 1}, {'id': 2}],
+        '@owa.truncated': {'pages': 2},
+    }
+    assert 'stopped after 2 page(s)' in cap.err
+
+
+def test_max_pages_truncation_warns_in_ndjson(monkeypatch, capsys):
+    def _capture(method, url, token, **k):
+        k['on_truncate'](1, 'https://x/next')
+        return iter([{'id': 1}])
+    monkeypatch.setattr(cli.api_mod, 'paginate', _capture)
+    rc = _run(monkeypatch, 'GET', '/users', '--all', '--max-pages', '1', '--ndjson')
+    cap = capsys.readouterr()
+    assert rc == 0
+    assert cap.out.strip() == '{"id": 1}'
+    assert 'stopped after 1 page(s)' in cap.err
+
+
+def test_max_pages_requires_all(monkeypatch, capsys):
+    rc = _run(monkeypatch, 'GET', '/users', '--max-pages', '2')
+    assert rc == 1
+    assert '--max-pages only applies with --all' in capsys.readouterr().err
+
+
+def test_max_pages_rejects_non_integer(monkeypatch, capsys):
+    rc = _run(monkeypatch, 'GET', '/users', '--all', '--max-pages', 'abc')
+    assert rc == 1
+    assert 'expects an integer' in capsys.readouterr().err
+
+
+def test_max_pages_rejects_zero(monkeypatch, capsys):
+    rc = _run(monkeypatch, 'GET', '/users', '--all', '--max-pages', '0')
+    assert rc == 1
+    assert 'must be >= 1' in capsys.readouterr().err

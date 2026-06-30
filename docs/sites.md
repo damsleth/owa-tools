@@ -47,15 +47,22 @@ owa-sites --profile work site --pretty
 
 ## Site addressing
 
-The `--site` value accepts a bare name, an explicit path, or nothing for the
-tenant **root** site:
+The `--site` value accepts a bare name, an explicit path, a full SharePoint
+URL, or nothing for the tenant **root** site:
 
 | `--site` value | Targets |
 | --- | --- |
 | `owa-casa` | `https://<host>/sites/owa-casa` |
 | `sites/owa-casa` | same (explicit) |
 | `teams/Marketing` | `https://<host>/teams/Marketing` |
+| `https://<host>/sites/owa-casa` | a pasted URL — only its server-relative path is kept |
 | *(omitted)* | the tenant root site |
+
+A pasted site URL is resolved to its server-relative path; the `site` command's
+JSON output carries the resolved web `id`, so a URL in yields its site id out.
+Raw site GUIDs are **not** accepted: SharePoint REST is path-based and has no
+host-relative "open web by id" (that is a Graph `/sites/{id}` operation, the dead
+path owa-sites deliberately avoids), so address sites by name, path, or URL.
 
 The `site` command also accepts the address as a bare positional
 (`owa-sites site owa-casa`). Pin a default with `owa-sites config --site
@@ -88,7 +95,13 @@ A list normalizes to:
 ```
 
 `lists` hides system/hidden lists by default; pass `--all-lists` to include
-them. Collection reads follow SharePoint's `odata.nextLink` until exhausted.
+them. `lists` and `items` accept OData passthrough flags — `--filter`,
+`--orderby`, and `--expand` — appended to the underlying query.
+
+Collection reads follow SharePoint's `odata.nextLink`. `items` walks up to
+`--max-pages` pages (default 50); if the cap trips while more pages remain it
+prints a truncation warning to **stderr**. Pass `--all` to follow every page
+without a cap.
 
 ---
 
@@ -103,8 +116,11 @@ owa-sites lists --site owa-casa --all-lists    # include hidden/system lists
 
 owa-sites items --site owa-casa --list Documents          # list items
 owa-sites items --site owa-casa --list Documents --select Title,Modified --top 50
+owa-sites items --site owa-casa --list Documents --filter "Id gt 0" --orderby "Modified desc" --all
+owa-sites item --site owa-casa --list Documents 42        # one item by id
 
 owa-sites files --site owa-casa --path "/sites/owa-casa/Shared Documents"
+owa-sites file --site owa-casa <unique-id>                # one file by UniqueId
 
 owa-sites search --q "quarterly report" --pretty          # tenant search
 owa-sites search --q "owner:kim" --limit 50
@@ -112,12 +128,18 @@ owa-sites search --q "owner:kim" --limit 50
 owa-sites config --host contoso.sharepoint.com            # pin the SP host
 owa-sites config --site owa-casa                          # pin a default site
 owa-sites config --profile work                           # pin a default profile
+owa-sites config --unset site                             # drop a pinned key
+owa-sites config --clear                                  # delete the config file
 owa-sites refresh                                         # verify SharePoint access
 ```
 
-`items` requires `--list`; `files` requires `--path` (a server-relative folder);
-`search` requires `--q`. `--site` falls back to the configured default site, or
-the tenant root when unset.
+`items` and `item` require `--list`; `item` also needs an item Id (positional or
+`--id`). `files` requires `--path` (a server-relative folder); `file` needs a
+UniqueId (positional or `--id`). `search` requires `--q`. `--site` falls back to
+the configured default site, or the tenant root when unset.
+
+`config --unset <key>` removes a single pinned key (`profile`, `host`, or
+`site`); `config --clear` deletes the config file outright.
 
 ---
 

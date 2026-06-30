@@ -34,6 +34,24 @@ def api_get(base, endpoint, access_token, extra_headers=None, debug=False):
                        extra_headers=extra_headers, debug=debug)
 
 
+def api_get_binary(base, endpoint, access_token, extra_headers=None, debug=False):
+    """GET that returns raw bytes (for $value endpoints like a photo).
+
+    Raises OwaError on failure, matching the rest of the suite's binary
+    helpers (see owa_drive.api.api_get_binary).
+    """
+    url = f'{base}/{endpoint.lstrip("/")}'
+    headers = dict(extra_headers or {})
+    try:
+        return http.request(
+            'GET', url, token=access_token, headers=headers, raw=True, debug=debug,
+        ).bytes
+    except (AuthExpiredError, ScopeInsufficientError) as error:
+        raise error
+    except OwaError as error:
+        raise error
+
+
 def paginate_all(base, endpoint, access_token, extra_headers=None, debug=False):
     """Follow `@odata.nextLink` from the first page until exhausted.
 

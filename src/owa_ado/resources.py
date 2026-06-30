@@ -8,6 +8,25 @@ unit-testable without a network or token.
 import html
 import re
 
+# Friendly link-type names mapped to the DevOps relation reference name.
+# `--rel <name>` on wi-link/wi-unlink accepts either a friendly key here or
+# a fully-qualified rel string (used verbatim when it isn't a known key).
+LINK_RELS = {
+    'parent': 'System.LinkTypes.Hierarchy-Reverse',
+    'child': 'System.LinkTypes.Hierarchy-Forward',
+    'related': 'System.LinkTypes.Related',
+    'predecessor': 'System.LinkTypes.Dependency-Reverse',
+    'successor': 'System.LinkTypes.Dependency-Forward',
+    'duplicate': 'System.LinkTypes.Duplicate-Forward',
+    'duplicate-of': 'System.LinkTypes.Duplicate-Reverse',
+}
+
+
+def resolve_rel(name):
+    """Map a friendly link name to its rel string; pass dotted names through."""
+    key = (name or '').strip()
+    return LINK_RELS.get(key.lower(), key)
+
 # Compact field set requested for work-item list/show, so the JSON stays
 # small and the same keys appear whether listing or showing.
 WI_FIELDS = (
@@ -109,6 +128,19 @@ def normalize_work_item_detailed(wi):
     item['description'] = _strip_html(fields.get('System.Description'))
     item['attachments'] = work_item_attachments(wi)
     return item
+
+
+def normalize_comment(c):
+    if not isinstance(c, dict):
+        return {}
+    return {
+        'id': c.get('id'),
+        'workItemId': c.get('workItemId'),
+        'text': _strip_html(c.get('text')) or c.get('text'),
+        'createdBy': _identity(c.get('createdBy')),
+        'createdDate': c.get('createdDate'),
+        'url': c.get('url'),
+    }
 
 
 def normalize_repo(r):

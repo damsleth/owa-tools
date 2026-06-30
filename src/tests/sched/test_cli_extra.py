@@ -135,6 +135,40 @@ def test_availability_unknown_flag_raises():
         cli.cmd_availability(["--bogus"], {}, "tok", "https://graph.test")
 
 
+def test_availability_rejects_out_of_range_interval():
+    with pytest.raises(cli.UsageError, match="between 5 and 1440"):
+        cli.cmd_availability(
+            ["--who", "a@x.com", "--date", "2026-05-09", "--interval", "1"],
+            {}, "tok", "https://graph.test",
+        )
+
+
+def test_availability_rejects_too_many_attendees():
+    who = ",".join(f"u{i}@x.com" for i in range(21))
+    with pytest.raises(cli.UsageError, match="at most 20 attendees"):
+        cli.cmd_availability(
+            ["--who", who, "--date", "2026-05-09"],
+            {}, "tok", "https://graph.test",
+        )
+
+
+def test_availability_tz_override_passed_to_get_schedule(monkeypatch):
+    seen = {}
+
+    def fake_post(base, endpoint, token, body=None, debug=False):
+        seen["tz"] = body["startTime"]["timeZone"]
+        return _schedule_payload()
+
+    monkeypatch.setattr(cli.api_mod, "api_post", fake_post)
+    rc = cli.cmd_availability(
+        ["--who", "a@x.com", "--date", "2026-05-09", "--tz", "UTC"],
+        {"default_timezone": "W. Europe Standard Time"},
+        "tok", "https://graph.test",
+    )
+    assert rc == 0
+    assert seen["tz"] == "UTC"
+
+
 # ---------------------------------------------------------------------------
 # cmd_find_time — additional flag branches and return paths
 # ---------------------------------------------------------------------------

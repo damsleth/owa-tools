@@ -73,11 +73,17 @@ request with the right base URL and Bearer header.
   token (avoid piping that to `pbcopy`).
 - `--all` follows `@odata.nextLink` until exhausted; pair with
   `--ndjson` to stream items one per line through `jq`.
+- `--max-pages N` is a safety valve on `--all`: it stops after `N` pages
+  and signals truncation (a warning on stderr, plus an `@owa.truncated`
+  marker in the JSON wrapper) instead of following `nextLink` unbounded.
 - `--count` and `--search` set Graph's `ConsistencyLevel: eventual`
   header so advanced directory queries don't 400.
 - `--retry` honors `Retry-After` once on 429/503 (capped at 60s).
+- `--raw`, `--curl`, and `--az` emit non-JSON output (raw bytes / a
+  shell command) and are refused under `--agent`, which only wraps JSON.
 - `owa-graph batch <file|->` posts a JSON-batching request to `/$batch`;
-  flat arrays are auto-wrapped in `{"requests": [...]}`.
+  flat arrays are auto-wrapped in `{"requests": [...]}`. Batch always
+  targets the `graph` audience regardless of the profile default.
 - `--beta` switches to `https://graph.microsoft.com/beta`.
 - `--audience` retargets at any FOCI audience `owa-piggy` knows about
   using the same query ergonomics. The 17 known audiences are:

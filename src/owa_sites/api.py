@@ -46,13 +46,18 @@ def sp_get(base, endpoint, access_token, debug=False):
     return sp_request('GET', base, endpoint, access_token, debug=debug)
 
 
-def paginate_sp(base, endpoint, access_token, debug=False, max_pages=50):
+def paginate_sp(base, endpoint, access_token, debug=False, max_pages=50, on_truncate=None):
     """Follow SharePoint REST `odata.nextLink` from the first page until exhausted.
 
     SharePoint's `odata=nometadata` next link is the bare `odata.nextLink` key
     (no `@`), so the shared Graph paginator does not apply. Returns the combined
     `value` list on success, or None on the recoverable errors sp_request maps
     to None (auth/scope re-raise).
+
+    `max_pages=None` follows every page (the `--all` path). When a numeric cap
+    trips while the server still advertises a next link, `on_truncate(pages,
+    next_link)` fires once (if provided) so the caller can surface a truncation
+    signal. Natural exhaustion never fires it.
     """
     url = f'{base}/{endpoint}'
     items = []
@@ -69,7 +74,9 @@ def paginate_sp(base, endpoint, access_token, debug=False, max_pages=50):
             items.extend(value)
             url = payload.get('odata.nextLink') or payload.get('@odata.nextLink')
             pages += 1
-            if pages >= max_pages:
+            if max_pages is not None and pages >= max_pages:
+                if url and on_truncate is not None:
+                    on_truncate(pages, url)
                 break
         return items
     except (AuthExpiredError, ScopeInsufficientError) as error:

@@ -210,6 +210,27 @@ def test_batch_api_failure_returns_1(monkeypatch, tmp_path):
     assert rc == 1
 
 
+def test_batch_forces_graph_audience(monkeypatch, tmp_path):
+    # Even with a non-graph profile default, $batch must target graph.
+    monkeypatch.setattr(
+        cli.config_mod, 'load_config',
+        lambda: {'default_audience': 'outlook'},
+    )
+    seen = {}
+
+    def _capture_auth(_c, audience='graph', beta=False, debug=False):
+        seen['audience'] = audience
+        return ('tok', 'https://graph.microsoft.com/v1.0')
+
+    monkeypatch.setattr(cli.auth_mod, 'setup_auth', _capture_auth)
+    monkeypatch.setattr(cli.api_mod, 'api_request', lambda *a, **k: _BATCH_RESPONSE)
+    f = tmp_path / 'b.json'
+    f.write_text('[]')
+    rc = _run(monkeypatch, 'batch', str(f))
+    assert rc == 0
+    assert seen['audience'] == 'graph'
+
+
 def test_batch_retry_flag_forwarded(monkeypatch, tmp_path):
     f = tmp_path / 'b.json'
     f.write_text('[]')

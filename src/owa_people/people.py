@@ -49,3 +49,20 @@ def normalize_person(entry, source):
         'businessPhones': entry.get('businessPhones') or [],
         'source': source,
     }
+
+
+def normalize_group(entry):
+    """Flatten a directoryObject from /memberOf.
+
+    /memberOf returns a mixed bag of group, directoryRole and
+    administrativeUnit objects; we keep the common fields and surface
+    the @odata.type so callers can tell them apart.
+    """
+    kind = (entry.get('@odata.type') or '').lstrip('#').removeprefix('microsoft.graph.')
+    return {
+        'id': entry.get('id') or '',
+        'displayName': entry.get('displayName') or '',
+        'mail': entry.get('mail') or '',
+        'description': entry.get('description') or '',
+        'type': kind,
+    }

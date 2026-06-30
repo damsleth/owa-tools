@@ -45,3 +45,43 @@ def test_format_report_pretty_full_report():
     assert "yes" in out
     assert "x" * 40 in out
     assert "Summary: 2 ok, 1 warn, 1 fail" in out
+
+
+def test_format_report_pretty_unreachable_piggy():
+    out = format_report_pretty({
+        "owa_piggy": {"installed": True, "reachable": False, "path": "/bin/owa-piggy"},
+    })
+    assert "UNREACHABLE" in out
+    assert "/bin/owa-piggy" in out
+
+
+def test_format_report_pretty_audience_mismatch_note():
+    report = {
+        "owa_piggy": {"installed": True, "reachable": True, "version": "0.8.0", "path": "/p"},
+        "profiles": [{
+            "alias": "work", "default": True, "state": "warn",
+            "minutes_remaining": 50, "audience_mismatch": True,
+            "token_audience": "https://outlook.office.com", "error": None,
+        }],
+        "summary": {"ok": 0, "warn": 1, "fail": 0},
+    }
+    out = format_report_pretty(report)
+    assert "audience mismatch" in out
+
+
+def test_format_report_pretty_coverage_section():
+    report = {
+        "owa_piggy": {"installed": True, "reachable": True, "version": "0.8.0", "path": "/p"},
+        "profiles": [
+            {"alias": "work", "default": True, "state": "ok",
+             "minutes_remaining": 60, "error": None,
+             "coverage": {"graph": True, "outlook": False}},
+        ],
+        "summary": {"ok": 1, "warn": 0, "fail": 0},
+    }
+    out = format_report_pretty(report)
+    assert "Coverage (audiences obtainable):" in out
+    assert "graph" in out
+    assert "outlook" in out
+    assert "yes" in out
+    assert "no" in out

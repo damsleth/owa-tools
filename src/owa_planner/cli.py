@@ -21,6 +21,7 @@ from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
 from owa_core.errors import OwaError, UsageError, _require_value, emit_message
+from owa_core.query import build_query
 
 from . import __version__
 from . import api as api_mod
@@ -84,29 +85,43 @@ Commands:
   refresh             Force a token refresh and verify auth
   help                Show this help
 
+Read commands accept --select <props> and --expand <props> (OData passthrough).
+Planner does NOT support $filter or $orderby server-side (Graph returns 400);
+use --status/--bucket (filtered client-side) and jq instead.
+
 Plans options:
   --group <id>        List a group's plans instead of mine
+  --select <props>    OData $select passthrough (comma-separated)
+  --expand <props>    OData $expand passthrough
   --pretty            Human-readable listing (default: JSON)
   --all               Follow @odata.nextLink until exhausted
 
 Buckets options:
   --plan <id>         Plan id (or config default_plan)
+  --select <props>    OData $select passthrough (comma-separated)
+  --expand <props>    OData $expand passthrough
   --pretty            Human-readable listing
 
 Tasks options:
   --plan <id>         Limit to one plan (default: my assigned tasks)
   --bucket <id>       Filter to one bucket
   --status <status>   notstarted, inprogress, completed
+  --select <props>    OData $select passthrough (comma-separated)
+  --expand <props>    OData $expand passthrough
   --pretty            Human-readable checklist
   --all               Follow @odata.nextLink until exhausted
 
 Task options:
   --id <task-id>      Task id (flag or bare positional)
+  --select <props>    OData $select passthrough (comma-separated)
+  --expand <props>    OData $expand passthrough
   --pretty            Human-readable detail
 
 Config options:
   --profile <alias>   Pin a default owa-piggy profile alias
   --plan <id>         Pin a default plan id
+  --unset <key>       Remove one pinned key (profile/plan)
+  --clear             Delete the config file
 
 Auth:
   owa-planner shells out to owa-piggy for a fresh access token on every call
@@ -128,6 +143,19 @@ Examples:
 # ---------------------------------------------------------------------------
 # Subcommands
 # ---------------------------------------------------------------------------
+
+# Microsoft Planner's Graph endpoints support only $select and $expand on
+# reads; $filter and $orderby are rejected with HTTP 400, so they are NOT
+# wired. Status/bucket filtering on `tasks` is done client-side for that reason.
+def _odata(select, expand):
+    """Build a query suffix ('?...' or '') from the supported OData params."""
+    params = {}
+    if select:
+        params['$select'] = select
+    if expand:
+        params['$expand'] = expand
+    return f'?{build_query(params)}' if params else ''
+
 
 def _fetch(endpoint, all_pages, access_token, api_base, debug):
     if all_pages:
@@ -409,12 +437,16 @@ def cmd_update_plan_details(args, config, access_token, api_base):
 
 
 def cmd_plans(args, config, access_token, api_base):
-    group = ''
+    group = select = expand = ''
     pretty = all_pages = False
     while args:
         flag, args = args[0], args[1:]
         if flag == '--group':
             group, args = _require_value(flag, args)
+        elif flag == '--select':
+            select, args = _require_value(flag, args)
+        elif flag == '--expand':
+            expand, args = _require_value(flag, args)
         elif flag == '--pretty':
             pretty = True
         elif flag == '--all':
@@ -422,7 +454,8 @@ def cmd_plans(args, config, access_token, api_base):
         else:
             raise UsageError(f'Unknown flag: {flag}')
     debug = _debug_enabled(config)
-    endpoint = f'groups/{_quote(group)}/planner/plans' if group else 'me/planner/plans'
+    base_ep = f'groups/{_quote(group)}/planner/plans' if group else 'me/planner/plans'
+    endpoint = base_ep + _odata(select, expand)
     data = _fetch(endpoint, all_pages, access_token, api_base, debug)
     if data is None:
         return 1
@@ -432,12 +465,16 @@ def cmd_plans(args, config, access_token, api_base):
 
 
 def cmd_buckets(args, config, access_token, api_base):
-    plan = ''
+    plan = select = expand = ''
     pretty = all_pages = False
     while args:
         flag, args = args[0], args[1:]
         if flag == '--plan':
             plan, args = _require_value(flag, args)
+        elif flag == '--select':
+            select, args = _require_value(flag, args)
+        elif flag == '--expand':
+            expand, args = _require_value(flag, args)
         elif flag == '--pretty':
             pretty = True
         elif flag == '--all':
@@ -448,7 +485,7 @@ def cmd_buckets(args, config, access_token, api_base):
     if not plan:
         raise UsageError('--plan is required (or set a default with: owa-planner config --plan <id>)')
     debug = _debug_enabled(config)
-    endpoint = f'planner/plans/{_quote(plan)}/buckets'
+    endpoint = f'planner/plans/{_quote(plan)}/buckets' + _odata(select, expand)
     data = _fetch(endpoint, all_pages, access_token, api_base, debug)
     if data is None:
         return 1
@@ -458,7 +495,7 @@ def cmd_buckets(args, config, access_token, api_base):
 
 
 def cmd_tasks(args, config, access_token, api_base):
-    plan = bucket = status = ''
+    plan = bucket = status = select = expand = ''
     pretty = all_pages = False
     while args:
         flag, args = args[0], args[1:]
@@ -468,6 +505,10 @@ def cmd_tasks(args, config, access_token, api_base):
             bucket, args = _require_value(flag, args)
         elif flag == '--status':
             status, args = _require_value(flag, args)
+        elif flag == '--select':
+            select, args = _require_value(flag, args)
+        elif flag == '--expand':
+            expand, args = _require_value(flag, args)
         elif flag == '--pretty':
             pretty = True
         elif flag == '--all':
@@ -476,7 +517,8 @@ def cmd_tasks(args, config, access_token, api_base):
             raise UsageError(f'Unknown flag: {flag}')
     debug = _debug_enabled(config)
     plan = plan or config.get('default_plan') or ''
-    endpoint = f'planner/plans/{_quote(plan)}/tasks' if plan else 'me/planner/tasks'
+    base_ep = f'planner/plans/{_quote(plan)}/tasks' if plan else 'me/planner/tasks'
+    endpoint = base_ep + _odata(select, expand)
     data = _fetch(endpoint, all_pages, access_token, api_base, debug)
     if data is None:
         return 1
@@ -492,11 +534,16 @@ def cmd_tasks(args, config, access_token, api_base):
 
 def cmd_task(args, config, access_token, api_base):
     task_id, args = schema_mod.pop_positional_id(args)
+    select = expand = ''
     pretty = False
     while args:
         flag, args = args[0], args[1:]
         if flag == '--id':
             task_id, args = _require_value(flag, args)
+        elif flag == '--select':
+            select, args = _require_value(flag, args)
+        elif flag == '--expand':
+            expand, args = _require_value(flag, args)
         elif flag == '--pretty':
             pretty = True
         else:
@@ -504,7 +551,9 @@ def cmd_task(args, config, access_token, api_base):
     if not task_id:
         raise UsageError('--id is required')
     debug = _debug_enabled(config)
-    raw = api_mod.api_get(api_base, f'planner/tasks/{_quote(task_id)}', access_token, debug=debug)
+    raw = api_mod.api_get(
+        api_base, f'planner/tasks/{_quote(task_id)}{_odata(select, expand)}', access_token, debug=debug,
+    )
     if raw is None:
         return 1
     task = plans_mod.normalize_task(raw)
@@ -517,18 +566,47 @@ def cmd_task(args, config, access_token, api_base):
     return 0
 
 
+# Public config keys, mapped from their --flag form. Used by --unset.
+_CONFIG_KEYS = {
+    'profile': 'owa_piggy_profile',
+    'plan': 'default_plan',
+}
+
+
 def cmd_config(args, config):
     profile = plan = ''
+    unset = []
+    clear = False
     while args:
         flag, args = args[0], args[1:]
         if flag == '--profile':
             profile, args = _require_value(flag, args)
         elif flag == '--plan':
             plan, args = _require_value(flag, args)
+        elif flag == '--unset':
+            name, args = _require_value(flag, args)
+            key = _CONFIG_KEYS.get(name, name)
+            if key not in config_mod.ALLOWED_KEYS:
+                raise UsageError(
+                    f'unknown config key: {name} '
+                    f"(known: {', '.join(sorted(_CONFIG_KEYS))})"
+                )
+            unset.append(key)
+        elif flag == '--clear':
+            clear = True
         else:
             raise UsageError(f'Unknown flag: {flag}')
 
+    if clear:
+        config_mod.config_clear()
+        _info('config cleared')
+        return 0
+
     changed = False
+    for key in unset:
+        config_mod.config_unset(key)
+        _info(f'unset: {key}')
+        changed = True
     if profile:
         config_mod.config_set('owa_piggy_profile', profile)
         _info(f'default profile saved: {profile}')
@@ -583,14 +661,21 @@ AUTHED_COMMANDS = {
     'update-plan-details',
 }
 
+_SELECT_FLAG = schema_mod.flag('--select', value='<props>', summary='OData $select passthrough (comma-separated)')
+_EXPAND_FLAG = schema_mod.flag('--expand', value='<props>', summary='OData $expand passthrough')
+
 _PLANS_FLAGS = [
     schema_mod.flag('--group', value='<id>', summary="List a group's plans instead of mine"),
+    _SELECT_FLAG,
+    _EXPAND_FLAG,
     schema_mod.flag('--pretty', summary='Human-readable listing (default: JSON)'),
     schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
 ]
 
 _BUCKETS_FLAGS = [
     schema_mod.flag('--plan', value='<id>', summary='Plan id (or config default_plan)'),
+    _SELECT_FLAG,
+    _EXPAND_FLAG,
     schema_mod.flag('--pretty', summary='Human-readable listing (default: JSON)'),
     schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
 ]
@@ -599,12 +684,16 @@ _TASKS_FLAGS = [
     schema_mod.flag('--plan', value='<id>', summary='Limit to one plan (default: my assigned tasks)'),
     schema_mod.flag('--bucket', value='<id>', summary='Filter to one bucket'),
     schema_mod.flag('--status', value='<status>', summary='notstarted, inprogress, completed'),
+    _SELECT_FLAG,
+    _EXPAND_FLAG,
     schema_mod.flag('--pretty', summary='Human-readable checklist (default: JSON)'),
     schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
 ]
 
 _TASK_FLAGS = [
     schema_mod.flag('--id', value='<task-id>', summary='Task id (flag or positional)', required=True),
+    _SELECT_FLAG,
+    _EXPAND_FLAG,
     schema_mod.flag('--pretty', summary='Human-readable detail (default: JSON)'),
 ]
 
@@ -651,6 +740,8 @@ _UPDATE_PLAN_DETAILS_FLAGS = [
 _CONFIG_FLAGS = [
     schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias'),
     schema_mod.flag('--plan', value='<id>', summary='Pin a default plan id'),
+    schema_mod.flag('--unset', value='<key>', repeatable=True, summary='Remove one pinned key (profile/plan)'),
+    schema_mod.flag('--clear', summary='Delete the config file'),
 ]
 
 COMMAND_SCHEMA = [

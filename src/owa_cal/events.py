@@ -251,42 +251,131 @@ def normalize_events_detail(response):
     return [normalize_event_detail(e) for e in response.get('value', [])]
 
 
+# Outlook REST recurrence pattern types keyed by the user-facing --recur
+# value. Kept to the pragmatic subset that maps cleanly to a single
+# interval: daily / weekly / monthly / yearly. Weekly recurrences need a
+# day-of-week anchor, which the caller supplies from the event start date.
+_RECUR_PATTERN_TYPES = {
+    'daily': 'Daily',
+    'weekly': 'Weekly',
+    'monthly': 'AbsoluteMonthly',
+    'yearly': 'AbsoluteYearly',
+}
+
+# weekday() index (Mon=0) -> Outlook REST day-of-week name.
+_WEEKDAY_NAMES = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+    'Friday', 'Saturday', 'Sunday',
+]
+
+
+def build_attendees(required=(), optional=()):
+    """Build the Outlook REST `Attendees` array from email lists.
+
+    Each entry is `{EmailAddress: {Address}, Type}`. Empty/whitespace
+    addresses are skipped. Returns [] when nothing is supplied so callers
+    can decide whether to attach the key at all.
+    """
+    out = []
+    for addr in required:
+        addr = (addr or '').strip()
+        if addr:
+            out.append({'EmailAddress': {'Address': addr}, 'Type': 'Required'})
+    for addr in optional:
+        addr = (addr or '').strip()
+        if addr:
+            out.append({'EmailAddress': {'Address': addr}, 'Type': 'Optional'})
+    return out
+
+
+def build_recurrence(recur, start_date, interval=1, count=0, until=''):
+    """Build the Outlook REST `Recurrence` object, or None if no recur.
+
+    `recur` is one of daily/weekly/monthly/yearly. `start_date` is the
+    event's YYYY-MM-DD start, used to anchor the pattern (day-of-week for
+    weekly, day-of-month for monthly/yearly) and as the range start.
+
+    Range is `NoEnd` by default, `Numbered` when `count` is given, or
+    `EndDate` when `until` (YYYY-MM-DD) is given. `count` and `until` are
+    mutually exclusive at the CLI layer.
+    """
+    if not recur:
+        return None
+    pattern_type = _RECUR_PATTERN_TYPES.get(recur)
+    if pattern_type is None:
+        raise ValueError(
+            f'unsupported --recur value: {recur} '
+            f'(use daily, weekly, monthly, or yearly)'
+        )
+    dt = datetime.strptime(start_date, '%Y-%m-%d')
+    pattern = {'Type': pattern_type, 'Interval': max(1, interval)}
+    if pattern_type == 'Weekly':
+        pattern['DaysOfWeek'] = [_WEEKDAY_NAMES[dt.weekday()]]
+    elif pattern_type == 'AbsoluteMonthly':
+        pattern['DayOfMonth'] = dt.day
+    elif pattern_type == 'AbsoluteYearly':
+        pattern['DayOfMonth'] = dt.day
+        pattern['Month'] = dt.month
+    if count:
+        rng = {'Type': 'Numbered', 'StartDate': start_date,
+               'NumberOfOccurrences': count}
+    elif until:
+        rng = {'Type': 'EndDate', 'StartDate': start_date, 'EndDate': until}
+    else:
+        rng = {'Type': 'NoEnd', 'StartDate': start_date}
+    return {'Pattern': pattern, 'Range': rng}
+
+
 def build_event_json(
     subject, start_dt, end_dt, tz,
     category='', location='', body_text='', allday=False, showas='',
+    categories=(), attendees=(), reminder=None, recurrence=None,
 ):
     """Build the POST body for creating an Outlook REST event."""
+    reminder_on = reminder is not None
     out = {
         'Subject': subject,
         'Start': {'DateTime': start_dt, 'TimeZone': tz},
         'End': {'DateTime': end_dt, 'TimeZone': tz},
         'ShowAs': showas or 'Busy',
         'IsAllDay': bool(allday),
-        'IsReminderOn': False,
+        'IsReminderOn': reminder_on,
     }
-    if category:
-        out['Categories'] = [category]
+    if reminder_on:
+        out['ReminderMinutesBeforeStart'] = reminder
+    # `category` (single, legacy) and `categories` (repeatable) merge; order
+    # preserved, dupes dropped.
+    cats = []
+    for c in ([category] if category else []) + list(categories):
+        if c and c not in cats:
+            cats.append(c)
+    if cats:
+        out['Categories'] = cats
     if location:
         out['Location'] = {'DisplayName': location}
     if body_text:
         out['Body'] = {'ContentType': 'Text', 'Content': body_text}
+    if attendees:
+        out['Attendees'] = list(attendees)
+    if recurrence:
+        out['Recurrence'] = recurrence
     return out
 
 
 def build_patch_json(fields, tz):
     """Build the PATCH body for updating an Outlook REST event.
 
-    `fields` is a dict with any of: subject, category, location, showas,
-    start, end, body. Only provided keys land in the output - that is
-    the load-bearing invariant (commit history), so adding keys with
-    empty values to the input is a bug.
+    `fields` is a dict with any of: subject, categories, location, showas,
+    start, end, body, attendees, reminder, recurrence. Only provided keys
+    land in the output - that is the load-bearing invariant (commit
+    history), so adding keys with empty values to the input is a bug.
     """
     out = {}
     for key, val in fields.items():
         if key == 'subject':
             out['Subject'] = val
-        elif key == 'category':
-            out['Categories'] = [val]
+        elif key == 'categories':
+            out['Categories'] = list(val)
         elif key == 'location':
             out['Location'] = {'DisplayName': val}
         elif key == 'showas':
@@ -297,4 +386,11 @@ def build_patch_json(fields, tz):
             out['End'] = {'DateTime': val, 'TimeZone': tz}
         elif key == 'body':
             out['Body'] = {'ContentType': 'Text', 'Content': val}
+        elif key == 'attendees':
+            out['Attendees'] = list(val)
+        elif key == 'reminder':
+            out['ReminderMinutesBeforeStart'] = val
+            out['IsReminderOn'] = True
+        elif key == 'recurrence':
+            out['Recurrence'] = val
     return out

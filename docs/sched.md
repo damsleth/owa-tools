@@ -63,10 +63,12 @@ flags. See [cal.md](cal.md#relative--semantic-period-values) for the full table
 and precedence rules. Note owa-sched weeks are **Mon–Fri** (the work week),
 whereas owa-cal weeks are Mon–Sun. `--start` / `--end` set the work-day window
 (defaults 08:00 / 17:00, or the `default_work_start` / `default_work_end`
-config values).
+config values). `getSchedule` caps `--who` at 20 attendees; more than that is
+rejected with a usage error rather than an opaque Graph 400.
 
 - `availability` adds `--interval <min>` (availabilityView granularity,
-  default 30).
+  5-1440, default 30) and `--tz <timezone>` (override the configured Graph
+  time zone for this call).
 - `find-time` adds `--duration <min>` (slot length, default 30), `--server`
   for Graph `/me/findMeetingTimes`, `--max-candidates`,
   `--min-attendee-pct`, `--attendee-type`, `--location`,
@@ -112,9 +114,13 @@ See [agent-integration.md](agent-integration.md) for the full contract.
 
 ## Caveats
 
-- The local slot finder is naive: it uses a single per-day work-day window for
-  everyone, and does not honour each attendee's individual `workingHours` from
-  Graph. Use `find-time --server` for Graph server-side ranking and
-  working-hours handling.
+- The local slot finder applies the `--start`/`--end` work-day window to
+  everyone, then intersects it with each attendee's own `workingHours` from the
+  getSchedule response when Graph advertises them: a candidate slot survives
+  only if it lands on a working day and inside the working window of every
+  attendee that publishes one (attendees with no published working hours add no
+  constraint). Its overlap math still uses naive local datetimes (DST-unsafe);
+  use `find-time --server` for Graph server-side ranking that sidesteps the
+  timezone math entirely.
 - Graph's per-attendee error surface (e.g. mailbox not found, calendar hidden)
   is preserved on the JSON output; consult the `error` field on each attendee.

@@ -6,6 +6,92 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## Unreleased
+
+Suite-wide P2 feature sweep — new flags, commands, and behaviors across nearly
+every tool — plus the systemic exit-code fix and owa-planner write support.
+
+### Suite-wide / correctness
+
+- **Exit-code taxonomy now reaches the shell.** Every networked tool's
+  `api.py` raises its recoverable `OwaError` instead of collapsing all
+  failures to exit `1`; the documented taxonomy (10 network / 13 not-found /
+  14 rate-limited / 15 conflict / 20 internal) is now what the process
+  returns. End-to-end contract test added.
+- **OData passthrough** (`--select`/`--filter`/`--orderby`/`--expand` /
+  `--skip`) added where it was missing and server-supported (mail, graph,
+  people, todo, sites, planner). Planner deliberately omits `--filter`/
+  `--orderby` (Graph `/planner` returns 400 — use client-side `--status`/
+  `--bucket`).
+- **Paging safety valves**: `--all` / `--max-pages` with a stderr truncation
+  signal on graph, sites, teams, ado (prs/runs) — no more silent page caps.
+- `config --unset <key>` / `config --clear` on planner, sites, and ado.
+
+### owa-cal
+
+- Repeatable `--attendee`/`--optional-attendee`, `--reminder <minutes>`,
+  repeatable `--category`, and recurrence (`--recur daily|weekly` with
+  `--recur-interval`/`--recur-count`/`--recur-until`) on event create/update.
+- Sends `Prefer: outlook.timezone` on the calendarView window — fixes the
+  off-by-one near midnight.
+
+### owa-mail
+
+- attachment-get fallback for item/reference attachments (no `$value`).
+- `move` by folder display-name + new `copy` command.
+- `categories` command + `messages --category` filter; `--has-attachments`
+  and `--importance` filters; `--orderby`/`--skip`.
+- new `thread`/`conversation` command.
+
+### owa-graph
+
+- `--max-pages` safety valve on `--all`; raw modes (`--raw`/`--curl`/`--az`)
+  reconciled with `--agent`; `$batch` always targets the graph audience.
+
+### owa-people
+
+- `manager`, `direct-reports`, `org-chart`, `groups` (memberOf), `photo`,
+  and contact CRUD (`contact-create`/`-update`/`-delete`). `--top` alias.
+  (`presence` was probed and is scope-walled on the OWA client — not shipped.)
+
+### owa-todo
+
+- `--reminder`, `--recurrence daily|weekly`, repeatable `--category` on write;
+  `undone` command; list CRUD (`list-create`/`-rename`/`-delete`).
+
+### owa-sites
+
+- `item` and `file` detail-by-id commands; site addressing by URL; paging on
+  `items`. (Raw site-GUID addressing isn't supported by SharePoint REST.)
+
+### owa-teams
+
+- `send` (message + reply, with structured `--mention`/`--attachment`,
+  `--html`); `members` command (chat members; channel/team members are
+  scope-walled → exit 12); `--top`/`--all` paging on chats/channels.
+
+### owa-ado
+
+- `--all` paging on `prs`/`runs`; `wi-comment`, `wi-link`, `wi-unlink`,
+  `wi-delete` (confirm-gated); `--api-version` escape hatch.
+
+### owa-sched
+
+- Server-side suggestions via `find-time --server` (`/me/findMeetingTimes`);
+  the local finder now honors each attendee's published `workingHours`;
+  `availability` gained `--interval` validation, a >20-attendee guard, and
+  `--tz`.
+
+### owa-planner
+
+- Write support (create/update/delete tasks with ETag/`If-Match`, stale-etag
+  412 → exit 15); `--select`/`--expand` passthrough.
+
+### owa-doctor
+
+- Broker-reachability + audience-mismatch findings; `--coverage` (per-profile
+  obtainable audiences); `--timeout`; repeatable `--profile` subset selection.
+
 ## v1.2.0 - 2026-06-29
 
 New features, a breaking flag rename, and correctness fixes.

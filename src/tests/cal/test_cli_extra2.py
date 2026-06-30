@@ -369,7 +369,7 @@ def test_cmd_events_webcal_debug_prints_to_stderr(monkeypatch, capsys):
 def test_cmd_events_from_to_flags(monkeypatch, capsys):
     captured = {}
 
-    def fake_get(base, endpoint, token, debug=False):
+    def fake_get(base, endpoint, token, debug=False, headers=None):
         captured['endpoint'] = endpoint
         return {'value': []}
 
@@ -393,7 +393,7 @@ def test_cmd_events_pretty_output(monkeypatch, capsys):
 
 def test_cmd_events_all_pages(monkeypatch, capsys):
     monkeypatch.setattr(api_mod, 'paginate_all',
-                        lambda base, url, token, debug=False: [_raw_event()])
+                        lambda base, url, token, debug=False, headers=None: [_raw_event()])
     rc = cmd_events(['--all', '--date', '2026-04-20'],
                     {}, 'tok', 'https://outlook.test')
     assert rc == 0

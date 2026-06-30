@@ -64,6 +64,36 @@ def test_paginate_sp_follows_nextlink(monkeypatch):
     assert len(calls) == 2
 
 
+def test_paginate_sp_unbounded(monkeypatch):
+    calls = []
+
+    def fake_request(method, url, **k):
+        calls.append(url)
+        if len(calls) < 3:
+            return _resp({'value': [{'a': len(calls)}], 'odata.nextLink': 'https://h/next'})
+        return _resp({'value': [{'a': 3}]})
+
+    monkeypatch.setattr(api_mod.http, 'request', fake_request)
+    out = api_mod.paginate_sp('https://h', 'sites/x/_api/web/lists', 'tok', max_pages=None)
+    assert len(out) == 3
+    assert len(calls) == 3
+
+
+def test_paginate_sp_truncates_and_signals(monkeypatch):
+    monkeypatch.setattr(
+        api_mod.http, 'request',
+        lambda method, url, **k: _resp({'value': [{'a': 1}], 'odata.nextLink': 'https://h/next'}),
+    )
+    signal = {}
+    out = api_mod.paginate_sp(
+        'https://h', 'sites/x/_api/web/lists', 'tok',
+        max_pages=2, on_truncate=lambda pages, nxt: signal.update(pages=pages, nxt=nxt),
+    )
+    assert len(out) == 2
+    assert signal['pages'] == 2
+    assert signal['nxt'] == 'https://h/next'
+
+
 def test_paginate_sp_single_object(monkeypatch):
     monkeypatch.setattr(api_mod.http, 'request', lambda method, url, **k: _resp({'Title': 'X'}))
     assert api_mod.paginate_sp('https://h', 'sites/x/_api/web', 'tok') == [{'Title': 'X'}]

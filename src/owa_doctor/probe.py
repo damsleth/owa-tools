@@ -21,12 +21,20 @@ from owa_core.registry import CONSUMER_TOOLS
 # canonical registry so a newly added tool is probed automatically.
 SIBLINGS = ('owa-piggy',) + CONSUMER_TOOLS
 
+# Default timeout (seconds) for doctor's own subprocess probes
+# (`<cmd> --version`, broker reachability). The `--timeout` flag overrides it.
+DEFAULT_TIMEOUT = 5
+
+# Audiences whose token-mint surface --coverage probes per profile. Kept small
+# and stdlib-derived; mirrors the audiences the suite actually exchanges for.
+COVERAGE_AUDIENCES = ('graph', 'outlook')
+
 
 def _which(cmd):
     return shutil.which(cmd)
 
 
-def _version_of(cmd):
+def _version_of(cmd, timeout=DEFAULT_TIMEOUT):
     """Run `<cmd> --version` and return the parsed version string,
     or None if the tool is missing or doesn't print one."""
     path = _which(cmd)
@@ -35,7 +43,7 @@ def _version_of(cmd):
     try:
         proc = subprocess.run(
             [cmd, '--version'],
-            capture_output=True, text=True, check=False, timeout=5,
+            capture_output=True, text=True, check=False, timeout=timeout,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -48,19 +56,26 @@ def _version_of(cmd):
     return None
 
 
-def probe_piggy():
-    """Return {installed, version, path}."""
+def probe_piggy(timeout=DEFAULT_TIMEOUT):
+    """Return {installed, reachable, version, path}.
+
+    `installed` means owa-piggy is on PATH; `reachable` means it actually
+    answered `--version` within the timeout (a broker that is present but
+    wedged is installed-but-unreachable).
+    """
     path = _which('owa-piggy')
     if not path:
-        return {'installed': False, 'version': None, 'path': None}
+        return {'installed': False, 'reachable': False, 'version': None, 'path': None}
+    version = _version_of('owa-piggy', timeout=timeout)
     return {
         'installed': True,
-        'version': _version_of('owa-piggy'),
+        'reachable': version is not None,
+        'version': version,
         'path': path,
     }
 
 
-def probe_siblings():
+def probe_siblings(timeout=DEFAULT_TIMEOUT):
     """Return one dict per known sibling CLI."""
     out = []
     for name in SIBLINGS:
@@ -70,7 +85,7 @@ def probe_siblings():
         out.append({
             'name': name,
             'installed': path is not None,
-            'version': _version_of(name) if path else None,
+            'version': _version_of(name, timeout=timeout) if path else None,
             'path': path,
         })
     return out
@@ -104,6 +119,7 @@ def probe_profile_token(alias, audience='graph'):
         'token_ok': False,
         'minutes_remaining': None,
         'token_audience': None,
+        'audience_mismatch': False,
         'error': None,
     }
     try:
@@ -119,19 +135,53 @@ def probe_profile_token(alias, audience='graph'):
     access = token.access_token
     finding['minutes_remaining'] = token_minutes_remaining(access)
     finding['token_audience'] = decode_token_audience(access)
+    finding['audience_mismatch'] = _audience_mismatch(audience, finding['token_audience'])
     return finding
+
+
+# Maps the short audience names the broker accepts to a substring that must
+# appear in the resource URI of the minted token's `aud` claim. A token whose
+# audience does not contain the expected marker means the broker handed back a
+# token for the wrong resource than what a command for that audience needs.
+_AUDIENCE_MARKERS = {
+    'graph': 'graph.microsoft.com',
+    'outlook': 'outlook.office',
+}
+
+
+def _audience_mismatch(requested, token_audience):
+    """True when the minted token's `aud` does not match the requested one."""
+    marker = _AUDIENCE_MARKERS.get(requested)
+    if not marker or not token_audience:
+        return False
+    return marker not in token_audience
+
+
+def probe_profile_coverage(alias, audiences=COVERAGE_AUDIENCES):
+    """Report which audiences/scopes a profile can actually obtain a token for.
+
+    Reuses probe_profile_token (the same broker token-mint surface the health
+    check uses) once per audience. Returns {audience: bool obtainable}.
+    """
+    return {
+        audience: probe_profile_token(alias, audience=audience)['token_ok']
+        for audience in audiences
+    }
 
 
 def classify_finding(finding):
     """Bucket a profile finding into ok / warn / fail.
 
     - fail: token_ok is False
-    - warn: token_ok but minutes_remaining is < 10 (about to expire)
+    - warn: token_ok but minutes_remaining is < 10 (about to expire), or the
+            minted token's audience does not match the requested one
     - ok:   everything else
     """
     if not finding.get('token_ok'):
         return 'fail'
     mins = finding.get('minutes_remaining')
     if isinstance(mins, int) and mins < 10:
+        return 'warn'
+    if finding.get('audience_mismatch'):
         return 'warn'
     return 'ok'

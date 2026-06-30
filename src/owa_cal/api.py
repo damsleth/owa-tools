@@ -13,17 +13,18 @@ from owa_core.errors import (
 from owa_core.query import build_query  # noqa: F401  (re-exported for api_mod.build_query)
 
 
-def api_request(method, base, endpoint, access_token, body=None, debug=False):
+def api_request(method, base, endpoint, access_token, body=None, debug=False, headers=None):
     """Issue a request against Outlook REST.
 
     - `base` and `endpoint` are joined with a single slash.
     - `body` is dict-serialised to JSON when non-None.
+    - `headers` adds request headers (e.g. `Prefer: outlook.timezone`).
     - Returns parsed JSON on 2xx, None on 404/429 (caller decides),
       and exits on 401/403 (unrecoverable without reconfig).
     """
     url = f'{base}/{endpoint}'
     try:
-        return http.request(method, url, token=access_token, body=body, debug=debug).json
+        return http.request(method, url, token=access_token, body=body, headers=headers, debug=debug).json
     except (AuthExpiredError, ScopeInsufficientError) as error:
         raise error
     except (ConflictError, InternalError, NetworkError, NotFoundError, RateLimitedError) as error:
@@ -32,11 +33,11 @@ def api_request(method, base, endpoint, access_token, body=None, debug=False):
         raise error
 
 
-def api_get(base, endpoint, access_token, debug=False):
-    return api_request('GET', base, endpoint, access_token, debug=debug)
+def api_get(base, endpoint, access_token, debug=False, headers=None):
+    return api_request('GET', base, endpoint, access_token, debug=debug, headers=headers)
 
 
-def paginate_all(base, endpoint, access_token, debug=False):
+def paginate_all(base, endpoint, access_token, debug=False, headers=None):
     """Follow `@odata.nextLink` from the first page until exhausted.
 
     Builds the first-page URL the same way api_request does, then
@@ -47,7 +48,7 @@ def paginate_all(base, endpoint, access_token, debug=False):
     """
     url = f'{base}/{endpoint}'
     try:
-        return list(http.paginate(url, token=access_token, debug=debug))
+        return list(http.paginate(url, token=access_token, headers=headers, debug=debug))
     except (AuthExpiredError, ScopeInsufficientError) as error:
         raise error
     except (ConflictError, InternalError, NetworkError, NotFoundError, RateLimitedError) as error:

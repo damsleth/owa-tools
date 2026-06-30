@@ -86,7 +86,9 @@ Commands:
   site                Show a site's web (title, url)
   lists               List a site's lists / document libraries
   items               List items in a list (--list <title>)
+  item                Show a single list item by id (--list <title> <id>)
   files               List files in a folder (--path <server-relative>)
+  file                Show a single file by UniqueId (<guid>)
   search              Tenant search for sites and content (--q <text>)
   config              View or update configuration
   refresh             Force a token refresh and verify SharePoint access
@@ -94,13 +96,19 @@ Commands:
 
 Site addressing:
   --site <addr>       Bare name (`owa-casa`), an explicit path (`sites/owa-casa`,
-                      `teams/x`), or omitted for the tenant root site. The `site`
-                      command also accepts the address as a bare positional.
+                      `teams/x`), a full site URL (`https://host/sites/owa-casa`),
+                      or omitted for the tenant root site. The `site` command also
+                      accepts the address as a bare positional.
 
 Items options:
   --list <title>      List title (required)
   --select <f1,f2>    Restrict returned fields
+  --filter <expr>     OData $filter passthrough
+  --orderby <expr>    OData $orderby passthrough
+  --expand <f1,f2>    OData $expand passthrough
   --top <n>           Page size
+  --all               Follow paging until exhausted
+  --max-pages <n>     Stop after N pages and warn (default 50)
 
 Files options:
   --path <srv-rel>    Server-relative folder, e.g. /sites/owa-casa/Shared Documents
@@ -113,6 +121,8 @@ Config options:
   --profile <alias>   Pin a default owa-piggy profile alias
   --host <host>       Pin the tenant SharePoint host (skips auto-discovery)
   --site <addr>       Pin a default site
+  --unset <key>       Remove a pinned key (profile/host/site)
+  --clear             Delete the config file
 
 Auth:
   owa-sites mints a SharePoint-resource token via owa-piggy (`--scope
@@ -123,6 +133,8 @@ Examples:
   owa-sites site owa-casa --pretty
   owa-sites lists --site owa-casa --pretty
   owa-sites items --site owa-casa --list Documents
+  owa-sites items --site owa-casa --list Documents --all --orderby "Modified desc"
+  owa-sites item --site owa-casa --list Documents 42
   owa-sites files --site owa-casa --path "/sites/owa-casa/Shared Documents"
   owa-sites search --q "quarterly report" --pretty""")
     print()
@@ -157,7 +169,7 @@ def cmd_site(args, config, access_token, base):
 
 
 def cmd_lists(args, config, access_token, base):
-    site = ''
+    site = filter_ = orderby = expand = ''
     pretty = include_hidden = False
     while args:
         flag, args = args[0], args[1:]
@@ -165,13 +177,20 @@ def cmd_lists(args, config, access_token, base):
             site, args = _require_value(flag, args)
         elif flag == '--all-lists':
             include_hidden = True
+        elif flag == '--filter':
+            filter_, args = _require_value(flag, args)
+        elif flag == '--orderby':
+            orderby, args = _require_value(flag, args)
+        elif flag == '--expand':
+            expand, args = _require_value(flag, args)
         elif flag == '--pretty':
             pretty = True
         else:
             raise UsageError(f'Unknown flag: {flag}')
     site = _resolve_site(site, config)
     debug = _debug_enabled(config)
-    data = api_mod.paginate_sp(base, sites_mod.lists_endpoint(site), access_token, debug=debug)
+    endpoint = sites_mod.lists_endpoint(site, filter=filter_, orderby=orderby, expand=expand)
+    data = api_mod.paginate_sp(base, endpoint, access_token, debug=debug)
     if data is None:
         return 1
     rows = sites_mod.normalize_lists(data, include_hidden=include_hidden)
@@ -180,9 +199,10 @@ def cmd_lists(args, config, access_token, base):
 
 
 def cmd_items(args, config, access_token, base):
-    site = list_title = select = ''
+    site = list_title = select = filter_ = orderby = expand = ''
     top = 0
-    pretty = False
+    pretty = all_pages = False
+    max_pages = 50
     while args:
         flag, args = args[0], args[1:]
         if flag == '--site':
@@ -193,6 +213,18 @@ def cmd_items(args, config, access_token, base):
             select, args = _require_value(flag, args)
         elif flag == '--top':
             top, args = _require_int(flag, args)
+        elif flag == '--filter':
+            filter_, args = _require_value(flag, args)
+        elif flag == '--orderby':
+            orderby, args = _require_value(flag, args)
+        elif flag == '--expand':
+            expand, args = _require_value(flag, args)
+        elif flag == '--all':
+            all_pages = True
+        elif flag == '--max-pages':
+            max_pages, args = _require_int(flag, args)
+            if max_pages < 1:
+                raise UsageError('--max-pages must be >= 1')
         elif flag == '--pretty':
             pretty = True
         else:
@@ -201,12 +233,91 @@ def cmd_items(args, config, access_token, base):
         raise UsageError('--list is required')
     site = _resolve_site(site, config)
     debug = _debug_enabled(config)
-    endpoint = sites_mod.list_items_endpoint(site, list_title, select=select, top=top)
-    data = api_mod.paginate_sp(base, endpoint, access_token, debug=debug)
+    endpoint = sites_mod.list_items_endpoint(
+        site, list_title, select=select, top=top,
+        filter=filter_, orderby=orderby, expand=expand,
+    )
+    truncated = {}
+    data = api_mod.paginate_sp(
+        base, endpoint, access_token, debug=debug,
+        max_pages=None if all_pages else max_pages,
+        on_truncate=lambda pages, _next: truncated.update(pages=pages),
+    )
     if data is None:
         return 1
+    if truncated:
+        _info(
+            f"warning: stopped after {truncated['pages']} pages (--max-pages cap); "
+            'more items remain. Pass --all to follow every page.'
+        )
     rows = sites_mod.normalize_items(data)
     print(format_items_pretty(rows) if pretty else json.dumps(rows))
+    return 0
+
+
+def cmd_item(args, config, access_token, base):
+    item_id, args = schema_mod.pop_positional_id(args)
+    site = list_title = select = expand = ''
+    pretty = False
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--id':
+            item_id, args = _require_value(flag, args)
+        elif flag == '--site':
+            site, args = _require_value(flag, args)
+        elif flag == '--list':
+            list_title, args = _require_value(flag, args)
+        elif flag == '--select':
+            select, args = _require_value(flag, args)
+        elif flag == '--expand':
+            expand, args = _require_value(flag, args)
+        elif flag == '--pretty':
+            pretty = True
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+    if not list_title:
+        raise UsageError('--list is required')
+    if not item_id:
+        raise UsageError('item id is required (positional or --id)')
+    try:
+        int(item_id)
+    except ValueError:
+        raise UsageError(f'item id must be an integer, got: {item_id}')
+    site = _resolve_site(site, config)
+    debug = _debug_enabled(config)
+    endpoint = sites_mod.list_item_endpoint(site, list_title, item_id, select=select, expand=expand)
+    data = api_mod.sp_get(base, endpoint, access_token, debug=debug)
+    if not isinstance(data, dict):
+        return 1
+    item = sites_mod.normalize_item(data)
+    print(format_items_pretty([item]) if pretty else json.dumps(item))
+    return 0
+
+
+def cmd_file(args, config, access_token, base):
+    unique_id, args = schema_mod.pop_positional_id(args)
+    site = ''
+    pretty = False
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--id':
+            unique_id, args = _require_value(flag, args)
+        elif flag == '--site':
+            site, args = _require_value(flag, args)
+        elif flag == '--pretty':
+            pretty = True
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+    if not unique_id:
+        raise UsageError('file id is required (positional or --id)')
+    site = _resolve_site(site, config)
+    debug = _debug_enabled(config)
+    endpoint = sites_mod.file_by_id_endpoint(site, unique_id)
+    data = api_mod.sp_get(base, endpoint, access_token, debug=debug)
+    if not isinstance(data, dict):
+        return 1
+    f = sites_mod.normalize_file(data)
+    print(format_files_pretty([f]) if pretty else json.dumps(f))
     return 0
 
 
@@ -265,8 +376,18 @@ def cmd_search(args, config, access_token, base):
     return 0
 
 
+# Public config keys, mapped from their --flag form. Used by --unset.
+_CONFIG_KEYS = {
+    'profile': 'owa_piggy_profile',
+    'host': 'sharepoint_host',
+    'site': 'default_site',
+}
+
+
 def cmd_config(args, config):
     profile = host = site = ''
+    unset = []
+    clear = False
     while args:
         flag, args = args[0], args[1:]
         if flag == '--profile':
@@ -275,10 +396,30 @@ def cmd_config(args, config):
             host, args = _require_value(flag, args)
         elif flag == '--site':
             site, args = _require_value(flag, args)
+        elif flag == '--unset':
+            name, args = _require_value(flag, args)
+            key = _CONFIG_KEYS.get(name, name)
+            if key not in config_mod.ALLOWED_KEYS:
+                raise UsageError(
+                    f'unknown config key: {name} '
+                    f"(known: {', '.join(sorted(_CONFIG_KEYS))})"
+                )
+            unset.append(key)
+        elif flag == '--clear':
+            clear = True
         else:
             raise UsageError(f'Unknown flag: {flag}')
 
+    if clear:
+        config_mod.config_clear()
+        _info('config cleared')
+        return 0
+
     changed = False
+    for key in unset:
+        config_mod.config_unset(key)
+        _info(f'unset: {key}')
+        changed = True
     if profile:
         config_mod.config_set('owa_piggy_profile', profile)
         _info(f'default profile saved: {profile}')
@@ -328,7 +469,7 @@ def cmd_refresh(args, config):
 # Dispatch
 # ---------------------------------------------------------------------------
 
-AUTHED_COMMANDS = {'site', 'lists', 'items', 'files', 'search'}
+AUTHED_COMMANDS = {'site', 'lists', 'items', 'item', 'files', 'file', 'search'}
 
 _SITE_FLAGS = [
     schema_mod.flag('--site', value='<addr>', summary='Site address (flag or positional); default: root'),
@@ -338,6 +479,9 @@ _SITE_FLAGS = [
 _LISTS_FLAGS = [
     schema_mod.flag('--site', value='<addr>', summary='Site address (default: root)'),
     schema_mod.flag('--all-lists', summary='Include hidden/system lists'),
+    schema_mod.flag('--filter', value='<expr>', summary='OData $filter passthrough'),
+    schema_mod.flag('--orderby', value='<expr>', summary='OData $orderby passthrough'),
+    schema_mod.flag('--expand', value='<f1,f2>', summary='OData $expand passthrough'),
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
 ]
 
@@ -345,7 +489,21 @@ _ITEMS_FLAGS = [
     schema_mod.flag('--list', value='<title>', summary='List title', required=True),
     schema_mod.flag('--site', value='<addr>', summary='Site address (default: root)'),
     schema_mod.flag('--select', value='<f1,f2>', summary='Restrict returned fields'),
+    schema_mod.flag('--filter', value='<expr>', summary='OData $filter passthrough'),
+    schema_mod.flag('--orderby', value='<expr>', summary='OData $orderby passthrough'),
+    schema_mod.flag('--expand', value='<f1,f2>', summary='OData $expand passthrough'),
     schema_mod.flag('--top', value='<n>', summary='Page size'),
+    schema_mod.flag('--all', summary='Follow odata.nextLink until exhausted'),
+    schema_mod.flag('--max-pages', value='<n>', summary='Stop after N pages and warn (default 50)'),
+    schema_mod.flag('--pretty', summary='Human-readable output (default: JSON)'),
+]
+
+_ITEM_FLAGS = [
+    schema_mod.flag('--id', value='<n>', summary='List item Id (flag or positional)'),
+    schema_mod.flag('--list', value='<title>', summary='List title', required=True),
+    schema_mod.flag('--site', value='<addr>', summary='Site address (default: root)'),
+    schema_mod.flag('--select', value='<f1,f2>', summary='Restrict returned fields'),
+    schema_mod.flag('--expand', value='<f1,f2>', summary='OData $expand passthrough'),
     schema_mod.flag('--pretty', summary='Human-readable output (default: JSON)'),
 ]
 
@@ -353,6 +511,12 @@ _FILES_FLAGS = [
     schema_mod.flag('--path', value='<srv-rel>', summary='Server-relative folder', required=True),
     schema_mod.flag('--site', value='<addr>', summary='Site address (default: root)'),
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
+]
+
+_FILE_FLAGS = [
+    schema_mod.flag('--id', value='<guid>', summary='File UniqueId GUID (flag or positional)'),
+    schema_mod.flag('--site', value='<addr>', summary='Site address (default: root)'),
+    schema_mod.flag('--pretty', summary='Human-readable output (default: JSON)'),
 ]
 
 _SEARCH_FLAGS = [
@@ -365,13 +529,17 @@ _CONFIG_FLAGS = [
     schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias'),
     schema_mod.flag('--host', value='<host>', summary='Pin the tenant SharePoint host'),
     schema_mod.flag('--site', value='<addr>', summary='Pin a default site'),
+    schema_mod.flag('--unset', value='<key>', summary='Remove a pinned key (profile/host/site)'),
+    schema_mod.flag('--clear', summary='Delete the config file'),
 ]
 
 COMMAND_SCHEMA = [
     schema_mod.command('site', 'Show a site web', auth='graph', flags=_SITE_FLAGS),
     schema_mod.command('lists', 'List a site\'s lists / libraries', auth='graph', flags=_LISTS_FLAGS),
     schema_mod.command('items', 'List items in a list', auth='graph', flags=_ITEMS_FLAGS),
+    schema_mod.command('item', 'Show a single list item by id', auth='graph', flags=_ITEM_FLAGS),
     schema_mod.command('files', 'List files in a folder', auth='graph', flags=_FILES_FLAGS),
+    schema_mod.command('file', 'Show a single file by UniqueId', auth='graph', flags=_FILE_FLAGS),
     schema_mod.command('search', 'Tenant search for sites and content', auth='graph', flags=_SEARCH_FLAGS),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
     schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
@@ -452,8 +620,12 @@ def _main(argv):
         return cmd_lists(rest, config, access_token, base)
     if cmd == 'items':
         return cmd_items(rest, config, access_token, base)
+    if cmd == 'item':
+        return cmd_item(rest, config, access_token, base)
     if cmd == 'files':
         return cmd_files(rest, config, access_token, base)
+    if cmd == 'file':
+        return cmd_file(rest, config, access_token, base)
     if cmd == 'search':
         return cmd_search(rest, config, access_token, base)
 

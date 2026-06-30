@@ -230,6 +230,69 @@ def test_unknown_flag_rejected():
         cli.cmd_plans(['--nope'], {}, 'tok', BASE)
 
 
+def test_plans_select_expand_passthrough(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        cli.api_mod, 'api_get',
+        lambda base, ep, tok, **k: seen.update(ep=ep) or {'value': []},
+    )
+    assert cli.cmd_plans(['--select', 'id,title', '--expand', 'details'], {}, 'tok', BASE) == 0
+    assert seen['ep'] == 'me/planner/plans?$select=id%2Ctitle&$expand=details'
+
+
+def test_buckets_select_passthrough(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        cli.api_mod, 'api_get',
+        lambda base, ep, tok, **k: seen.update(ep=ep) or {'value': []},
+    )
+    assert cli.cmd_buckets(['--plan', 'p1', '--select', 'id,name'], {}, 'tok', BASE) == 0
+    assert seen['ep'] == 'planner/plans/p1/buckets?$select=id%2Cname'
+
+
+def test_tasks_select_passthrough_and_no_query_when_unset(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        cli.api_mod, 'api_get',
+        lambda base, ep, tok, **k: seen.update(ep=ep) or {'value': []},
+    )
+    assert cli.cmd_tasks(['--select', 'id'], {}, 'tok', BASE) == 0
+    assert seen['ep'] == 'me/planner/tasks?$select=id'
+    assert cli.cmd_tasks([], {}, 'tok', BASE) == 0
+    assert seen['ep'] == 'me/planner/tasks'  # no '?' when no OData params
+
+
+def test_task_expand_passthrough(monkeypatch):
+    eps = []
+
+    def fake_get(base, ep, tok, **k):
+        eps.append(ep)
+        return _raw_task('t1') if not ep.endswith('/details') else {}
+
+    monkeypatch.setattr(cli.api_mod, 'api_get', fake_get)
+    assert cli.cmd_task(['t1', '--expand', 'assignedToTaskBoardFormat'], {}, 'tok', BASE) == 0
+    assert eps[0] == 'planner/tasks/t1?$expand=assignedToTaskBoardFormat'
+
+
+def test_config_unset_and_clear(monkeypatch, capsys):
+    calls = []
+    monkeypatch.setattr(cli.config_mod, 'config_unset', lambda key: calls.append(('unset', key)))
+    monkeypatch.setattr(cli.config_mod, 'config_clear', lambda: calls.append(('clear',)))
+    assert cli.cmd_config(['--unset', 'plan'], {}) == 0
+    assert calls == [('unset', 'default_plan')]
+    assert 'unset: default_plan' in capsys.readouterr().err
+
+    calls.clear()
+    assert cli.cmd_config(['--clear'], {}) == 0
+    assert calls == [('clear',)]
+    assert 'config cleared' in capsys.readouterr().err
+
+
+def test_config_unset_unknown_key_rejected():
+    with pytest.raises(cli.UsageError, match='unknown config key'):
+        cli.cmd_config(['--unset', 'bogus'], {})
+
+
 def test_config_and_refresh(monkeypatch, capsys):
     saved = {}
     monkeypatch.setattr(cli.config_mod, 'CONFIG_PATH', '/tmp/owa-planner-config')

@@ -11,6 +11,12 @@ def test_site_path():
     assert sites.site_path('/') == ''
 
 
+def test_site_path_from_url():
+    assert sites.site_path('https://contoso.sharepoint.com/sites/owa-casa') == 'sites/owa-casa'
+    assert sites.site_path('https://contoso.sharepoint.com/teams/Mktg/') == 'teams/Mktg'
+    assert sites.site_path('https://contoso.sharepoint.com/') == ''
+
+
 def test_api_endpoint():
     assert sites.api_endpoint('owa-casa', 'web') == 'sites/owa-casa/_api/web'
     assert sites.api_endpoint('', 'web') == '_api/web'
@@ -29,6 +35,34 @@ def test_list_items_endpoint():
     assert ep.startswith("sites/owa-casa/_api/web/lists/getbytitle('Documents')/items?")
     assert '$select=Title' in ep
     assert '$top=10' in ep
+
+
+def test_list_items_endpoint_odata_passthrough():
+    ep = sites.list_items_endpoint(
+        'owa-casa', 'Documents', filter='Modified gt 2020', orderby='Title desc', expand='Author',
+    )
+    assert '$filter=' in ep
+    assert '$orderby=' in ep
+    assert '$expand=' in ep
+
+
+def test_lists_endpoint_odata_passthrough():
+    ep = sites.lists_endpoint('owa-casa', filter="Hidden eq false", orderby='Title')
+    assert ep.startswith('sites/owa-casa/_api/web/lists?$select=')
+    assert '&$filter=' in ep
+    assert '&$orderby=' in ep
+
+
+def test_list_item_endpoint():
+    ep = sites.list_item_endpoint('owa-casa', 'Documents', 42, select='Title')
+    assert ep == (
+        "sites/owa-casa/_api/web/lists/getbytitle('Documents')/items(42)?$select=Title"
+    )
+
+
+def test_file_by_id_endpoint():
+    ep = sites.file_by_id_endpoint('owa-casa', 'abc-123')
+    assert ep == "sites/owa-casa/_api/web/GetFileById('abc-123')"
 
 
 def test_folder_files_endpoint_encodes_alias():
