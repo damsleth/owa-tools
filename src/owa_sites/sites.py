@@ -15,10 +15,16 @@ def site_path(site):
     """Normalize a --site value to a server-relative site segment.
 
     Accepts a bare name (`owa-casa` -> `sites/owa-casa`), an explicit path
-    (`sites/owa-casa` / `teams/x` -> unchanged), or empty/`/` for the root site
-    (-> '' so endpoints hang off `_api/...` directly).
+    (`sites/owa-casa` / `teams/x` -> unchanged), a full SharePoint URL
+    (`https://host/sites/owa-casa` -> `sites/owa-casa`), or empty/`/` for the
+    root site (-> '' so endpoints hang off `_api/...` directly).
     """
-    s = (site or '').strip().strip('/')
+    s = (site or '').strip()
+    if s.startswith(('http://', 'https://')):
+        # A pasted site URL: keep only the server-relative path. The host is
+        # the tenant SharePoint host (already the `base`), so we discard it.
+        s = urllib.parse.urlsplit(s).path
+    s = s.strip().strip('/')
     if not s:
         return ''
     if s.startswith(('sites/', 'teams/')):
@@ -33,24 +39,56 @@ def api_endpoint(site, suffix):
     return f'{prefix}_api/{suffix}'
 
 
+def _odata_params(*, select='', filter='', orderby='', expand='', top=0):
+    """Build the encoded $-param list shared by the collection endpoints."""
+    params = []
+    if select:
+        params.append(f'$select={_q(select)}')
+    if filter:
+        params.append(f'$filter={_q(filter)}')
+    if orderby:
+        params.append(f'$orderby={_q(orderby)}')
+    if expand:
+        params.append(f'$expand={_q(expand)}')
+    if top:
+        params.append(f'$top={int(top)}')
+    return params
+
+
 def web_endpoint(site):
     return api_endpoint(site, 'web?$select=Title,Url,Id,Created')
 
 
-def lists_endpoint(site):
-    return api_endpoint(site, 'web/lists?$select=Title,Id,ItemCount,BaseTemplate,Hidden')
+def lists_endpoint(site, filter='', orderby='', expand=''):
+    suffix = 'web/lists?$select=Title,Id,ItemCount,BaseTemplate,Hidden'
+    extra = _odata_params(filter=filter, orderby=orderby, expand=expand)
+    if extra:
+        suffix += '&' + '&'.join(extra)
+    return api_endpoint(site, suffix)
 
 
-def list_items_endpoint(site, list_title, select='', top=0):
+def list_items_endpoint(site, list_title, select='', top=0, filter='', orderby='', expand=''):
     suffix = f"web/lists/getbytitle('{_q(list_title)}')/items"
-    params = []
-    if select:
-        params.append(f'$select={_q(select)}')
-    if top:
-        params.append(f'$top={int(top)}')
+    params = _odata_params(
+        select=select, filter=filter, orderby=orderby, expand=expand, top=top,
+    )
     if params:
         suffix += '?' + '&'.join(params)
     return api_endpoint(site, suffix)
+
+
+def list_item_endpoint(site, list_title, item_id, select='', expand=''):
+    """Address a single list item by its integer Id."""
+    suffix = f"web/lists/getbytitle('{_q(list_title)}')/items({int(item_id)})"
+    params = _odata_params(select=select, expand=expand)
+    if params:
+        suffix += '?' + '&'.join(params)
+    return api_endpoint(site, suffix)
+
+
+def file_by_id_endpoint(site, unique_id):
+    """Address a single file (drive item) by its UniqueId GUID."""
+    return api_endpoint(site, f"web/GetFileById('{_q(unique_id)}')")
 
 
 def folder_files_endpoint(site, server_relative_folder):

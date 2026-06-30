@@ -69,9 +69,14 @@ sibling consumer (`owa-cal`, `owa-mail`, `owa-graph`, `owa-doctor`,
 
 Key flags:
 
-- `--profile <alias>` — probe only this profile (default: all profiles).
+- `--profile <alias>` — probe only this profile. **Repeatable**: pass it more
+  than once to check a chosen subset of profiles (default: all profiles).
 - `--audience <name>` — token audience to test (default: `graph`; pass
   `outlook` to verify Outlook REST).
+- `--coverage` — report, per profile, which audiences/scopes can actually be
+  obtained (one extra token-mint call per audience per profile).
+- `--timeout <seconds>` — timeout for the probe / `--version` and broker
+  reachability calls (default: `5`).
 - `--no-tokens` — skip per-profile token probes; only check which CLIs are
   installed and at what version.
 - `--pretty` — human-readable table (default: JSON).
@@ -82,9 +87,14 @@ owa-doctor                              # JSON report
 owa-doctor --pretty                     # human-readable table
 owa-doctor probe --pretty               # explicit subcommand form
 owa-doctor --profile work --pretty      # one profile only
+owa-doctor --profile work --profile home --pretty  # a chosen subset
+owa-doctor --coverage --pretty          # per-profile audience coverage
 owa-doctor --no-tokens                  # quick install check, no token probes
 owa-doctor --audience outlook --pretty  # verify Outlook REST too
 ```
+
+`--timeout` bounds doctor's own subprocess probes (`--version` and broker
+reachability); pass it as `owa-doctor --timeout <seconds> --pretty`.
 
 ## Output contract
 
@@ -94,8 +104,10 @@ the human-readable opt-in. Exit codes follow the suite taxonomy (see
 with this tool's own probe semantics layered on top:
 
 - `0` — all probed profiles ok
-- `1` — one or more profiles near expiry (< 10 min remaining)
-- `2` — one or more profiles failed, or `owa-piggy` is missing
+- `1` — one or more profiles near expiry (< 10 min remaining), or a profile's
+  minted token audience does not match the requested audience (mismatch warning)
+- `2` — one or more profiles failed, or `owa-piggy` is missing or unreachable
+  (present on PATH but not answering within the timeout)
 
 ## Machine / agent surface
 
@@ -112,7 +124,12 @@ See [agent-integration.md](agent-integration.md) for the full contract.
 ## Caveats
 
 - owa-doctor owns no auth state — it only shells out to `owa-piggy` and the
-  sibling CLIs. A missing or broken `owa-piggy` shows up as exit `2`.
+  sibling CLIs. A missing `owa-piggy`, or one that is on PATH but does not
+  answer within `--timeout`, shows up as exit `2` (the report's
+  `owa_piggy.reachable` field distinguishes the two).
+- `--coverage` reports, per profile, which audiences (`graph`, `outlook`) the
+  broker can mint a token for — useful when a command fails because a profile
+  is not provisioned for the audience it needs.
 - All suite binaries ship at one version (the `version` field is identical
   across siblings); a mismatch in the report means an install is stale.
 - `--no-tokens` makes no network calls and never touches a profile, so it is

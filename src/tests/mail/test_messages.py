@@ -132,8 +132,8 @@ def test_normalize_message_handles_empty():
         'id': '', 'conversation_id': '', 'received': '', 'sent': '',
         'subject': '', 'from': '', 'to': '', 'cc': '', 'bcc': '',
         'preview': '', 'is_read': False, 'has_attachments': False,
-        'importance': '', 'flag': '', 'folder_id': '', 'web_link': '',
-        'body_type': '', 'body': '', 'internet_headers': [],
+        'importance': '', 'flag': '', 'categories': [], 'folder_id': '',
+        'web_link': '', 'body_type': '', 'body': '', 'internet_headers': [],
     }
 
 

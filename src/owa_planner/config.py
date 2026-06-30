@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 
 from owa_core import config as _core
+from owa_core.errors import UsageError
 
 CONFIG_PATH = Path(
     os.environ.get('XDG_CONFIG_HOME') or str(Path.home() / '.config')
@@ -33,3 +34,26 @@ def save_config(config):
 
 def config_set(key, value):
     _core.config_set(CONFIG_PATH, ALLOWED_KEYS, key, value)
+
+
+def config_unset(key):
+    """Remove a single allowlisted key from the config file (no-op if absent).
+
+    `_core.save_config` preserves any line whose key is still in the dict, so
+    deleting a key means rewriting from the filtered file rather than handing
+    the key to save_config. Unknown lines/comments survive because the file is
+    re-read minus the dropped key.
+    """
+    if key not in ALLOWED_KEYS:
+        raise UsageError(f'unknown config key: {key}')
+    p = Path(CONFIG_PATH)
+    if not p.exists():
+        return
+    kept = [ln for ln in p.read_text().splitlines()
+            if ln.split('=', 1)[0].strip() != key]
+    p.write_text('\n'.join(kept) + ('\n' if kept else ''))
+
+
+def config_clear():
+    """Delete the config file entirely (no-op if it does not exist)."""
+    Path(CONFIG_PATH).unlink(missing_ok=True)

@@ -151,6 +151,10 @@ owa-cal create --subject "lunsj" --start 11:00 --end 11:30 --category "CC LUNCH"
 owa-cal update --id <event-id> --category "ProjectX"
 owa-cal delete --id <event-id>
 
+owa-cal create --subject "1:1" --attendee a@x.com --reminder 15
+owa-cal create --subject "Standup" --recur daily --recur-count 10 --start 09:00 --end 09:15
+owa-cal create --subject "Sync" --recur weekly --recur-until 2026-12-31 --attendee a@x.com --optional-attendee b@x.com
+
 owa-cal respond --id <event-id> --action accept              # RSVP to an invite
 owa-cal respond --id <event-id> --action decline --comment "conflict"
 owa-cal respond --id <event-id> --action tentative --no-notify
@@ -185,6 +189,43 @@ Precedence when several are given: `--from`/`--to` > `--date` > `--week` >
 `--week`/`--month` to set the year; combining flags from different tiers (e.g.
 `--week` with `--month`) is a usage error. Bare `--year` below 100 is rejected
 as ambiguous — use a full year or a signed offset.
+
+### Attendees, reminders, categories & recurrence (create / update)
+
+`create` and `update` accept a few repeatable / structured flags that map
+straight onto the Outlook REST event body:
+
+| Flag | Repeatable | Effect |
+| --- | --- | --- |
+| `--attendee <email>` | yes | Adds a **required** attendee |
+| `--optional-attendee <email>` | yes | Adds an **optional** attendee |
+| `--category <name>` | yes | Adds a category |
+| `--reminder <minutes>` | no | Sets the reminder minutes before start and turns the reminder on |
+| `--recur <daily\|weekly>` | no | Adds a recurrence pattern |
+| `--recur-interval <n>` | no | Every `n` days/weeks (default 1) |
+| `--recur-count <n>` | no | End after `n` occurrences |
+| `--recur-until <YYYY-MM-DD>` | no | End on a date |
+
+On `update`, `--category`, `--attendee`, and `--optional-attendee` **replace**
+the existing set rather than appending (a PATCH overwrites the whole array).
+
+Recurrence is the pragmatic subset that maps to a single interval: `daily` and
+`weekly`. The pattern anchors on the event's start day — a `weekly` recurrence
+repeats on that weekday. The range is open-ended by default, bounded by
+`--recur-count` (numbered) or `--recur-until` (end date); the two are mutually
+exclusive. `--recur-interval`/`--recur-count`/`--recur-until` require `--recur`.
+
+```sh
+owa-cal create --subject "Standup" --recur daily --recur-count 10 \
+  --start 09:00 --end 09:15
+owa-cal create --subject "Weekly sync" --recur weekly --recur-interval 2 \
+  --recur-until 2026-12-31 --attendee lead@x.com --reminder 10
+owa-cal update --id <event-id> --attendee a@x.com --optional-attendee b@x.com
+```
+
+`events` requests calendarView times in your configured timezone
+(`default_timezone`) via a `Prefer: outlook.timezone` header, so window edges
+line up with your local day instead of UTC.
 
 ---
 

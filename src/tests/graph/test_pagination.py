@@ -73,6 +73,37 @@ def test_paginate_yields_when_value_empty(monkeypatch):
     assert list(api.paginate('GET', 'https://x/y', 'tok')) == []
 
 
+def test_paginate_on_truncate_fires_when_capped_with_more(monkeypatch):
+    pages = [
+        {'value': [{'i': i}], '@odata.nextLink': f'https://x/p{i + 1}'}
+        for i in range(10)
+    ]
+    monkeypatch.setattr(api, 'api_request', lambda *a, **k: pages.pop(0))
+    seen = {}
+    out = list(api.paginate(
+        'GET', 'https://x/p0', 'tok', max_pages=2,
+        on_truncate=lambda pages, link: seen.update(pages=pages, link=link),
+    ))
+    assert len(out) == 2
+    assert seen['pages'] == 2
+    assert seen['link'] == 'https://x/p2'
+
+
+def test_paginate_on_truncate_silent_on_natural_exhaustion(monkeypatch):
+    pages = [
+        {'value': [{'i': 1}], '@odata.nextLink': 'https://x/p2'},
+        {'value': [{'i': 2}]},
+    ]
+    monkeypatch.setattr(api, 'api_request', lambda *a, **k: pages.pop(0))
+    fired = []
+    out = list(api.paginate(
+        'GET', 'https://x/p1', 'tok', max_pages=5,
+        on_truncate=lambda *a: fired.append(a),
+    ))
+    assert len(out) == 2
+    assert fired == []
+
+
 def test_retry_flag_forwards_to_core_http(monkeypatch):
     seen = {}
 

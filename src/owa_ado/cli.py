@@ -94,24 +94,34 @@ Commands:
                        [--assign @me|<email>] [--parent <id>]
   wi-update <id>       Update a work item.
                        [--state <s>] [--title <t>] [--field path=value]...
+  wi-comment <id>      Add a comment to a work item.   --text <body>
+  wi-link <id>         Add a link/relation to a work item.
+                       --target <id> [--rel parent|child|related|successor|...]
+  wi-unlink <id>       Remove a link to a target work item.
+                       --target <id> [--rel <name>]
+  wi-delete <id>       Delete a work item (confirm-gated). [--destroy]
   repos                List repositories.                 (alias: repositories)
   prs [<id>]          List pull requests, or show one by id.
                        --repo <name>   Scope to one repository.
                        --status active|completed|abandoned|all  (default active)
                        --top <n>       Cap results (default 50).
+                       --all           Page through all results (capped by --top).
   pipelines            List pipeline definitions.
   runs                 List recent pipeline runs (builds).
                        --pipeline <id> Filter to one definition.
                        --top <n>       Cap results (default 20).
+                       --all           Page through all runs (capped by --top).
   refresh              Force a token refresh and verify auth.
   config               View or update configuration.
+                       [--unset <key>]... [--clear]
   help                 Show this help.
 
 Common options:
   --pretty             Human-readable table/view (default: JSON).
   --all                Follow continuation tokens until exhausted
-                       (projects, repos).
-  --confirm            Skip confirmation prompts (wi-create, wi-update).
+                       (projects, repos, pipelines, prs, runs).
+  --api-version <ver>  Override the DevOps api-version for one call.
+  --confirm            Skip confirmation prompts (wi-* mutations).
 
 Examples:
   owa-ado config --org Norconsult-Group --project NOCOS
@@ -405,6 +415,215 @@ def cmd_wi_update(args, config, token, base):
     return 0
 
 
+def _confirm_or_abort(action, message):
+    """Shared confirm gate for mutating commands. Returns 0 to proceed, or a
+    non-zero exit code (1 abort, 2 not-a-tty) the caller should return."""
+    from owa_core import tty as tty_mod
+    try:
+        tty_mod.require_confirm_or_tty(action=action)
+    except UsageError as error:
+        from owa_core.errors import emit_error
+        return emit_error(error)
+    _info(message)
+    if not tty_mod.confirm('type "yes" to proceed: ', accepted=('yes',)):
+        _info('aborted')
+        return 1
+    return 0
+
+
+def cmd_wi_comment(args, config, token, base):
+    wi_id = text = api_version = ''
+    confirm = False
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--text':
+            text, args = _require_value(flag, args)
+        elif flag == '--api-version':
+            api_version, args = _require_value(flag, args)
+        elif flag == '--confirm':
+            confirm = True
+        elif flag.startswith('-'):
+            raise UsageError(f'Unknown flag: {flag}')
+        elif not wi_id:
+            wi_id = flag
+        else:
+            raise UsageError(f'Unexpected argument: {flag}')
+
+    if not wi_id:
+        raise UsageError('wi-comment requires a work-item id')
+    if not text:
+        raise UsageError('wi-comment requires --text')
+    project = _resolve_project(config)
+
+    if not confirm:
+        rc = _confirm_or_abort('wi-comment', f'about to comment on work item #{wi_id}')
+        if rc:
+            return rc
+
+    # The Comments API is versioned independently and only ships on the
+    # preview track; pin a preview version unless the caller overrode it.
+    ver = api_version or '7.1-preview.4'
+    payload = api_mod.ado_request(
+        'POST', base, f'{project}/_apis/wit/workItems/{wi_id}/comments', token,
+        body={'text': text}, api_version=ver, debug=_debug_enabled(config),
+    )
+    print(json.dumps(res.normalize_comment(payload)))
+    return 0
+
+
+def cmd_wi_link(args, config, token, base):
+    wi_id = target = rel = api_version = ''
+    confirm = False
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--target':
+            target, args = _require_value(flag, args)
+        elif flag == '--rel':
+            rel, args = _require_value(flag, args)
+        elif flag == '--api-version':
+            api_version, args = _require_value(flag, args)
+        elif flag == '--confirm':
+            confirm = True
+        elif flag.startswith('-'):
+            raise UsageError(f'Unknown flag: {flag}')
+        elif not wi_id:
+            wi_id = flag
+        else:
+            raise UsageError(f'Unexpected argument: {flag}')
+
+    if not wi_id:
+        raise UsageError('wi-link requires a work-item id')
+    if not target:
+        raise UsageError('wi-link requires --target <id>')
+    rel_name = res.resolve_rel(rel or 'related')
+    org = _resolve_org(config)
+    ver = _api_version(api_version)
+
+    if not confirm:
+        rc = _confirm_or_abort('wi-link',
+                               f'about to link work item #{wi_id} -> #{target} ({rel_name})')
+        if rc:
+            return rc
+
+    ops = [{
+        'op': 'add', 'path': '/relations/-',
+        'value': {
+            'rel': rel_name,
+            'url': f'{auth_mod.org_base(org)}/_apis/wit/workItems/{target}',
+        },
+    }]
+    payload = api_mod.json_patch(
+        'PATCH', base, f'_apis/wit/workitems/{wi_id}', token,
+        operations=ops, api_version=ver, debug=_debug_enabled(config),
+    )
+    print(json.dumps(res.normalize_work_item(payload)))
+    return 0
+
+
+def cmd_wi_unlink(args, config, token, base):
+    wi_id = target = rel = api_version = ''
+    confirm = False
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--target':
+            target, args = _require_value(flag, args)
+        elif flag == '--rel':
+            rel, args = _require_value(flag, args)
+        elif flag == '--api-version':
+            api_version, args = _require_value(flag, args)
+        elif flag == '--confirm':
+            confirm = True
+        elif flag.startswith('-'):
+            raise UsageError(f'Unknown flag: {flag}')
+        elif not wi_id:
+            wi_id = flag
+        else:
+            raise UsageError(f'Unexpected argument: {flag}')
+
+    if not wi_id:
+        raise UsageError('wi-unlink requires a work-item id')
+    if not target:
+        raise UsageError('wi-unlink requires --target <id>')
+    ver = _api_version(api_version)
+    debug = _debug_enabled(config)
+
+    # JSON Patch removes a relation by index, so fetch the relations first and
+    # find the one pointing at the target (optionally narrowed by --rel).
+    wanted_rel = res.resolve_rel(rel) if rel else ''
+    current = api_mod.ado_request(
+        'GET', base, f'_apis/wit/workitems/{wi_id}', token,
+        query={'$expand': 'relations'}, api_version=ver, debug=debug,
+    )
+    relations = (current.get('relations') if isinstance(current, dict) else None) or []
+    index = None
+    for i, r in enumerate(relations):
+        url = r.get('url') or ''
+        if url.rstrip('/').rsplit('/', 1)[-1] == str(target):
+            if wanted_rel and r.get('rel') != wanted_rel:
+                continue
+            index = i
+            break
+    if index is None:
+        from owa_core.errors import NotFoundError
+        raise NotFoundError(f'no link to #{target} on work item #{wi_id}')
+
+    if not confirm:
+        rc = _confirm_or_abort('wi-unlink',
+                               f'about to remove link work item #{wi_id} -> #{target}')
+        if rc:
+            return rc
+
+    ops = [{'op': 'remove', 'path': f'/relations/{index}'}]
+    payload = api_mod.json_patch(
+        'PATCH', base, f'_apis/wit/workitems/{wi_id}', token,
+        operations=ops, api_version=ver, debug=debug,
+    )
+    print(json.dumps(res.normalize_work_item(payload)))
+    return 0
+
+
+def cmd_wi_delete(args, config, token, base):
+    wi_id = api_version = ''
+    confirm = destroy = False
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--api-version':
+            api_version, args = _require_value(flag, args)
+        elif flag == '--destroy':
+            destroy = True
+        elif flag == '--confirm':
+            confirm = True
+        elif flag.startswith('-'):
+            raise UsageError(f'Unknown flag: {flag}')
+        elif not wi_id:
+            wi_id = flag
+        else:
+            raise UsageError(f'Unexpected argument: {flag}')
+
+    if not wi_id:
+        raise UsageError('wi-delete requires a work-item id')
+    project = _resolve_project(config)
+    ver = _api_version(api_version)
+
+    if not confirm:
+        where = 'PERMANENTLY (no recycle bin)' if destroy else 'to the recycle bin'
+        rc = _confirm_or_abort('wi-delete', f'about to delete work item #{wi_id} {where}')
+        if rc:
+            return rc
+
+    # destroy=True bypasses the recycle bin (irreversible); default soft-deletes.
+    payload = api_mod.ado_request(
+        'DELETE', base, f'{project}/_apis/wit/workitems/{wi_id}', token,
+        query={'destroy': 'true'} if destroy else None,
+        api_version=ver, debug=_debug_enabled(config),
+    )
+    out = {'id': wi_id, 'deleted': True, 'destroyed': destroy}
+    if isinstance(payload, dict) and payload.get('code'):
+        out['code'] = payload.get('code')
+    print(json.dumps(out))
+    return 0
+
+
 def cmd_repos(args, config, token, base):
     pretty, all_pages = _parse_list_flags(args, allow_all=True)
     project = _resolve_project(config)
@@ -421,16 +640,20 @@ def cmd_repos(args, config, token, base):
 
 
 def cmd_prs(args, config, token, base):
-    pretty = False
-    repo = status = ''
+    pretty = all_pages = False
+    repo = status = api_version = ''
     top = 50
     pr_id = ''
     while args:
         flag, args = args[0], args[1:]
         if flag == '--pretty':
             pretty = True
+        elif flag == '--all':
+            all_pages = True
         elif flag == '--repo':
             repo, args = _require_value(flag, args)
+        elif flag == '--api-version':
+            api_version, args = _require_value(flag, args)
         elif flag == '--status':
             status, args = _require_value(flag, args)
             _PR_STATUSES = ('active', 'completed', 'abandoned', 'all')
@@ -450,11 +673,12 @@ def cmd_prs(args, config, token, base):
 
     project = _resolve_project(config)
     debug = _debug_enabled(config)
+    ver = _api_version(api_version)
 
     if pr_id:
         payload = api_mod.ado_request(
             'GET', base, f'{project}/_apis/git/pullrequests/{pr_id}', token,
-            debug=debug,
+            api_version=ver, debug=debug,
         )
         pr = res.normalize_pr(payload)
         if pretty:
@@ -469,11 +693,11 @@ def cmd_prs(args, config, token, base):
         endpoint = f'{project}/_apis/git/repositories/{quote(repo, safe="")}/pullrequests'
     else:
         endpoint = f'{project}/_apis/git/pullrequests'
-    query = {'$top': top}
+    query = {}
     if status:
         query['searchCriteria.status'] = status
-    payload = api_mod.ado_request('GET', base, endpoint, token, query=query, debug=debug)
-    items = payload.get('value') if isinstance(payload, dict) else None
+    items = _list_items(endpoint, token, base, query, top, all_pages,
+                        api_version=ver, debug=debug)
     if items is None:
         return 1
     return _emit([res.normalize_pr(p) for p in items], pretty, fmt.format_prs)
@@ -495,27 +719,31 @@ def cmd_pipelines(args, config, token, base):
 
 
 def cmd_runs(args, config, token, base):
-    pretty = False
-    pipeline = ''
+    pretty = all_pages = False
+    pipeline = api_version = ''
     top = 20
     while args:
         flag, args = args[0], args[1:]
         if flag == '--pretty':
             pretty = True
+        elif flag == '--all':
+            all_pages = True
         elif flag == '--pipeline':
             pipeline, args = _require_value(flag, args)
+        elif flag == '--api-version':
+            api_version, args = _require_value(flag, args)
         elif flag == '--top':
             raw, args = _require_value(flag, args)
             top = _parse_int(raw, '--top')
         else:
             raise UsageError(f'Unknown flag: {flag}')
     project = _resolve_project(config)
-    query = {'$top': top}
+    ver = _api_version(api_version)
+    query = {}
     if pipeline:
         query['definitions'] = pipeline
-    payload = api_mod.ado_request('GET', base, f'{project}/_apis/build/builds', token,
-                                  query=query, debug=_debug_enabled(config))
-    items = payload.get('value') if isinstance(payload, dict) else None
+    items = _list_items(f'{project}/_apis/build/builds', token, base, query, top,
+                        all_pages, api_version=ver, debug=_debug_enabled(config))
     if items is None:
         return 1
     return _emit([res.normalize_build(b) for b in items], pretty, fmt.format_builds)
@@ -523,6 +751,8 @@ def cmd_runs(args, config, token, base):
 
 def cmd_config(args, config):
     profile = org = project = ''
+    unset_keys = []
+    clear = False
     while args:
         flag, args = args[0], args[1:]
         if flag == '--profile':
@@ -531,8 +761,30 @@ def cmd_config(args, config):
             org, args = _require_value(flag, args)
         elif flag in ('--project', '-P'):
             project, args = _require_value(flag, args)
+        elif flag == '--unset':
+            key, args = _require_value(flag, args)
+            if key not in config_mod.ALLOWED_KEYS:
+                raise UsageError(
+                    f'--unset: unknown key {key!r}; one of: '
+                    f'{", ".join(config_mod.ALLOWED_KEYS)}'
+                )
+            unset_keys.append(key)
+        elif flag == '--clear':
+            clear = True
         else:
             raise UsageError(f'Unknown flag: {flag}')
+
+    if clear:
+        removed = config_mod.config_clear()
+        _info(f'config cleared ({removed} key(s) removed)')
+        return 0
+    if unset_keys:
+        for key in unset_keys:
+            if config_mod.config_unset(key):
+                _info(f'unset {key}')
+            else:
+                _info(f'{key} was not set')
+        return 0
 
     touched = False
     if profile:
@@ -587,6 +839,32 @@ def _parse_int(raw, flag):
         raise UsageError(f'{flag} expects an integer, got: {raw!r}')
 
 
+def _api_version(raw):
+    """A non-empty --api-version overrides the per-call default; '' keeps it."""
+    return raw or api_mod.DEFAULT_API_VERSION
+
+
+def _list_items(endpoint, token, base, query, top, all_pages, *,
+                api_version, debug):
+    """Fetch a `value` list, optionally following continuation tokens.
+
+    Without --all: a single page capped at `top`. With --all: page until the
+    continuation header is exhausted or `top` is reached; if more pages remain
+    when the cap is hit, warn on stderr so the truncation is visible. Returns
+    the item list, or None if the single-page payload wasn't a list envelope.
+    """
+    if all_pages:
+        items = api_mod.ado_paginate(base, endpoint, token, query=dict(query),
+                                     api_version=api_version, max_items=top, debug=debug)
+        if len(items) >= top:
+            _info(f'note: results capped at {top}; pass --top to raise the limit')
+        return items
+    payload = api_mod.ado_request('GET', base, endpoint, token,
+                                  query={**query, '$top': top},
+                                  api_version=api_version, debug=debug)
+    return payload.get('value') if isinstance(payload, dict) else None
+
+
 def _parse_list_flags(args, *, allow_all=False):
     """Shared --pretty/--all parser for the plain list commands."""
     pretty = all_pages = False
@@ -607,6 +885,7 @@ def _parse_list_flags(args, *, allow_all=False):
 
 AUTHED_COMMANDS = {
     'projects', 'sprints', 'wi', 'wi-create', 'wi-update',
+    'wi-comment', 'wi-link', 'wi-unlink', 'wi-delete',
     'repos', 'prs', 'pipelines', 'runs',
 }
 
@@ -627,6 +906,8 @@ def _command_name(argv):
 
 _PRETTY = schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)')
 _ALL = schema_mod.flag('--all', summary='Follow continuation tokens until exhausted')
+_API_VERSION = schema_mod.flag('--api-version', value='<ver>',
+                               summary='Override the DevOps api-version for this call')
 
 COMMAND_SCHEMA = [
     schema_mod.command('projects', 'List projects in the organisation',
@@ -669,6 +950,40 @@ COMMAND_SCHEMA = [
                            schema_mod.flag('--field', value='<path=value>', summary='Set a field', repeatable=True),
                            schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
                        ]),
+    schema_mod.command('wi-comment', 'Add a comment to a work item', auth='devops',
+                       mutates=True, confirmation=True, idempotent=False,
+                       flags=[
+                           schema_mod.flag('<id>', summary='Work-item id (positional)', required=True),
+                           schema_mod.flag('--text', value='<text>', summary='Comment body', required=True),
+                           _API_VERSION,
+                           schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
+                       ]),
+    schema_mod.command('wi-link', 'Add a link/relation to a work item', auth='devops',
+                       mutates=True, confirmation=True, idempotent=False,
+                       flags=[
+                           schema_mod.flag('<id>', summary='Work-item id (positional)', required=True),
+                           schema_mod.flag('--target', value='<id>', summary='Target work-item id', required=True),
+                           schema_mod.flag('--rel', value='<name>', summary='Link type (default related; e.g. parent/child/successor)'),
+                           _API_VERSION,
+                           schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
+                       ]),
+    schema_mod.command('wi-unlink', 'Remove a link/relation from a work item', auth='devops',
+                       mutates=True, confirmation=True, idempotent=True,
+                       flags=[
+                           schema_mod.flag('<id>', summary='Work-item id (positional)', required=True),
+                           schema_mod.flag('--target', value='<id>', summary='Linked target id to remove', required=True),
+                           schema_mod.flag('--rel', value='<name>', summary='Narrow to a link type'),
+                           _API_VERSION,
+                           schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
+                       ]),
+    schema_mod.command('wi-delete', 'Delete a work item', auth='devops',
+                       mutates=True, confirmation=True, idempotent=True,
+                       flags=[
+                           schema_mod.flag('<id>', summary='Work-item id (positional)', required=True),
+                           schema_mod.flag('--destroy', summary='Permanent delete (bypass recycle bin)'),
+                           _API_VERSION,
+                           schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
+                       ]),
     schema_mod.command('repos', 'List repositories', auth='devops', aliases=['repositories'],
                        flags=[_ALL, _PRETTY]),
     schema_mod.command('prs', 'List pull requests or show one by id', auth='devops',
@@ -677,7 +992,7 @@ COMMAND_SCHEMA = [
                            schema_mod.flag('--repo', value='<name>', summary='Scope to one repository'),
                            schema_mod.flag('--status', value='active|completed|abandoned|all', summary='Status filter (default active)'),
                            schema_mod.flag('--top', value='<n>', summary='Cap results (default 50)'),
-                           _PRETTY,
+                           _ALL, _API_VERSION, _PRETTY,
                        ]),
     schema_mod.command('pipelines', 'List pipeline definitions', auth='devops',
                        flags=[_ALL, _PRETTY]),
@@ -685,7 +1000,7 @@ COMMAND_SCHEMA = [
                        flags=[
                            schema_mod.flag('--pipeline', value='<id>', summary='Filter to one definition'),
                            schema_mod.flag('--top', value='<n>', summary='Cap results (default 20)'),
-                           _PRETTY,
+                           _ALL, _API_VERSION, _PRETTY,
                        ]),
     schema_mod.command('refresh', 'Force a token refresh', auth='devops'),
     schema_mod.command('config', 'View or update configuration', mutates=True,
@@ -693,6 +1008,8 @@ COMMAND_SCHEMA = [
                            schema_mod.flag('--profile', value='<alias>', summary='Pin owa-piggy profile'),
                            schema_mod.flag('--org', value='<org>', summary='Pin default organisation'),
                            schema_mod.flag('--project', value='<name>', summary='Pin default project'),
+                           schema_mod.flag('--unset', value='<key>', summary='Remove one key', repeatable=True),
+                           schema_mod.flag('--clear', summary='Remove all stored keys'),
                        ]),
 ]
 
@@ -793,6 +1110,10 @@ def _main(argv):
         'wi': cmd_wi,
         'wi-create': cmd_wi_create,
         'wi-update': cmd_wi_update,
+        'wi-comment': cmd_wi_comment,
+        'wi-link': cmd_wi_link,
+        'wi-unlink': cmd_wi_unlink,
+        'wi-delete': cmd_wi_delete,
         'repos': cmd_repos,
         'prs': cmd_prs,
         'pipelines': cmd_pipelines,

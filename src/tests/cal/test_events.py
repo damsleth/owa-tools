@@ -6,9 +6,13 @@ untouched event fields.
 """
 from datetime import datetime
 
+import pytest
+
 from owa_cal.events import (
+    build_attendees,
     build_event_json,
     build_patch_json,
+    build_recurrence,
     is_dst_europe,
     normalize_event,
     normalize_event_detail,
@@ -186,9 +190,9 @@ def test_patch_empty_input_empty_output():
     assert build_patch_json({}, 'UTC') == {}
 
 
-def test_patch_category_wraps_in_list():
-    patch = build_patch_json({'category': 'ProjectX'}, 'UTC')
-    assert patch == {'Categories': ['ProjectX']}
+def test_patch_categories_list():
+    patch = build_patch_json({'categories': ['ProjectX', 'Blue']}, 'UTC')
+    assert patch == {'Categories': ['ProjectX', 'Blue']}
 
 
 def test_patch_start_end_include_timezone():
@@ -217,3 +221,105 @@ def test_patch_multiple_fields():
         'Location': {'DisplayName': 'L'},
         'ShowAs': 'Free',
     }
+
+
+def test_patch_attendees_reminder_recurrence():
+    patch = build_patch_json(
+        {
+            'attendees': [{'EmailAddress': {'Address': 'a@x.com'}, 'Type': 'Required'}],
+            'reminder': 15,
+            'recurrence': {'Pattern': {'Type': 'Daily', 'Interval': 1}},
+        },
+        'UTC',
+    )
+    assert patch['Attendees'] == [
+        {'EmailAddress': {'Address': 'a@x.com'}, 'Type': 'Required'}
+    ]
+    assert patch['ReminderMinutesBeforeStart'] == 15
+    assert patch['IsReminderOn'] is True
+    assert patch['Recurrence'] == {'Pattern': {'Type': 'Daily', 'Interval': 1}}
+
+
+# --- build_attendees ---
+
+def test_build_attendees_required_and_optional():
+    out = build_attendees(['a@x.com', '  '], ['b@x.com'])
+    assert out == [
+        {'EmailAddress': {'Address': 'a@x.com'}, 'Type': 'Required'},
+        {'EmailAddress': {'Address': 'b@x.com'}, 'Type': 'Optional'},
+    ]
+
+
+def test_build_attendees_empty():
+    assert build_attendees([], []) == []
+
+
+# --- build_recurrence ---
+
+def test_build_recurrence_none_when_no_recur():
+    assert build_recurrence('', '2026-04-20') is None
+
+
+def test_build_recurrence_daily_no_end():
+    rec = build_recurrence('daily', '2026-04-20')
+    assert rec['Pattern'] == {'Type': 'Daily', 'Interval': 1}
+    assert rec['Range'] == {'Type': 'NoEnd', 'StartDate': '2026-04-20'}
+
+
+def test_build_recurrence_weekly_anchors_on_weekday_with_count():
+    # 2026-04-20 is a Monday
+    rec = build_recurrence('weekly', '2026-04-20', interval=2, count=10)
+    assert rec['Pattern']['Type'] == 'Weekly'
+    assert rec['Pattern']['Interval'] == 2
+    assert rec['Pattern']['DaysOfWeek'] == ['Monday']
+    assert rec['Range'] == {
+        'Type': 'Numbered', 'StartDate': '2026-04-20', 'NumberOfOccurrences': 10,
+    }
+
+
+def test_build_recurrence_until_end_date():
+    rec = build_recurrence('daily', '2026-04-20', until='2026-05-20')
+    assert rec['Range'] == {
+        'Type': 'EndDate', 'StartDate': '2026-04-20', 'EndDate': '2026-05-20',
+    }
+
+
+def test_build_recurrence_unsupported_value_raises():
+    with pytest.raises(ValueError):
+        build_recurrence('hourly', '2026-04-20')
+
+
+# --- build_event_json: new optional fields ---
+
+def test_build_event_attendees_reminder_categories_recurrence():
+    body = build_event_json(
+        'Sync', '2026-04-20T09:00:00', '2026-04-20T09:30:00', 'UTC',
+        categories=['A', 'B'],
+        attendees=[{'EmailAddress': {'Address': 'a@x.com'}, 'Type': 'Required'}],
+        reminder=15,
+        recurrence={'Pattern': {'Type': 'Daily', 'Interval': 1}},
+    )
+    assert body['Categories'] == ['A', 'B']
+    assert body['Attendees'] == [
+        {'EmailAddress': {'Address': 'a@x.com'}, 'Type': 'Required'}
+    ]
+    assert body['ReminderMinutesBeforeStart'] == 15
+    assert body['IsReminderOn'] is True
+    assert body['Recurrence'] == {'Pattern': {'Type': 'Daily', 'Interval': 1}}
+
+
+def test_build_event_no_reminder_keeps_reminder_off():
+    body = build_event_json(
+        'X', '2026-04-20T09:00:00', '2026-04-20T10:00:00', 'UTC',
+    )
+    assert body['IsReminderOn'] is False
+    assert 'ReminderMinutesBeforeStart' not in body
+
+
+def test_build_event_merges_legacy_category_with_categories():
+    body = build_event_json(
+        'X', '2026-04-20T09:00:00', '2026-04-20T10:00:00', 'UTC',
+        category='Legacy', categories=['New', 'Legacy'],
+    )
+    # order preserved, dupes dropped
+    assert body['Categories'] == ['Legacy', 'New']

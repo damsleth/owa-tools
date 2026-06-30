@@ -43,6 +43,7 @@ _VERB_FLAGS = [
     schema_mod.flag('--count', summary='Shortcut for $count=true (sets ConsistencyLevel: eventual)'),
     schema_mod.flag('--search', value='<expr>', summary='Shortcut for $search="EXPR" (sets ConsistencyLevel: eventual)'),
     schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
+    schema_mod.flag('--max-pages', value='<n>', summary='With --all, stop after N pages and signal truncation (safety valve)'),
     schema_mod.flag('--ndjson', summary='Stream items one per line (jq-friendly)'),
     schema_mod.flag('--retry', summary='Honor Retry-After once on 429/503 (capped at 60s)'),
     schema_mod.flag('--beta', summary='Use https://graph.microsoft.com/beta (graph audience only)'),
@@ -98,6 +99,13 @@ def _debug_enabled(config):
     return bool(config.get('debug')) or os.environ.get('GRAPH_DEBUG') == '1'
 
 
+def _agent_active():
+    """True when running under the agent envelope (`--agent` or
+    `OWA_AGENT=1`). The mode layer strips `--agent` before dispatch, so
+    we read the env it honors plus the raw argv for the CLI flag."""
+    return mode_mod.env_truthy('OWA_AGENT') or '--agent' in sys.argv
+
+
 def print_help():
     groups_block_lines = [
         f"  {name:<10}  {resources_mod.GROUP_DESCRIPTIONS.get(name, '')}"
@@ -132,6 +140,10 @@ Per-call options:
                             ConsistencyLevel: eventual).
   --all                     Follow @odata.nextLink until exhausted.
                             Output: single {"value": [...]} unless --ndjson.
+  --max-pages N             With --all, stop after N pages and signal
+                            truncation (warning on stderr; @owa.truncated
+                            marker in JSON output) instead of following
+                            nextLink unbounded.
   --ndjson                  Stream items one per line (jq-friendly).
                             Pairs with --all; standalone splits a single
                             page's value array.
@@ -305,6 +317,7 @@ def cmd_request(method, path, args, config):
     emit_mode = None
     include_token = False
     all_pages = False
+    max_pages = None
     ndjson = False
     do_retry = False
 
@@ -360,6 +373,16 @@ def cmd_request(method, path, args, config):
             raw = True
         elif flag == '--all':
             all_pages = True
+        elif flag == '--max-pages':
+            v, args = _require_value(flag, args)
+            try:
+                max_pages = int(v)
+            except ValueError:
+                _error(f'--max-pages expects an integer, got: {v!r}')
+                return 1
+            if max_pages < 1:
+                _error('--max-pages must be >= 1')
+                return 1
         elif flag == '--ndjson':
             ndjson = True
         elif flag == '--retry':
@@ -378,6 +401,18 @@ def cmd_request(method, path, args, config):
         return 1
     if ndjson and raw:
         _error('--ndjson and --raw are incompatible')
+        return 1
+    if max_pages is not None and not all_pages:
+        _error('--max-pages only applies with --all')
+        return 1
+
+    # The agent envelope wraps JSON stdout. --raw writes binary bytes and
+    # --curl/--az write a shell command string; neither is JSON, so under
+    # --agent they would corrupt or fail the envelope. Reject them up front
+    # with an actionable message instead of emitting garbage.
+    if _agent_active() and (raw or emit_mode is not None):
+        bad = '--raw' if raw else f'--{emit_mode}'
+        _error(f'{bad} emits non-JSON output and cannot run under --agent')
         return 1
 
     debug = _debug_enabled(config)
@@ -423,6 +458,7 @@ def cmd_request(method, path, args, config):
         return _emit_paginated(
             method, url, access_token, headers,
             ndjson=ndjson, pretty=pretty, debug=debug, retry=do_retry,
+            max_pages=max_pages,
         )
 
     # api_request joins base+endpoint with `/`, but we already built the
@@ -455,30 +491,56 @@ def cmd_request(method, path, args, config):
 
 
 def _emit_paginated(method, url, access_token, headers,
-                    ndjson=False, pretty=False, debug=False, retry=False):
+                    ndjson=False, pretty=False, debug=False, retry=False,
+                    max_pages=None):
     """Drive api.paginate and emit results in the requested form.
 
     --ndjson streams each item; --pretty buffers everything and renders
     the table once (we can't pretty-print incrementally without breaking
     column alignment); default emits a single `{"value": [...]}` wrapper
-    matching Graph's collection shape so jq pipelines keep working."""
+    matching Graph's collection shape so jq pipelines keep working.
+
+    `max_pages` caps the walk; when it trips while more pages remain we
+    emit a warning to stderr and (for non-ndjson output) tuck a
+    `@owa.truncated` marker into the JSON wrapper so agent consumers see
+    it in the enveloped `data`."""
+    truncated = {}
+
+    def _note(pages, next_link):
+        truncated['pages'] = pages
+        truncated['nextLink'] = next_link
+
     items_iter = api_mod.paginate(
         method, url, access_token,
         extra_headers=headers, debug=debug, retry=retry,
+        max_pages=max_pages, on_truncate=_note,
     )
     if ndjson:
-        emitted = 0
         for item in items_iter:
             print(json.dumps(item, ensure_ascii=False))
-            emitted += 1
         # Treat zero items as success - empty collection is a valid result.
+        if truncated:
+            _warn_truncated(truncated)
         return 0
     items = list(items_iter)
+    if truncated:
+        _warn_truncated(truncated)
     if pretty:
         print(format_mod.format_pretty({'value': items}))
     else:
-        print(json.dumps({'value': items}, ensure_ascii=False))
+        wrapper = {'value': items}
+        if truncated:
+            wrapper['@owa.truncated'] = {'pages': truncated['pages']}
+        print(json.dumps(wrapper, ensure_ascii=False))
     return 0
+
+
+def _warn_truncated(truncated):
+    print(
+        f'warn: stopped after {truncated["pages"]} page(s) (--max-pages); '
+        'more results remain. Raise --max-pages or drop it to fetch all.',
+        file=sys.stderr,
+    )
 
 
 def _emit_ndjson_single(result):
@@ -567,9 +629,11 @@ def cmd_batch(args, config):
         return 1
 
     debug = _debug_enabled(config)
-    audience = config.get('default_audience') or 'graph'
+    # $batch lives only on graph.microsoft.com. Force the graph audience
+    # regardless of the profile's default audience so batch always lands
+    # on the right host (a non-graph default would 404/auth-fail here).
     access_token, api_base = auth_mod.setup_auth(
-        config, audience=audience, debug=debug,
+        config, audience='graph', debug=debug,
     )
     result = api_mod.api_request(
         'POST', api_base, '$batch', access_token,

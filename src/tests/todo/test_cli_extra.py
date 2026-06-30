@@ -79,6 +79,27 @@ def test_unknown_flag_raises():
         cli.cmd_lists(["--bogus"], {}, "tok", "https://outlook.test")
 
 
+def test_main_dispatches_new_commands(monkeypatch, capsys):
+    # Route undone / list-create / list-rename / list-delete through _main so
+    # the dispatch arms are exercised end to end.
+    monkeypatch.setattr(
+        cli.api_mod, "api_request",
+        lambda method, base, ep, tok, **k: {"Id": "f1", "Name": "L", "Status": "NotStarted"},
+    )
+    monkeypatch.setattr(
+        cli.api_mod, "api_get",
+        lambda base, ep, tok, **k: {"value": [{"Id": "f1", "Name": "L", "IsDefaultFolder": False}]},
+    )
+    assert cli._main(["undone", "t1"]) == 0
+    capsys.readouterr()
+    assert cli._main(["list-create", "--name", "L"]) == 0
+    capsys.readouterr()
+    assert cli._main(["list-rename", "L", "--name", "L2"]) == 0
+    capsys.readouterr()
+    assert cli._main(["list-delete", "L", "--confirm"]) == 0
+    assert "Deleted." in capsys.readouterr().err
+
+
 def test_resolve_date():
     assert cli._resolve_date("today") == date.today().strftime("%Y-%m-%d")
     assert cli._resolve_date("2026-01-01") == "2026-01-01"

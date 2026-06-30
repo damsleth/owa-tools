@@ -103,7 +103,10 @@ Commands:
   forward              Forward a message by --id
   delete               Delete a message by --id
   move                 Move a message to another folder
+  copy                 Copy a message to another folder
   mark                 Mark a message read/unread/flagged
+  categories           Set categories on a message by --id
+  thread               List messages in a conversation (alias: conversation)
   folders              List mail folders
   refresh              Force a token refresh and verify auth
   config               View or update configuration
@@ -115,9 +118,14 @@ messages options:
   --from <addr>        Sender substring filter
   --subject <text>     Subject substring filter
   --search <kql>       KQL search (mutually exclusive with filters)
+  --category <name>    Only messages tagged with this category
+  --has-attachments    Only messages with attachments
+  --importance <level> Only messages of importance low|normal|high
   --since <date>       ReceivedDateTime >= date (YYYY-MM-DD or today/yesterday)
   --until <date>       ReceivedDateTime <= date
   --limit <n>          Max results per page (default 25, hard cap 200)
+  --skip <n>           OData $skip: skip the first n results
+  --orderby <field>    OData $orderby (e.g. "ReceivedDateTime desc")
   --all                Follow @odata.nextLink until exhausted (--limit
                        still controls page size per request)
   --with-body          Include full body + InternetMessageHeaders inline
@@ -177,9 +185,19 @@ delete options:
   --id <message-id>    (required)
   --confirm            Skip confirmation prompt
 
-move options:
+move / copy options:
   --id <message-id>    (required)
-  --to <folder>        (required) well-known name or folder id
+  --to <folder>        (required) well-known name, folder display name, or id
+
+categories options:
+  --id <message-id>    (required)
+  --category <name>    Category to set (repeatable; pass none to clear all)
+
+thread / conversation options:
+  --id <conversation>  (required) conversation_id from messages/show JSON
+  --limit <n>          Max results per page (default 25, cap 200)
+  --all                Follow @odata.nextLink until exhausted
+  --pretty             Human-readable table (default: JSON)
 
 mark options:
   --id <message-id>    (required)
@@ -220,6 +238,11 @@ Examples:
   owa-mail reply --id AAMkAG... --body "thanks"
   owa-mail mark --id AAMkAG... --read
   owa-mail move --id AAMkAG... --to Archive
+  owa-mail copy --id AAMkAG... --to "Project X"
+  owa-mail categories --id AAMkAG... --category Red --category Urgent
+  owa-mail messages --has-attachments --importance high --pretty
+  owa-mail messages --category Red --skip 25 --limit 25
+  owa-mail thread --id AAQkAG... --pretty
   owa-mail folders --pretty""")
     print()
     print(schema_mod.MULTI_PROFILE_HELP)
@@ -253,6 +276,9 @@ def cmd_messages(args, config, access_token, api_base):
     all_pages = False
     with_body = False
     sender = subject_q = search = since = until = ''
+    orderby = category = importance = ''
+    has_attachments = False
+    skip = 0
     limit = 25
     while args:
         flag, args = args[0], args[1:]
@@ -272,6 +298,16 @@ def cmd_messages(args, config, access_token, api_base):
             v, args = _require_value(flag, args); until = resolve_date(v)
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
+        elif flag == '--skip':
+            skip, args = _require_int(flag, args)
+        elif flag == '--orderby':
+            orderby, args = _require_value(flag, args)
+        elif flag == '--category':
+            category, args = _require_value(flag, args)
+        elif flag == '--has-attachments':
+            has_attachments = True
+        elif flag == '--importance':
+            importance, args = _require_value(flag, args)
         elif flag == '--all':
             all_pages = True
         elif flag == '--with-body':
@@ -285,10 +321,14 @@ def cmd_messages(args, config, access_token, api_base):
         raise UsageError('--limit must be >= 1')
     if limit > 200:
         limit = 200
+    if skip < 0:
+        raise UsageError('--skip must be >= 0')
 
-    if search and (unread or sender or subject_q or since or until):
+    if search and (unread or sender or subject_q or since or until
+                   or category or has_attachments or importance):
         raise UsageError(
-            '--search cannot be combined with --unread/--from/--subject/--since/--until '
+            '--search cannot be combined with --unread/--from/--subject/--since/--until/'
+            '--category/--has-attachments/--importance '
             '(Outlook REST: $search and $filter are mutually exclusive)'
         )
 
@@ -298,10 +338,15 @@ def cmd_messages(args, config, access_token, api_base):
     # --limit still controls page size per request; --all follows
     # @odata.nextLink until every page is exhausted.
     select = messages_mod.LIST_SELECT_WITH_BODY if with_body else None
-    params = messages_mod.build_list_query(
-        unread=unread, sender=sender, subject_q=subject_q, search=search,
-        since=since, until=until, limit=limit, select=select,
-    )
+    try:
+        params = messages_mod.build_list_query(
+            unread=unread, sender=sender, subject_q=subject_q, search=search,
+            since=since, until=until, limit=limit, select=select,
+            orderby=orderby, skip=skip, category=category,
+            has_attachments=has_attachments, importance=importance,
+        )
+    except ValueError as e:
+        raise UsageError(str(e))
     q = api_mod.build_query(params)
     if all_pages:
         items = api_mod.paginate_all(api_base, f'{path}?{q}', access_token, debug=debug)
@@ -499,12 +544,37 @@ def cmd_attachment_get(args, config, access_token, api_base):
         raise UsageError('--attachment is required')
 
     debug = _debug_enabled(config)
-    # Preferred path: GET .../$value returns raw bytes directly.
-    content = api_mod.api_get_binary(
-        api_base,
-        attachments_mod.value_path(message_id, attachment_id),
-        access_token, debug=debug,
-    )
+    # Preferred path: GET .../$value returns raw bytes directly. Only file
+    # attachments have a $value; item/reference attachments 404 there, so
+    # fall back to fetching the full resource and emitting its metadata.
+    try:
+        content = api_mod.api_get_binary(
+            api_base,
+            attachments_mod.value_path(message_id, attachment_id),
+            access_token, debug=debug,
+        )
+    except NotFoundError:
+        raw = api_mod.api_get(
+            api_base,
+            attachments_mod.attachment_path(message_id, attachment_id),
+            access_token, debug=debug,
+        )
+        if raw is None:
+            return 1
+        # item/reference attachment: no raw bytes. Emit metadata + content
+        # (the embedded item or the reference URL) as JSON to stdout. If a
+        # --out path was given, write the JSON there for parity with files.
+        resource = json.dumps(attachments_mod.attachment_resource(raw))
+        if out_path:
+            try:
+                with open(out_path, 'w', encoding='utf-8') as fh:
+                    fh.write(resource)
+            except OSError as exc:
+                _error(f'cannot write {out_path}: {exc}'); return 1
+            _info(f'wrote attachment metadata to {out_path} (no raw $value)')
+        else:
+            print(resource)
+        return 0
     if content is None:
         return 1
 
@@ -825,7 +895,37 @@ def cmd_delete(args, config, access_token, api_base):
     return 0
 
 
-def cmd_move(args, config, access_token, api_base):
+def _resolve_destination_id(destination, access_token, api_base, debug):
+    """Resolve a --to destination to a folder id.
+
+    Well-known names (Inbox/Archive/...) and opaque ids pass straight
+    through resolve_folder_id. Anything else is treated as a folder
+    DisplayName and looked up against the mailbox; an exact (case-
+    insensitive) match wins. Returns the id, or None if no folder
+    matched (caller emits a not-found and stops). May raise on auth/
+    network failure (propagated) or return None when the lookup itself
+    failed.
+    """
+    if folders_mod.is_well_known(destination):
+        return folders_mod.resolve_folder_id(destination)
+    # Not well-known: could be an opaque id or a display name. Look up by
+    # display name; if nothing matches, fall back to treating it as an id.
+    q = api_mod.build_query(folders_mod.folder_lookup_query(destination))
+    data = api_mod.api_get(api_base, f'me/MailFolders?{q}', access_token, debug=debug)
+    if data is None:
+        return None
+    matched = folders_mod.pick_folder_id(folders_mod.normalize_folders(data), destination)
+    # No display-name match -> assume the caller passed an opaque folder id.
+    return matched or destination
+
+
+def _move_or_copy(args, config, access_token, api_base, action):
+    """Shared body for `move` (POST /move) and `copy` (POST /copy).
+
+    Both resolve --to (well-known name, display name, or opaque id) to a
+    DestinationId and POST it. Both are idempotent at the API level
+    (moving/copying to the same folder again is a no-op / fresh copy).
+    """
     message_id, args = schema_mod.pop_positional_id(args)
     destination = ''
     while args:
@@ -839,18 +939,28 @@ def cmd_move(args, config, access_token, api_base):
     if not message_id:
         raise UsageError('--id is required')
     if not destination:
-        raise UsageError('--to is required (folder name or id)')
+        raise UsageError('--to is required (folder name, display name, or id)')
 
     debug = _debug_enabled(config)
-    body = {'DestinationId': folders_mod.resolve_folder_id(destination)}
+    dest_id = _resolve_destination_id(destination, access_token, api_base, debug)
+    if dest_id is None:
+        return 1
     result = api_mod.api_request(
-        'POST', api_base, f'{messages_mod.message_path(message_id)}/move',
-        access_token, body=body, debug=debug,
+        'POST', api_base, f'{messages_mod.message_path(message_id)}/{action}',
+        access_token, body={'DestinationId': dest_id}, debug=debug,
     )
     if result is None:
         return 1
     print(json.dumps(messages_mod.normalize_message(result)))
     return 0
+
+
+def cmd_move(args, config, access_token, api_base):
+    return _move_or_copy(args, config, access_token, api_base, 'move')
+
+
+def cmd_copy(args, config, access_token, api_base):
+    return _move_or_copy(args, config, access_token, api_base, 'copy')
 
 
 def cmd_mark(args, config, access_token, api_base):
@@ -892,6 +1002,91 @@ def cmd_mark(args, config, access_token, api_base):
     if result is None:
         return 1
     print(json.dumps(messages_mod.normalize_message(result)))
+    return 0
+
+
+def cmd_categories(args, config, access_token, api_base):
+    """Set the categories on a message (full-array replace, idempotent).
+
+    `--category <name>` is repeatable; pass none to clear all categories.
+    """
+    message_id, args = schema_mod.pop_positional_id(args)
+    categories = []
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--id':
+            message_id, args = _require_value(flag, args)
+        elif flag == '--category':
+            v, args = _require_value(flag, args); categories.append(v)
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+    if not message_id:
+        raise UsageError('--id is required')
+
+    debug = _debug_enabled(config)
+    patch = messages_mod.build_categories_patch(categories)
+    result = api_mod.api_request(
+        'PATCH', api_base, messages_mod.message_path(message_id), access_token,
+        body=patch, debug=debug,
+    )
+    if result is None:
+        return 1
+    print(json.dumps(messages_mod.normalize_message(result)))
+    return 0
+
+
+def cmd_thread(args, config, access_token, api_base):
+    """List messages in a conversation (thread) by conversationId.
+
+    The id is the `conversation_id` surfaced in `messages`/`show` JSON
+    (starts AAQk). Scans across all folders via `me/messages` filtered
+    by ConversationId, newest first.
+    """
+    conversation_id, args = schema_mod.pop_positional_id(args)
+    pretty = False
+    all_pages = False
+    limit = 25
+    while args:
+        flag, args = args[0], args[1:]
+        if flag in ('--id', '--conversation'):
+            conversation_id, args = _require_value(flag, args)
+        elif flag == '--limit':
+            limit, args = _require_int(flag, args)
+        elif flag == '--all':
+            all_pages = True
+        elif flag == '--pretty':
+            pretty = True
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+    if not conversation_id:
+        raise UsageError('--id is required (a conversation_id, starts AAQk)')
+    if limit < 1:
+        raise UsageError('--limit must be >= 1')
+    if limit > 200:
+        limit = 200
+
+    debug = _debug_enabled(config)
+    params = {
+        '$top': limit,
+        '$select': messages_mod.LIST_SELECT,
+        '$orderby': 'ReceivedDateTime desc',
+        '$filter': messages_mod.conversation_filter(conversation_id),
+    }
+    q = api_mod.build_query(params)
+    if all_pages:
+        items = api_mod.paginate_all(api_base, f'me/messages?{q}', access_token, debug=debug)
+        if items is None:
+            return 1
+        flat = messages_mod.normalize_messages({'value': items})
+    else:
+        data = api_mod.api_get(api_base, f'me/messages?{q}', access_token, debug=debug)
+        if data is None:
+            return 1
+        flat = messages_mod.normalize_messages(data)
+    if pretty:
+        print(format_messages_pretty(flat))
+    else:
+        print(json.dumps(flat))
     return 0
 
 
@@ -993,7 +1188,11 @@ AUTHED_HANDLERS = {
     'forward': cmd_forward,
     'delete': cmd_delete,
     'move': cmd_move,
+    'copy': cmd_copy,
     'mark': cmd_mark,
+    'categories': cmd_categories,
+    'thread': cmd_thread,
+    'conversation': cmd_thread,
     'folders': cmd_folders,
 }
 
@@ -1024,6 +1223,11 @@ _MESSAGES_FLAGS = [
     schema_mod.flag('--since', value='<date>', summary='ReceivedDateTime >= date'),
     schema_mod.flag('--until', value='<date>', summary='ReceivedDateTime <= date'),
     schema_mod.flag('--limit', value='<n>', summary='Max results per page (default 25, cap 200)'),
+    schema_mod.flag('--skip', value='<n>', summary='OData $skip: skip the first n results'),
+    schema_mod.flag('--orderby', value='<field>', summary='OData $orderby (e.g. "ReceivedDateTime desc")'),
+    schema_mod.flag('--category', value='<name>', summary='Only messages tagged with this category'),
+    schema_mod.flag('--has-attachments', summary='Only messages with attachments'),
+    schema_mod.flag('--importance', value='<level>', summary='Only messages of importance low|normal|high'),
     schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
     schema_mod.flag('--with-body', summary='Include body + InternetMessageHeaders inline (skip per-message show)'),
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
@@ -1098,7 +1302,25 @@ _DELETE_FLAGS = [
 
 _MOVE_FLAGS = [
     schema_mod.flag('--id', value='<message-id>', summary='Message ID (flag or positional)', required=True),
-    schema_mod.flag('--to', value='<folder>', summary='Well-known name or folder id', required=True),
+    schema_mod.flag('--to', value='<folder>', summary='Well-known name, folder display name, or id', required=True),
+]
+
+_COPY_FLAGS = [
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID (flag or positional)', required=True),
+    schema_mod.flag('--to', value='<folder>', summary='Well-known name, folder display name, or id', required=True),
+]
+
+_CATEGORIES_FLAGS = [
+    schema_mod.flag('--id', value='<message-id>', summary='Message ID (flag or positional)', required=True),
+    schema_mod.flag('--category', value='<name>', summary='Category to set (repeatable; none clears all)', repeatable=True),
+]
+
+_THREAD_FLAGS = [
+    schema_mod.flag('--id', value='<conversation-id>', summary='Conversation ID (flag or positional)', required=True),
+    schema_mod.flag('--conversation', value='<conversation-id>', summary='Alias for --id'),
+    schema_mod.flag('--limit', value='<n>', summary='Max results per page (default 25, cap 200)'),
+    schema_mod.flag('--all', summary='Follow @odata.nextLink until exhausted'),
+    schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
 ]
 
 _MARK_FLAGS = [
@@ -1138,8 +1360,11 @@ COMMAND_SCHEMA = [
         idempotent=False,
         flags=_DELETE_FLAGS,
     ),
-    schema_mod.command('move', 'Move a message', auth='outlook', mutates=True, idempotent=False, flags=_MOVE_FLAGS),
+    schema_mod.command('move', 'Move a message to another folder', auth='outlook', mutates=True, idempotent=True, flags=_MOVE_FLAGS),
+    schema_mod.command('copy', 'Copy a message to another folder', auth='outlook', mutates=True, idempotent=True, flags=_COPY_FLAGS),
     schema_mod.command('mark', 'Mark a message', auth='outlook', mutates=True, idempotent=True, flags=_MARK_FLAGS),
+    schema_mod.command('categories', 'Set categories on a message', auth='outlook', mutates=True, idempotent=True, flags=_CATEGORIES_FLAGS),
+    schema_mod.command('thread', 'List messages in a conversation', auth='outlook', aliases=('conversation',), flags=_THREAD_FLAGS),
     schema_mod.command('folders', 'List mail folders', auth='outlook', flags=_FOLDERS_FLAGS),
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
     schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),

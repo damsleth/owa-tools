@@ -75,3 +75,52 @@ def test_build_task_patch_only_provided_keys():
     assert patch["DueDateTime"]["DateTime"].startswith("2026-06-02")
     assert "StartDateTime" not in patch
     assert tasks.build_task_patch({}, "UTC") == {}
+
+
+def test_normalize_recurrence():
+    assert tasks.normalize_recurrence("daily") == {"Type": "Daily", "Interval": 1}
+    assert tasks.normalize_recurrence("WEEKLY") == {"Type": "Weekly", "Interval": 1}
+    assert tasks.normalize_recurrence("monthly") is None
+    assert tasks.normalize_recurrence("") is None
+
+
+def test_build_folder_json():
+    assert tasks.build_folder_json("Groceries") == {"Name": "Groceries"}
+
+
+def test_build_task_json_reminder_recurrence_categories():
+    body = tasks.build_task_json(
+        "Standup", tz="UTC", start="2026-06-01",
+        reminder="2026-06-01T09:00",
+        recurrence=tasks.normalize_recurrence("daily"),
+        categories=["work", "daily"],
+    )
+    assert body["ReminderDateTime"] == {"DateTime": "2026-06-01T09:00", "TimeZone": "UTC"}
+    assert body["IsReminderOn"] is True
+    assert body["Recurrence"]["Pattern"] == {"Type": "Daily", "Interval": 1}
+    assert body["Recurrence"]["Range"]["StartDate"] == "2026-06-01"
+    assert body["Recurrence"]["Range"]["Type"] == "NoEnd"
+    assert body["Categories"] == ["work", "daily"]
+
+
+def test_build_task_json_recurrence_anchors_to_today_without_start():
+    from datetime import date
+    body = tasks.build_task_json("x", recurrence=tasks.normalize_recurrence("weekly"))
+    assert body["Recurrence"]["Range"]["StartDate"] == date.today().strftime("%Y-%m-%d")
+
+
+def test_build_task_patch_reminder_recurrence_categories():
+    patch = tasks.build_task_patch(
+        {
+            "reminder": "2026-06-02T08:30",
+            "recurrence": tasks.normalize_recurrence("weekly"),
+            "categories": ["home"],
+            "start": "2026-06-02",
+        },
+        "UTC",
+    )
+    assert patch["ReminderDateTime"]["DateTime"] == "2026-06-02T08:30"
+    assert patch["IsReminderOn"] is True
+    assert patch["Recurrence"]["Pattern"] == {"Type": "Weekly", "Interval": 1}
+    assert patch["Recurrence"]["Range"]["StartDate"] == "2026-06-02"
+    assert patch["Categories"] == ["home"]

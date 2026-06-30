@@ -31,8 +31,10 @@ def _info(msg):
 
 
 _PROBE_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Probe only this profile (default: all profiles)'),
+    schema_mod.flag('--profile', value='<alias>', summary='Probe only this profile (repeatable; default: all profiles)'),
     schema_mod.flag('--audience', value='<name>', summary='Token audience to test (default: graph)'),
+    schema_mod.flag('--coverage', summary='Report which audiences each profile can obtain a token for'),
+    schema_mod.flag('--timeout', value='<seconds>', summary='Timeout for probe/version calls (default: 5)'),
     schema_mod.flag('--no-tokens', summary='Skip per-profile token probes; only check installs'),
     schema_mod.flag('--pretty', summary='Human-readable output (default: JSON)'),
     schema_mod.flag('--debug', summary='Verbose logs to stderr (alias: --verbose)'),
@@ -52,10 +54,13 @@ Commands:
   probe                 Run the health probe (default command).
 
 Probe options:
-  --profile <alias>     Probe only this profile (default: all profiles
-                        owa-piggy knows about).
+  --profile <alias>     Probe only this profile (repeatable; default: all
+                        profiles owa-piggy knows about).
   --audience <name>     Token audience to test (default: graph). Pass
                         outlook to verify Outlook REST is reachable.
+  --coverage            Report, per profile, which audiences/scopes can
+                        be obtained (extra token-mint calls per profile).
+  --timeout <seconds>   Timeout for probe/version calls (default: 5).
   --no-tokens           Skip per-profile token probes; only check
                         which CLIs are installed and what version.
   --pretty              Human-readable output (default: JSON).
@@ -65,13 +70,15 @@ Probe options:
 
 Exit codes:
   0  all probed profiles ok
-  1  one or more profiles are near expiry (< 10 min remaining)
-  2  one or more profiles failed (or owa-piggy is missing)
+  1  one or more profiles are near expiry or audience-mismatched
+  2  one or more profiles failed, or owa-piggy is missing/unreachable
 
 Examples:
   owa-doctor --pretty
   owa-doctor probe --pretty
   owa-doctor --profile swon --pretty
+  owa-doctor --profile work --profile home --pretty  # subset of profiles
+  owa-doctor --coverage --pretty        # per-profile audience coverage
   owa-doctor --no-tokens                # quick install check only
   owa-doctor --audience outlook --pretty""")
     print()
@@ -79,8 +86,10 @@ Examples:
 
 
 def _parse_args(argv):
-    profile = ''
+    profiles = []
     audience = 'graph'
+    coverage = False
+    timeout = probe_mod.DEFAULT_TIMEOUT
     no_tokens = False
     pretty = False
     debug = False
@@ -89,11 +98,24 @@ def _parse_args(argv):
         if a == '--profile':
             if not argv:
                 raise UsageError('--profile requires a value')
-            profile, argv = argv[0], argv[1:]
+            profiles.append(argv[0])
+            argv = argv[1:]
         elif a == '--audience':
             if not argv:
                 raise UsageError('--audience requires a value')
             audience, argv = argv[0], argv[1:]
+        elif a == '--timeout':
+            if not argv:
+                raise UsageError('--timeout requires a value')
+            try:
+                timeout = float(argv[0])
+            except ValueError:
+                raise UsageError(f'--timeout must be a number, got: {argv[0]}')
+            if timeout <= 0:
+                raise UsageError('--timeout must be a positive number')
+            argv = argv[1:]
+        elif a == '--coverage':
+            coverage = True
         elif a == '--no-tokens':
             no_tokens = True
         elif a == '--pretty':
@@ -102,23 +124,36 @@ def _parse_args(argv):
             debug = True
         else:
             raise UsageError(f'Unknown flag: {a}')
-    return profile, audience, no_tokens, pretty, debug
+    return profiles, audience, coverage, timeout, no_tokens, pretty, debug
 
 
-def build_report(profile_filter='', audience='graph', no_tokens=False, debug=False):
+def build_report(profile_filter=(), audience='graph', coverage=False,
+                 timeout=probe_mod.DEFAULT_TIMEOUT, no_tokens=False, debug=False):
     """Run all probes, return the structured report.
 
     Pure-ish: only does I/O via probe_mod (subprocess to owa-piggy).
     Tests stub probe_mod.* directly.
+
+    `profile_filter` is a subset selector: an empty sequence (or '') means
+    "all profiles"; otherwise only the named aliases are probed.
     """
-    piggy = probe_mod.probe_piggy()
-    siblings = probe_mod.probe_siblings()
+    # Accept a bare string for backward compatibility with single-profile callers.
+    if isinstance(profile_filter, str):
+        profile_filter = [profile_filter] if profile_filter else []
+
+    piggy = probe_mod.probe_piggy(timeout=timeout)
+    siblings = probe_mod.probe_siblings(timeout=timeout)
 
     profiles_out = []
     summary = {'ok': 0, 'warn': 0, 'fail': 0}
 
-    if no_tokens or not piggy.get('installed'):
-        if not piggy.get('installed'):
+    # A broker on PATH but not answering --version is installed-but-unreachable;
+    # treat it the same as missing for token probes (fatal health finding).
+    # `reachable` is absent in older/synthetic payloads, so fall back to installed.
+    reachable = piggy.get('installed') and piggy.get('reachable', piggy.get('installed'))
+
+    if no_tokens or not reachable:
+        if not reachable:
             summary['fail'] = 1
         return {
             'owa_piggy': piggy,
@@ -129,18 +164,21 @@ def build_report(profile_filter='', audience='graph', no_tokens=False, debug=Fal
 
     aliases, default = probe_mod.list_piggy_profiles()
     if profile_filter:
-        if profile_filter not in aliases:
+        missing = [p for p in profile_filter if p not in aliases]
+        if missing:
             raise UsageError(
-                f"profile '{profile_filter}' not found in owa-piggy "
-                f"(known: {', '.join(aliases) or 'none'})"
+                f"profile(s) {', '.join(repr(m) for m in missing)} not found in "
+                f"owa-piggy (known: {', '.join(aliases) or 'none'})"
             )
-        aliases = [profile_filter]
+        aliases = [a for a in aliases if a in set(profile_filter)]
 
     for alias in aliases:
         if debug:
             _info(f'DEBUG: probing token for {alias} (audience={audience})')
         finding = probe_mod.probe_profile_token(alias, audience=audience)
         finding['default'] = (alias == default)
+        if coverage:
+            finding['coverage'] = probe_mod.probe_profile_coverage(alias)
         finding['state'] = probe_mod.classify_finding(finding)
         summary[finding['state']] += 1
         profiles_out.append(finding)
@@ -155,7 +193,11 @@ def build_report(profile_filter='', audience='graph', no_tokens=False, debug=Fal
 
 def _exit_code_for(report):
     summary = report.get('summary') or {}
-    if not (report.get('owa_piggy') or {}).get('installed'):
+    piggy = report.get('owa_piggy') or {}
+    # Missing OR present-but-unreachable broker is fatal. `reachable` is absent
+    # in older/synthetic payloads, so fall back to `installed` then.
+    reachable = piggy.get('reachable', piggy.get('installed'))
+    if not reachable:
         return 2
     if summary.get('fail', 0):
         return 2
@@ -186,10 +228,10 @@ def _main(argv):
         _error(f"Unknown command: {argv[0]}. Run 'owa-doctor help' for usage.")
         return 2
 
-    profile, audience, no_tokens, pretty, debug = _parse_args(argv)
+    profiles, audience, coverage, timeout, no_tokens, pretty, debug = _parse_args(argv)
     report = build_report(
-        profile_filter=profile, audience=audience,
-        no_tokens=no_tokens, debug=debug,
+        profile_filter=profiles, audience=audience, coverage=coverage,
+        timeout=timeout, no_tokens=no_tokens, debug=debug,
     )
 
     if pretty:

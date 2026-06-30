@@ -13,7 +13,7 @@ from . import scheduled as scheduled_mod
 LIST_SELECT = (
     'Id,ConversationId,ReceivedDateTime,Subject,From,ToRecipients,'
     'CcRecipients,BccRecipients,BodyPreview,IsRead,HasAttachments,'
-    'Importance,Flag,WebLink,ParentFolderId'
+    'Importance,Flag,WebLink,ParentFolderId,Categories'
 )
 # Bulk-fetch select for `messages --with-body`: same as SHOW_SELECT plus
 # InternetMessageHeaders so newsletter detectors can read List-Unsubscribe /
@@ -21,13 +21,13 @@ LIST_SELECT = (
 LIST_SELECT_WITH_BODY = (
     'Id,ConversationId,ReceivedDateTime,SentDateTime,Subject,From,'
     'ToRecipients,CcRecipients,BccRecipients,BodyPreview,Body,IsRead,'
-    'HasAttachments,Importance,Flag,WebLink,ParentFolderId,'
+    'HasAttachments,Importance,Flag,WebLink,ParentFolderId,Categories,'
     'InternetMessageHeaders'
 )
 SHOW_SELECT = (
     'Id,ConversationId,ReceivedDateTime,SentDateTime,Subject,From,'
     'ToRecipients,CcRecipients,BccRecipients,BodyPreview,Body,IsRead,'
-    'HasAttachments,Importance,Flag,WebLink,ParentFolderId,'
+    'HasAttachments,Importance,Flag,WebLink,ParentFolderId,Categories,'
     'InternetMessageHeaders'
 )
 
@@ -37,8 +37,24 @@ def message_path(message_id):
     return f'me/messages/{urllib.parse.quote(message_id, safe="")}'
 
 
+def _importance_filter(value):
+    """Validate/normalise an importance filter value to Outlook casing.
+
+    Empty/None means "no filter". Raises ValueError on a bad value so the
+    CLI can surface it as a usage error.
+    """
+    if not value:
+        return ''
+    v = value.strip().lower()
+    if v not in ('low', 'normal', 'high'):
+        raise ValueError(f'invalid importance: {value} (use low|normal|high)')
+    return v.capitalize()
+
+
 def build_list_query(unread=False, sender='', subject_q='', search='',
-                     since='', until='', limit=25, select=None):
+                     since='', until='', limit=25, select=None,
+                     orderby='', skip=0, category='', has_attachments=False,
+                     importance=''):
     """Build the OData params dict for a messages listing.
 
     Encodes two non-obvious Outlook REST quirks:
@@ -49,9 +65,21 @@ def build_list_query(unread=False, sender='', subject_q='', search='',
     - `contains(...)` filters combined with `$orderby ReceivedDateTime`
       can return InefficientFilter (HTTP 400) on real mailboxes. We drop
       `$orderby` whenever a Subject/From contains-clause is present.
+
+    `orderby`/`skip` are OData $orderby/$skip passthroughs. `category`,
+    `has_attachments` and `importance` add server-side $filter clauses
+    (and so force $orderby off, like the contains-filters do).
     """
+    imp = _importance_filter(importance)
+    has_filter = bool(sender or subject_q or category or has_attachments or imp)
     params = {'$top': limit, '$select': select or LIST_SELECT}
-    if not sender and not subject_q:
+    if skip:
+        params['$skip'] = skip
+    if orderby:
+        # Explicit caller order always wins (callers that ask for an order
+        # accept the InefficientFilter risk on filtered mailboxes).
+        params['$orderby'] = orderby
+    elif not has_filter:
         params['$orderby'] = 'ReceivedDateTime desc'
     if search:
         # $search and $orderby are mutually exclusive in Outlook/Graph (HTTP 400
@@ -72,6 +100,13 @@ def build_list_query(unread=False, sender='', subject_q='', search='',
     if subject_q:
         esc = subject_q.replace("'", "''")
         clauses.append(f"contains(Subject,'{esc}')")
+    if category:
+        esc = category.replace("'", "''")
+        clauses.append(f"Categories/any(c:c eq '{esc}')")
+    if has_attachments:
+        clauses.append('HasAttachments eq true')
+    if imp:
+        clauses.append(f"Importance eq '{imp}'")
     if since:
         clauses.append(f"ReceivedDateTime ge {since}T00:00:00Z")
     if until:
@@ -181,6 +216,7 @@ def normalize_message(raw):
         'has_attachments': bool(raw.get('HasAttachments', raw.get('hasAttachments', False))),
         'importance': _pick_str(raw, 'Importance', 'importance'),
         'flag': _flag_status(_pick_dict(raw, 'Flag', 'flag')),
+        'categories': [c for c in _pick_list(raw, 'Categories', 'categories') if isinstance(c, str)],
         'folder_id': _pick_str(raw, 'ParentFolderId', 'parentFolderId'),
         'web_link': _pick_str(raw, 'WebLink', 'webLink'),
         'body_type': _pick_str(body, 'ContentType', 'contentType'),
@@ -326,6 +362,21 @@ def build_reply_patch(body, html, send_at=None, extra_to=None):
             scheduled_mod.build_deferred_send_props(send_at)
         )
     return patch
+
+
+def build_categories_patch(categories):
+    """Build the PATCH body for `categories`: replace the Categories array.
+
+    Graph/Outlook treats Categories as a full-array replace (idempotent),
+    so this sets it to exactly the supplied list (possibly empty to clear).
+    """
+    return {'Categories': list(categories)}
+
+
+def conversation_filter(conversation_id):
+    """OData $filter clause matching one ConversationId."""
+    esc = conversation_id.replace("'", "''")
+    return f"ConversationId eq '{esc}'"
 
 
 def build_mark_patch(read=None, flag=None):

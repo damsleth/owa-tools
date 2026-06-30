@@ -18,3 +18,29 @@ def test_config_set_appends(tmp_config):
 def test_config_set_rejects_unknown_key(tmp_config):
     with pytest.raises(ValueError, match='unknown config key'):
         config_mod.config_set('totally_unknown', 'x')
+
+
+def test_config_unset_removes_key(tmp_config):
+    config_mod.config_set('default_site', 'owa-casa')
+    config_mod.config_set('sharepoint_host', 'contoso.sharepoint.com')
+    config_mod.config_unset('default_site')
+    loaded = config_mod.load_config()
+    assert 'default_site' not in loaded
+    assert loaded['sharepoint_host'] == 'contoso.sharepoint.com'
+
+
+def test_config_unset_missing_file_is_noop(tmp_config):
+    config_mod.config_unset('default_site')  # no file yet
+    assert config_mod.load_config() == {}
+
+
+def test_config_unset_rejects_unknown_key(tmp_config):
+    with pytest.raises(config_mod.UsageError, match='unknown config key'):
+        config_mod.config_unset('totally_unknown')
+
+
+def test_config_clear(tmp_config):
+    config_mod.config_set('default_site', 'owa-casa')
+    config_mod.config_clear()
+    assert config_mod.load_config() == {}
+    config_mod.config_clear()  # idempotent, no error

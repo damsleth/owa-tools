@@ -64,6 +64,34 @@ def graph_paginate(base, endpoint, access_token, debug=False, max_pages=50, retr
         raise error
 
 
+def graph_collect(base, endpoint, access_token, *, top=None, max_pages=50,
+                  debug=False, retry=DEFAULT_RETRY):
+    """Page a Graph collection, optionally capping at `top` items.
+
+    Returns `(rows, truncated)`. With `top` set we follow `@odata.nextLink`
+    only until we hold `top` items (then stop early), so a huge list isn't
+    walked in full; `truncated` is True when more items remained unfetched
+    (either the item cap or the page cap was reached). With `top=None` we walk
+    every page up to `max_pages` and `truncated` reports the page cap.
+    """
+    url = f'{base}/{endpoint.lstrip("/")}'
+    rows = []
+    try:
+        pages = http.paginate(url, token=access_token, max_pages=max_pages, retry=retry, debug=debug)
+        for item in pages:
+            rows.append(item)
+            if top is not None and len(rows) > top:
+                # We fetched one past the cap, so we know more exist.
+                return rows[:top], True
+        return rows, False
+    except (AuthExpiredError, ScopeInsufficientError):
+        raise
+    except _RECOVERABLE as error:
+        raise error
+    except OwaError as error:
+        raise error
+
+
 def _page_reaches_before(messages, since_dt):
     """True once a page holds any message older than the cutoff.
 
@@ -118,6 +146,26 @@ def chatsvc_messages(base, conversation_id, access_token, *, page_size=50, max_p
         if since_dt is not None:
             collected = [m for m in collected if _within_since(m, since_dt)]
         return collected
+    except (AuthExpiredError, ScopeInsufficientError):
+        raise
+    except _RECOVERABLE as error:
+        raise error
+    except OwaError as error:
+        raise error
+
+
+def chatsvc_post(base, conversation_id, body, access_token, debug=False, retry=DEFAULT_RETRY):
+    """POST a message to a chatsvc conversation; return the parsed JSON or None.
+
+    Verified live 2026-06-30 (crayon/emea): the `ic3` bearer carries
+    `Endpoint.ReadWrite.All` and the POST returns 201 + `{OriginalArrivalTime}`.
+    Auth/scope errors re-raise so the dispatcher maps them to the shared exit
+    codes; other recoverable failures are re-raised too (already reported).
+    """
+    url = teams_mod.conversation_post_url(base, conversation_id)
+    try:
+        return http.request('POST', url, token=access_token, body=body,
+                            headers=_ACCEPT_JSON, retry=retry, debug=debug).json
     except (AuthExpiredError, ScopeInsufficientError):
         raise
     except _RECOVERABLE as error:

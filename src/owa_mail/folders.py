@@ -41,6 +41,33 @@ def resolve_folder_id(name_or_id):
     return WELL_KNOWN.get(name_or_id.strip().lower(), name_or_id.strip())
 
 
+def is_well_known(name_or_id):
+    """True when the input maps to a canonical well-known folder name."""
+    if not name_or_id:
+        return True
+    return name_or_id.strip().lower() in WELL_KNOWN
+
+
+def folder_lookup_query(display_name):
+    """OData params (dict) to find a folder by its DisplayName.
+
+    Outlook REST DisplayName is case-sensitive in $filter eq; callers
+    that want a case-insensitive match should compare client-side.
+    """
+    esc = display_name.replace("'", "''")
+    return {'$select': 'Id,DisplayName', '$filter': f"DisplayName eq '{esc}'"}
+
+
+def pick_folder_id(folders, display_name):
+    """From a normalized folder list, return the id whose name matches
+    `display_name` (case-insensitive), or '' when none match."""
+    target = display_name.strip().lower()
+    for f in folders:
+        if (f.get('name') or '').strip().lower() == target:
+            return f.get('id') or ''
+    return ''
+
+
 def folder_messages_path(folder):
     """Build the messages-collection path for a folder."""
     return f'me/MailFolders/{resolve_folder_id(folder)}/messages'

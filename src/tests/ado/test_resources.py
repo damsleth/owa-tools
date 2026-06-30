@@ -108,3 +108,26 @@ def test_build_wiql_iteration_clause():
 def test_build_wiql_iteration_escapes_quotes():
     q = res.build_wiql(iteration="O'Brien\\Sprint 1")
     assert "[System.IterationPath] = 'O''Brien\\Sprint 1'" in q
+
+
+def test_normalize_comment_flattens_identity_and_strips_html():
+    out = res.normalize_comment({
+        'id': 7, 'workItemId': 17054, 'text': '<p>Hi&amp;bye</p>',
+        'createdBy': {'displayName': 'Kim'}, 'createdDate': '2026',
+        'url': 'u',
+    })
+    assert out == {
+        'id': 7, 'workItemId': 17054, 'text': 'Hi&bye',
+        'createdBy': 'Kim', 'createdDate': '2026', 'url': 'u',
+    }
+
+
+def test_normalize_comment_non_dict():
+    assert res.normalize_comment(None) == {}
+
+
+def test_resolve_rel_friendly_and_passthrough():
+    assert res.resolve_rel('parent') == 'System.LinkTypes.Hierarchy-Reverse'
+    assert res.resolve_rel('RELATED') == 'System.LinkTypes.Related'
+    # An unknown / already-qualified rel is used verbatim.
+    assert res.resolve_rel('System.LinkTypes.Custom') == 'System.LinkTypes.Custom'

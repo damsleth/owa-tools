@@ -19,6 +19,7 @@ import sys
 
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
+from owa_core import tty as tty_mod
 from owa_core.errors import OwaError, UsageError, _require_value, emit_error, emit_message
 
 from . import __version__
@@ -29,6 +30,7 @@ from . import teams as teams_mod
 from .format import (
     format_channels_pretty,
     format_chats_pretty,
+    format_members_pretty,
     format_messages_pretty,
     format_teams_pretty,
 )
@@ -90,12 +92,35 @@ Commands:
   channels            List a team's channels (--team <id>)
   chats               List my 1:1 / group / meeting chats
   messages            Read channel or chat messages (--channel <id> | --chat <id>)
+  members             List chat or channel members (--chat <id> | --channel <id>)
+  send                Send or reply to a chat/channel message (mutating)
   config              View or update configuration
   refresh             Force a token refresh and verify Graph access
   help                Show this help
 
 Channels:
   channels --team <team-id>      Team id (flag or bare positional)
+  --top <n> | --all              Cap output (default 50) or fetch every page
+
+Chats:
+  --top <n> | --all              Cap output (default 50) or fetch every page
+
+Members:
+  members --chat <id>            Chat members (via Graph; works)
+  members --channel <id> --team <id>
+                                 Channel members (Graph; scope-walled under the
+                                 FOCI client - returns exit 12)
+
+Send:
+  send --chat <id> --text <msg>          Post to a chat
+  send --channel <id> --text <msg>       Post to a channel (new thread)
+  --reply-to <root-id>                   Reply under a channel thread root
+  --subject <text>                       Subject for a new channel thread
+  --html                                 Treat --text as raw HTML (no escaping)
+  --mention <mri[=Name]>                 Add an @-mention (repeatable)
+  --attachment <url|name=url>            Attach a link card (repeatable)
+  --region <region>                      Chatsvc region for this call only
+  --confirm                              Skip the interactive confirmation prompt
 
 Messages:
   messages --channel <id>        Channel conversation id (19:...@thread.tacv2);
@@ -108,7 +133,7 @@ Messages:
   --since <iso>                  Only messages at/after this ISO-8601 time; stops
                                  paging older once the cutoff is crossed.
   --limit <n>                    Max pages to fetch (default 4, ~50 msgs/page).
-  --all                          Include system events and empty bodies.
+  --system-events                Include system events and empty bodies.
 
 Auth:
   Enumeration (teams/channels/chats) uses the Graph token. Message bodies use
@@ -121,7 +146,10 @@ Examples:
   owa-teams channels --team 3360397c-8ad3-499e-8d71-a83856c0f252 --pretty
   owa-teams chats --type meeting
   owa-teams messages --channel "19:abc@thread.tacv2" --pretty
-  owa-teams messages --chat "19:def@unq.gbl.spaces" --limit 2""")
+  owa-teams messages --chat "19:def@unq.gbl.spaces" --limit 2
+  owa-teams members --chat "19:def@unq.gbl.spaces" --pretty
+  owa-teams send --chat "19:def@unq.gbl.spaces" --text "hello" --confirm
+  owa-teams send --channel "19:abc@thread.tacv2" --reply-to 1665994613428 --text "agreed" --confirm""")
     print()
     print(schema_mod.MULTI_PROFILE_HELP)
     print()
@@ -150,46 +178,75 @@ def cmd_teams(args, config):
     return 0
 
 
+def _pop_top_all(flag, args, top, fetch_all):
+    """Shared --top/--all handling for the enumeration commands."""
+    if flag == '--top':
+        value, args = _require_int(flag, args)
+        if value < 1:
+            raise UsageError('--top requires a positive integer')
+        return value, False, args
+    if flag == '--all':
+        return None, True, args
+    raise UsageError(f'Unknown flag: {flag}')
+
+
 def cmd_channels(args, config):
     team, args = schema_mod.pop_positional_id(args)
-    pretty = False
+    pretty = fetch_all = False
+    top = 50
     while args:
         flag, args = args[0], args[1:]
         if flag == '--team':
             team, args = _require_value(flag, args)
         elif flag == '--pretty':
             pretty = True
+        elif flag in ('--top', '--all'):
+            top, fetch_all, args = _pop_top_all(flag, args, top, fetch_all)
         else:
             raise UsageError(f'Unknown flag: {flag}')
     if not team:
         raise UsageError('channels requires --team <team-id> (or a bare positional id)')
     debug = _debug_enabled(config)
     access_token, base = auth_mod.graph_setup(config, debug=debug)
-    data = api_mod.graph_paginate(base, teams_mod.channels_endpoint(team), access_token, debug=debug)
+    data, truncated = api_mod.graph_collect(
+        base, teams_mod.channels_endpoint(team), access_token,
+        top=None if fetch_all else top, debug=debug,
+    )
     if data is None:
         return 1
     rows = teams_mod.normalize_channels(data)
+    if truncated:
+        _info(f'note: output truncated at {top} channels; use --top <n> or --all for more')
     print(format_channels_pretty(rows) if pretty else json.dumps(rows))
     return 0
 
 
 def cmd_chats(args, config):
     chat_type = ''
-    pretty = False
+    pretty = fetch_all = False
+    top = 50
     while args:
         flag, args = args[0], args[1:]
         if flag == '--type':
             chat_type, args = _require_value(flag, args)
         elif flag == '--pretty':
             pretty = True
+        elif flag in ('--top', '--all'):
+            top, fetch_all, args = _pop_top_all(flag, args, top, fetch_all)
         else:
             raise UsageError(f'Unknown flag: {flag}')
     debug = _debug_enabled(config)
     access_token, base = auth_mod.graph_setup(config, debug=debug)
-    data = api_mod.graph_paginate(base, teams_mod.chats_endpoint(), access_token, debug=debug)
+    page = min(top, 50) if not fetch_all else 50
+    data, truncated = api_mod.graph_collect(
+        base, teams_mod.chats_endpoint(top=page), access_token,
+        top=None if fetch_all else top, debug=debug,
+    )
     if data is None:
         return 1
     rows = teams_mod.normalize_chats(data, chat_type=chat_type)
+    if truncated:
+        _info(f'note: output truncated at {top} chats; use --top <n> or --all for more')
     print(format_chats_pretty(rows) if pretty else json.dumps(rows))
     return 0
 
@@ -249,6 +306,125 @@ def cmd_messages(args, config):
     if len(raw) >= _page_size(config) * limit:
         _info(f'note: output may be truncated (page cap {limit}); use --limit to fetch more')
     print(format_messages_pretty(rows) if pretty else json.dumps(rows))
+    return 0
+
+
+def cmd_members(args, config):
+    chat = channel = team = ''
+    pretty = False
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--chat':
+            chat, args = _require_value(flag, args)
+        elif flag == '--channel':
+            channel, args = _require_value(flag, args)
+        elif flag == '--team':
+            team, args = _require_value(flag, args)
+        elif flag == '--pretty':
+            pretty = True
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+    if bool(chat) == bool(channel):
+        raise UsageError('members requires exactly one of --chat <id> or --channel <id>')
+    if channel and not team:
+        raise UsageError('members --channel also requires --team <team-id>')
+
+    debug = _debug_enabled(config)
+    access_token, base = auth_mod.graph_setup(config, debug=debug)
+    if chat:
+        endpoint = teams_mod.chat_members_endpoint(chat)
+    else:
+        # Channel/team members need ChannelMember.Read.All, which the FOCI client
+        # lacks; this surfaces as ScopeInsufficientError (exit 12). See AGENTS.md.
+        endpoint = teams_mod.channel_members_endpoint(team, channel)
+    data = api_mod.graph_paginate(base, endpoint, access_token, debug=debug)
+    if data is None:
+        return 1
+    rows = teams_mod.normalize_members(data)
+    print(format_members_pretty(rows) if pretty else json.dumps(rows))
+    return 0
+
+
+def _parse_mention(value):
+    """`--mention <mri[=Display Name]>` -> (mri, display)."""
+    mri, sep, display = value.partition('=')
+    mri = mri.strip()
+    if not mri:
+        raise UsageError('--mention requires an MRI (e.g. 8:orgid:<oid>[=Name])')
+    return mri, (display.strip() if sep else '')
+
+
+def _parse_attachment(value):
+    """`--attachment <url>` or `--attachment <name=url>` -> (name, url)."""
+    name, sep, url = value.partition('=')
+    if not sep:
+        url, name = name, ''
+    name, url = name.strip(), url.strip()
+    if not url:
+        raise UsageError('--attachment requires a url (or name=url)')
+    return (name or url), url
+
+
+def cmd_send(args, config):
+    channel = chat = reply_to = subject = content = region = ''
+    html = confirmed = False
+    mentions = []
+    attachments = []
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--channel':
+            channel, args = _require_value(flag, args)
+        elif flag == '--chat':
+            chat, args = _require_value(flag, args)
+        elif flag == '--reply-to':
+            reply_to, args = _require_value(flag, args)
+        elif flag == '--subject':
+            subject, args = _require_value(flag, args)
+        elif flag == '--text':
+            content, args = _require_value(flag, args)
+        elif flag == '--html':
+            html = True
+        elif flag == '--mention':
+            value, args = _require_value(flag, args)
+            mentions.append(_parse_mention(value))
+        elif flag == '--attachment':
+            value, args = _require_value(flag, args)
+            attachments.append(_parse_attachment(value))
+        elif flag == '--region':
+            region, args = _require_value(flag, args)
+        elif flag == '--confirm':
+            confirmed = True
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+    if bool(channel) == bool(chat):
+        raise UsageError('send requires exactly one of --channel <id> or --chat <id>')
+    if not content:
+        raise UsageError('send requires a message body (--text <msg>)')
+
+    conversation_id = channel or chat
+    target = f'channel {channel}' if channel else f'chat {chat}'
+    tty_mod.require_confirm_or_tty(confirm=confirmed, action='send message')
+
+    mention_objs = [
+        teams_mod.build_mention(i, mri, display)
+        for i, (mri, display) in enumerate(mentions)
+    ]
+    attachment_objs = [
+        teams_mod.build_file_attachment(i, name, url)
+        for i, (name, url) in enumerate(attachments)
+    ]
+    body = teams_mod.build_message_body(
+        content, html=html, mentions=mention_objs, attachments=attachment_objs,
+        root_message_id=reply_to, subject=subject,
+    )
+
+    debug = _debug_enabled(config)
+    access_token, base = auth_mod.chatsvc_setup(config, debug=debug, region=region)
+    _info(f'sending to {target}...')
+    payload = api_mod.chatsvc_post(base, conversation_id, body, access_token, debug=debug)
+    if payload is None:
+        return 1
+    print(json.dumps(teams_mod.normalize_send_result(conversation_id, body, payload)))
     return 0
 
 
@@ -313,20 +489,47 @@ def cmd_refresh(args, config):
 # Dispatch
 # ---------------------------------------------------------------------------
 
-AUTHED_COMMANDS = {'teams', 'channels', 'chats', 'messages'}
+AUTHED_COMMANDS = {'teams', 'channels', 'chats', 'messages', 'members', 'send'}
 
 _TEAMS_FLAGS = [
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
 ]
 
+_TOP_ALL_FLAGS = [
+    schema_mod.flag('--top', value='<n>', summary='Cap output at n items (default 50)'),
+    schema_mod.flag('--all', summary='Fetch every page (overrides --top)'),
+]
+
 _CHANNELS_FLAGS = [
     schema_mod.flag('--team', value='<team-id>', summary='Team id (flag or positional)'),
+    *_TOP_ALL_FLAGS,
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
 ]
 
 _CHATS_FLAGS = [
     schema_mod.flag('--type', value='<oneOnOne|group|meeting>', summary='Filter by chat type'),
+    *_TOP_ALL_FLAGS,
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
+]
+
+_MEMBERS_FLAGS = [
+    schema_mod.flag('--chat', value='<conv-id>', summary='Chat id (members via Graph)'),
+    schema_mod.flag('--channel', value='<conv-id>', summary='Channel id (needs --team; scope-walled)'),
+    schema_mod.flag('--team', value='<team-id>', summary='Team id (required with --channel)'),
+    schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
+]
+
+_SEND_FLAGS = [
+    schema_mod.flag('--channel', value='<conv-id>', summary='Channel conversation id to post to'),
+    schema_mod.flag('--chat', value='<conv-id>', summary='Chat conversation id to post to'),
+    schema_mod.flag('--text', value='<msg>', summary='Message body'),
+    schema_mod.flag('--html', summary='Treat --text as a raw HTML body (no escaping)'),
+    schema_mod.flag('--reply-to', value='<root-id>', summary='Reply under a channel thread root (rootMessageId)'),
+    schema_mod.flag('--subject', value='<text>', summary='Subject for a new channel thread'),
+    schema_mod.flag('--mention', value='<mri[=Name]>', summary='Add an @-mention (repeatable)', repeatable=True),
+    schema_mod.flag('--attachment', value='<url|name=url>', summary='Attach a link card (repeatable)', repeatable=True),
+    schema_mod.flag('--region', value='<region>', summary='Chatsvc region for this call only (overrides config)'),
+    schema_mod.flag('--confirm', summary='Skip the interactive confirmation prompt'),
 ]
 
 _MESSAGES_FLAGS = [
@@ -351,6 +554,9 @@ COMMAND_SCHEMA = [
     schema_mod.command('channels', "List a team's channels", auth='graph', flags=_CHANNELS_FLAGS),
     schema_mod.command('chats', 'List my chats', auth='graph', flags=_CHATS_FLAGS),
     schema_mod.command('messages', 'Read channel or chat messages', auth='ic3', flags=_MESSAGES_FLAGS),
+    schema_mod.command('members', 'List chat or channel members', auth='graph', flags=_MEMBERS_FLAGS),
+    schema_mod.command('send', 'Send or reply to a chat/channel message', auth='ic3',
+                       mutates=True, confirmation=True, idempotent=False, flags=_SEND_FLAGS),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
     schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
 ]
@@ -360,6 +566,8 @@ _HANDLERS = {
     'channels': cmd_channels,
     'chats': cmd_chats,
     'messages': cmd_messages,
+    'members': cmd_members,
+    'send': cmd_send,
 }
 
 

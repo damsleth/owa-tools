@@ -111,6 +111,47 @@ owa-ado wi-update 17054 --state Active --confirm
 owa-ado wi-update 17054 --field System.Description="Done" --confirm
 ```
 
+### `owa-ado wi-comment`
+
+Add a comment to a work item's Discussion. Confirms unless `--confirm`.
+
+```bash
+owa-ado wi-comment 17054 --text "Deployed to staging" --confirm
+```
+
+### `owa-ado wi-link`
+
+Add a link/relation between two work items. `--target <id>` is the other
+work item; `--rel <name>` picks the link type (default `related`; also
+`parent`, `child`, `predecessor`, `successor`, `duplicate`, or a
+fully-qualified rel reference name). Confirms unless `--confirm`.
+
+```bash
+owa-ado wi-link 17054 --target 16972 --rel parent --confirm
+owa-ado wi-link 17054 --target 17099 --confirm
+```
+
+### `owa-ado wi-unlink`
+
+Remove an existing link to a target work item. Looks up the relation by
+target id (narrow with `--rel <name>` when several link types point at the
+same item). Confirms unless `--confirm`.
+
+```bash
+owa-ado wi-unlink 17054 --target 16972 --confirm
+```
+
+### `owa-ado wi-delete`
+
+Delete a work item. Soft-deletes to the project recycle bin by default;
+`--destroy` removes it permanently. Destructive — confirms unless
+`--confirm`.
+
+```bash
+owa-ado wi-delete 17054 --confirm
+owa-ado wi-delete 17054 --destroy --confirm
+```
+
 ### `owa-ado repos`
 
 List repositories (alias: `repositories`). `--all` / `--pretty`.
@@ -126,10 +167,13 @@ List pull requests, or show one by positional id.
 - `--repo <name>` — scope to one repository
 - `--status active|completed|abandoned|all` — default `active`
 - `--top <n>` — cap results (default 50)
+- `--all` — follow continuation tokens, paging until `--top` is reached
+  (a stderr note signals when the cap truncates the list)
 
 ```bash
 owa-ado prs --status active --pretty
 owa-ado prs --repo NOCOS-Main --status all
+owa-ado prs --status completed --all --top 200
 owa-ado prs 2971 --pretty
 ```
 
@@ -144,11 +188,13 @@ owa-ado pipelines --pretty
 ### `owa-ado runs`
 
 List recent pipeline runs (builds). `--pipeline <id>` filters to one
-definition; `--top <n>` caps results (default 20).
+definition; `--top <n>` caps results (default 20). `--all` pages through
+all runs up to `--top`.
 
 ```bash
 owa-ado runs --top 10 --pretty
 owa-ado runs --pipeline 8
+owa-ado runs --all --top 100
 ```
 
 ### `owa-ado refresh`
@@ -162,10 +208,25 @@ owa-ado refresh
 ### `owa-ado config`
 
 View or update configuration (`--profile`, `--org`, `--project`).
+`--unset <key>` removes one stored key (`ado_org`, `ado_project`,
+`owa_piggy_profile`); `--clear` removes them all.
 
 ```bash
 owa-ado config
 owa-ado config --org Norconsult-Group --project NOCOS
+owa-ado config --unset ado_project
+owa-ado config --clear
+```
+
+### `--api-version`
+
+The work-item, PR, and pipeline-run commands accept `--api-version <ver>`
+to override the default DevOps API version (`7.1`) for one call — useful
+when an org pins an older version or to reach a preview endpoint.
+
+```bash
+owa-ado prs --api-version 7.0
+owa-ado wi-comment 17054 --text "hi" --api-version 7.1-preview.4 --confirm
 ```
 
 ## Output & exit codes

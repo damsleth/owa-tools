@@ -163,7 +163,7 @@ def test_events_search_uses_calendar_view_range_and_filters(capsys, monkeypatch)
 
     captured = {}
 
-    def fake_get(base, endpoint, token, debug=False):
+    def fake_get(base, endpoint, token, debug=False, headers=None):
         captured['endpoint'] = endpoint
         return {'value': [
             {
