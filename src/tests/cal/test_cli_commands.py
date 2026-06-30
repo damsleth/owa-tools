@@ -5,6 +5,7 @@ import json
 import pytest
 
 from owa_cal import cli
+from owa_core import errors
 
 
 def _raw_event(event_id="e1", subject="Planning", start="2026-05-09T09:00:00", end="2026-05-09T10:00:00"):
@@ -230,3 +231,23 @@ def test_cal_validation_confirm_profiles_and_refresh(monkeypatch, capsys):
     monkeypatch.setattr(cli.auth_mod, "do_token_refresh", lambda config, debug=False: "")
     assert cli.cmd_refresh([], {}) == 1
     assert "Token refresh failed" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("error_cls, expected_code", [
+    (errors.NetworkError, 10),
+    (errors.NotFoundError, 13),
+    (errors.RateLimitedError, 14),
+    (errors.ConflictError, 15),
+    (errors.InternalError, 20),
+])
+def test_recoverable_errors_propagate_documented_exit_code(monkeypatch, error_cls, expected_code):
+    """End-to-end: an api error raised mid-command reaches the shell as its
+    documented exit code (not the old collapse-to-1). Proves the api.py-raises
+    -> run_with_output_modes -> emit_error chain for the whole suite via owa-cal.
+    """
+    def boom(*args, **kwargs):
+        raise error_cls("boom")
+
+    monkeypatch.setattr(cli.api_mod, "paginate_all", boom)
+    monkeypatch.setattr(cli.api_mod, "api_get", boom)
+    assert cli.main(["events"]) == expected_code

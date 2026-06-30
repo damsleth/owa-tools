@@ -533,20 +533,21 @@ def test_api_put_binary_owa_error_raises(monkeypatch):
         api_mod.api_put_binary("https://graph.test", "/content", "tok", b"abc")
 
 
-def test_api_upload_session_non_dict_response_returns_none(monkeypatch, capsys):
-    """If the POST body is not a dict (e.g. None), emit + return None."""
+def test_api_upload_session_non_dict_response_raises(monkeypatch):
+    """If the POST body is not a dict (e.g. None), raise InternalError (exit 20)."""
+    from owa_core.errors import InternalError
+
     monkeypatch.setattr(
         api_mod.http, "request",
         lambda method, url, **kw: Response(status=200, headers={}, json=None, bytes=b"null"),
     )
-    result = api_mod.api_upload_session(
-        "https://graph.test",
-        "me/drive/root:/big.bin:/createUploadSession",
-        "tok",
-        b"x" * 100,
-    )
-    assert result is None
-    assert "upload session creation returned no body" in capsys.readouterr().err
+    with pytest.raises(InternalError, match="returned no body"):
+        api_mod.api_upload_session(
+            "https://graph.test",
+            "me/drive/root:/big.bin:/createUploadSession",
+            "tok",
+            b"x" * 100,
+        )
 
 
 def test_api_upload_session_debug_logs_created_session(monkeypatch, capsys):

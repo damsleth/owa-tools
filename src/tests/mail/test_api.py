@@ -1,7 +1,7 @@
 """owa-mail API wrapper tests."""
 import pytest
 
-from owa_core.errors import AuthExpiredError, NotFoundError
+from owa_core.errors import AuthExpiredError, InternalError, NotFoundError
 from owa_core.http import Response
 from owa_mail import api
 
@@ -116,10 +116,8 @@ def test_api_upload_attachment_session_no_upload_url(monkeypatch, capsys):
         return Response(status=201, headers={}, json={'noUrl': True}, bytes=b'{}')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_upload_attachment_session(
-        'https://b', 'e', 'tok', {}, b'x',
-    ) is None
-    assert 'no uploadUrl' in capsys.readouterr().err
+    with pytest.raises(InternalError, match='no uploadUrl'):
+        api.api_upload_attachment_session('https://b', 'e', 'tok', {}, b'x')
 
 
 def test_api_upload_attachment_session_create_failure_raises(monkeypatch):
@@ -136,8 +134,8 @@ def test_api_upload_attachment_session_non_dict_body(monkeypatch, capsys):
         return Response(status=201, headers={}, json=[], bytes=b'[]')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    assert api.api_upload_attachment_session('https://b', 'e', 'tok', {}, b'x') is None
-    assert 'returned no body' in capsys.readouterr().err
+    with pytest.raises(InternalError, match='returned no body'):
+        api.api_upload_attachment_session('https://b', 'e', 'tok', {}, b'x')
 
 
 def test_api_upload_attachment_session_upload_error_raises(monkeypatch):

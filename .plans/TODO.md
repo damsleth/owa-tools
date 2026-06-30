@@ -2,12 +2,12 @@
 
 > **Priority legend** (suite-wide review, 2026-06-23 — see findings section below)
 > - **P0** — correctness / data-loss / contract violations. Do first.
->   The systemic exit-code bug is plan-sized: [exit-code-taxonomy-fix.md](exit-code-taxonomy-fix.md).
+>   The systemic exit-code bug is archived in [done/exit-code-taxonomy-fix.md](done/exit-code-taxonomy-fix.md).
 > - **P1** — cheap, agent-facing drift / dead code / misleading help. High value/effort ratio.
 > - **P2** — feature gaps (missing params, switches, commands). Schedule per roadmap.
 >
 > Two findings are large enough to be standalone plans:
-> [owa-planner-write-support.md](owa-planner-write-support.md),
+> [done/owa-planner-write-support.md](done/owa-planner-write-support.md) (DONE 2026-06-29),
 > [owa-sched-findmeetingtimes.md](owa-sched-findmeetingtimes.md).
 
 - [ ] optional --pretty renderer for action commands (low priority; only if a human renderer is wanted)
@@ -15,7 +15,7 @@
 ## Suite review findings (2026-06-23)
 
 ### P0 — correctness / contract
-- [ ] **exit-code taxonomy collapses to 1** across all 11 networked tools — see [exit-code-taxonomy-fix.md](exit-code-taxonomy-fix.md) (plan)
+- [x] **exit-code taxonomy collapses to 1** — DONE 2026-06-29: every `api.py` now `raise`s the recoverable OwaError (cal/mail/graph/drive/people/sched/todo/planner/sites/teams already converted; ado raises by design); the central `run_with_output_modes` → `emit_error` returns `int(error.exit_code)`. Fixed the last 4 swallow-and-return-None spots (upload-session paths in owa-mail/owa-drive). Added end-to-end contract test (`test_recoverable_errors_propagate_documented_exit_code`, owa-cal) asserting 10/13/14/15/20 reach the shell. Plan archived to done/. See [done/exit-code-taxonomy-fix.md](done/exit-code-taxonomy-fix.md).
 - [x] P0 owa-drive: put --force silently overwrites files >4MiB — RESOLVED earlier: the `_remote_exists` + `--force` preflight (exit 15) gates both the small PUT and the large upload-session path, so no silent overwrite. Per-file fail/replace/rename granularity remains a P2 nice-to-have, not data-loss.
 - [x] P0 owa-drive: get --out clobbers existing local file silently — FIXED: refuses with exit 15 unless --force
 - [x] P0 owa-ado: PR --repo interpolated unencoded into request path — FIXED: quote(repo, safe='') + build_url keeps '%' safe

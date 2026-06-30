@@ -100,19 +100,18 @@ def test_api_upload_session_creates_session_and_drives_upload(monkeypatch):
     assert seen['content'] == b'x' * 100
 
 
-def test_api_upload_session_missing_upload_url_returns_none(monkeypatch, capsys):
+def test_api_upload_session_missing_upload_url_raises(monkeypatch):
     def fake_request(method, url, **kwargs):
         return Response(status=200, headers={}, json={}, bytes=b'{}')
 
     monkeypatch.setattr(api.http, 'request', fake_request)
-    out = api.api_upload_session(
-        'https://graph.microsoft.com/v1.0',
-        'me/drive/root:/big.bin:/createUploadSession',
-        'fake-token',
-        b'x' * 100,
-    )
-    assert out is None
-    assert 'uploadUrl' in capsys.readouterr().err
+    with pytest.raises(InternalError, match='uploadUrl'):
+        api.api_upload_session(
+            'https://graph.microsoft.com/v1.0',
+            'me/drive/root:/big.bin:/createUploadSession',
+            'fake-token',
+            b'x' * 100,
+        )
 
 
 def test_api_upload_session_session_conflict_raises(monkeypatch):
