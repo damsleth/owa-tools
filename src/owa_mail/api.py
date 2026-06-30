@@ -10,7 +10,6 @@ from owa_core.errors import (
     OwaError,
     RateLimitedError,
     ScopeInsufficientError,
-    emit_error,
 )
 from owa_core.query import build_query  # noqa: F401  (re-exported for api_mod.build_query)
 
@@ -20,8 +19,8 @@ def api_request(method, base, endpoint, access_token, body=None, debug=False):
 
     - `base` and `endpoint` are joined with a single slash.
     - `body` is dict-serialised to JSON when non-None.
-    - Returns parsed JSON on 2xx, None on 404/429 (caller decides),
-      and exits on 401/403 (unrecoverable without reconfig).
+    - Returns parsed JSON on 2xx.
+    - Raises typed ``OwaError`` subclasses for expected failures.
     """
     url = f'{base}/{endpoint}'
     try:
@@ -44,10 +43,8 @@ def paginate_all(base, endpoint, access_token, extra_headers=None, debug=False):
     Builds the first-page URL from `base`/`endpoint` (the same join
     api_request uses), then delegates to the shared
     `owa_core.http.paginate` generator and collects every `value` item
-    into a list. Returns the list on success, or None on the recoverable
-    errors that api_request maps to None (auth/scope errors re-raise so
-    the caller's top-level handler can act on them), matching the
-    single-page error contract.
+    into a list. Returns the list on success. Raises typed ``OwaError``
+    subclasses for expected failures.
     """
     url = f'{base}/{endpoint}'
     try:
@@ -63,8 +60,8 @@ def paginate_all(base, endpoint, access_token, extra_headers=None, debug=False):
 def api_get_binary(base, endpoint, access_token, debug=False):
     """GET that returns raw bytes (for attachment `$value` endpoints).
 
-    Returns the bytes on 2xx, None on the recoverable errors that
-    api_request maps to None, and re-raises auth/scope errors.
+    Returns the bytes on 2xx. Raises typed ``OwaError`` subclasses for
+    expected failures.
     """
     url = f'{base}/{endpoint}'
     try:
@@ -85,8 +82,7 @@ def api_upload_attachment_session(base, session_endpoint, access_token,
     (`me/messages/{id}/attachments/createUploadSession`), then hands the
     pre-authorized uploadUrl and the bytes to the generic
     owa_core.upload.upload_session driver. Returns the final attachment
-    JSON, or None if session creation surfaced a recoverable OwaError
-    (matching the api_request None contract).
+    JSON. Raises typed ``OwaError`` subclasses for expected failures.
     """
     url = f'{base}/{session_endpoint}'
     try:
@@ -98,17 +94,14 @@ def api_upload_attachment_session(base, session_endpoint, access_token,
     except OwaError as error:
         raise error
     if not isinstance(session, dict):
-        emit_error(InternalError('attachment upload session returned no body'))
-        return None
+        raise InternalError('attachment upload session returned no body')
     upload_url = session.get('uploadUrl') or session.get('UploadUrl')
     if not upload_url:
-        emit_error(InternalError('attachment upload session had no uploadUrl'))
-        return None
+        raise InternalError('attachment upload session had no uploadUrl')
     try:
         return upload_mod.upload_session(upload_url, content_bytes, debug=debug)
     except (AuthExpiredError, ScopeInsufficientError) as error:
         raise error
     except OwaError as error:
         raise error
-
 

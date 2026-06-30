@@ -4,6 +4,23 @@ Completed plans, newest first. The detailed plan files move to
 [`.plans/done/`](done/) as historical record, each with a status banner
 pointing back here.
 
+- **owa-planner-write-support** — mutating half of owa-planner shipped:
+  `@odata.etag` preserved through `normalize_*`, `api_post/patch/delete` with
+  `If-Match`, `create/update/delete-task` + `update-task-details` +
+  `update-plan-details` commands with a `_require_etag` guard, stale-etag 412 →
+  exit 15. Found already-implemented when revisited; closed the one gap (a
+  stale-etag conflict test). (2026-06-29)
+  Plan: [done/owa-planner-write-support.md](done/owa-planner-write-support.md).
+
+- **exit-code-taxonomy-fix** (P0) — the documented exit-code taxonomy (10
+  network / 13 not-found / 14 rate-limited / 15 conflict / 20 internal) now
+  actually reaches the shell instead of collapsing to 1. Every networked
+  `api.py` raises its recoverable `OwaError` (was `emit_error` + `return None`);
+  the central `run_with_output_modes` → `emit_error` returns the right code.
+  Cleaned up the last 4 swallow spots (upload-session paths in owa-mail/-drive)
+  and added an end-to-end contract test on owa-cal. (2026-06-29)
+  Plan: [done/exit-code-taxonomy-fix.md](done/exit-code-taxonomy-fix.md).
+
 - **owa-vids merge** — standalone `owa-vids` script merged into the monorepo
   as the thirteenth binary: token-only Teams/OneDrive meeting-recap DASH
   downloader (`info`/`get`/`check`/`config`), refactored onto `owa_core`

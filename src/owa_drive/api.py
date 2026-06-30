@@ -10,7 +10,7 @@ import sys
 
 from owa_core import http
 from owa_core import upload as upload_mod
-from owa_core.errors import InternalError, emit_error
+from owa_core.errors import InternalError
 
 UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024
 
@@ -85,7 +85,7 @@ def api_upload_session(base, session_endpoint, access_token, content_bytes,
     (e.g. `me/drive/root:/path:/createUploadSession`), then hands the
     pre-authorized uploadUrl and the bytes to the generic
     owa_core.upload.upload_session driver. Returns the final driveItem
-    JSON, or None if the session response was malformed.
+    JSON. Raises ``InternalError`` if the session response was malformed.
     """
     url = f'{base}/{session_endpoint.lstrip("/")}'
     body = {'item': {'@microsoft.graph.conflictBehavior': 'replace'}}
@@ -93,12 +93,10 @@ def api_upload_session(base, session_endpoint, access_token, content_bytes,
         'POST', url, token=access_token, body=body, debug=debug,
     ).json
     if not isinstance(session, dict):
-        emit_error(InternalError('upload session creation returned no body'))
-        return None
+        raise InternalError('upload session creation returned no body')
     upload_url = session.get('uploadUrl')
     if not upload_url:
-        emit_error(InternalError('upload session response had no uploadUrl'))
-        return None
+        raise InternalError('upload session response had no uploadUrl')
     if debug:
         print('DEBUG: created upload session', file=sys.stderr)
     return upload_mod.upload_session(

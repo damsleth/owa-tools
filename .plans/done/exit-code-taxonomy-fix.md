@@ -1,5 +1,9 @@
 # exit-code-taxonomy-fix
 
+> **DONE 2026-06-29** — see [../DONE.md](../DONE.md). Every networked `api.py`
+> raises its recoverable `OwaError`; the central handler maps it to the
+> documented exit code. End-to-end contract test added on owa-cal.
+
 _Created 2026-06-23_
 
 **Priority: P0** — systemic contract violation, agent-facing, mechanical fix.
