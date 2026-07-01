@@ -107,6 +107,66 @@ def format_pipelines(items):
     return _table(rows)
 
 
+def format_variable_groups(items):
+    rows = [('id', 'name', 'type', 'vars', 'description')]
+    for g in items:
+        rows.append((
+            g.get('id'), g.get('name'), g.get('type'),
+            len(g.get('variables') or {}),
+            _truncate(g.get('description') or '', 40),
+        ))
+    return _table(rows)
+
+
+def format_variable_group(g):
+    """Single variable group detail: header line then a variable/value table
+    (secrets already masked upstream). The whole point of fetching one group."""
+    head = f"{g.get('name')}  (id {g.get('id')}, type {g.get('type')})"
+    lines = [head]
+    if g.get('description'):
+        lines.append(g['description'])
+    variables = g.get('variables') or {}
+    rows = [('variable', 'value')]
+    for k in sorted(variables):
+        rows.append((k, variables[k]))
+    lines.append('')
+    lines.append(_table(rows) if variables else '(no variables)')
+    return '\n'.join(lines)
+
+
+def format_task_groups(items):
+    rows = [('id', 'name', 'tasks', 'modifiedBy')]
+    for t in items:
+        rows.append((t.get('id'), t.get('name'), t.get('tasks'),
+                     _truncate(t.get('modifiedBy') or '-', 20)))
+    return _table(rows)
+
+
+def format_deployment_groups(items):
+    rows = [('id', 'name', 'machines', 'description')]
+    for d in items:
+        rows.append((d.get('id'), d.get('name'), d.get('machineCount'),
+                     _truncate(d.get('description') or '', 40)))
+    return _table(rows)
+
+
+def format_environments(items):
+    rows = [('id', 'name', 'description')]
+    for e in items:
+        rows.append((e.get('id'), e.get('name'),
+                     _truncate(e.get('description') or '', 50)))
+    return _table(rows)
+
+
+def format_releases(items):
+    rows = [('id', 'name', 'status', 'definition', 'createdBy')]
+    for r in items:
+        rows.append((r.get('id'), r.get('name'), r.get('status'),
+                     _truncate(r.get('definition') or '', 25),
+                     _truncate(r.get('createdBy') or '-', 20)))
+    return _table(rows)
+
+
 def format_builds(items):
     rows = [('id', 'buildNumber', 'status', 'result', 'pipeline', 'branch')]
     for b in items:

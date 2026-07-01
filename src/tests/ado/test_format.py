@@ -56,3 +56,16 @@ def test_format_builds_and_pipelines_and_iterations():
                                              'startDate': '2024-04-05T00:00:00Z',
                                              'finishDate': '2024-12-31T00:00:00Z',
                                              'path': 'NOCOS\\CD 1'}])
+
+
+def test_format_subresource_tables():
+    assert 'shared' in fmt.format_variable_groups(
+        [{'id': 3, 'name': 'shared', 'type': 'Vsts',
+          'variables': {'A': 'x'}, 'description': 'd'}])
+    assert 'tg' in fmt.format_task_groups(
+        [{'id': 1, 'name': 'tg', 'tasks': 2, 'modifiedBy': 'Kim'}])
+    assert 'dg' in fmt.format_deployment_groups(
+        [{'id': 2, 'name': 'dg', 'machineCount': 5, 'description': 'd'}])
+    assert 'prod' in fmt.format_environments([{'id': 3, 'name': 'prod', 'description': 'd'}])
+    assert 'R-9' in fmt.format_releases(
+        [{'id': 9, 'name': 'R-9', 'status': 'active', 'definition': 'Deploy', 'createdBy': 'Ada'}])

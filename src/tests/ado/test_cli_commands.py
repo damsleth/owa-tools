@@ -227,6 +227,82 @@ def test_pipelines_and_runs_endpoints(monkeypatch, tmp_config, clean_env, capsys
     assert seen[1][1] == {'$top': 3, 'definitions': '8'}
 
 
+def test_variable_groups_masks_secrets(monkeypatch, tmp_config, clean_env, capsys):
+    seen = {}
+
+    def fake_request(method, base, endpoint, token, **kwargs):
+        seen['endpoint'] = endpoint
+        return {'value': [{
+            'id': 3, 'name': 'shared', 'type': 'Vsts',
+            'variables': {'API_URL': {'value': 'https://x'},
+                          'API_KEY': {'isSecret': True}},
+        }]}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+    rc = _run(['library'], tmp_config, clean_env)  # alias -> variable-groups
+    assert rc == 0
+    assert seen['endpoint'] == 'Proj/_apis/distributedtask/variablegroups'
+    out = json.loads(capsys.readouterr().out)[0]
+    assert out['variables'] == {'API_URL': 'https://x', 'API_KEY': '***'}
+
+
+def test_variable_group_show_single_json(monkeypatch, tmp_config, clean_env, capsys):
+    seen = {}
+
+    def fake_request(method, base, endpoint, token, **kwargs):
+        seen['endpoint'] = endpoint
+        return {'id': 15, 'name': 'NOCOS-m365-prod', 'type': 'Vsts',
+                'variables': {'TENANT': {'value': 't'}, 'SECRET': {'isSecret': True}}}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+    rc = _run(['library', '15'], tmp_config, clean_env)
+    assert rc == 0
+    assert seen['endpoint'] == 'Proj/_apis/distributedtask/variablegroups/15'
+    out = json.loads(capsys.readouterr().out)
+    assert out['name'] == 'NOCOS-m365-prod'
+    assert out['variables'] == {'TENANT': 't', 'SECRET': '***'}
+
+
+def test_variable_group_show_single_pretty(monkeypatch, tmp_config, clean_env, capsys):
+    def fake_request(method, base, endpoint, token, **kwargs):
+        return {'id': 15, 'name': 'NOCOS-m365-prod', 'type': 'Vsts',
+                'variables': {'TENANT': {'value': 't'}}}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+    assert _run(['library', '15', '--pretty'], tmp_config, clean_env) == 0
+    out = capsys.readouterr().out
+    assert 'NOCOS-m365-prod' in out and 'TENANT' in out and 't' in out
+
+
+def test_subresource_endpoints(monkeypatch, tmp_config, clean_env, capsys):
+    seen = {}
+
+    def fake_request(method, base, endpoint, token, **kwargs):
+        seen[endpoint] = base
+        return {'value': []}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+    for cmd in ('task-groups', 'deployment-groups', 'environments', 'releases'):
+        assert _run([cmd], tmp_config, clean_env) == 0
+    assert 'Proj/_apis/distributedtask/taskgroups' in seen
+    assert 'Proj/_apis/distributedtask/deploymentgroups' in seen
+    assert 'Proj/_apis/distributedtask/environments' in seen
+    # releases route to the vsrm host, not dev.azure.com
+    assert seen['Proj/_apis/release/releases'] == 'https://vsrm.dev.azure.com/Org'
+
+
+def test_variable_groups_all_paginates(monkeypatch, tmp_config, clean_env, capsys):
+    called = {}
+
+    def fake_paginate(base, endpoint, token, **kwargs):
+        called['endpoint'] = endpoint
+        return [{'id': 1, 'name': 'g', 'variables': {}}]
+
+    monkeypatch.setattr(api_mod, 'ado_paginate', fake_paginate)
+    assert _run(['variable-groups', '--all'], tmp_config, clean_env) == 0
+    assert called['endpoint'] == 'Proj/_apis/distributedtask/variablegroups'
+
+
 def test_sprints_default_team_name(monkeypatch, tmp_config, clean_env, capsys):
     seen = {}
 
