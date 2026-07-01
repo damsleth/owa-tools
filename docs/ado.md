@@ -197,6 +197,54 @@ owa-ado runs --pipeline 8
 owa-ado runs --all --top 100
 ```
 
+### `owa-ado variable-groups`
+
+List library variable groups, or show one by id (aliases: `library`,
+`variablegroups`). Each group's `variables` are included in the JSON; secret
+values (which the API withholds) render as `***`. `--all` / `--pretty`.
+
+Pass a group id to show a single group; `--pretty` then renders the name and
+a variable/value table.
+
+```bash
+owa-ado variable-groups --pretty
+owa-ado library --all
+owa-ado library 15 --pretty
+```
+
+### `owa-ado task-groups`
+
+List task groups (alias: `taskgroups`). `--all` / `--pretty`.
+
+```bash
+owa-ado task-groups --pretty
+```
+
+### `owa-ado deployment-groups`
+
+List deployment groups (alias: `deploymentgroups`). `--all` / `--pretty`.
+
+```bash
+owa-ado deployment-groups --pretty
+```
+
+### `owa-ado environments`
+
+List pipeline environments. `--all` / `--pretty`.
+
+```bash
+owa-ado environments --pretty
+```
+
+### `owa-ado releases`
+
+List releases from Release Management (routed to the `vsrm.dev.azure.com`
+host). `--all` / `--pretty`.
+
+```bash
+owa-ado releases --pretty
+```
+
 ### `owa-ado refresh`
 
 Force a token refresh through owa-piggy and verify the org is reachable.

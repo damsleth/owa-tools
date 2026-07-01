@@ -202,6 +202,75 @@ def normalize_build(b):
     }
 
 
+def normalize_variable_group(g):
+    """Library variable group. Non-secret values pass through; secrets
+    (isSecret, whose value the API withholds) render as '***' so the shape
+    is uniform and no secret is implied to be empty."""
+    if not isinstance(g, dict):
+        return {}
+    variables = g.get('variables') or {}
+    return {
+        'id': g.get('id'),
+        'name': g.get('name'),
+        'description': g.get('description'),
+        'type': g.get('type'),
+        'variables': {
+            k: ('***' if (v or {}).get('isSecret') else (v or {}).get('value'))
+            for k, v in variables.items()
+        },
+        'modifiedBy': _identity(g.get('modifiedBy')),
+        'modifiedOn': g.get('modifiedOn'),
+    }
+
+
+def normalize_task_group(t):
+    if not isinstance(t, dict):
+        return {}
+    return {
+        'id': t.get('id'),
+        'name': t.get('name'),
+        'description': t.get('description'),
+        'tasks': len(t.get('tasks') or []),
+        'modifiedBy': _identity(t.get('modifiedBy')),
+        'modifiedOn': t.get('modifiedOn'),
+    }
+
+
+def normalize_deployment_group(d):
+    if not isinstance(d, dict):
+        return {}
+    return {
+        'id': d.get('id'),
+        'name': d.get('name'),
+        'description': d.get('description'),
+        'machineCount': d.get('machineCount'),
+    }
+
+
+def normalize_environment(e):
+    if not isinstance(e, dict):
+        return {}
+    return {
+        'id': e.get('id'),
+        'name': e.get('name'),
+        'description': e.get('description'),
+        'createdBy': _identity(e.get('createdBy')),
+    }
+
+
+def normalize_release(r):
+    if not isinstance(r, dict):
+        return {}
+    return {
+        'id': r.get('id'),
+        'name': r.get('name'),
+        'status': r.get('status'),
+        'definition': (r.get('releaseDefinition') or {}).get('name'),
+        'createdBy': _identity(r.get('createdBy')),
+        'createdOn': r.get('createdOn'),
+    }
+
+
 def _quote_wiql(value):
     """Escape a single-quoted WIQL literal."""
     return value.replace("'", "''")
