@@ -131,3 +131,28 @@ def test_resolve_rel_friendly_and_passthrough():
     assert res.resolve_rel('RELATED') == 'System.LinkTypes.Related'
     # An unknown / already-qualified rel is used verbatim.
     assert res.resolve_rel('System.LinkTypes.Custom') == 'System.LinkTypes.Custom'
+
+
+def test_normalize_variable_group_masks_secrets():
+    out = res.normalize_variable_group({
+        'id': 3, 'name': 'shared', 'type': 'Vsts', 'description': 'd',
+        'variables': {'URL': {'value': 'x'}, 'KEY': {'isSecret': True}},
+        'modifiedBy': {'displayName': 'Kim'}, 'modifiedOn': '2026',
+    })
+    assert out['variables'] == {'URL': 'x', 'KEY': '***'}
+    assert out['modifiedBy'] == 'Kim'
+
+
+def test_normalize_subresources_and_non_dict():
+    assert res.normalize_variable_group(None) == {}
+    assert res.normalize_task_group({'id': 1, 'name': 't', 'tasks': [{}, {}]})['tasks'] == 2
+    assert res.normalize_task_group(None) == {}
+    assert res.normalize_deployment_group({'id': 2, 'machineCount': 5})['machineCount'] == 5
+    assert res.normalize_deployment_group(None) == {}
+    assert res.normalize_environment({'id': 3, 'name': 'prod'})['name'] == 'prod'
+    assert res.normalize_environment(None) == {}
+    rel = res.normalize_release({'id': 9, 'name': 'R-9', 'status': 'active',
+                                 'releaseDefinition': {'name': 'Deploy'},
+                                 'createdBy': {'displayName': 'Ada'}})
+    assert rel['definition'] == 'Deploy' and rel['createdBy'] == 'Ada'
+    assert res.normalize_release(None) == {}

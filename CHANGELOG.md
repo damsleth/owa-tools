@@ -6,6 +6,18 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## v1.3.1 - 2026-07-01
+
+### owa-ado
+
+- New read-only pipeline sub-item commands: `variable-groups` (aliases
+  `library`, `variablegroups`), `task-groups`, `deployment-groups`,
+  `environments`, and `releases`. All support `--pretty` / `--all`.
+- `variable-groups <id>` (e.g. `owa-ado library 15 --pretty`) shows a single
+  group with a variable/value table. Secret values (withheld by the API)
+  render as `***`.
+- `releases` is routed to the `vsrm.dev.azure.com` release-management host.
+
 ## v1.3.0 - 2026-06-30
 
 Suite-wide P2 feature sweep — new flags, commands, and behaviors across nearly

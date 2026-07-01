@@ -15,6 +15,7 @@ the default output; `--pretty` renders a table for humans.
 import json
 import os
 import sys
+from functools import partial
 from urllib.parse import quote
 
 from owa_core import modes as mode_mod
@@ -111,6 +112,12 @@ Commands:
                        --pipeline <id> Filter to one definition.
                        --top <n>       Cap results (default 20).
                        --all           Page through all runs (capped by --top).
+  variable-groups      List library variable groups, or show one: `library <id>`.
+                       Secrets masked as ***.  (aliases: library, variablegroups)
+  task-groups          List task groups.               (alias: taskgroups)
+  deployment-groups    List deployment groups.         (alias: deploymentgroups)
+  environments         List pipeline environments.
+  releases             List releases (release management).
   refresh              Force a token refresh and verify auth.
   config               View or update configuration.
                        [--unset <key>]... [--clear]
@@ -749,6 +756,79 @@ def cmd_runs(args, config, token, base):
     return _emit([res.normalize_build(b) for b in items], pretty, fmt.format_builds)
 
 
+# Pipeline "sub-item" list surfaces: task/deployment groups, the library
+# (variable groups), environments and releases. Each is a plain project-scoped
+# `value`-list endpoint that differs only in path, normalizer and formatter -
+# so one generic handler serves them all, bound per-name in the dispatch table.
+# `vsrm` swaps the host: release management lives on vsrm.dev.azure.com, not
+# dev.azure.com, but is otherwise the same org/project route.
+# Fifth field is the single-item detail formatter (or None to reuse the table
+# with a one-row list). Only variable groups have a real detail view - the
+# whole point of `library <id>` is to see the variables.
+_SUBRESOURCES = {
+    'variable-groups': ('_apis/distributedtask/variablegroups',
+                        'normalize_variable_group', 'format_variable_groups', False,
+                        'format_variable_group'),
+    'task-groups': ('_apis/distributedtask/taskgroups',
+                    'normalize_task_group', 'format_task_groups', False, None),
+    'deployment-groups': ('_apis/distributedtask/deploymentgroups',
+                          'normalize_deployment_group', 'format_deployment_groups', False, None),
+    'environments': ('_apis/distributedtask/environments',
+                     'normalize_environment', 'format_environments', False, None),
+    'releases': ('_apis/release/releases',
+                 'normalize_release', 'format_releases', True, None),
+}
+
+
+def cmd_subresource(name, args, config, token, base):
+    endpoint_suffix, normalize, formatter, vsrm, detail = _SUBRESOURCES[name]
+    pretty = all_pages = False
+    item_id = ''
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--pretty':
+            pretty = True
+        elif flag == '--all':
+            all_pages = True
+        elif flag.startswith('-'):
+            raise UsageError(f'Unknown flag: {flag}')
+        elif not item_id:
+            item_id = flag
+        else:
+            raise UsageError(f'Unexpected argument: {flag}')
+    project = _resolve_project(config)
+    debug = _debug_enabled(config)
+    if vsrm:
+        base = base.replace('https://dev.azure.com', 'https://vsrm.dev.azure.com')
+    normalize = getattr(res, normalize)
+
+    # Single item: GET .../{id}, which returns the object directly (no `value`
+    # envelope). JSON emits the object; --pretty uses the detail view.
+    if item_id:
+        endpoint = f'{project}/{endpoint_suffix}/{quote(item_id, safe="")}'
+        payload = api_mod.ado_request('GET', base, endpoint, token, debug=debug)
+        if not isinstance(payload, dict):
+            return 1
+        item = normalize(payload)
+        if pretty and detail:
+            print(getattr(fmt, detail)(item))
+        elif pretty:
+            print(getattr(fmt, formatter)([item]))
+        else:
+            print(json.dumps(item))
+        return 0
+
+    endpoint = f'{project}/{endpoint_suffix}'
+    if all_pages:
+        items = api_mod.ado_paginate(base, endpoint, token, debug=debug)
+    else:
+        payload = api_mod.ado_request('GET', base, endpoint, token, debug=debug)
+        items = payload.get('value') if isinstance(payload, dict) else None
+    if items is None:
+        return 1
+    return _emit([normalize(x) for x in items], pretty, getattr(fmt, formatter))
+
+
 def cmd_config(args, config):
     profile = org = project = ''
     unset_keys = []
@@ -887,7 +967,7 @@ AUTHED_COMMANDS = {
     'projects', 'sprints', 'wi', 'wi-create', 'wi-update',
     'wi-comment', 'wi-link', 'wi-unlink', 'wi-delete',
     'repos', 'prs', 'pipelines', 'runs',
-}
+} | set(_SUBRESOURCES)
 
 
 def _command_name(argv):
@@ -1002,6 +1082,20 @@ COMMAND_SCHEMA = [
                            schema_mod.flag('--top', value='<n>', summary='Cap results (default 20)'),
                            _ALL, _API_VERSION, _PRETTY,
                        ]),
+    schema_mod.command('variable-groups', 'List library variable groups, or show one by id',
+                       auth='devops', aliases=['library', 'variablegroups'],
+                       flags=[
+                           schema_mod.flag('<id>', summary='Variable-group id to show (positional)'),
+                           _ALL, _PRETTY,
+                       ]),
+    schema_mod.command('task-groups', 'List task groups', auth='devops',
+                       aliases=['taskgroups'], flags=[_ALL, _PRETTY]),
+    schema_mod.command('deployment-groups', 'List deployment groups', auth='devops',
+                       aliases=['deploymentgroups'], flags=[_ALL, _PRETTY]),
+    schema_mod.command('environments', 'List pipeline environments', auth='devops',
+                       flags=[_ALL, _PRETTY]),
+    schema_mod.command('releases', 'List releases (release management)', auth='devops',
+                       flags=[_ALL, _PRETTY]),
     schema_mod.command('refresh', 'Force a token refresh', auth='devops'),
     schema_mod.command('config', 'View or update configuration', mutates=True,
                        flags=[
@@ -1119,6 +1213,7 @@ def _main(argv):
         'pipelines': cmd_pipelines,
         'runs': cmd_runs,
     }
+    dispatch.update({n: partial(cmd_subresource, n) for n in _SUBRESOURCES})
     return dispatch[cmd](rest, config, token, base)
 
 
