@@ -197,6 +197,32 @@ owa-ado runs --pipeline 8
 owa-ado runs --all --top 100
 ```
 
+### `owa-ado wikis`
+
+List the wikis in the project. `--pretty` renders a name/type/id table.
+
+```bash
+owa-ado wikis --pretty
+```
+
+### `owa-ado wiki`
+
+Show a wiki page, or — with no page given — the page tree of the wiki.
+
+Select the wiki with `--wiki <id|name>`; if the project has exactly one wiki
+it is used automatically. Identify a page by its permanent `--id <n>` (the
+number in a wiki URL, e.g. `.../_wiki/wikis/NOCOS.wiki/83/NOCOS` → id 83) or by
+`--path </Some/Page>` (a leading positional path works too; a missing leading
+`/` is added). With a page selected the Markdown `content` is included; the
+tree view (no page) lists paths only. `--pretty` prints the raw Markdown for a
+page, or an indented path tree.
+
+```bash
+owa-ado wiki --wiki NOCOS.wiki --id 83 --pretty
+owa-ado wiki --wiki NOCOS.wiki /Home --pretty
+owa-ado wiki --wiki NOCOS.wiki
+```
+
 ### `owa-ado variable-groups`
 
 List library variable groups, or show one by id (aliases: `library`,

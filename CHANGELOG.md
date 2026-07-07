@@ -6,6 +6,16 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## Unreleased
+
+### owa-ado
+
+- Wiki support: `wikis` lists the project's wikis; `wiki` shows a page (by
+  `--id`, `--path`, or a positional path) or, with no page given, the wiki's
+  page tree. `--wiki <id|name>` selects the wiki and defaults to the sole
+  project wiki. Page content is returned as Markdown; `--pretty` prints the
+  raw Markdown or an indented path tree.
+
 ## v1.3.1 - 2026-07-01
 
 ### owa-ado

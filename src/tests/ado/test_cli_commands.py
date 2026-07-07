@@ -317,3 +317,130 @@ def test_sprints_default_team_name(monkeypatch, tmp_config, clean_env, capsys):
     assert seen['query'] == {'$timeframe': 'current'}
 
 
+
+
+def test_wikis_lists_normalized(monkeypatch, tmp_config, clean_env, capsys):
+    seen = {}
+
+    def fake_request(method, base, endpoint, token, **kwargs):
+        seen['endpoint'] = endpoint
+        return {'value': [{'id': 'w1', 'name': 'NOCOS.wiki', 'type': 'projectWiki'}]}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+    rc = _run(['wikis'], tmp_config, clean_env)
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out[0]['name'] == 'NOCOS.wiki'
+    assert seen['endpoint'] == 'Proj/_apis/wiki/wikis'
+
+
+def test_wiki_by_id_includes_content(monkeypatch, tmp_config, clean_env, capsys):
+    seen = {}
+
+    def fake_request(method, base, endpoint, token, query=None, **kwargs):
+        seen['endpoint'] = endpoint
+        seen['query'] = query
+        return {'id': 83, 'path': '/NOCOS', 'content': '# hi'}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+    rc = _run(['wiki', '--wiki', 'NOCOS.wiki', '--id', '83'], tmp_config, clean_env)
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out['content'] == '# hi'
+    assert seen['endpoint'] == 'Proj/_apis/wiki/wikis/NOCOS.wiki/pages/83'
+    assert seen['query'] == {'includeContent': 'true'}
+
+
+def test_wiki_by_positional_path_prepends_slash(monkeypatch, tmp_config, clean_env, capsys):
+    seen = {}
+
+    def fake_request(method, base, endpoint, token, query=None, **kwargs):
+        seen['endpoint'] = endpoint
+        seen['query'] = query
+        return {'path': '/Home', 'content': 'body'}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+    rc = _run(['wiki', '--wiki', 'W', 'Home'], tmp_config, clean_env)
+    assert rc == 0
+    assert seen['endpoint'] == 'Proj/_apis/wiki/wikis/W/pages'
+    assert seen['query'] == {'path': '/Home', 'includeContent': 'true'}
+
+
+def test_wiki_tree_when_no_page(monkeypatch, tmp_config, clean_env, capsys):
+    seen = {}
+
+    def fake_request(method, base, endpoint, token, query=None, **kwargs):
+        seen['query'] = query
+        return {'path': '/', 'subPages': [{'path': '/Home'}]}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+    rc = _run(['wiki', '--wiki', 'W'], tmp_config, clean_env)
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out['subPages'][0]['path'] == '/Home'
+    assert seen['query'] == {'path': '/', 'recursionLevel': 'full'}
+
+
+def test_wiki_auto_resolves_sole_wiki(monkeypatch, tmp_config, clean_env, capsys):
+    calls = []
+
+    def fake_request(method, base, endpoint, token, query=None, **kwargs):
+        calls.append(endpoint)
+        if endpoint == 'Proj/_apis/wiki/wikis':
+            return {'value': [{'id': 'w1', 'name': 'OnlyWiki'}]}
+        return {'path': '/', 'subPages': []}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+    rc = _run(['wiki'], tmp_config, clean_env)
+    assert rc == 0
+    # Resolved the sole wiki, then fetched its page tree.
+    assert calls[0] == 'Proj/_apis/wiki/wikis'
+    assert calls[1] == 'Proj/_apis/wiki/wikis/OnlyWiki/pages'
+
+
+def test_wiki_ambiguous_without_flag_is_usage_error(monkeypatch, tmp_config, clean_env, capsys):
+    def fake_request(method, base, endpoint, token, **kwargs):
+        return {'value': [{'name': 'A'}, {'name': 'B'}]}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+    rc = _run(['wiki'], tmp_config, clean_env)
+    assert rc != 0
+    err = capsys.readouterr().err
+    assert 'A, B' in err and '--wiki' in err
+
+
+def test_wiki_pretty_prints_content(monkeypatch, tmp_config, clean_env, capsys):
+    monkeypatch.setattr(api_mod, 'ado_request',
+                        lambda *a, **k: {'id': 1, 'path': '/P', 'content': 'BODY'})
+    rc = _run(['wiki', '--wiki', 'W', '--id', '1', '--pretty'], tmp_config, clean_env)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert out.startswith('# /P (id 1)') and 'BODY' in out
+
+
+def test_wiki_path_flag(monkeypatch, tmp_config, clean_env):
+    seen = {}
+
+    def fake_request(method, base, endpoint, token, query=None, **kwargs):
+        seen['query'] = query
+        return {'path': '/Deep/Page', 'content': 'x'}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+    assert _run(['wiki', '--wiki', 'W', '--path', '/Deep/Page'], tmp_config, clean_env) == 0
+    assert seen['query'] == {'path': '/Deep/Page', 'includeContent': 'true'}
+
+
+def test_wiki_unknown_flag_and_extra_arg_are_usage_errors(monkeypatch, tmp_config, clean_env):
+    monkeypatch.setattr(api_mod, 'ado_request', lambda *a, **k: {'value': [{'name': 'W'}]})
+    assert _run(['wiki', '--nope'], tmp_config, clean_env) != 0
+    assert _run(['wiki', 'a', 'b'], tmp_config, clean_env) != 0
+
+
+def test_wikis_returns_1_on_bad_payload(monkeypatch, tmp_config, clean_env):
+    monkeypatch.setattr(api_mod, 'ado_request', lambda *a, **k: 'not-a-dict')
+    assert _run(['wikis'], tmp_config, clean_env) == 1
+
+
+def test_wiki_returns_1_on_bad_payload(monkeypatch, tmp_config, clean_env):
+    monkeypatch.setattr(api_mod, 'ado_request', lambda *a, **k: 'nope')
+    assert _run(['wiki', '--wiki', 'W', '--id', '1'], tmp_config, clean_env) == 1

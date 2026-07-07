@@ -118,6 +118,11 @@ Commands:
   deployment-groups    List deployment groups.         (alias: deploymentgroups)
   environments         List pipeline environments.
   releases             List releases (release management).
+  wikis                List wikis in the project.
+  wiki [<path>]        Show a wiki page, or the page tree with no page given.
+                       --wiki <id|name>  Which wiki (default: the sole one).
+                       --id <n>          Show page by permanent id.
+                       --path <path>     Show page by path (same as positional).
   refresh              Force a token refresh and verify auth.
   config               View or update configuration.
                        [--unset <key>]... [--clear]
@@ -139,6 +144,9 @@ Examples:
   owa-ado prs --status active --pretty
   owa-ado pipelines --pretty
   owa-ado runs --top 10 --pretty
+  owa-ado wikis --pretty
+  owa-ado wiki --wiki NOCOS.wiki --id 83 --pretty
+  owa-ado wiki /Home --pretty
 """)
     print()
     print(schema_mod.MULTI_PROFILE_HELP)
@@ -756,6 +764,95 @@ def cmd_runs(args, config, token, base):
     return _emit([res.normalize_build(b) for b in items], pretty, fmt.format_builds)
 
 
+# ---------------------------------------------------------------------------
+# Wikis
+# ---------------------------------------------------------------------------
+
+def cmd_wikis(args, config, token, base):
+    pretty = _parse_list_flags(args)
+    project = _resolve_project(config)
+    payload = api_mod.ado_request('GET', base, f'{project}/_apis/wiki/wikis', token,
+                                  debug=_debug_enabled(config))
+    items = payload.get('value') if isinstance(payload, dict) else None
+    if items is None:
+        return 1
+    return _emit([res.normalize_wiki(w) for w in items], pretty, fmt.format_wikis)
+
+
+def _resolve_wiki(explicit, project, token, base, debug):
+    """The wiki to act on: an explicit --wiki id/name, else the project's sole
+    wiki (the common case). More than one and no --wiki is a usage error that
+    names the choices, rather than guessing."""
+    if explicit:
+        return explicit
+    payload = api_mod.ado_request('GET', base, f'{project}/_apis/wiki/wikis', token,
+                                  debug=debug)
+    wikis = payload.get('value') if isinstance(payload, dict) else []
+    if len(wikis) == 1:
+        return wikis[0].get('name') or wikis[0].get('id')
+    names = ', '.join(w.get('name') or str(w.get('id')) for w in wikis) or '(none)'
+    raise UsageError(
+        f'project has {len(wikis)} wikis; pass --wiki <id|name>. Available: {names}'
+    )
+
+
+def cmd_wiki(args, config, token, base):
+    """Show a wiki page (by --id, --path, or positional path) or, with no page
+    given, the page tree of the wiki."""
+    pretty = False
+    wiki = page_id = path = positional = ''
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--pretty':
+            pretty = True
+        elif flag == '--wiki':
+            wiki, args = _require_value(flag, args)
+        elif flag == '--id':
+            page_id, args = _require_value(flag, args)
+        elif flag == '--path':
+            path, args = _require_value(flag, args)
+        elif flag.startswith('-'):
+            raise UsageError(f'Unknown flag: {flag}')
+        elif not positional:
+            positional = flag
+        else:
+            raise UsageError(f'Unexpected argument: {flag}')
+
+    if positional and not path:
+        path = positional
+    if path and not path.startswith('/'):
+        path = '/' + path
+
+    project = _resolve_project(config)
+    debug = _debug_enabled(config)
+    wiki = _resolve_wiki(wiki, project, token, base, debug)
+    pages_base = f'{project}/_apis/wiki/wikis/{quote(wiki, safe="")}/pages'
+
+    if page_id:
+        payload = api_mod.ado_request(
+            'GET', base, f'{pages_base}/{quote(page_id, safe="")}', token,
+            query={'includeContent': 'true'}, debug=debug,
+        )
+    elif path:
+        payload = api_mod.ado_request(
+            'GET', base, pages_base, token,
+            query={'path': path, 'includeContent': 'true'}, debug=debug,
+        )
+    else:
+        payload = api_mod.ado_request(
+            'GET', base, pages_base, token,
+            query={'path': '/', 'recursionLevel': 'full'}, debug=debug,
+        )
+    if not isinstance(payload, dict):
+        return 1
+    page = res.normalize_wiki_page(payload)
+    if pretty:
+        print(fmt.format_wiki_page(page))
+    else:
+        print(json.dumps(page))
+    return 0
+
+
 # Pipeline "sub-item" list surfaces: task/deployment groups, the library
 # (variable groups), environments and releases. Each is a plain project-scoped
 # `value`-list endpoint that differs only in path, normalizer and formatter -
@@ -967,6 +1064,7 @@ AUTHED_COMMANDS = {
     'projects', 'sprints', 'wi', 'wi-create', 'wi-update',
     'wi-comment', 'wi-link', 'wi-unlink', 'wi-delete',
     'repos', 'prs', 'pipelines', 'runs',
+    'wikis', 'wiki',
 } | set(_SUBRESOURCES)
 
 
@@ -1076,6 +1174,17 @@ COMMAND_SCHEMA = [
                        ]),
     schema_mod.command('pipelines', 'List pipeline definitions', auth='devops',
                        flags=[_ALL, _PRETTY]),
+    schema_mod.command('wikis', 'List wikis in the project', auth='devops',
+                       flags=[_PRETTY]),
+    schema_mod.command('wiki', 'Show a wiki page, or the page tree with no page given',
+                       auth='devops',
+                       flags=[
+                           schema_mod.flag('<path>', summary='Page path to show (positional, e.g. /Home)'),
+                           schema_mod.flag('--wiki', value='<id|name>', summary='Which wiki (default: the sole project wiki)'),
+                           schema_mod.flag('--id', value='<n>', summary='Show page by permanent id'),
+                           schema_mod.flag('--path', value='<path>', summary='Show page by path'),
+                           _PRETTY,
+                       ]),
     schema_mod.command('runs', 'List recent pipeline runs (builds)', auth='devops',
                        flags=[
                            schema_mod.flag('--pipeline', value='<id>', summary='Filter to one definition'),
@@ -1212,6 +1321,8 @@ def _main(argv):
         'prs': cmd_prs,
         'pipelines': cmd_pipelines,
         'runs': cmd_runs,
+        'wikis': cmd_wikis,
+        'wiki': cmd_wiki,
     }
     dispatch.update({n: partial(cmd_subresource, n) for n in _SUBRESOURCES})
     return dispatch[cmd](rest, config, token, base)

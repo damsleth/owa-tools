@@ -156,3 +156,36 @@ def test_normalize_subresources_and_non_dict():
                                  'createdBy': {'displayName': 'Ada'}})
     assert rel['definition'] == 'Deploy' and rel['createdBy'] == 'Ada'
     assert res.normalize_release(None) == {}
+
+
+def test_normalize_wiki():
+    out = res.normalize_wiki({
+        'id': 'w1', 'name': 'NOCOS.wiki', 'type': 'projectWiki',
+        'mappedPath': '/', 'remoteUrl': 'r', 'url': 'u', 'repositoryId': 'x',
+    })
+    assert out == {'id': 'w1', 'name': 'NOCOS.wiki', 'type': 'projectWiki',
+                   'mappedPath': '/', 'remoteUrl': 'r', 'url': 'u'}
+    assert res.normalize_wiki(None) == {}
+
+
+def test_normalize_wiki_page_content_and_id():
+    out = res.normalize_wiki_page({
+        'id': 83, 'path': '/NOCOS', 'order': 1, 'gitItemPath': '/NOCOS.md',
+        'content': '# hi', 'remoteUrl': 'r', 'url': 'u',
+    })
+    assert out['id'] == 83 and out['content'] == '# hi'
+    assert out['path'] == '/NOCOS' and out['url'] == 'r'  # remoteUrl preferred
+    assert 'subPages' not in out
+
+
+def test_normalize_wiki_page_tree_recurses_and_omits_absent():
+    out = res.normalize_wiki_page({
+        'path': '/', 'isParentPage': True, 'url': 'u',
+        'subPages': [{'path': '/Home', 'url': 'u2',
+                      'subPages': [{'path': '/Home/Sub'}]}],
+    })
+    # No id/content fetched -> keys omitted.
+    assert 'id' not in out and 'content' not in out
+    assert out['subPages'][0]['path'] == '/Home'
+    assert out['subPages'][0]['subPages'][0]['path'] == '/Home/Sub'
+    assert res.normalize_wiki_page(None) == {}

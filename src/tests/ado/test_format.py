@@ -69,3 +69,31 @@ def test_format_subresource_tables():
     assert 'prod' in fmt.format_environments([{'id': 3, 'name': 'prod', 'description': 'd'}])
     assert 'R-9' in fmt.format_releases(
         [{'id': 9, 'name': 'R-9', 'status': 'active', 'definition': 'Deploy', 'createdBy': 'Ada'}])
+
+
+def test_format_wikis_table():
+    out = fmt.format_wikis([{'id': 'w1', 'name': 'NOCOS.wiki',
+                             'type': 'projectWiki', 'mappedPath': '/'}])
+    assert out.splitlines()[0].split() == ['name', 'type', 'id', 'mappedPath']
+    assert 'NOCOS.wiki' in out
+
+
+def test_format_wiki_page_content_view():
+    out = fmt.format_wiki_page({'id': 83, 'path': '/NOCOS', 'content': 'body text'})
+    assert out.startswith('# /NOCOS (id 83)')
+    assert out.endswith('body text')
+
+
+def test_format_wiki_page_tree_indents():
+    out = fmt.format_wiki_page({
+        'path': '/', 'subPages': [{'path': '/Home',
+                                   'subPages': [{'path': '/Home/Sub'}]}],
+    })
+    lines = out.splitlines()
+    assert lines[0] == '/'
+    assert lines[1] == '  /Home'
+    assert lines[2] == '    /Home/Sub'
+
+
+def test_format_wiki_page_empty():
+    assert fmt.format_wiki_page({}) == '(no page)'
