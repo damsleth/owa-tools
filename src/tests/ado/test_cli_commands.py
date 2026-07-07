@@ -509,3 +509,22 @@ def test_wiki_download_returns_1_on_bad_tree(monkeypatch, tmp_config, clean_env,
     monkeypatch.setattr(api_mod, 'ado_request', lambda *a, **k: 'nope')
     rc = _run(['wiki', '--wiki', 'W', '--download', str(tmp_path / 'w')], tmp_config, clean_env)
     assert rc == 1
+
+
+def test_wiki_download_expands_toc_and_tosp(monkeypatch, tmp_config, clean_env, tmp_path):
+    tree = {
+        'path': '/', 'gitItemPath': '/', 'subPages': [
+            {'path': '/Index', 'gitItemPath': '/Index.md', 'subPages': [
+                {'path': '/Index/Child', 'gitItemPath': '/Index/Child.md',
+                 'subPages': []},
+            ]},
+        ],
+    }
+    contents = {'/Index': '[[_TOSP_]]', '/Index/Child': '[[_TOC_]]\n## Hi'}
+    monkeypatch.setattr(api_mod, 'ado_request', _wiki_tree_and_pages(tree, contents))
+    out_dir = tmp_path / 'w'
+    assert _run(['wiki', '--wiki', 'W', '--download', str(out_dir)], tmp_config, clean_env) == 0
+    # TOSP on the index page -> a link to its child.
+    assert (out_dir / 'Index.md').read_text() == '- [Child](Index/Child.md)'
+    # TOC on the child page -> a link to its own heading, heading preserved.
+    assert (out_dir / 'Index' / 'Child.md').read_text() == '- [Hi](#hi)\n## Hi'

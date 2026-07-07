@@ -6,6 +6,7 @@ query string from CLI flags. Kept separate from api.py so it is trivially
 unit-testable without a network or token.
 """
 import html
+import posixpath
 import re
 
 # Friendly link-type names mapped to the DevOps relation reference name.
@@ -305,6 +306,115 @@ def normalize_wiki_page(p):
     if p.get('content') is not None:
         out['content'] = p['content']
     return out
+
+
+# --- Wiki ToC macros -------------------------------------------------------
+# Azure DevOps renders two special tokens the raw Markdown keeps literal:
+#   [[_TOC_]]   table of contents from the page's own headings
+#   [[_TOSP_]]  table of subpages (the full descendant tree)
+# For an offline copy these are expanded into real Markdown lists so the
+# index/section pages are actually navigable in a codebase viewer.
+
+TOC_TOKEN = '[[_TOC_]]'
+TOSP_TOKEN = '[[_TOSP_]]'
+
+
+def page_title(node):
+    """Human display name of a wiki page: the leaf of its `path` (which keeps
+    spaces), not the dash-encoded `gitItemPath`."""
+    path = (node.get('path') or '').rstrip('/')
+    return path.rsplit('/', 1)[-1] or '(untitled)'
+
+
+def _gh_anchor(text, seen):
+    """GitHub-flavoured heading anchor: lowercase, punctuation dropped, spaces
+    to dashes, with -1/-2 suffixes for duplicates in document order.
+
+    # ponytail: GH approximation, not ADO's exact scheme - right for a copy
+    browsed on GitHub / in an IDE preview; revisit if links must resolve in
+    the ADO renderer itself."""
+    a = re.sub(r'\s+', '-', re.sub(r'[^\w\s-]', '', text.strip().lower()))
+    n = seen.get(a, 0)
+    seen[a] = n + 1
+    return a if not n else f'{a}-{n}'
+
+
+def extract_headings(content):
+    """[(level, text)] for ATX headings, skipping fenced code blocks. ADO
+    renders `##NoSpace` as a heading, so the space after the hashes is
+    optional; a trailing run of `#` (closing ATX) is stripped."""
+    out = []
+    fence = None
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(('```', '~~~')):
+            marker = stripped[:3]
+            if fence is None:
+                fence = marker
+            elif stripped.startswith(fence):
+                fence = None
+            continue
+        if fence is not None:
+            continue
+        m = re.match(r'(#{1,6})\s*(\S.*?)\s*#*$', line)
+        if m:
+            out.append((len(m.group(1)), m.group(2).strip()))
+    return out
+
+
+def render_toc(content):
+    """A nested bullet list linking the page's headings. Nesting is *relative*
+    (stack-based), matching ADO: each strictly-deeper heading indents one more
+    level, so inconsistent absolute levels (a `#` after a `##`) still render as
+    siblings rather than misnested - the visual depth is tree depth, not the
+    hash count."""
+    headings = extract_headings(content)
+    if not headings:
+        return ''
+    seen = {}
+    stack = []  # heading levels of the current ancestor chain
+    lines = []
+    for level, text in headings:
+        while stack and stack[-1] >= level:
+            stack.pop()
+        lines.append(f'{"  " * len(stack)}- [{text}](#{_gh_anchor(text, seen)})')
+        stack.append(level)
+    return '\n'.join(lines)
+
+
+def render_tosp(node):
+    """A nested bullet list of every descendant page, each linked by a path
+    relative to this page's own file so the links resolve on disk."""
+    cur_dir = posixpath.dirname((node.get('gitItemPath') or '').lstrip('/'))
+    lines = []
+
+    def walk(children, depth):
+        for child in children:
+            git = (child.get('gitItemPath') or '').lstrip('/')
+            subs = child.get('subPages') or []
+            if git.endswith('.md'):
+                rel = posixpath.relpath(git, cur_dir) if cur_dir else git
+                lines.append(f'{"  " * depth}- [{page_title(child)}]({rel})')
+                walk(subs, depth + 1)
+            else:
+                walk(subs, depth)  # folder-only node: keep its children inline
+
+    walk(node.get('subPages') or [], 0)
+    return '\n'.join(lines)
+
+
+def expand_wiki_macros(content, node):
+    """Replace [[_TOC_]] / [[_TOSP_]] tokens in a page with generated lists.
+    TOC is computed from the original content so an injected subpage list
+    can't be mistaken for headings."""
+    if not content:
+        return content
+    toc = render_toc(content) if TOC_TOKEN in content else None
+    if TOSP_TOKEN in content:
+        content = content.replace(TOSP_TOKEN, render_tosp(node))
+    if toc is not None:
+        content = content.replace(TOC_TOKEN, toc)
+    return content
 
 
 def _quote_wiql(value):
