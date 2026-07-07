@@ -230,6 +230,12 @@ page and its children nest naturally. Scope the crawl to a subtree by adding
 `--path </Section>`. Prints a JSON summary (`{downloaded, dir, files}`), or a
 file list with `--pretty`.
 
+Azure DevOps table-of-contents macros are expanded on export so index and
+section pages stay navigable offline: `[[_TOSP_]]` becomes a nested list
+linking every descendant page (relative file links), and `[[_TOC_]]` becomes
+a nested list of the page's own headings (GitHub-style `#anchor` links, nested
+relative to heading depth as ADO renders them).
+
 ```bash
 owa-ado wiki --wiki NOCOS.wiki --download docs/wiki
 owa-ado wiki --wiki NOCOS.wiki --path /Onboarding --download docs/wiki --pretty
