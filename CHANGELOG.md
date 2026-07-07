@@ -15,6 +15,10 @@ per-tool subsections inside that release when useful.
   page tree. `--wiki <id|name>` selects the wiki and defaults to the sole
   project wiki. Page content is returned as Markdown; `--pretty` prints the
   raw Markdown or an indented path tree.
+- `wiki --download <dir>` crawls the full page tree and mirrors it to disk as
+  one Markdown file per page (layout follows each page's backing git path),
+  for offlining a wiki into the codebase. `--path` scopes the crawl to a
+  subtree.
 
 ## v1.3.1 - 2026-07-01
 
