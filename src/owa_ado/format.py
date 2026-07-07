@@ -175,3 +175,31 @@ def format_builds(items):
             b.get('result'), _truncate(b.get('pipeline') or '', 30), b.get('branch'),
         ))
     return _table(rows)
+
+
+def format_wikis(items):
+    rows = [('name', 'type', 'id', 'mappedPath')]
+    for w in items:
+        rows.append((w.get('name'), w.get('type'), w.get('id'),
+                     _truncate(w.get('mappedPath') or '-', 40)))
+    return _table(rows)
+
+
+def format_wiki_page(page):
+    """A page with content prints its markdown under a header; a page without
+    (a tree fetch) prints an indented path tree of it and its subpages."""
+    if not page:
+        return '(no page)'
+    if page.get('content') is not None:
+        pid = f" (id {page['id']})" if page.get('id') is not None else ''
+        head = f"# {page.get('path') or '/'}{pid}"
+        return f"{head}\n\n{page['content']}"
+    lines = []
+
+    def _walk(p, depth):
+        lines.append('  ' * depth + (p.get('path') or '/'))
+        for sub in p.get('subPages') or []:
+            _walk(sub, depth + 1)
+
+    _walk(page, 0)
+    return '\n'.join(lines)

@@ -271,6 +271,42 @@ def normalize_release(r):
     }
 
 
+def normalize_wiki(w):
+    if not isinstance(w, dict):
+        return {}
+    return {
+        'id': w.get('id'),
+        'name': w.get('name'),
+        'type': w.get('type'),
+        'mappedPath': w.get('mappedPath'),
+        'remoteUrl': w.get('remoteUrl'),
+        'url': w.get('url'),
+    }
+
+
+def normalize_wiki_page(p):
+    """Thin wiki-page dict. `id`/`content`/`subPages` are only present when
+    the REST call asked for them (page-by-id, includeContent, recursionLevel),
+    so they are added only when the payload carries them - the shape stays
+    honest about what was fetched. subPages recurse for tree listings."""
+    if not isinstance(p, dict):
+        return {}
+    out = {
+        'path': p.get('path'),
+        'order': p.get('order'),
+        'isParentPage': p.get('isParentPage'),
+        'gitItemPath': p.get('gitItemPath'),
+        'url': p.get('remoteUrl') or p.get('url'),
+    }
+    if p.get('id') is not None:
+        out['id'] = p['id']
+    if p.get('subPages'):
+        out['subPages'] = [normalize_wiki_page(s) for s in p['subPages']]
+    if p.get('content') is not None:
+        out['content'] = p['content']
+    return out
+
+
 def _quote_wiql(value):
     """Escape a single-quoted WIQL literal."""
     return value.replace("'", "''")
