@@ -444,3 +444,68 @@ def test_wikis_returns_1_on_bad_payload(monkeypatch, tmp_config, clean_env):
 def test_wiki_returns_1_on_bad_payload(monkeypatch, tmp_config, clean_env):
     monkeypatch.setattr(api_mod, 'ado_request', lambda *a, **k: 'nope')
     assert _run(['wiki', '--wiki', 'W', '--id', '1'], tmp_config, clean_env) == 1
+
+
+def _wiki_tree_and_pages(tree, contents):
+    """Fake ado_request: recursionLevel call returns `tree`; per-page path
+    calls return {'content': contents[path]}."""
+    def fake(method, base, endpoint, token, query=None, **kwargs):
+        if query and query.get('recursionLevel') == 'full':
+            return tree
+        return {'content': contents.get((query or {}).get('path'), '')}
+    return fake
+
+
+def test_wiki_download_mirrors_tree_to_disk(monkeypatch, tmp_config, clean_env, capsys, tmp_path):
+    tree = {
+        'path': '/', 'gitItemPath': '/', 'subPages': [
+            {'path': '/Home', 'gitItemPath': '/Home.md', 'subPages': [
+                {'path': '/Home/Sub', 'gitItemPath': '/Home/Sub.md', 'subPages': []},
+            ]},
+        ],
+    }
+    contents = {'/Home': '# Home', '/Home/Sub': '# Sub'}
+    monkeypatch.setattr(api_mod, 'ado_request', _wiki_tree_and_pages(tree, contents))
+    out_dir = tmp_path / 'wiki'
+    rc = _run(['wiki', '--wiki', 'W', '--download', str(out_dir)], tmp_config, clean_env)
+    assert rc == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary['downloaded'] == 2
+    assert (out_dir / 'Home.md').read_text() == '# Home'
+    assert (out_dir / 'Home' / 'Sub.md').read_text() == '# Sub'
+    # The root/folder page (no .md gitItemPath) is not written.
+    assert not (out_dir / '.md').exists()
+
+
+def test_wiki_download_skips_path_traversal(monkeypatch, tmp_config, clean_env, tmp_path):
+    tree = {
+        'path': '/', 'gitItemPath': '/', 'subPages': [
+            {'path': '/evil', 'gitItemPath': '/../evil.md', 'subPages': []},
+            {'path': '/ok', 'gitItemPath': '/ok.md', 'subPages': []},
+        ],
+    }
+    monkeypatch.setattr(api_mod, 'ado_request',
+                        _wiki_tree_and_pages(tree, {'/ok': 'safe'}))
+    out_dir = tmp_path / 'wiki'
+    rc = _run(['wiki', '--wiki', 'W', '--download', str(out_dir)], tmp_config, clean_env)
+    assert rc == 0
+    assert (out_dir / 'ok.md').read_text() == 'safe'
+    assert not (tmp_path / 'evil.md').exists()
+
+
+def test_wiki_download_pretty_lists_files(monkeypatch, tmp_config, clean_env, capsys, tmp_path):
+    tree = {'path': '/', 'gitItemPath': '/', 'subPages': [
+        {'path': '/A', 'gitItemPath': '/A.md', 'subPages': []}]}
+    monkeypatch.setattr(api_mod, 'ado_request',
+                        _wiki_tree_and_pages(tree, {'/A': 'x'}))
+    rc = _run(['wiki', '--wiki', 'W', '--download', str(tmp_path / 'w'), '--pretty'],
+              tmp_config, clean_env)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert '1 page(s) ->' in out and 'A.md' in out
+
+
+def test_wiki_download_returns_1_on_bad_tree(monkeypatch, tmp_config, clean_env, tmp_path):
+    monkeypatch.setattr(api_mod, 'ado_request', lambda *a, **k: 'nope')
+    rc = _run(['wiki', '--wiki', 'W', '--download', str(tmp_path / 'w')], tmp_config, clean_env)
+    assert rc == 1
