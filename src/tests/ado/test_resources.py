@@ -189,3 +189,81 @@ def test_normalize_wiki_page_tree_recurses_and_omits_absent():
     assert out['subPages'][0]['path'] == '/Home'
     assert out['subPages'][0]['subPages'][0]['path'] == '/Home/Sub'
     assert res.normalize_wiki_page(None) == {}
+
+
+def test_extract_headings_optional_space_and_code_fence():
+    content = (
+        "##Devops\n"
+        "### With Space\n"
+        "```\n"
+        "# not a heading in a fence\n"
+        "```\n"
+        "#### Trailing ###\n"
+    )
+    assert res.extract_headings(content) == [
+        (2, 'Devops'), (3, 'With Space'), (4, 'Trailing'),
+    ]
+
+
+def test_render_toc_nesting_and_dedup_anchors():
+    content = "##Devops\n### ACME\n### ACME\n"
+    toc = res.render_toc(content)
+    lines = toc.splitlines()
+    assert lines[0] == '- [Devops](#devops)'
+    assert lines[1] == '  - [ACME](#acme)'
+    assert lines[2] == '  - [ACME](#acme-1)'  # duplicate anchor suffixed
+    assert res.render_toc("no headings here") == ''
+
+
+def test_render_tosp_relative_links_and_titles():
+    node = {
+        'path': '/ACME', 'gitItemPath': '/ACME.md',
+        'subPages': [
+            {'path': '/ACME/Forvaltning', 'gitItemPath': '/ACME/Forvaltning.md',
+             'subPages': [
+                 {'path': '/ACME/Forvaltning/EasyDesk Forvaltning',
+                  'gitItemPath': '/ACME/Forvaltning/EasyDesk-Forvaltning.md',
+                  'subPages': []},
+             ]},
+        ],
+    }
+    out = res.render_tosp(node).splitlines()
+    # Links relative to ACME.md (root) -> full path under ACME/.
+    assert out[0] == '- [Forvaltning](ACME/Forvaltning.md)'
+    assert out[1] == '  - [EasyDesk Forvaltning](ACME/Forvaltning/EasyDesk-Forvaltning.md)'
+
+
+def test_render_tosp_links_relative_to_nested_page():
+    node = {
+        'path': '/ACME/Forvaltning', 'gitItemPath': '/ACME/Forvaltning.md',
+        'subPages': [
+            {'path': '/ACME/Forvaltning/Sub',
+             'gitItemPath': '/ACME/Forvaltning/Sub.md', 'subPages': []},
+        ],
+    }
+    # From ACME/Forvaltning.md, the child is just Forvaltning/Sub.md.
+    assert res.render_tosp(node) == '- [Sub](Forvaltning/Sub.md)'
+
+
+def test_expand_wiki_macros_both_tokens():
+    node = {'path': '/P', 'gitItemPath': '/P.md',
+            'subPages': [{'path': '/P/Child', 'gitItemPath': '/P/Child.md',
+                          'subPages': []}]}
+    tosp = res.expand_wiki_macros('[[_TOSP_]]', node)
+    assert tosp == '- [Child](P/Child.md)'
+    toc = res.expand_wiki_macros('[[_TOC_]]\n## Head', node)
+    assert toc == '- [Head](#head)\n## Head'
+    assert res.expand_wiki_macros('', node) == ''
+    assert res.expand_wiki_macros('plain', node) == 'plain'
+
+
+def test_render_toc_relative_nesting_with_inconsistent_levels():
+    # Real ACME shape: a `##` heading precedes a `#` heading; ADO renders both
+    # as top-level siblings (relative/stack nesting, not absolute hash count).
+    content = "##Devops\n### ACME\n# Debugging\n## Provisioning\n"
+    assert res.render_toc(content).splitlines() == [
+        '- [Devops](#devops)',
+        '  - [ACME](#acme)',
+        '- [Debugging](#debugging)',
+        '  - [Provisioning](#provisioning)',
+    ]

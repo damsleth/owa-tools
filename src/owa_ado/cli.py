@@ -837,8 +837,9 @@ def _download_wiki(pages_base, base, token, root_path, out_dir, debug):
                                           'includeContent': 'true'},
                                    debug=debug)
         content = page.get('content') if isinstance(page, dict) else None
+        content = res.expand_wiki_macros(content or '', p)
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(content or '', encoding='utf-8')
+        dest.write_text(content, encoding='utf-8')
         written.append(str(dest))
     return written
 

@@ -18,7 +18,9 @@ per-tool subsections inside that release when useful.
 - `wiki --download <dir>` crawls the full page tree and mirrors it to disk as
   one Markdown file per page (layout follows each page's backing git path),
   for offlining a wiki into the codebase. `--path` scopes the crawl to a
-  subtree.
+  subtree. Azure DevOps ToC macros are expanded on export: `[[_TOSP_]]` →
+  nested descendant-page list (relative links), `[[_TOC_]]` → nested list of
+  the page's headings (relative/stack nesting, matching ADO's rendering).
 
 ## v1.3.1 - 2026-07-01
 
