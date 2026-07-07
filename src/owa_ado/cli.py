@@ -16,6 +16,7 @@ import json
 import os
 import sys
 from functools import partial
+from pathlib import Path
 from urllib.parse import quote
 
 from owa_core import modes as mode_mod
@@ -123,6 +124,8 @@ Commands:
                        --wiki <id|name>  Which wiki (default: the sole one).
                        --id <n>          Show page by permanent id.
                        --path <path>     Show page by path (same as positional).
+                       --download <dir>  Mirror the wiki (or --path subtree)
+                                         to disk as Markdown files.
   refresh              Force a token refresh and verify auth.
   config               View or update configuration.
                        [--unset <key>]... [--clear]
@@ -796,11 +799,55 @@ def _resolve_wiki(explicit, project, token, base, debug):
     )
 
 
+def _iter_pages(page):
+    """Depth-first walk of a wiki page tree (raw REST dicts)."""
+    yield page
+    for sub in page.get('subPages') or []:
+        yield from _iter_pages(sub)
+
+
+def _download_wiki(pages_base, base, token, root_path, out_dir, debug):
+    """Mirror a wiki subtree to disk, one Markdown file per page.
+
+    The page's `gitItemPath` is the exact file layout git uses for the wiki
+    (`/Home.md`, `/Home/Sub.md`), so it doubles as the on-disk path. Folders
+    and the root have no `.md` item and are skipped. Content is fetched per
+    page - the tree call carries structure only.
+
+    # ponytail: sequential per-page GET; parallelise if a huge wiki drags.
+    Returns the list of written paths, or None if the tree fetch failed.
+    """
+    tree = api_mod.ado_request('GET', base, pages_base, token,
+                               query={'path': root_path, 'recursionLevel': 'full'},
+                               debug=debug)
+    if not isinstance(tree, dict):
+        return None
+    root = Path(out_dir).resolve()
+    written = []
+    for p in _iter_pages(tree):
+        git_path = p.get('gitItemPath') or ''
+        if not git_path.endswith('.md'):
+            continue
+        dest = (root / git_path.lstrip('/')).resolve()
+        # Refuse to escape the target dir - gitItemPath is remote data.
+        if root != dest and root not in dest.parents:
+            continue
+        page = api_mod.ado_request('GET', base, pages_base, token,
+                                   query={'path': p.get('path'),
+                                          'includeContent': 'true'},
+                                   debug=debug)
+        content = page.get('content') if isinstance(page, dict) else None
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(content or '', encoding='utf-8')
+        written.append(str(dest))
+    return written
+
+
 def cmd_wiki(args, config, token, base):
-    """Show a wiki page (by --id, --path, or positional path) or, with no page
-    given, the page tree of the wiki."""
+    """Show a wiki page (by --id, --path, or positional path), the page tree
+    with no page given, or --download <dir> to mirror the wiki to disk."""
     pretty = False
-    wiki = page_id = path = positional = ''
+    wiki = page_id = path = positional = download = ''
     while args:
         flag, args = args[0], args[1:]
         if flag == '--pretty':
@@ -811,6 +858,8 @@ def cmd_wiki(args, config, token, base):
             page_id, args = _require_value(flag, args)
         elif flag == '--path':
             path, args = _require_value(flag, args)
+        elif flag == '--download':
+            download, args = _require_value(flag, args)
         elif flag.startswith('-'):
             raise UsageError(f'Unknown flag: {flag}')
         elif not positional:
@@ -827,6 +876,19 @@ def cmd_wiki(args, config, token, base):
     debug = _debug_enabled(config)
     wiki = _resolve_wiki(wiki, project, token, base, debug)
     pages_base = f'{project}/_apis/wiki/wikis/{quote(wiki, safe="")}/pages'
+
+    if download:
+        written = _download_wiki(pages_base, base, token, path or '/', download, debug)
+        if written is None:
+            return 1
+        if pretty:
+            print(f'{len(written)} page(s) -> {download}')
+            for f in written:
+                print(f'  {f}')
+        else:
+            print(json.dumps({'downloaded': len(written), 'dir': download,
+                              'files': written}))
+        return 0
 
     if page_id:
         payload = api_mod.ado_request(
@@ -1183,6 +1245,7 @@ COMMAND_SCHEMA = [
                            schema_mod.flag('--wiki', value='<id|name>', summary='Which wiki (default: the sole project wiki)'),
                            schema_mod.flag('--id', value='<n>', summary='Show page by permanent id'),
                            schema_mod.flag('--path', value='<path>', summary='Show page by path'),
+                           schema_mod.flag('--download', value='<dir>', summary='Mirror the wiki (or --path subtree) to disk as Markdown files'),
                            _PRETTY,
                        ]),
     schema_mod.command('runs', 'List recent pipeline runs (builds)', auth='devops',

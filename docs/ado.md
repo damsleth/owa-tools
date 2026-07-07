@@ -223,6 +223,18 @@ owa-ado wiki --wiki NOCOS.wiki /Home --pretty
 owa-ado wiki --wiki NOCOS.wiki
 ```
 
+`--download <dir>` crawls the full page tree and mirrors it to disk as one
+Markdown file per page, for offlining a wiki into the codebase. The layout
+follows each page's backing git path (`Home.md`, `Home/Sub.md`), so a parent
+page and its children nest naturally. Scope the crawl to a subtree by adding
+`--path </Section>`. Prints a JSON summary (`{downloaded, dir, files}`), or a
+file list with `--pretty`.
+
+```bash
+owa-ado wiki --wiki NOCOS.wiki --download docs/wiki
+owa-ado wiki --wiki NOCOS.wiki --path /Onboarding --download docs/wiki --pretty
+```
+
 ### `owa-ado variable-groups`
 
 List library variable groups, or show one by id (aliases: `library`,
