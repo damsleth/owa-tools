@@ -8,6 +8,17 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-cal
+
+- **`events` now reports recurrence shape.** Added `type`
+  (`SingleInstance` / `Occurrence` / `Exception` / `SeriesMaster`) and
+  `seriesMasterId` to the normalized event, and to the `$select`. Without
+  these a consumer could not tell a standalone event from one occurrence of a
+  series, so anything that writes back had to either refuse or guess — and
+  editing one occurrence is a different operation from editing a single
+  instance. The webcal/iCal path reports `SingleInstance` / `None` since it
+  does not expand RRULE, keeping both sources on one wire shape.
+
 ## v1.5.0 - 2026-08-24
 
 ### Breaking

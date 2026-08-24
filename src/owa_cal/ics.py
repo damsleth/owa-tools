@@ -256,6 +256,10 @@ def ics_event_to_normalized(raw):
         'location': raw.get('location', ''),
         'showAs': '',
         'isAllDay': all_day,
+        # iCal feeds carry RRULE but this path does not expand series, so
+        # every row is reported as a standalone instance rather than guessed.
+        'type': 'SingleInstance',
+        'seriesMasterId': None,
         'body': raw.get('description', ''),
     }
 
