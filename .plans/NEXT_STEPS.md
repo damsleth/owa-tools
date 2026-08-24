@@ -53,6 +53,23 @@ Phase 3 findings:
 - Remaining live work: 2.1 create, 2.2 update, 2.4 delete on week `2026-08-24`,
   plus Phase 3's read-only `task` lookup.
 
+## Added 2026-08-24: submit and delete
+
+Both act on one card by `sys_id` and are Pending-only. Live results:
+
+| Check | Result |
+| --- | --- |
+| `delete <bad-format>` | `sys id must be 32 lowercase hex characters`, exit 2, no request sent |
+| `submit <valid-but-absent>` | exit 13 |
+| `submit <Approved card>` | `time card is Approved; only Pending cards may be changed`, exit 15, week unchanged |
+| `delete <Approved card>` | same refusal, exit 15, week unchanged |
+
+Still unverified live: the `submit` **success** path (Pending -> Submitted via
+`timecardprocessor.do`). It is covered offline, but proving it in production
+costs a real submitted card, and submitting cannot be undone from the CLI - it
+needs a recall in the portal. Treat it as verified-offline-only until the
+operator submits real hours, and do not manufacture a throwaway card for it.
+
 ## Follow-ups discovered 2026-08-24 (not implemented)
 
 - **Description is mandatory.** A time card saved with a blank Description is
@@ -63,13 +80,10 @@ Phase 3 findings:
   enforced at the portal/save layer, not on insert: a `project_work` card was
   observed alive in state `Pending` with `comments: ""`, so the existing
   POST-without-comments then PATCH-comments sequence stays valid.
-- **State transitions are a different endpoint.** `Pending -> Submitted` (and
-  Approve/Reject/Recall) go through
-  `timecardprocessor.do?sysparm_processor=TimeCardPortalService&sysparm_name=updateTimeCardState`,
-  form-encoded as `new_state=<State>&timecard_id=<sys_id>`, not the Table API.
-  `owa-swodp` has no submit command and adding one is a separate decision:
-  submitting a timesheet is irreversible without a recall, so it would need its
-  own confirmation story.
+- **Approve/Reject/Recall** use the same `updateTimeCardState` processor with a
+  different `new_state`. Only `Submitted` is implemented. Recall would be the
+  useful one, since it is the only way to undo a submit, but it takes a reason
+  string and the portal gates it behind `canRecall`.
 
 ## Decision record
 
