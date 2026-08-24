@@ -13,6 +13,12 @@ per-tool subsections inside that release when useful.
 - New SWODP ServiceNow timesheet CLI with dedicated prod/UAT Edge sidecars,
   headless session capture, fixed Table API reads, and validated Pending-only
   batch writes. Description creation uses a verified POST, PATCH, GET sequence.
+- `task <number>` now exits 13 with an error when the task does not exist,
+  instead of printing `null` and exiting 0.
+- Verified against the live production instance: create, Pending-only update,
+  delete, and description persistence all behave as documented, and a write
+  targeting an Approved card is skipped with exit 15 and leaves the card
+  untouched.
 
 ### owa-ado
 

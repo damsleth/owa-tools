@@ -8,7 +8,10 @@ sidecar profile. It does not use or import `owa-piggy`.
 - `time_card` failures are fatal; `resource_allocation` 403s degrade gracefully.
 - Only Pending cards may be changed. Description creation is POST without
   `comments`, then PATCH, then GET verification.
-- All live writes are tested against UAT before prod.
+- Live writes go to UAT where an instance exists. Production-only verification
+  needs explicit operator authorization plus snapshot, one row, verify, restore.
+- Never gate a decision on a read passed through an output-filtering proxy; it
+  can drop rows and rewrite states. Verify with the bare binary.
 
 Nearest tests: `src/tests/swodp/`.
 

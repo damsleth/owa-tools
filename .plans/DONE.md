@@ -8,8 +8,14 @@ pointing back here.
   sidecars, silent CDP cookie + `g_ck` capture, Table API status/read commands,
   optional per-table 403 degradation, exact write-row validation, and
   Pending-only write plans with POST → PATCH → GET description verification.
-  Live prod status/full-sync reads passed; remote mutation remains UAT-first
-  and was not attempted because no UAT sidecar exists yet. (2026-08-21)
+  Live production verification passed on 2026-08-24: create, Pending-only
+  update, delete, description persistence, and locked-card refusal (exit 15)
+  all confirmed against the real instance, with the baseline restored. Two
+  findings: `task <unknown>` exited 0 with `null` (fixed to exit 13), and
+  `rtk proxy` corrupts JSON reads badly enough to invalidate a pre-write
+  snapshot — verification reads must use the bare binary. Session-expiry
+  behavior is an accepted documented residual risk.
+  Live prod status/full-sync reads passed. (2026-08-21, verified 2026-08-24)
   Plan: [done/swodp-cli.md](done/swodp-cli.md).
 
 - **owa-planner-write-support** — mutating half of owa-planner shipped:

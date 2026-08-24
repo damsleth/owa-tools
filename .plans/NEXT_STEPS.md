@@ -1,8 +1,57 @@
 # owa-swodp next steps
 
-> **Status (2026-08-23): implementation complete; live read path verified;
-> controlled production mutation verification, final review, commit, and release
-> remain.**
+> **Status (2026-08-24): live production verification COMPLETE. All of Phase 2
+> passed and the baseline was restored. Phase 3's `task` lookup is verified and
+> produced one fix. Phases 4 and 5 are done. Only the Phase 6 release remains,
+> pending explicit operator instruction.**
+
+## Live production results (2026-08-24)
+
+Test week `2026-08-24` (empty before and after). Writes were executed by the
+operator because the auto-mode permission classifier blocks production mutation
+from the agent; every verification read was run by the agent with the bare binary.
+
+| Step | Result | Evidence |
+| --- | --- | --- |
+| 2.3 locked-card no-op | PASS | `skipped, state=Approved`, exit 15, week `2026-08-17` byte-identical afterwards (4 rows, Admin still 2h/Approved/same comments) |
+| 2.1 create | PASS | one `created`, `sys_id fa6f509b…bf0f`, exit 0, no verification warning; card `Pending`/`Admin`/Sun 0.25/total 0.25, description persisted exactly as sent |
+| 2.2 update | PASS | one `updated`, same `sys_id`, Sun 0.25 → 0.5, new description, still exactly one Admin card |
+| 2.4 delete | PASS | one `deleted`, exit 0, week `2026-08-24` empty, `2026-08-17` matches the pre-test snapshot |
+
+This proves against the live API: POST-without-comments → PATCH-comments → GET
+verification, Pending-only PATCH, identity matching without duplication, delete,
+and locked-card refusal with the documented exit code.
+
+Phase 3 findings:
+
+- `task <known-number>` returns the normalized `{sys_id, number}` with exit 0.
+- **Fixed:** `task <unknown-number>` printed `null` and exited 0. It now raises
+  `NotFoundError` (exit 13), matching every other tool in the suite. Regression
+  test added in `src/tests/swodp/test_cli.py`.
+- Session expiry remains **unverified and accepted as a documented residual
+  risk**. It cannot be forced without damaging the Edge profile, which the plan
+  forbids. The offline auth-status and HTML-redirect paths are covered; the real
+  server signal is unknown and `docs/swodp.md` now says so explicitly.
+
+## 2026-08-24 corrections (read these before running anything)
+
+- **Never use `rtk proxy` for verification reads.** It silently dropped 3 of 5
+  rows and rewrote `state` from `Approved` to `Submitted` on
+  `owa-swodp cards --week-start 2026-08-17 --range-weeks 1`. The original Phase 1
+  gate below was validated against that corrupted output and was wrong. Every
+  command in this plan must be run as the bare binary, not through `rtk proxy`.
+- **Week `2026-08-17` is not a usable test week.** It actually holds four cards:
+  Admin 2h Approved, Project 21h Submitted, Vacation 15h Approved, Project 3h
+  Processed. The `admin` identity is taken by an Approved card.
+- **Test week is now `2026-08-24`**, which is empty. Category `admin`, Sunday
+  0.25h.
+- **Phase 2.3 (locked-card protection) is PASSED.** The 2.1 attempt against week
+  `2026-08-17` hit the Approved Admin card and returned
+  `{"action": "skipped", "detail": "state=Approved"}` with `ok: false`. The card
+  was re-read afterwards and is unchanged (2h, Approved, same comments). A PATCH
+  against a non-Pending card is refused, proven against the live API.
+- Remaining live work: 2.1 create, 2.2 update, 2.4 delete on week `2026-08-24`,
+  plus Phase 3's read-only `task` lookup.
 
 ## Decision record
 
@@ -45,9 +94,9 @@ the session evidence. Do not persist cookies, `g_ck`, debug headers, or raw HTTP
 payloads.
 
 ```bash
-rtk proxy owa-swodp status --json
-rtk proxy owa-swodp cards --instance prod --week-start 2026-08-17 --range-weeks 1
-rtk proxy owa-swodp categories --instance prod
+owa-swodp status --json
+owa-swodp cards --instance prod --week-start 2026-08-24 --range-weeks 0
+owa-swodp categories --instance prod
 ```
 
 Gate:
@@ -82,9 +131,9 @@ Proposed test record for the week beginning `2026-08-17`:
 Run the production write only after the final payload is reviewed:
 
 ```bash
-rtk proxy owa-swodp write --instance prod --week-start 2026-08-17 \
-  --file /private/tmp/owa-swodp-create.json --confirm
-rtk proxy owa-swodp cards --instance prod --week-start 2026-08-17 --range-weeks 1
+owa-swodp write --instance prod --week-start 2026-08-24 \
+  --file $S/create.json --confirm
+owa-swodp cards --instance prod --week-start 2026-08-24 --range-weeks 0
 ```
 
 Acceptance:
@@ -193,30 +242,30 @@ limit, redaction, or prod/UAT profile isolation.
 Run narrow checks first:
 
 ```bash
-rtk proxy .venv/bin/ruff check src/owa_swodp src/tests/swodp
-rtk proxy .venv/bin/python -m pytest -q src/tests/swodp
-rtk proxy .venv/bin/python -m compileall -q src/owa_swodp
+.venv/bin/ruff check src/owa_swodp src/tests/swodp
+.venv/bin/python -m pytest -q src/tests/swodp
+.venv/bin/python -m compileall -q src/owa_swodp
 ```
 
 Then run the repository gates:
 
 ```bash
-rtk proxy .venv/bin/ruff check .
-rtk proxy .venv/bin/python -m compileall -q src
-rtk proxy .venv/bin/python src/scripts/check_stdlib_only.py
-rtk proxy .venv/bin/python src/scripts/check_no_secrets.py
-rtk proxy .venv/bin/python src/scripts/check_docs_sync.py
-rtk proxy .venv/bin/coverage run --source=owa_core -m pytest -q
-rtk proxy .venv/bin/coverage report --fail-under=95
-rtk proxy .venv/bin/python -m pytest -q --cov --cov-fail-under=90
+.venv/bin/ruff check .
+.venv/bin/python -m compileall -q src
+.venv/bin/python src/scripts/check_stdlib_only.py
+.venv/bin/python src/scripts/check_no_secrets.py
+.venv/bin/python src/scripts/check_docs_sync.py
+.venv/bin/coverage run --source=owa_core -m pytest -q
+.venv/bin/coverage report --fail-under=95
+.venv/bin/python -m pytest -q --cov --cov-fail-under=90
 ```
 
 Build and verify packaging with the sandbox-safe cache:
 
 ```bash
-rtk proxy env UV_CACHE_DIR=/private/tmp/owa-tools-uv-cache uv build
-rtk proxy .venv/bin/python src/scripts/check_artifacts.py dist/*
-rtk proxy .venv/bin/python src/scripts/check_console_smoke.py
+env UV_CACHE_DIR=/private/tmp/owa-tools-uv-cache uv build
+.venv/bin/python src/scripts/check_artifacts.py dist/*
+.venv/bin/python src/scripts/check_console_smoke.py
 ```
 
 Also verify:
@@ -244,7 +293,7 @@ Keep the history scoped:
 5. Cut the release only on explicit operator instruction: push `main`, create and
    push an annotated tag, build and verify artifacts, publish to PyPI, wait for the
    GitHub release workflow, update the Homebrew tap, and run
-   `rtk proxy brew upgrade owa-tools`.
+   `brew upgrade owa-tools`.
 6. Verify the installed Homebrew/PyPI binary independently of the checkout, then
    remove the development-only symlink if it masks the packaged binary.
 

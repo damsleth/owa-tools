@@ -9,7 +9,13 @@ import sys
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
-from owa_core.errors import AuthExpiredError, ConflictError, UsageError, _require_value
+from owa_core.errors import (
+    AuthExpiredError,
+    ConflictError,
+    NotFoundError,
+    UsageError,
+    _require_value,
+)
 
 from . import __version__, service
 from . import session as session_mod
@@ -198,7 +204,10 @@ def cmd_task(args):
             raise UsageError(f"Unknown argument: {flag}")
     if not task_number:
         raise UsageError("task number is required")
-    _emit(service.task_lookup(_capture(instance, debug), task_number, debug=debug), pretty)
+    task = service.task_lookup(_capture(instance, debug), task_number, debug=debug)
+    if task is None:
+        raise NotFoundError(f"SWODP task not found: {task_number}")
+    _emit(task, pretty)
     return 0
 
 
