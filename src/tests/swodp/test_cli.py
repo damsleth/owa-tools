@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from owa_core.errors import ExitCode
 from owa_swodp import cli
 
 CAPTURED = SimpleNamespace(
@@ -50,6 +51,13 @@ def test_read_commands_dispatch(monkeypatch, capsys):
     for args in commands:
         assert cli.main(args) == 0
         assert json.loads(capsys.readouterr().out) is not None
+
+
+def test_task_missing_exits_not_found(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_capture", lambda *a, **k: CAPTURED)
+    monkeypatch.setattr(cli.service, "task_lookup", lambda *a, **k: None)
+    assert cli.main(["task", "TABC123"]) == int(ExitCode.NOT_FOUND)
+    assert "not found" in capsys.readouterr().err
 
 
 def test_write_loads_file_requires_confirmation_and_dispatches(tmp_path, monkeypatch, capsys):
