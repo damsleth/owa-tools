@@ -8,6 +8,16 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+## v1.5.0 - 2026-08-24
+
+### Breaking
+
+- `owa-swodp write` rows now require a non-empty `description`. Existing write
+  plans that omitted it are rejected with exit 2 instead of creating a card.
+  SWODP treats a time card's Description as mandatory, and a card written
+  without one is rejected by the timesheet portal and blocks submission of the
+  whole timesheet. `remove` rows are exempt.
+
 ### owa-swodp
 
 - New SWODP ServiceNow timesheet CLI with dedicated prod/UAT Edge sidecars,
