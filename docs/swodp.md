@@ -49,13 +49,21 @@ values, and optional `description`, `remove`, and `split` fields.
 [{"taskNumber":"TABC123","days":[7.5,7.5,0,0,0,0,0],"description":"Implementation and review"}]
 ```
 
-Always exercise remote write behavior against UAT first:
+Exercise remote write behavior against UAT first where a UAT instance exists.
+No UAT instance is currently available for every account, so a production-only
+verification is permitted with explicit operator authorization and these
+controls: snapshot the week, write one reviewed row, verify immediately, and
+restore the starting state before moving on.
 
 ```bash
-owa-swodp write --instance uat --week-start 2026-08-17 --file rows.json --confirm
+owa-swodp write --instance uat --week-start 2026-08-24 --file rows.json --confirm
 printf '%s' '[{"category":"admin","days":[1,0,0,0,0,0,0],"description":"Admin"}]' \
-  | owa-swodp write --instance uat --week-start 2026-08-17 --file - --confirm
+  | owa-swodp write --instance uat --week-start 2026-08-24 --file - --confirm
 ```
+
+Read the week with the bare binary when the output gates a decision. Wrapping a
+read in an output-filtering proxy can drop rows and rewrite field values, which
+turns a pre-write snapshot into fiction.
 
 Only `Pending` cards are changed; submitted or approved cards are skipped. New
 descriptions use three steps because SWODP drops `comments` on insert: POST
@@ -67,4 +75,10 @@ as a whole, requires `--confirm` outside a TTY, and is capped at 200 rows.
 Default output is JSON. `--pretty` indents it, `--agent` adds the suite envelope,
 and `--err-json` emits structured stderr. `schema` is offline. Expected failures
 use the suite exit taxonomy: notably 11 for an expired sidecar, 12 for required
-table denial, and 15 for locked/skipped write preconditions.
+table denial, 13 for an unknown task number, and 15 for locked/skipped write
+preconditions.
+
+The 11 path is covered offline for both an auth-status response and an HTML
+sign-in redirect. The signal a live expired SWODP session actually returns is
+unverified; treat it as a documented residual risk rather than a known
+behavior.
