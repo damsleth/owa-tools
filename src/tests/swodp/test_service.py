@@ -2,7 +2,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from owa_core.errors import ScopeInsufficientError, UsageError
+from owa_core.errors import (
+    ConflictError,
+    NotFoundError,
+    ScopeInsufficientError,
+    UsageError,
+)
 from owa_swodp import service
 
 SESSION = SimpleNamespace(user="user@example.invalid")
@@ -207,3 +212,55 @@ def test_sync_cards_only_and_truncation(monkeypatch):
     result = service.sync(SESSION, "2026-08-17", cards_only=True)
     assert len(result["weekCards"]) == 500
     assert "truncated" in result["warnings"][0]
+
+
+CARD_ID = "fa6f509b2bfec3102ba6fe9cf291bf0f"
+
+
+def test_pending_card_validates_id_and_state(monkeypatch):
+    with pytest.raises(UsageError):
+        service._pending_card(SESSION, "not-a-sys-id")
+    monkeypatch.setattr(service.api, "request", lambda *a, **k: {})
+    with pytest.raises(NotFoundError):
+        service._pending_card(SESSION, CARD_ID)
+    monkeypatch.setattr(service.api, "request", lambda *a, **k: [{"state": "Approved"}])
+    with pytest.raises(ConflictError):
+        service._pending_card(SESSION, CARD_ID)
+
+
+def test_delete_card_only_deletes_pending(monkeypatch):
+    calls = []
+
+    def fake(session, method, table, **kwargs):
+        calls.append(method)
+        return {"sys_id": CARD_ID, "state": "Pending", "category": "admin"}
+
+    monkeypatch.setattr(service.api, "request", fake)
+    result = service.delete_card(SESSION, CARD_ID)
+    assert calls == ["GET", "DELETE"]
+    assert result["action"] == "deleted" and result["sys_id"] == CARD_ID
+
+
+def test_submit_card_reports_state_and_refuses_failures(monkeypatch):
+    states = iter([{"state": "Pending"}, {"state": "Submitted"}])
+    monkeypatch.setattr(service.api, "request", lambda *a, **k: next(states))
+    monkeypatch.setattr(
+        service.api, "processor", lambda *a, **k: {"status": "success", "data": {"message": "ok"}}
+    )
+    result = service.submit_card(SESSION, CARD_ID)
+    assert result["action"] == "submitted" and result["state"] == "Submitted"
+    assert result["message"] == "ok" and "detail" not in result
+
+    monkeypatch.setattr(service.api, "request", lambda *a, **k: {"state": "Pending"})
+    monkeypatch.setattr(
+        service.api, "processor", lambda *a, **k: {"status": "error", "data": {"message": "nope"}}
+    )
+    with pytest.raises(ConflictError, match="nope"):
+        service.submit_card(SESSION, CARD_ID)
+
+
+def test_submit_card_flags_state_that_did_not_move(monkeypatch):
+    monkeypatch.setattr(service.api, "request", lambda *a, **k: {"state": "Pending"})
+    monkeypatch.setattr(service.api, "processor", lambda *a, **k: {"status": "success"})
+    result = service.submit_card(SESSION, CARD_ID)
+    assert "detail" in result and "Pending" in result["detail"]
