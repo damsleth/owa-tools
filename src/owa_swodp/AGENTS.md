@@ -8,6 +8,9 @@ sidecar profile. It does not use or import `owa-piggy`.
 - `time_card` failures are fatal; `resource_allocation` 403s degrade gracefully.
 - Only Pending cards may be changed. Description creation is POST without
   `comments`, then PATCH, then GET verification.
+- Description is mandatory on `time_card`; a blank one blocks timesheet
+  submission in the portal. Write rows must carry a non-empty `description`
+  unless they are `remove` rows.
 - Live writes go to UAT where an instance exists. Production-only verification
   needs explicit operator authorization plus snapshot, one row, verify, restore.
 - Never gate a decision on a read passed through an output-filtering proxy; it
