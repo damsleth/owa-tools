@@ -108,6 +108,10 @@ Architecture-constraint tests keep entropy from creeping back in:
 - every command has a schema
 - every mutating command declares confirmation / idempotency metadata
 
+The sole current `urlopen` exception is `owa_swodp.cdp`: target discovery talks
+only to the loopback Edge debugging endpoint. Remote SWODP HTTP still routes
+through `owa_core.http.request_unauthenticated`.
+
 See `src/tests/test_architecture_contracts.py` and `src/tests/docs/`.
 
 ## Documentation set

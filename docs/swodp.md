@@ -1,0 +1,70 @@
+# owa-swodp
+
+`owa-swodp` is the agent-facing data layer for SWODP ServiceNow timesheets. It
+does not fetch calendar events or perform matching; use `owa-cal` for calendar
+data and pass a reviewed row plan to the write command.
+
+Unlike the Microsoft 365 tools, this command does not use `owa-piggy`. It opens
+Microsoft Edge against a dedicated profile, waits for the existing SSO session,
+captures ServiceNow cookies and `window.g_ck` through local CDP, closes Edge,
+then makes plain stdlib HTTP calls. Captured credentials remain in memory and
+are never written to config or emitted. Prod and UAT have separate profiles:
+`~/.config/owa-swodp/edge-profile/` and `edge-profile-uat/`.
+
+## Session
+
+```bash
+owa-swodp setup --instance prod
+owa-swodp setup --instance uat
+owa-swodp status --json
+owa-swodp reseed --instance prod
+```
+
+`owa-swodp status` and `owa-swodp reseed` return exit 11 with a setup hint when
+the browser session can no longer silently authenticate.
+
+## Reads
+
+```bash
+owa-swodp sync --week-start 2026-08-17
+owa-swodp sync --week-start 2026-08-17 --cards-only
+owa-swodp cards --week-start 2026-08-17 --range-weeks 3
+owa-swodp history
+owa-swodp allocations --since 2026-05-01
+owa-swodp categories
+owa-swodp task TABC123
+```
+
+`time_card` access is required and failures are fatal. A 403 from
+`resource_allocation` is account-specific and degrades to a warning during
+`sync`; time-card data still returns. Row-limit truncation is also explicit.
+
+## Writes
+
+Writes accept a JSON array from a file or stdin. Each row has exactly one of
+`taskNumber` or `category`, exactly seven numeric Monday-through-Sunday day
+values, and optional `description`, `remove`, and `split` fields.
+
+```json
+[{"taskNumber":"TABC123","days":[7.5,7.5,0,0,0,0,0],"description":"Implementation and review"}]
+```
+
+Always exercise remote write behavior against UAT first:
+
+```bash
+owa-swodp write --instance uat --week-start 2026-08-17 --file rows.json --confirm
+printf '%s' '[{"category":"admin","days":[1,0,0,0,0,0,0],"description":"Admin"}]' \
+  | owa-swodp write --instance uat --week-start 2026-08-17 --file - --confirm
+```
+
+Only `Pending` cards are changed; submitted or approved cards are skipped. New
+descriptions use three steps because SWODP drops `comments` on insert: POST
+without it, PATCH `comments`, then GET and verify. The batch is not retry-safe
+as a whole, requires `--confirm` outside a TTY, and is capped at 200 rows.
+
+## Machine contract
+
+Default output is JSON. `--pretty` indents it, `--agent` adds the suite envelope,
+and `--err-json` emits structured stderr. `schema` is offline. Expected failures
+use the suite exit taxonomy: notably 11 for an expired sidecar, 12 for required
+table denial, and 15 for locked/skipped write preconditions.

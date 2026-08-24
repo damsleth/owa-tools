@@ -6,6 +6,14 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## Unreleased
+
+### owa-swodp
+
+- New SWODP ServiceNow timesheet CLI with dedicated prod/UAT Edge sidecars,
+  headless session capture, fixed Table API reads, and validated Pending-only
+  batch writes. Description creation uses a verified POST, PATCH, GET sequence.
+
 ## v1.4.0 - 2026-07-07
 
 ### owa-ado

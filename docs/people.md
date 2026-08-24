@@ -8,11 +8,11 @@ Pipe-friendly lookups for people and contacts. Sibling of
 ```
 $ owa-people find "ada" --pretty
 name              email             title             company
-Ada Lovelace      vtv@example.com   Saksbehandler     Example Org
+Ada Lovelace      ada@example.com   Saksbehandler     Example Org
 
-$ owa-people show vtv@example.com --pretty
+$ owa-people show ada@example.com --pretty
 Ada Lovelace
-  email:    vtv@example.com
+  email:    ada@example.com
   title:    Saksbehandler
   dept:     Faglig stab
   company:  Example Org
@@ -92,15 +92,15 @@ non-interactively without it.
 
 ```bash
 owa-people find "ada" --pretty
-owa-people show vtv@example.com
+owa-people show ada@example.com
 owa-people directory "acme" --limit 50 --pretty
 owa-people directory "acme" --all | jq length
 owa-people directory "ada" --select "id,displayName,mail" --filter "department eq 'IT'"
 owa-people me --pretty
-owa-people manager vtv@example.com --pretty
+owa-people manager ada@example.com --pretty
 owa-people direct-reports --all --pretty
-owa-people org-chart vtv@example.com --depth 2 --pretty
-owa-people photo vtv@example.com --out avatar.jpg
+owa-people org-chart ada@example.com --depth 2 --pretty
+owa-people photo ada@example.com --out avatar.jpg
 owa-people groups --pretty
 owa-people contacts --all --pretty
 owa-people contact-create --name "Ada Lovelace" --email ada@example.com --company "Analytical Engines"

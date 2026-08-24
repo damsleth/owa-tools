@@ -23,6 +23,7 @@ from owa_places.cli import COMMAND_SCHEMA as PLACES_SCHEMA  # noqa: E402
 from owa_planner.cli import COMMAND_SCHEMA as PLANNER_SCHEMA  # noqa: E402
 from owa_sched.cli import COMMAND_SCHEMA as SCHED_SCHEMA  # noqa: E402
 from owa_sites.cli import COMMAND_SCHEMA as SITES_SCHEMA  # noqa: E402
+from owa_swodp.cli import COMMAND_SCHEMA as SWODP_SCHEMA  # noqa: E402
 from owa_teams.cli import COMMAND_SCHEMA as TEAMS_SCHEMA  # noqa: E402
 from owa_todo.cli import COMMAND_SCHEMA as TODO_SCHEMA  # noqa: E402
 from owa_vids.cli import COMMAND_SCHEMA as VIDS_SCHEMA  # noqa: E402
@@ -42,6 +43,7 @@ DOCS = {
     'owa-teams': ('docs/teams.md', TEAMS_SCHEMA),
     'owa-vids': ('docs/vids.md', VIDS_SCHEMA),
     'owa-ado': ('docs/ado.md', ADO_SCHEMA),
+    'owa-swodp': ('docs/swodp.md', SWODP_SCHEMA),
 }
 
 SHELL_FENCES = {'', 'sh', 'bash', 'shell', 'console'}
