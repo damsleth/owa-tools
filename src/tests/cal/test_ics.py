@@ -79,12 +79,17 @@ def test_normalized_shape_matches_outlook_path():
     expected_keys = {
         'id', 'subject', 'start', 'end', 'categories',
         'location', 'showAs', 'isAllDay', 'body',
+        'type', 'seriesMasterId',
     }
     assert set(norm.keys()) == expected_keys
     assert norm['id'] == '00000000-0000-0000-0000-000000000001'
     assert norm['location'] == 'Sample Room A'
     assert norm['categories'] == []
     assert norm['showAs'] == ''
+    # This path does not expand RRULE, so every row is reported as a
+    # standalone instance rather than guessed at.
+    assert norm['type'] == 'SingleInstance'
+    assert norm['seriesMasterId'] is None
 
 
 def test_filter_by_range_inclusive():
