@@ -74,3 +74,34 @@ def test_empty_delete_response(monkeypatch):
         lambda *a, **k: Response(204, {}, None, b""),
     )
     assert api.request(SESSION, "DELETE", "time_card") == {}
+
+
+def test_processor_posts_form_encoded_and_returns_bare_object(monkeypatch):
+    seen = {}
+
+    def fake(method, url, *, body=None, headers=None, debug=False):
+        seen.update(method=method, url=url, body=body, headers=headers)
+        return SimpleNamespace(
+            bytes=b'{"status": "success", "data": {"message": "done"}}',
+            headers={"Content-Type": "application/json"},
+        )
+
+    monkeypatch.setattr(api.http, "request_unauthenticated", fake)
+    payload = api.processor(SESSION, "updateTimeCardState", {"timecard_id": "x", "new_state": "Submitted"})
+    assert payload == {"status": "success", "data": {"message": "done"}}
+    assert seen["method"] == "POST"
+    assert "timecardprocessor.do" in seen["url"]
+    assert "sysparm_name=updateTimeCardState" in seen["url"]
+    assert seen["body"] == b"timecard_id=x&new_state=Submitted"
+    assert seen["headers"]["Content-Type"] == "application/x-www-form-urlencoded"
+    assert seen["headers"]["X-UserToken"] == SESSION.user_token
+
+
+def test_processor_rejects_non_object(monkeypatch):
+    monkeypatch.setattr(
+        api.http,
+        "request_unauthenticated",
+        lambda *a, **k: SimpleNamespace(bytes=b"[]", headers={"Content-Type": "application/json"}),
+    )
+    with pytest.raises(InternalError):
+        api.processor(SESSION, "updateTimeCardState", {})

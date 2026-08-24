@@ -13,6 +13,12 @@ per-tool subsections inside that release when useful.
 - New SWODP ServiceNow timesheet CLI with dedicated prod/UAT Edge sidecars,
   headless session capture, fixed Table API reads, and validated Pending-only
   batch writes. Description creation uses a verified POST, PATCH, GET sequence.
+- New `submit <sys-id>` moves one Pending time card to Submitted through the
+  Service Portal processor endpoint (state changes are not Table API
+  operations), verifies the state afterwards, and reports a card that did not
+  move. New `delete <sys-id>` deletes one Pending time card by id. Both require
+  confirmation, refuse any non-Pending card with exit 15, and exit 13 for a
+  card that does not exist.
 - `task <number>` now exits 13 with an error when the task does not exist,
   instead of printing `null` and exiting 0.
 - Write rows now require a non-empty `description` unless they are `remove`

@@ -8,6 +8,9 @@ sidecar profile. It does not use or import `owa-piggy`.
 - `time_card` failures are fatal; `resource_allocation` 403s degrade gracefully.
 - Only Pending cards may be changed. Description creation is POST without
   `comments`, then PATCH, then GET verification.
+- `submit`/`delete` act on one card by `sys_id` and are Pending-only. State
+  transitions use the `timecardprocessor.do` portal processor (form-encoded,
+  no `result` envelope), not the Table API; reads and deletes use the Table API.
 - Description is mandatory on `time_card`; a blank one blocks timesheet
   submission in the portal. Write rows must carry a non-empty `description`
   unless they are `remove` rows.

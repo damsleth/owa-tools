@@ -132,3 +132,38 @@ def test_load_rows_reports_file_and_json_errors(tmp_path):
     bad.write_text("not json", encoding="utf-8")
     with pytest.raises(Exception, match="not valid JSON"):
         cli._load_rows(str(bad))
+
+
+def test_submit_and_delete_require_sys_id_and_dispatch(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_capture", lambda *a, **k: CAPTURED)
+    monkeypatch.setattr(
+        cli.service, "delete_card", lambda *a, **k: {"action": "deleted", "sys_id": "x"}
+    )
+    monkeypatch.setattr(
+        cli.service,
+        "submit_card",
+        lambda *a, **k: {"action": "submitted", "sys_id": "x", "state": "Submitted"},
+    )
+    for args in (["delete", "x", "--confirm"], ["submit", "--sys-id", "x", "--confirm"]):
+        assert cli.main(args) == 0
+        assert json.loads(capsys.readouterr().out)["ok"] is True
+
+    for command in ("submit", "delete"):
+        assert cli.main([command, "--confirm"]) == int(ExitCode.USAGE)
+        assert "sys id is required" in capsys.readouterr().err
+
+
+def test_submit_conflicts_when_state_did_not_move(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_capture", lambda *a, **k: CAPTURED)
+    monkeypatch.setattr(
+        cli.service,
+        "submit_card",
+        lambda *a, **k: {"action": "submitted", "sys_id": "x", "detail": "state is Pending"},
+    )
+    assert cli.main(["submit", "x", "--confirm"]) == int(ExitCode.CONFLICT)
+    assert json.loads(capsys.readouterr().out)["ok"] is False
+
+
+def test_card_commands_require_confirmation(monkeypatch):
+    monkeypatch.setattr(cli.tty_mod, "confirm", lambda *a, **k: False)
+    assert cli.main(["delete", "x"]) == int(ExitCode.USAGE)

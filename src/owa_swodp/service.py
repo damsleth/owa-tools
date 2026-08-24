@@ -7,13 +7,14 @@ import re
 from collections import defaultdict
 from datetime import date, timedelta
 
-from owa_core.errors import ScopeInsufficientError, UsageError
+from owa_core.errors import ConflictError, NotFoundError, ScopeInsufficientError, UsageError
 
 from . import api
 
 DAY_FIELDS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 DESCRIPTION_FIELD = "comments"
 TASK_RE = re.compile(r"^T[0-9A-Z]{5,30}$")
+SYS_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 CATEGORY_RE = re.compile(r"^[a-z0-9_ -]{2,40}$", re.IGNORECASE)
 
 
@@ -145,6 +146,67 @@ def task_lookup(session, task_number, *, debug=False):
         debug=debug,
     )
     return rows[0] if rows else None
+
+
+def _pending_card(session, sys_id, *, debug=False):
+    """Fetch one time card and refuse to touch it unless it is Pending."""
+    if not SYS_ID_RE.fullmatch(sys_id or ""):
+        raise UsageError("sys id must be 32 lowercase hex characters")
+    record = api.request(
+        session,
+        "GET",
+        "time_card",
+        sys_id=sys_id,
+        params={"sysparm_fields": "sys_id,state,category,task.number,total,week_starts_on"},
+        debug=debug,
+    )
+    if isinstance(record, list):
+        record = record[0] if record else {}
+    if not record:
+        raise NotFoundError(f"time card not found: {sys_id}")
+    if record.get("state") != "Pending":
+        raise ConflictError(
+            f"time card is {record.get('state') or 'in an unknown state'}; "
+            "only Pending cards may be changed"
+        )
+    return record
+
+
+def delete_card(session, sys_id, *, debug=False):
+    card = _pending_card(session, sys_id, debug=debug)
+    api.request(session, "DELETE", "time_card", sys_id=sys_id, debug=debug)
+    return {"action": "deleted", "sys_id": sys_id, "card": card}
+
+
+def submit_card(session, sys_id, *, debug=False):
+    """Move one Pending card to Submitted through the portal processor."""
+    card = _pending_card(session, sys_id, debug=debug)
+    payload = api.processor(
+        session,
+        "updateTimeCardState",
+        {"timecard_id": sys_id, "new_state": "Submitted"},
+        debug=debug,
+    )
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+    message = data.get("message") or payload.get("message") or ""
+    if payload.get("status") != "success":
+        raise ConflictError(f"SWODP refused the submit: {message or 'no reason given'}")
+    state = api.request(
+        session,
+        "GET",
+        "time_card",
+        sys_id=sys_id,
+        params={"sysparm_fields": "state"},
+        debug=debug,
+    )
+    if isinstance(state, list):
+        state = state[0] if state else {}
+    result = {"action": "submitted", "sys_id": sys_id, "state": state.get("state"), "card": card}
+    if message:
+        result["message"] = message
+    if state.get("state") != "Submitted":
+        result["detail"] = f"state is {state.get('state') or 'unknown'} after a successful submit"
+    return result
 
 
 def sync(session, week_start, *, weeks=3, cards_only=False, debug=False):

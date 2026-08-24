@@ -67,6 +67,30 @@ printf '%s' '[{"category":"admin","days":[1,0,0,0,0,0,0],"description":"Admin"}]
   | owa-swodp write --instance uat --week-start 2026-08-24 --file - --confirm
 ```
 
+## Single-card commands
+
+A time sheet is a set of time cards; `submit` and `delete` act on exactly one
+card, addressed by its `sys_id` (from `cards`), and both require confirmation.
+
+```bash
+owa-swodp submit --sys-id fa6f509b2bfec3102ba6fe9cf291bf0f --confirm
+owa-swodp delete fa6f509b2bfec3102ba6fe9cf291bf0f --confirm
+```
+
+Both refuse anything that is not `Pending`, exiting 15, and exit 13 when the
+card does not exist. `delete` is the same Table API call `write` makes for a
+`remove` row, addressed by id instead of by category or task.
+
+`submit` is not a Table API operation. State transitions go through the Service
+Portal processor at
+`timecardprocessor.do?sysparm_processor=TimeCardPortalService&sysparm_name=updateTimeCardState`,
+form-encoded as `new_state=Submitted&timecard_id=<sys_id>`, which answers with a
+bare `{"status": ..., "data": {...}}` object rather than a `result` envelope. A
+non-success status is reported as a conflict, and the card's state is read back
+afterwards; a card that did not actually move is flagged and exits 15.
+Submitting is not reversible from this CLI - undoing it needs a recall in the
+portal.
+
 Read the week with the bare binary when the output gates a decision. Wrapping a
 read in an output-filtering proxy can drop rows and rewrite field values, which
 turns a pre-write snapshot into fiction.
