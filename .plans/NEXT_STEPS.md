@@ -53,6 +53,24 @@ Phase 3 findings:
 - Remaining live work: 2.1 create, 2.2 update, 2.4 delete on week `2026-08-24`,
   plus Phase 3's read-only `task` lookup.
 
+## Follow-ups discovered 2026-08-24 (not implemented)
+
+- **Description is mandatory.** A time card saved with a blank Description is
+  rejected by the timesheet portal with
+  `The mandatory field "Description" is not filled in.` and blocks submission of
+  the entire timesheet. Write rows now require a non-empty `description` unless
+  they are `remove` rows, refused before any request is sent. Note the rule is
+  enforced at the portal/save layer, not on insert: a `project_work` card was
+  observed alive in state `Pending` with `comments: ""`, so the existing
+  POST-without-comments then PATCH-comments sequence stays valid.
+- **State transitions are a different endpoint.** `Pending -> Submitted` (and
+  Approve/Reject/Recall) go through
+  `timecardprocessor.do?sysparm_processor=TimeCardPortalService&sysparm_name=updateTimeCardState`,
+  form-encoded as `new_state=<State>&timecard_id=<sys_id>`, not the Table API.
+  `owa-swodp` has no submit command and adding one is a separate decision:
+  submitting a timesheet is irreversible without a recall, so it would need its
+  own confirmation story.
+
 ## Decision record
 
 - There is no usable dedicated SWODP UAT environment for this account.

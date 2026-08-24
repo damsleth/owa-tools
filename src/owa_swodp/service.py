@@ -221,12 +221,16 @@ def validate_write_rows(rows):
             raise UsageError(f"row {index + 1} day values must be finite numbers from 0 to 24")
         if "description" in row and not isinstance(row["description"], str):
             raise UsageError(f"row {index + 1} description must be a string")
+        # SWODP makes Description mandatory on time_card. A blank one creates a card
+        # that cannot be submitted, so require it rather than warn after the write.
+        if not row.get("remove") and not row.get("description", "").strip():
+            raise UsageError(f"row {index + 1} requires a non-empty description")
         if "remove" in row and not isinstance(row["remove"], bool):
             raise UsageError(f"row {index + 1} remove must be boolean")
         if "split" in row and row["split"] is not True:
             raise UsageError(f"row {index + 1} split may only be true")
-        if row.get("split") and (not row.get("description", "").strip() or row.get("remove")):
-            raise UsageError(f"row {index + 1} split requires a description and cannot remove")
+        if row.get("split") and row.get("remove"):
+            raise UsageError(f"row {index + 1} split cannot remove")
     return rows
 
 
@@ -242,8 +246,6 @@ def _days_body(row):
 
 
 def _verify_description(session, sys_id, sent, *, debug=False):
-    if not sent:
-        return "empty description sent; Description in tcp may be blank"
     record = api.request(
         session,
         "GET",

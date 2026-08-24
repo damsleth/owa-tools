@@ -15,6 +15,11 @@ per-tool subsections inside that release when useful.
   batch writes. Description creation uses a verified POST, PATCH, GET sequence.
 - `task <number>` now exits 13 with an error when the task does not exist,
   instead of printing `null` and exiting 0.
+- Write rows now require a non-empty `description` unless they are `remove`
+  rows. SWODP treats a time card's Description as mandatory, so a card written
+  without one is rejected by the timesheet portal and blocks submission of the
+  whole timesheet. The plan is refused before any request is sent instead of
+  creating the card and returning an advisory warning.
 - Verified against the live production instance: create, Pending-only update,
   delete, and description persistence all behave as documented, and a write
   targeting an Approved card is skipped with exit 15 and leaves the card

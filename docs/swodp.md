@@ -43,7 +43,13 @@ owa-swodp task TABC123
 
 Writes accept a JSON array from a file or stdin. Each row has exactly one of
 `taskNumber` or `category`, exactly seven numeric Monday-through-Sunday day
-values, and optional `description`, `remove`, and `split` fields.
+values, a non-empty `description`, and optional `remove` and `split` fields.
+
+`description` is required because SWODP treats the time card's Description as
+mandatory. A card saved with a blank one is rejected by the timesheet portal
+("The mandatory field \"Description\" is not filled in") and blocks submission
+of the whole timesheet, so the plan is refused before any request is sent.
+`remove` rows do not need one.
 
 ```json
 [{"taskNumber":"TABC123","days":[7.5,7.5,0,0,0,0,0],"description":"Implementation and review"}]

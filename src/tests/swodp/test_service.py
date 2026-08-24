@@ -68,7 +68,12 @@ def valid_row(**updates):
 
 
 def test_validate_write_rows_accepts_task_category_and_split():
-    rows = [valid_row(), {"category": "admin", "days": [0] * 7}, valid_row(split=True)]
+    rows = [
+        valid_row(),
+        {"category": "admin", "days": [0] * 7, "description": "admin"},
+        {"category": "admin", "days": [0] * 7, "remove": True},
+        valid_row(split=True),
+    ]
     assert service.validate_write_rows(rows) is rows
 
 
@@ -84,6 +89,8 @@ def test_validate_write_rows_accepts_task_category_and_split():
         [valid_row(split=False)],
         [valid_row(split=True, description="")],
         [valid_row(split=True, remove=True)],
+        [{"category": "admin", "days": [0] * 7}],
+        [valid_row(description="   ")],
     ],
 )
 def test_validate_write_rows_rejects_invalid(rows):
@@ -189,7 +196,6 @@ def test_split_replaces_pending_cards(monkeypatch):
 
 
 def test_description_verification_reports_missing_and_notes(monkeypatch):
-    assert "empty description" in service._verify_description(SESSION, "x", None)
     monkeypatch.setattr(
         service.api, "request", lambda *a, **k: {"comments": "", "notes": "fallback"}
     )

@@ -63,7 +63,7 @@ def test_task_missing_exits_not_found(monkeypatch, capsys):
 def test_write_loads_file_requires_confirmation_and_dispatches(tmp_path, monkeypatch, capsys):
     path = tmp_path / "rows.json"
     path.write_text(
-        json.dumps([{"category": "admin", "days": [1, 0, 0, 0, 0, 0, 0]}]),
+        json.dumps([{"category": "admin", "days": [1, 0, 0, 0, 0, 0, 0], "description": "a"}]),
         encoding="utf-8",
     )
     monkeypatch.setattr(cli, "_capture", lambda *a, **k: CAPTURED)
