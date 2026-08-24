@@ -85,6 +85,39 @@ def test_wi_show_single_by_id(monkeypatch, tmp_config, clean_env, capsys):
     assert out['id'] == 777 and out['type'] == 'Bug'
 
 
+def test_wi_show_description_default_short_and_detailed(monkeypatch, tmp_config,
+                                                        clean_env, capsys):
+    """Description ships by default, --short drops it, --detailed adds files."""
+    seen = []
+
+    def fake_request(method, base, endpoint, token, **kwargs):
+        seen.append(kwargs.get('query'))
+        return {
+            'id': 777,
+            'fields': {'System.Title': 'One', 'System.Description': '<p>Why &amp; how</p>'},
+            'relations': [{'rel': 'AttachedFile', 'url': 'u',
+                           'attributes': {'name': 'spec.pdf'}}],
+        }
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+
+    assert _run(['wi', '777'], tmp_config, clean_env) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out['description'] == 'Why & how' and 'attachments' not in out
+    assert 'System.Description' in seen[-1]['fields']
+
+    assert _run(['wi', '777', '--short'], tmp_config, clean_env) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert 'description' not in out and 'attachments' not in out
+    assert 'System.Description' not in seen[-1]['fields']
+
+    assert _run(['wi', '777', '--detailed'], tmp_config, clean_env) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out['description'] == 'Why & how'
+    assert out['attachments'] == [{'name': 'spec.pdf', 'url': 'u'}]
+    assert seen[-1] == {'$expand': 'relations'}
+
+
 def test_wi_empty_result_emits_empty_list(monkeypatch, tmp_config, clean_env, capsys):
     def fake_request(method, base, endpoint, token, **kwargs):
         return {'workItems': []}
