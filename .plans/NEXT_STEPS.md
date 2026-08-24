@@ -1,9 +1,10 @@
 # owa-swodp next steps
 
-> **Status (2026-08-24): live production verification COMPLETE. All of Phase 2
-> passed and the baseline was restored. Phase 3's `task` lookup is verified and
-> produced one fix. Phases 4 and 5 are done. Only the Phase 6 release remains,
-> pending explicit operator instruction.**
+> **Status (2026-08-24): DONE and RELEASED as v1.5.0.** Live production
+> verification passed, all gates green, published to PyPI, GitHub Release built
+> in CI with artifacts attached, Homebrew tap bumped, and a clean venv install
+> from PyPI verified outside the checkout. The only item deliberately left
+> unproven in production is the `submit` success path (see below).
 
 ## Live production results (2026-08-24)
 
