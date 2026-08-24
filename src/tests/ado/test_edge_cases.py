@@ -22,8 +22,8 @@ def test_identity_falls_back_to_id():
 
 
 def test_build_wiql_iteration_clause():
-    q = res.build_wiql(iteration='NOCOS\\CD 1')
-    assert "[System.IterationPath] = 'NOCOS\\CD 1'" in q
+    q = res.build_wiql(iteration='ACME\\CD 1')
+    assert "[System.IterationPath] = 'ACME\\CD 1'" in q
 
 
 def test_config_round_trip(tmp_config):

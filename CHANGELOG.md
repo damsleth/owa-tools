@@ -6,6 +6,14 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## Unreleased
+
+### owa-swodp
+
+- New SWODP ServiceNow timesheet CLI with dedicated prod/UAT Edge sidecars,
+  headless session capture, fixed Table API reads, and validated Pending-only
+  batch writes. Description creation uses a verified POST, PATCH, GET sequence.
+
 ## v1.4.0 - 2026-07-07
 
 ### owa-ado
@@ -430,7 +438,7 @@ separate `owa-tui` package, and the importable library-API surface is declared s
 - Multi-profile fan-out (foundation). Any owa-* verb now accepts **repeated**
   `--profile`/`-p` flags and runs the command once per profile in a single
   invocation, merging results keyed by profile — e.g.
-  `owa-graph GET /me --profile crayon --profile brkh`. Zero or one `--profile`
+  `owa-graph GET /me --profile acme --profile brkh`. Zero or one `--profile`
   is byte-identical to before (no regression). With two or more, JSON output is
   wrapped as `{"_owa": {…, "profiles": […]}, "results": [{"profile", "ok",
   "data"|"error"}, …]}`, `--pretty` prints one `=== profile: <name> ===` section

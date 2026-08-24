@@ -30,9 +30,9 @@ PyPI:
 pipx install owa-piggy && pipx install owa-tools
 ```
 
-Either path lands fourteen binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
+Either path lands sixteen binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
 `owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-places`, `owa-drive`, `owa-todo`,
-`owa-planner`, `owa-sites`, `owa-teams`, `owa-vids`, `owa-ado`) plus the
+`owa-planner`, `owa-sites`, `owa-teams`, `owa-vids`, `owa-ado`, `owa-swodp`) plus the
 `owa-piggy` auth broker.
 
 ## Quickstart
@@ -78,6 +78,7 @@ passed straight through.
 | `owa-teams` | Microsoft Teams (read-only): joined teams, channels, chats, and channel/chat messages (threaded). |
 | `owa-vids` | Download Teams / OneDrive meeting-recap DASH streams and mux to MP4 (token-only, via ffmpeg). |
 | `owa-ado` | Azure DevOps: work items (WIQL), boards/sprints, repos & pull requests, pipelines & runs, library variable groups, task/deployment groups, environments & releases. Auth via `owa-piggy --audience devops`. |
+| `owa-swodp` | SWODP ServiceNow timesheets: dedicated Edge sidecar auth, reads, validated Pending-only writes, prod/UAT isolation. |
 | `owa` | Umbrella: suite meta (`owa list`, `owa schema`, `owa version`, `owa --doctor`) plus `owa <tool> ...` pass-through dispatch (e.g. `owa cal events`). |
 
 This repo is CLI-only. For interactive TUI frontends (curses agenda browser,
@@ -86,20 +87,22 @@ mail reader, Graph explorer), see
 
 ## Multi-account / profiles
 
-Each tool delegates auth to `owa-piggy` and inherits its profile model. Pin a
+Microsoft 365 and Azure DevOps tools delegate auth to `owa-piggy` and inherit
+its profile model. `owa-swodp` is the exception: it uses dedicated ServiceNow
+Edge profiles selected with `--instance prod|uat`. For broker-backed tools, pin a
 profile for a tool, switch per call, or set it via env:
 
 ```bash
-owa-cal --profile crayon events --pretty         # one call
-OWA_PROFILE=crayon owa-cal events --pretty       # one shell session
-owa-cal config --profile crayon                  # persistent for owa-cal
+owa-cal --profile acme events --pretty         # one call
+OWA_PROFILE=acme owa-cal events --pretty       # one shell session
+owa-cal config --profile acme                  # persistent for owa-cal
 ```
 
 Repeat `--profile` to fan out across profiles in one call - results are merged
 keyed by profile (exit `0` all ok, `2` mixed, `1` all failed):
 
 ```bash
-owa-mail --profile crayon --profile brkh messages --unread   # both inboxes, merged
+owa-mail --profile acme --profile brkh messages --unread   # both inboxes, merged
 ```
 
 See [`docs/profile-model.md`](docs/profile-model.md) for the full precedence

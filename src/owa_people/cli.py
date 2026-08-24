@@ -90,15 +90,15 @@ Common options:
                       page size. Not available on find (/me/people no page).
 
 Examples:
-  owa-people find "vibeke" --pretty
-  owa-people show vtv@une.no
-  owa-people directory "norconsult" --limit 50 --pretty
-  owa-people manager vtv@une.no --pretty
-  owa-people org-chart vtv@une.no --depth 2
-  owa-people photo vtv@une.no > avatar.jpg
+  owa-people find "ada" --pretty
+  owa-people show ada@example.com
+  owa-people directory "acme" --limit 50 --pretty
+  owa-people manager ada@example.com --pretty
+  owa-people org-chart ada@example.com --depth 2
+  owa-people photo ada@example.com > avatar.jpg
   owa-people groups --pretty
   owa-people contact-create --name "Ada" --email ada@ex.com
-  owa-people --profile crayon find "ole kristian"
+  owa-people --profile acme find "ole kristian"
 """)
     print()
     print(schema_mod.MULTI_PROFILE_HELP)

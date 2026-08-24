@@ -91,7 +91,7 @@ owa-sched find-time --who alice@example.com,bob@example.com --duration 30 --week
 owa-sched find-time --who you@example.com --date 2026-05-12 --start 09:00 --end 17:00
 
 owa-sched refresh
-owa-sched config --profile crayon
+owa-sched config --profile acme
 ```
 
 ## Output contract

@@ -3,11 +3,11 @@ from owa_ado import format as fmt
 
 
 def test_format_projects_table_has_header_and_row():
-    out = fmt.format_projects([{'name': 'NOCOS', 'state': 'wellFormed',
+    out = fmt.format_projects([{'name': 'ACME', 'state': 'wellFormed',
                                 'visibility': 'private', 'id': 'p1'}])
     lines = out.splitlines()
     assert lines[0].split() == ['name', 'state', 'visibility', 'id']
-    assert 'NOCOS' in lines[1]
+    assert 'ACME' in lines[1]
 
 
 def test_empty_table_renders_placeholder():
@@ -55,7 +55,7 @@ def test_format_builds_and_pipelines_and_iterations():
     assert 'CD 1' in fmt.format_iterations([{'name': 'CD 1', 'timeFrame': 'current',
                                              'startDate': '2024-04-05T00:00:00Z',
                                              'finishDate': '2024-12-31T00:00:00Z',
-                                             'path': 'NOCOS\\CD 1'}])
+                                             'path': 'ACME\\CD 1'}])
 
 
 def test_format_subresource_tables():
@@ -72,15 +72,15 @@ def test_format_subresource_tables():
 
 
 def test_format_wikis_table():
-    out = fmt.format_wikis([{'id': 'w1', 'name': 'NOCOS.wiki',
+    out = fmt.format_wikis([{'id': 'w1', 'name': 'ACME.wiki',
                              'type': 'projectWiki', 'mappedPath': '/'}])
     assert out.splitlines()[0].split() == ['name', 'type', 'id', 'mappedPath']
-    assert 'NOCOS.wiki' in out
+    assert 'ACME.wiki' in out
 
 
 def test_format_wiki_page_content_view():
-    out = fmt.format_wiki_page({'id': 83, 'path': '/NOCOS', 'content': 'body text'})
-    assert out.startswith('# /NOCOS (id 83)')
+    out = fmt.format_wiki_page({'id': 83, 'path': '/ACME', 'content': 'body text'})
+    assert out.startswith('# /ACME (id 83)')
     assert out.endswith('body text')
 
 

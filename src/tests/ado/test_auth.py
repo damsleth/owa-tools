@@ -16,7 +16,7 @@ class FakeProc:
 
 
 def test_org_base_builds_dev_azure_url():
-    assert auth.org_base('Norconsult-Group') == 'https://dev.azure.com/Norconsult-Group'
+    assert auth.org_base('ACME-Corp') == 'https://dev.azure.com/ACME-Corp'
     assert auth.org_base('/Org/') == 'https://dev.azure.com/Org'
 
 

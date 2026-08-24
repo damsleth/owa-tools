@@ -4,6 +4,14 @@ Completed plans, newest first. The detailed plan files move to
 [`.plans/done/`](done/) as historical record, each with a status banner
 pointing back here.
 
+- **swodp-cli** — new `owa-swodp` sibling implemented: prod/UAT-isolated Edge
+  sidecars, silent CDP cookie + `g_ck` capture, Table API status/read commands,
+  optional per-table 403 degradation, exact write-row validation, and
+  Pending-only write plans with POST → PATCH → GET description verification.
+  Live prod status/full-sync reads passed; remote mutation remains UAT-first
+  and was not attempted because no UAT sidecar exists yet. (2026-08-21)
+  Plan: [done/swodp-cli.md](done/swodp-cli.md).
+
 - **owa-planner-write-support** — mutating half of owa-planner shipped:
   `@odata.etag` preserved through `normalize_*`, `api_post/patch/delete` with
   `If-Match`, `create/update/delete-task` + `update-task-details` +

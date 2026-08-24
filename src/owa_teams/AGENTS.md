@@ -11,7 +11,7 @@ covers both enumeration and message bodies under owa-piggy's FOCI client.
   `/teams/.../messages` requires `ChannelMessage.Read.All`, which AADSTS65002
   blocks for this client (probed live: 403). The Teams web client reads bodies
   from `https://teams.microsoft.com/api/chatsvc/{region}/v1/users/ME/conversations/{id}/messages`
-  with an `ic3`-audience bearer. Verified live 2026-06-02 (crayon/emea): 200 on
+  with an `ic3`-audience bearer. Verified live 2026-06-02 (acme/emea): 200 on
   every channel tested, no skypetoken/authsvc exchange needed. `auth.chatsvc_setup`
   returns `(token, https://teams.microsoft.com/api/chatsvc/{region}/v1)`.
 - **Channel threading is keyed on top-level `rootMessageId`, NOT

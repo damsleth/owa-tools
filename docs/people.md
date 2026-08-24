@@ -6,13 +6,13 @@ Pipe-friendly lookups for people and contacts. Sibling of
 [`owa-cal`](cal.md) and [`owa-mail`](mail.md) in the `owa-tools` suite.
 
 ```
-$ owa-people find "vibeke" --pretty
+$ owa-people find "ada" --pretty
 name              email             title             company
-Vibeke Tveit      vtv@example.com   Saksbehandler     Example Org
+Ada Lovelace      ada@example.com   Saksbehandler     Example Org
 
-$ owa-people show vtv@example.com --pretty
-Vibeke Tveit
-  email:    vtv@example.com
+$ owa-people show ada@example.com --pretty
+Ada Lovelace
+  email:    ada@example.com
   title:    Saksbehandler
   dept:     Faglig stab
   company:  Example Org
@@ -91,22 +91,22 @@ interactively unless `--confirm` is passed and refuses to run
 non-interactively without it.
 
 ```bash
-owa-people find "vibeke" --pretty
-owa-people show vtv@example.com
-owa-people directory "norconsult" --limit 50 --pretty
-owa-people directory "norconsult" --all | jq length
+owa-people find "ada" --pretty
+owa-people show ada@example.com
+owa-people directory "acme" --limit 50 --pretty
+owa-people directory "acme" --all | jq length
 owa-people directory "ada" --select "id,displayName,mail" --filter "department eq 'IT'"
 owa-people me --pretty
-owa-people manager vtv@example.com --pretty
+owa-people manager ada@example.com --pretty
 owa-people direct-reports --all --pretty
-owa-people org-chart vtv@example.com --depth 2 --pretty
-owa-people photo vtv@example.com --out avatar.jpg
+owa-people org-chart ada@example.com --depth 2 --pretty
+owa-people photo ada@example.com --out avatar.jpg
 owa-people groups --pretty
 owa-people contacts --all --pretty
 owa-people contact-create --name "Ada Lovelace" --email ada@example.com --company "Analytical Engines"
 owa-people contact-update AAMk... --title "Countess"
 owa-people contact-delete AAMk... --confirm
-owa-people --profile crayon find "ole kristian"
+owa-people --profile acme find "ole kristian"
 owa-people refresh
 owa-people config --profile work
 ```

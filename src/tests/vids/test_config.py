@@ -12,8 +12,8 @@ def test_load_config_returns_empty_on_missing_file(tmp_config):
 
 
 def test_config_set_persists_region(tmp_config):
-    config_mod.config_set('region', 'swon-mediap.svc.ms')
-    assert config_mod.load_config() == {'region': 'swon-mediap.svc.ms'}
+    config_mod.config_set('region', 'globex-mediap.svc.ms')
+    assert config_mod.load_config() == {'region': 'globex-mediap.svc.ms'}
 
 
 def test_config_set_rejects_unknown_key(tmp_config):
@@ -22,15 +22,15 @@ def test_config_set_rejects_unknown_key(tmp_config):
 
 
 def test_set_region_is_per_profile(tmp_config):
-    config_mod.set_region({'owa_piggy_profile': 'swon'}, 'swon-mediap.svc.ms')
+    config_mod.set_region({'owa_piggy_profile': 'globex'}, 'globex-mediap.svc.ms')
     # a later invocation reloads from disk before caching another profile
     cfg = config_mod.load_config()
-    cfg['owa_piggy_profile'] = 'crayon'
-    config_mod.set_region(cfg, 'crayon-mediap.svc.ms')
+    cfg['owa_piggy_profile'] = 'acme'
+    config_mod.set_region(cfg, 'acme-mediap.svc.ms')
 
     final = config_mod.load_config()
-    assert config_mod.get_region({**final, 'owa_piggy_profile': 'swon'}) == 'swon-mediap.svc.ms'
-    assert config_mod.get_region({**final, 'owa_piggy_profile': 'crayon'}) == 'crayon-mediap.svc.ms'
+    assert config_mod.get_region({**final, 'owa_piggy_profile': 'globex'}) == 'globex-mediap.svc.ms'
+    assert config_mod.get_region({**final, 'owa_piggy_profile': 'acme'}) == 'acme-mediap.svc.ms'
 
 
 def test_get_region_falls_back_to_legacy_key(tmp_config):
@@ -46,11 +46,11 @@ def test_set_region_uses_default_bucket_without_profile(tmp_config):
 def test_migrate_json_config_imports_old_keys(tmp_config, capsys):
     legacy = tmp_config.parent / 'config.json'
     legacy.parent.mkdir(parents=True)
-    legacy.write_text(json.dumps({'profile': 'swon', 'region': 'swon-mediap.svc.ms'}))
+    legacy.write_text(json.dumps({'profile': 'globex', 'region': 'globex-mediap.svc.ms'}))
 
     config = config_mod.load_config()
 
-    assert config == {'owa_piggy_profile': 'swon', 'region': 'swon-mediap.svc.ms'}
+    assert config == {'owa_piggy_profile': 'globex', 'region': 'globex-mediap.svc.ms'}
     assert not legacy.exists()
     assert tmp_config.exists()
     assert 'migrated' in capsys.readouterr().err

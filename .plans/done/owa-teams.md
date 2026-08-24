@@ -124,11 +124,11 @@ GET https://teams.microsoft.com/api/chatsvc/{region}/v1/users/ME/conversations/{
   teaminal only uses ic3 for a conversation-existence probe (`teamsFederation.ts:546`), NOT
   for reading messages — so whether ic3-bearer reads *channel* messages is genuinely unconfirmed.
 
-  → **PROBED LIVE 2026-06-02 (crayon / emea) — ic3-bearer is GREEN.** `owa-piggy token
+  → **PROBED LIVE 2026-06-02 (acme / emea) — ic3-bearer is GREEN.** `owa-piggy token
   --audience ic3` against `GET …/chatsvc/emea/v1/users/ME/conversations/{channelId}/messages`
   returns **200** with the full message stream on every channel tested (31 channels across 8
   teams). **Build on the ic3 bearer; no skypetoken machinery needed for reads.** region was
-  hardcoded `emea` for the probe and worked (crayon is an EU tenant) — still port proper
+  hardcoded `emea` for the probe and worked (acme is an EU tenant) — still port proper
   region resolution for non-EU profiles. owa-teams' `auth.py` registers `ic3` (+ `csa` for the
   CA-gated fallback) audiences (owa-graph's `AUDIENCE_API_BASE` lists neither yet, though
   owa-piggy mints them) + the dynamic regional chatsvc base. Graph `/replies` was also probed:
@@ -143,7 +143,7 @@ ship the Graph enumeration first; add CSA only when a profile 403s on `/me/joine
 ### Channel threading — PROBED LIVE 2026-06-02, the model is `rootMessageId` (NOT parentmessageid)
 
 teaminal threads channels on `properties.parentmessageid` and fetches replies via the Graph
-`/replies` door. **Both are wrong/dead under owa-piggy** — verified against live crayon data:
+`/replies` door. **Both are wrong/dead under owa-piggy** — verified against live acme data:
 
 - Graph `/replies` → **403** (`ChannelMessage.Read.All`, never issued by FOCI).
 - `properties.parentmessageid` is **`null` on every channel message in this tenant** — so

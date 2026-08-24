@@ -76,9 +76,9 @@ a single invocation, merging the results keyed by profile. Zero or one
 for two or more.
 
 ```bash
-owa-mail  --profile crayon --profile brkh messages --unread
-owa-graph --profile crayon --profile dno GET /me
-owa-cal   --profile crayon --profile swon events --pretty
+owa-mail  --profile acme --profile brkh messages --unread
+owa-graph --profile acme --profile dno GET /me
+owa-cal   --profile acme --profile globex events --pretty
 ```
 
 The flag is order-preserving and de-duplicated: a repeated alias warns once on
@@ -122,9 +122,9 @@ and the short alias `-A`. They all normalize to the same thing.
   ```json
   {
     "_owa": {"suite": "owa-tools", "tool": "owa-mail", "command": "messages",
-             "profiles": ["crayon", "brkh"]},
+             "profiles": ["acme", "brkh"]},
     "results": [
-      {"profile": "crayon", "ok": true, "data": [ ... ]},
+      {"profile": "acme", "ok": true, "data": [ ... ]},
       {"profile": "brkh",   "ok": false, "error": "token expired", "exit_code": 11}
     ]
   }

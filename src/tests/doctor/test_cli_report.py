@@ -43,7 +43,7 @@ def test_build_report_all_ok(monkeypatch):
     })
     monkeypatch.setattr(probe_mod, 'probe_siblings', lambda **kw: [])
     monkeypatch.setattr(probe_mod, 'list_piggy_profiles',
-                        lambda: (['swon'], 'swon'))
+                        lambda: (['globex'], 'globex'))
     monkeypatch.setattr(probe_mod, 'probe_profile_token', lambda alias, audience='graph': {
         'alias': alias, 'audience': audience,
         'token_ok': True, 'minutes_remaining': 60,
@@ -60,7 +60,7 @@ def test_build_report_warn(monkeypatch):
     })
     monkeypatch.setattr(probe_mod, 'probe_siblings', lambda **kw: [])
     monkeypatch.setattr(probe_mod, 'list_piggy_profiles',
-                        lambda: (['swon'], 'swon'))
+                        lambda: (['globex'], 'globex'))
     monkeypatch.setattr(probe_mod, 'probe_profile_token', lambda alias, audience='graph': {
         'alias': alias, 'audience': audience,
         'token_ok': True, 'minutes_remaining': 5,
@@ -84,7 +84,7 @@ def test_build_report_no_tokens_skips_profile_probe(monkeypatch):
     monkeypatch.setattr(probe_mod, 'probe_siblings', lambda **kw: [])
     monkeypatch.setattr(probe_mod, 'probe_profile_token', fake_probe)
     monkeypatch.setattr(probe_mod, 'list_piggy_profiles',
-                        lambda: (['swon'], 'swon'))
+                        lambda: (['globex'], 'globex'))
     report = cli_mod.build_report(no_tokens=True)
     assert called['n'] == 0
     assert report['profiles'] == []
@@ -173,7 +173,7 @@ def test_build_report_broker_unreachable(monkeypatch):
     called = {'n': 0}
     monkeypatch.setattr(probe_mod, 'probe_profile_token',
                         lambda *a, **kw: called.__setitem__('n', called['n'] + 1) or {})
-    monkeypatch.setattr(probe_mod, 'list_piggy_profiles', lambda: (['swon'], 'swon'))
+    monkeypatch.setattr(probe_mod, 'list_piggy_profiles', lambda: (['globex'], 'globex'))
     report = cli_mod.build_report()
     assert report['summary']['fail'] == 1
     assert report['profiles'] == []

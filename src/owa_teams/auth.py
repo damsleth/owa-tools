@@ -13,7 +13,7 @@ owa-teams reads two distinct surfaces, each behind its own owa-piggy audience:
      reads them from the chat service at
      `https://teams.microsoft.com/api/chatsvc/{region}/v1/...` instead, and
      owa-piggy mints an `ic3`-audience bearer that the chat service accepts.
-     Verified live 2026-06-02 (crayon profile, emea): an `ic3` bearer returns
+     Verified live 2026-06-02 (acme profile, emea): an `ic3` bearer returns
      200 on the channel-messages endpoint across every channel tested. No
      skypetoken / authsvc exchange is needed for reads.
 

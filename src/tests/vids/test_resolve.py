@@ -9,7 +9,7 @@ from owa_vids import resolve as resolve_mod
 DOCID = ('https://contoso-my.sharepoint.com/personal/u/_api/v2.0'
          '/drives/b!abc/items/01XYZ?tempauth=sig')
 MANIFEST_URL = (
-    'https://swon-mediap.svc.ms/transform/videomanifest'
+    'https://globex-mediap.svc.ms/transform/videomanifest'
     f'?docid={quote(DOCID, safe="")}&cTag=%22c%3Atag1%22&format=dash'
 )
 
@@ -21,7 +21,7 @@ def test_resolve_manifest_url_parses_docid_region_ctag(monkeypatch):
     job = resolve_mod.resolve_manifest_url(MANIFEST_URL, {}, debug=False)
 
     assert job.spo_host == 'contoso-my.sharepoint.com'
-    assert job.region == 'swon-mediap.svc.ms'
+    assert job.region == 'globex-mediap.svc.ms'
     assert job.docid.endswith('?version=Published')
     assert 'tempauth' not in job.docid
     assert job.ctag == '"c:tag1"'
@@ -39,7 +39,7 @@ def test_resolve_manifest_url_caches_region(monkeypatch):
 
     resolve_mod.resolve_manifest_url(MANIFEST_URL, {}, debug=False)
 
-    assert written == ['swon-mediap.svc.ms']
+    assert written == ['globex-mediap.svc.ms']
 
 
 def test_resolve_manifest_url_skips_cache_when_region_unchanged(monkeypatch):
@@ -51,7 +51,7 @@ def test_resolve_manifest_url_skips_cache_when_region_unchanged(monkeypatch):
     )
 
     resolve_mod.resolve_manifest_url(
-        MANIFEST_URL, {'region': 'swon-mediap.svc.ms'}, debug=False,
+        MANIFEST_URL, {'region': 'globex-mediap.svc.ms'}, debug=False,
     )
 
     assert written == []
@@ -60,7 +60,7 @@ def test_resolve_manifest_url_skips_cache_when_region_unchanged(monkeypatch):
 def test_resolve_manifest_url_without_docid_raises():
     with pytest.raises(UsageError):
         resolve_mod.resolve_manifest_url(
-            'https://swon-mediap.svc.ms/transform/videomanifest?format=dash',
+            'https://globex-mediap.svc.ms/transform/videomanifest?format=dash',
             {}, debug=False,
         )
 
@@ -88,7 +88,7 @@ def test_resolve_embed_url_calls_spo_and_graph(monkeypatch):
     embed = ('https://contoso-my.sharepoint.com/personal/u/_layouts/15/'
              'embed.aspx?uniqueId=GUID-1')
     job = resolve_mod.resolve_embed_url(
-        embed, {'region': 'swon-mediap.svc.ms'}, region_override='', debug=False,
+        embed, {'region': 'globex-mediap.svc.ms'}, region_override='', debug=False,
     )
 
     assert spo_calls == [('spo-tok', 'contoso-my.sharepoint.com', '/personal/u', 'GUID-1')]
@@ -97,7 +97,7 @@ def test_resolve_embed_url_calls_spo_and_graph(monkeypatch):
     assert job.drive_id == 'b!DRV'
     assert job.item_id == '01ITEM'
     assert job.title == 'rec.mp4'
-    assert job.region == 'swon-mediap.svc.ms'
+    assert job.region == 'globex-mediap.svc.ms'
     assert '/drives/b!DRV/items/01ITEM' in job.docid
 
 

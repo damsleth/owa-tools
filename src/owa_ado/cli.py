@@ -139,7 +139,7 @@ Common options:
   --confirm            Skip confirmation prompts (wi-* mutations).
 
 Examples:
-  owa-ado config --org Norconsult-Group --project NOCOS
+  owa-ado config --org ACME-Corp --project ACME
   owa-ado projects --pretty
   owa-ado wi --mine --pretty
   owa-ado wi 12345 --pretty
@@ -148,7 +148,7 @@ Examples:
   owa-ado pipelines --pretty
   owa-ado runs --top 10 --pretty
   owa-ado wikis --pretty
-  owa-ado wiki --wiki NOCOS.wiki --id 83 --pretty
+  owa-ado wiki --wiki ACME.wiki --id 83 --pretty
   owa-ado wiki /Home --pretty
 """)
     print()

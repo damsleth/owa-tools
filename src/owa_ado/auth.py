@@ -19,7 +19,7 @@ ADO_BASE = 'https://dev.azure.com'
 
 
 def org_base(org):
-    """Org-scoped REST base, e.g. https://dev.azure.com/Norconsult-Group."""
+    """Org-scoped REST base, e.g. https://dev.azure.com/ACME-Corp."""
     return f'{ADO_BASE}/{org.strip("/")}'
 
 

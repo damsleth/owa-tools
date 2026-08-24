@@ -5,14 +5,14 @@ from owa_people.people import normalize_person
 def test_normalize_people_shape():
     upstream = {
         'id': 'abc',
-        'displayName': 'Vibeke Tveit',
-        'scoredEmailAddresses': [{'address': 'vtv@une.no', 'relevanceScore': 0.9}],
+        'displayName': 'Ada Lovelace',
+        'scoredEmailAddresses': [{'address': 'ada@example.com', 'relevanceScore': 0.9}],
         'jobTitle': 'Saksbehandler',
-        'companyName': 'UNE',
+        'companyName': 'ACME',
     }
     out = normalize_person(upstream, 'people')
     assert out['id'] == 'abc'
-    assert out['email'] == 'vtv@une.no'
+    assert out['email'] == 'ada@example.com'
     assert out['source'] == 'people'
     assert out['businessPhones'] == []
 

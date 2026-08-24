@@ -59,7 +59,7 @@ counts, and region. JSON by default, `--pretty` for a human summary.
 Alias: `show`.
 
 ```bash
-owa-vids info 'https://tenant-my.sharepoint.com/personal/user/_layouts/15/stream.aspx?id=...' --profile swon --pretty
+owa-vids info 'https://tenant-my.sharepoint.com/personal/user/_layouts/15/stream.aspx?id=...' --profile globex --pretty
 ```
 
 ### `owa-vids get`
@@ -78,10 +78,10 @@ Prints a JSON result line on success: `{"out": ..., "bytes": ..., "title": ...}`
 
 ```bash
 # Just paste the watch-in-browser or sharing URL
-owa-vids get 'https://tenant-my.sharepoint.com/:v:/r/personal/user/.../rec.mp4?...' --profile swon -o meeting.mp4
+owa-vids get 'https://tenant-my.sharepoint.com/:v:/r/personal/user/.../rec.mp4?...' --profile globex -o meeting.mp4
 
 # Explicit manifest URL still works
-owa-vids get --manifest-url 'https://swon-mediap.svc.ms/transform/videomanifest?docid=...&format=dash' --profile swon
+owa-vids get --manifest-url 'https://globex-mediap.svc.ms/transform/videomanifest?docid=...&format=dash' --profile globex
 ```
 
 ### `owa-vids check`
@@ -90,7 +90,7 @@ Validate auth, manifest, and the first segments of each track without a
 full download. Alias: `probe`.
 
 ```bash
-owa-vids check 'https://tenant-my.sharepoint.com/personal/user/_layouts/15/stream.aspx?id=...' --profile swon
+owa-vids check 'https://tenant-my.sharepoint.com/personal/user/_layouts/15/stream.aspx?id=...' --profile globex
 ```
 
 ### `owa-vids config`
@@ -104,8 +104,8 @@ View or update configuration (`~/.config/owa-vids/config`).
   (`--set-profile` is accepted as an alias).
 
 ```bash
-owa-vids config --profile swon --region switzerlandwest1-mediap.svc.ms
-owa-vids config --profile swon
+owa-vids config --profile globex --region switzerlandwest1-mediap.svc.ms
+owa-vids config --profile globex
 owa-vids config            # show current values (region shown per profile)
 ```
 

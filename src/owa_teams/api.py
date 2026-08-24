@@ -157,7 +157,7 @@ def chatsvc_messages(base, conversation_id, access_token, *, page_size=50, max_p
 def chatsvc_post(base, conversation_id, body, access_token, debug=False, retry=DEFAULT_RETRY):
     """POST a message to a chatsvc conversation; return the parsed JSON or None.
 
-    Verified live 2026-06-30 (crayon/emea): the `ic3` bearer carries
+    Verified live 2026-06-30 (acme/emea): the `ic3` bearer carries
     `Endpoint.ReadWrite.All` and the POST returns 201 + `{OriginalArrivalTime}`.
     Auth/scope errors re-raise so the dispatcher maps them to the shared exit
     codes; other recoverable failures are re-raised too (already reported).

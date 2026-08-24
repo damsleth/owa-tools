@@ -9,13 +9,13 @@ def test_format_info_pretty_contains_title():
         'width': 1280, 'height': 720,
         'video_codecs': 'avc1.64001f', 'audio_codecs': 'mp4a.40.2',
         'video_segments': 172, 'audio_segments': 172,
-        'region': 'swon-mediap.svc.ms',
+        'region': 'globex-mediap.svc.ms',
     })
     assert 'All Hands.mp4' in out
     assert '1714.0s' in out
     assert '1280x720' in out
     assert '172 video, 172 audio' in out
-    assert 'swon-mediap.svc.ms' in out
+    assert 'globex-mediap.svc.ms' in out
 
 
 def test_format_info_pretty_handles_missing_title():

@@ -1,5 +1,11 @@
 # swodp-cli
 
+> **Status: COMPLETE (2026-08-21).** Implemented as `owa-swodp` with
+> dedicated prod/UAT Edge sidecars, in-memory CDP session capture, fixed
+> ServiceNow reads, and validated Pending-only writes. Live prod status and
+> full-sync reads passed; no live writes were attempted because UAT has not
+> yet been signed in on this machine.
+
 _Created 2026-08-21_
 
 ## Feasibility — VERDICT: VIABLE (spiked and confirmed live against production SWODP, 2026-08-21)
@@ -173,7 +179,7 @@ and owa-doctor's pattern), sensible exit codes per this repo's documented scheme
 ## Explicitly out of scope for this build
 
 - The calendar-matching half of the old PoC is UNRELATED and already solved:
-  `owa-cal --profile swon events --week N` replaces the entire WorkIQ +
+  `owa-cal --profile globex events --week N` replaces the entire WorkIQ +
   PowerShell + Copilot-quota dependency chain from swodp-enrichment. Don't build
   calendar fetching into swodp-cli — that's owa-cal's job already.
 - Don't touch ~/code/swodp-enrichment. It's reference material for the API surface

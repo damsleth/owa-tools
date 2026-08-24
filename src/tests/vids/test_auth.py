@@ -25,7 +25,7 @@ def test_get_spo_token_mints_with_spo_scope(monkeypatch):
     monkeypatch.setattr('owa_core.auth.subprocess.run', _fake_broker(calls))
 
     token = auth_mod.get_spo_token(
-        {'owa_piggy_profile': 'swon'}, 'contoso-my.sharepoint.com',
+        {'owa_piggy_profile': 'globex'}, 'contoso-my.sharepoint.com',
     )
 
     assert token == 'tok-123'
@@ -33,7 +33,7 @@ def test_get_spo_token_mints_with_spo_scope(monkeypatch):
     assert argv[:2] == ['owa-piggy', 'token']
     assert argv[argv.index('--audience') + 1] == 'graph'
     assert argv[argv.index('--scope') + 1] == 'https://contoso-my.sharepoint.com/.default'
-    assert argv[argv.index('--profile') + 1] == 'swon'
+    assert argv[argv.index('--profile') + 1] == 'globex'
 
 
 def test_get_graph_token_has_no_scope_override(monkeypatch):
@@ -65,14 +65,14 @@ def test_make_spo_refresh_lambda(monkeypatch):
     monkeypatch.setattr('owa_core.auth.get_token', fake_get_token)
 
     refresh = auth_mod.make_spo_refresh(
-        {'owa_piggy_profile': 'swon'}, 'contoso-my.sharepoint.com', debug=False,
+        {'owa_piggy_profile': 'globex'}, 'contoso-my.sharepoint.com', debug=False,
     )
 
     assert refresh() == 'fresh-token'
     assert seen['tool_name'] == 'owa-vids'
     assert seen['audience'] == 'graph'
     assert seen['scope'] == 'https://contoso-my.sharepoint.com/.default'
-    assert seen['profile'] == 'swon'
+    assert seen['profile'] == 'globex'
 
 
 def test_make_spo_refresh_without_profile_passes_none(monkeypatch):

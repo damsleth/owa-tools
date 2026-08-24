@@ -197,9 +197,9 @@ def test_bad_top_value_is_usage_error(tmp_config, clean_env):
 
 def test_pretty_path_renders_table(monkeypatch, tmp_config, clean_env, capsys):
     monkeypatch.setattr(api_mod, 'ado_request',
-                        lambda *a, **k: {'value': [{'id': 'p', 'name': 'NOCOS',
+                        lambda *a, **k: {'value': [{'id': 'p', 'name': 'ACME',
                                                     'state': 'wellFormed',
                                                     'visibility': 'private'}]})
     assert cli_mod.main(['--org', 'O', 'projects', '--pretty']) == 0
     out = capsys.readouterr().out
-    assert 'NOCOS' in out and 'name' in out
+    assert 'ACME' in out and 'name' in out

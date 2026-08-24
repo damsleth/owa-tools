@@ -133,9 +133,9 @@ Examples:
   owa-sched availability --who alice@x.com,bob@x.com --week 19 --pretty
   owa-sched availability --who alice@x.com,bob@x.com --week next --pretty
   owa-sched availability --who alice@x.com --month --pretty
-  owa-sched availability --who vibeke@une.no --date tomorrow --pretty
+  owa-sched availability --who ada@example.com --date tomorrow --pretty
   owa-sched find-time --who alice@x.com,bob@x.com --duration 30 --week 19 --pretty
-  owa-sched --profile crayon find-time --who ole@example.com --date 2026-05-12
+  owa-sched --profile acme find-time --who ole@example.com --date 2026-05-12
 """)
     print()
     print(schema_mod.MULTI_PROFILE_HELP)

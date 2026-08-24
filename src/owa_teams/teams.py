@@ -138,7 +138,7 @@ def conversation_post_url(base, conversation_id):
     """Build the chatsvc POST URL for sending a message to a conversation.
 
     Same `/users/ME/conversations/{id}/messages` path as the read endpoint, but
-    without the read query string. Verified live 2026-06-30 (crayon/emea): an
+    without the read query string. Verified live 2026-06-30 (acme/emea): an
     `ic3` bearer POSTs here returning 201 + `{OriginalArrivalTime}` for chats,
     channels, and `48:notes` (note-to-self).
     """

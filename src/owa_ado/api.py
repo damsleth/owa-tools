@@ -30,7 +30,7 @@ def build_url(base, endpoint, *, query=None, api_version=DEFAULT_API_VERSION):
     parameter (a few preview endpoints pin their own).
     """
     # Percent-encode the path: team/project/repo names legitimately contain
-    # spaces (e.g. "NOCOS Team") and stdlib's http client rejects a raw space
+    # spaces (e.g. "ACME Team") and stdlib's http client rejects a raw space
     # with InvalidURL. Keep '/' (segment separators), '$' (the `$Type` route
     # in work-item create), and ':' safe so those structural chars survive.
     # '%' is safe so callers that pre-encode a free-text segment (e.g. a repo

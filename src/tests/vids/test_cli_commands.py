@@ -11,7 +11,7 @@ def _job(**overrides):
     fields = dict(
         spo_host='contoso-my.sharepoint.com',
         docid='https://contoso-my.sharepoint.com/x?version=Published',
-        ctag='ct', region='swon-mediap.svc.ms',
+        ctag='ct', region='globex-mediap.svc.ms',
         title='All Hands.mp4', drive_id='b!DRV', item_id='01ITEM',
     )
     fields.update(overrides)
@@ -19,7 +19,7 @@ def _job(**overrides):
 
 
 _MAN = {
-    'base': 'https://swon-mediap.svc.ms/v/',
+    'base': 'https://globex-mediap.svc.ms/v/',
     'duration': 12.5,
     'tracks': {
         'video': {'init': 'i', 'media_tmpl': 'm', 'times': [0, 1],
@@ -40,7 +40,7 @@ def _mock_pipeline(monkeypatch, job=None, man=None):
 
 
 MANIFEST_ARGS = ['--manifest-url',
-                 'https://swon-mediap.svc.ms/transform/videomanifest?docid=x&format=dash']
+                 'https://globex-mediap.svc.ms/transform/videomanifest?docid=x&format=dash']
 
 
 def test_main_schema_returns_tool_name(capsys, clean_env):
@@ -126,7 +126,7 @@ def test_main_err_json_on_auth_failure(capsys, clean_env, tmp_config, monkeypatc
     # fetch), broker missing -> AuthExpiredError when the SPO token is minted.
     monkeypatch.setattr('owa_core.auth.shutil.which', lambda _: None)
     rc = cli.main(['--err-json', 'info', '--manifest-url',
-                   'https://swon-mediap.svc.ms/transform/videomanifest'
+                   'https://globex-mediap.svc.ms/transform/videomanifest'
                    '?docid=https%3A%2F%2Fcontoso-my.sharepoint.com%2Fx&format=dash'])
     assert rc == 11
     payload = json.loads(capsys.readouterr().err)
@@ -145,13 +145,13 @@ def test_main_config_verb_unauthenticated(capsys, clean_env, tmp_config, monkeyp
 
 
 def test_main_config_persists_profile_and_region(capsys, clean_env, tmp_config):
-    rc = cli.main(['config', '--profile', 'swon', '--region', 'SWON-mediap.svc.ms'])
+    rc = cli.main(['config', '--profile', 'globex', '--region', 'GLOBEX-mediap.svc.ms'])
     assert rc == 0
     from owa_vids import config as config_mod
     saved = config_mod.load_config()
-    assert saved['owa_piggy_profile'] == 'swon'
+    assert saved['owa_piggy_profile'] == 'globex'
     # region is cached per profile, normalized to lowercase
-    assert config_mod.get_region(saved) == 'swon-mediap.svc.ms'
+    assert config_mod.get_region(saved) == 'globex-mediap.svc.ms'
 
 
 def test_main_debug_flag_sets_config(clean_env, tmp_config, monkeypatch, capsys):

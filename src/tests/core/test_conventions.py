@@ -59,11 +59,11 @@ def test_doctor_payload_optional_fields_in_dict():
     tool="owa-mail",
     config_path="/tmp/cfg",
     data_path="/tmp/data",
-    auth={"profile": "swon"},
+    auth={"profile": "globex"},
   ).to_dict()
   assert d["config_path"] == "/tmp/cfg"
   assert d["data_path"] == "/tmp/data"
-  assert d["auth"] == {"profile": "swon"}
+  assert d["auth"] == {"profile": "globex"}
 
 
 def test_emit_doctor_json_clean_run(capsys):
@@ -111,7 +111,7 @@ def test_emit_doctor_human_renders_config_and_auth(capsys, monkeypatch):
   fake = DoctorPayload(
     tool="owa-mail",
     config_path="/tmp/cfg",
-    auth={"profile": "swon"},
+    auth={"profile": "globex"},
     findings=[DoctorFinding(id="x", severity="info", message="hi")],
   )
   monkeypatch.setattr(conventions, "_run_default_doctor", lambda _tool: fake)

@@ -47,9 +47,9 @@ def test_main_schema(capsys):
 
 
 @pytest.mark.parametrize('argv', [
-    ['rooms', '--profile', 'crayon'],
-    ['--profile', 'crayon', 'rooms'],
-    ['rooms', '-p', 'crayon'],
+    ['rooms', '--profile', 'acme'],
+    ['--profile', 'acme', 'rooms'],
+    ['rooms', '-p', 'acme'],
 ])
 def test_main_strips_and_applies_profile(monkeypatch, capsys, argv):
     seen = {}
@@ -62,4 +62,4 @@ def test_main_strips_and_applies_profile(monkeypatch, capsys, argv):
     monkeypatch.setattr(cli.auth_mod, 'setup_auth', fake_setup_auth)
     monkeypatch.setattr(cli.api_mod, 'scheduling_post', lambda *a, **k: {'Locations': []})
     assert cli._main(argv) == 0
-    assert seen['profile'] == 'crayon'
+    assert seen['profile'] == 'acme'

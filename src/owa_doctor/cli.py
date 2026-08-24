@@ -76,7 +76,7 @@ Exit codes:
 Examples:
   owa-doctor --pretty
   owa-doctor probe --pretty
-  owa-doctor --profile swon --pretty
+  owa-doctor --profile globex --pretty
   owa-doctor --profile work --profile home --pretty  # subset of profiles
   owa-doctor --coverage --pretty        # per-profile audience coverage
   owa-doctor --no-tokens                # quick install check only

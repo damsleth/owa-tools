@@ -9,7 +9,7 @@ needs a delegated token carrying `RoleManagement.ReadWrite.Directory`. Probed
 directly against owa-piggy's current pinned client:
 
 ```
-$ owa-piggy token --profile crayon --scope "https://graph.microsoft.com/RoleManagement.ReadWrite.Directory" --json
+$ owa-piggy token --profile acme --scope "https://graph.microsoft.com/RoleManagement.ReadWrite.Directory" --json
 ERROR: invalid_request: AADSTS65002: Consent between first party application
 '9199bf20-a13f-4107-85dc-02114787ef48' and first party resource
 '00000003-0000-0000-c000-000000000000' must be configured via preauthorization -

@@ -70,13 +70,13 @@ def _stub_core_profiles(monkeypatch, rows):
 def test_piggy_aliases_uses_core_profile_contract(monkeypatch):
     _stub_core_profiles(monkeypatch, [
         BrokerProfile('brkh', default=False, registered=True, has_config=True),
-        BrokerProfile('crayon', default=False, registered=True, has_config=True),
+        BrokerProfile('acme', default=False, registered=True, has_config=True),
         BrokerProfile('dno', default=False, registered=True, has_config=True),
-        BrokerProfile('swon', default=True, registered=True, has_config=True),
+        BrokerProfile('globex', default=True, registered=True, has_config=True),
     ])
     aliases, default = profiles_mod.piggy_aliases()
-    assert aliases == {'brkh', 'crayon', 'dno', 'swon'}
-    assert default == 'swon'
+    assert aliases == {'brkh', 'acme', 'dno', 'globex'}
+    assert default == 'globex'
 
 
 def test_piggy_aliases_no_default(monkeypatch):
@@ -117,7 +117,7 @@ def test_profiles_list_json(
     tmp_profiles, stub_piggy_aliases, clean_env, monkeypatch, capsys,
 ):
     profiles_mod.add_local('brkh', 'https://example.invalid')
-    stub_piggy_aliases(['brkh', 'crayon', 'swon'], 'swon')
+    stub_piggy_aliases(['brkh', 'acme', 'globex'], 'globex')
     monkeypatch.setattr(sys, 'argv', ['owa-cal', 'profiles'])
     from owa_cal.cli import main
     rc = main()
@@ -129,18 +129,18 @@ def test_profiles_list_json(
     assert payload[0]['alias'] == 'brkh'
     assert payload[0]['shadows_owa_piggy'] is True
     piggy_entries = [e for e in payload if e['source'] == 'owa-piggy']
-    assert {e['alias'] for e in piggy_entries} == {'brkh', 'crayon', 'swon'}
+    assert {e['alias'] for e in piggy_entries} == {'brkh', 'acme', 'globex'}
     brkh_piggy = next(e for e in piggy_entries if e['alias'] == 'brkh')
     assert brkh_piggy['shadowed_by_owa_cal'] is True
-    swon_piggy = next(e for e in piggy_entries if e['alias'] == 'swon')
-    assert swon_piggy['default'] is True
+    globex_piggy = next(e for e in piggy_entries if e['alias'] == 'globex')
+    assert globex_piggy['default'] is True
 
 
 def test_profiles_list_pretty(
     tmp_profiles, stub_piggy_aliases, clean_env, monkeypatch, capsys,
 ):
     profiles_mod.add_local('brkh', 'https://example.invalid')
-    stub_piggy_aliases(['brkh', 'swon'], 'swon')
+    stub_piggy_aliases(['brkh', 'globex'], 'globex')
     monkeypatch.setattr(sys, 'argv', ['owa-cal', 'profiles', '--pretty'])
     from owa_cal.cli import main
     main()
@@ -149,7 +149,7 @@ def test_profiles_list_pretty(
     assert 'owa-piggy (oauth):' in out
     assert '[also defined in owa-piggy; this wins]' in out
     assert '[shadowed by owa-cal' in out
-    assert '* swon' in out
+    assert '* globex' in out
 
 
 def test_profiles_list_does_not_leak_url(

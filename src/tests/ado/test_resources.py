@@ -4,19 +4,19 @@ from owa_ado import resources as res
 
 def test_normalize_project():
     out = res.normalize_project({
-        'id': 'p1', 'name': 'NOCOS', 'state': 'wellFormed',
+        'id': 'p1', 'name': 'ACME', 'state': 'wellFormed',
         'visibility': 'private', 'lastUpdateTime': '2022', 'url': 'u',
         'description': 'd',
     })
     assert out == {
-        'id': 'p1', 'name': 'NOCOS', 'description': 'd', 'state': 'wellFormed',
+        'id': 'p1', 'name': 'ACME', 'description': 'd', 'state': 'wellFormed',
         'visibility': 'private', 'lastUpdate': '2022', 'url': 'u',
     }
 
 
 def test_normalize_iteration_flattens_attributes():
     out = res.normalize_iteration({
-        'id': 'i1', 'name': 'CD 1', 'path': 'NOCOS\\CD 1',
+        'id': 'i1', 'name': 'CD 1', 'path': 'ACME\\CD 1',
         'attributes': {'startDate': 'a', 'finishDate': 'b', 'timeFrame': 'current'},
     })
     assert out['timeFrame'] == 'current'
@@ -30,13 +30,13 @@ def test_normalize_work_item_pulls_fields_and_identity():
             'System.WorkItemType': 'Task', 'System.Title': 'T',
             'System.State': 'Active',
             'System.AssignedTo': {'displayName': 'Kim', 'uniqueName': 'k@x'},
-            'System.IterationPath': 'NOCOS\\CD 1',
+            'System.IterationPath': 'ACME\\CD 1',
         },
     })
     assert out['id'] == 12
     assert out['type'] == 'Task'
     assert out['assignedTo'] == 'Kim'
-    assert out['iteration'] == 'NOCOS\\CD 1'
+    assert out['iteration'] == 'ACME\\CD 1'
 
 
 def test_identity_accepts_bare_string():
@@ -46,23 +46,23 @@ def test_identity_accepts_bare_string():
 
 def test_normalize_repo_strips_refs_prefix():
     out = res.normalize_repo({
-        'id': 'r', 'name': 'NOCOS', 'defaultBranch': 'refs/heads/main',
-        'project': {'name': 'NOCOS'}, 'webUrl': 'w', 'size': 10,
+        'id': 'r', 'name': 'ACME', 'defaultBranch': 'refs/heads/main',
+        'project': {'name': 'ACME'}, 'webUrl': 'w', 'size': 10,
     })
     assert out['defaultBranch'] == 'main'
-    assert out['project'] == 'NOCOS'
+    assert out['project'] == 'ACME'
 
 
 def test_normalize_pr_strips_branch_prefixes():
     out = res.normalize_pr({
         'pullRequestId': 7, 'title': 'x', 'status': 'active',
         'createdBy': {'displayName': 'Kim'},
-        'repository': {'name': 'NOCOS-Main'},
+        'repository': {'name': 'ACME-Main'},
         'sourceRefName': 'refs/heads/feature', 'targetRefName': 'refs/heads/main',
     })
     assert out['id'] == 7
     assert out['sourceBranch'] == 'feature' and out['targetBranch'] == 'main'
-    assert out['repo'] == 'NOCOS-Main'
+    assert out['repo'] == 'ACME-Main'
 
 
 def test_normalize_build():
@@ -77,9 +77,9 @@ def test_normalize_build():
 
 
 def test_build_wiql_defaults_to_mine_and_orders():
-    q = res.build_wiql(project='NOCOS', mine=True)
+    q = res.build_wiql(project='ACME', mine=True)
     assert q.startswith('SELECT [System.Id] FROM workitems WHERE ')
-    assert "[System.TeamProject] = 'NOCOS'" in q
+    assert "[System.TeamProject] = 'ACME'" in q
     assert '[System.AssignedTo] = @Me' in q
     assert q.endswith('ORDER BY [System.ChangedDate] DESC')
     # WIQL has no TOP clause; must never appear.
@@ -101,8 +101,8 @@ def test_build_wiql_no_filters_has_no_where():
 def test_build_wiql_iteration_clause():
     # WIQL string literals take a literal backslash for IterationPath
     # separators - no backslash escaping (only single quotes are doubled).
-    q = res.build_wiql(project='NOCOS', iteration='NOCOS\\Sprint 1')
-    assert "[System.IterationPath] = 'NOCOS\\Sprint 1'" in q
+    q = res.build_wiql(project='ACME', iteration='ACME\\Sprint 1')
+    assert "[System.IterationPath] = 'ACME\\Sprint 1'" in q
 
 
 def test_build_wiql_iteration_escapes_quotes():
@@ -160,21 +160,21 @@ def test_normalize_subresources_and_non_dict():
 
 def test_normalize_wiki():
     out = res.normalize_wiki({
-        'id': 'w1', 'name': 'NOCOS.wiki', 'type': 'projectWiki',
+        'id': 'w1', 'name': 'ACME.wiki', 'type': 'projectWiki',
         'mappedPath': '/', 'remoteUrl': 'r', 'url': 'u', 'repositoryId': 'x',
     })
-    assert out == {'id': 'w1', 'name': 'NOCOS.wiki', 'type': 'projectWiki',
+    assert out == {'id': 'w1', 'name': 'ACME.wiki', 'type': 'projectWiki',
                    'mappedPath': '/', 'remoteUrl': 'r', 'url': 'u'}
     assert res.normalize_wiki(None) == {}
 
 
 def test_normalize_wiki_page_content_and_id():
     out = res.normalize_wiki_page({
-        'id': 83, 'path': '/NOCOS', 'order': 1, 'gitItemPath': '/NOCOS.md',
+        'id': 83, 'path': '/ACME', 'order': 1, 'gitItemPath': '/ACME.md',
         'content': '# hi', 'remoteUrl': 'r', 'url': 'u',
     })
     assert out['id'] == 83 and out['content'] == '# hi'
-    assert out['path'] == '/NOCOS' and out['url'] == 'r'  # remoteUrl preferred
+    assert out['path'] == '/ACME' and out['url'] == 'r'  # remoteUrl preferred
     assert 'subPages' not in out
 
 
@@ -206,42 +206,42 @@ def test_extract_headings_optional_space_and_code_fence():
 
 
 def test_render_toc_nesting_and_dedup_anchors():
-    content = "##Devops\n### NOCOS\n### NOCOS\n"
+    content = "##Devops\n### ACME\n### ACME\n"
     toc = res.render_toc(content)
     lines = toc.splitlines()
     assert lines[0] == '- [Devops](#devops)'
-    assert lines[1] == '  - [NOCOS](#nocos)'
-    assert lines[2] == '  - [NOCOS](#nocos-1)'  # duplicate anchor suffixed
+    assert lines[1] == '  - [ACME](#acme)'
+    assert lines[2] == '  - [ACME](#acme-1)'  # duplicate anchor suffixed
     assert res.render_toc("no headings here") == ''
 
 
 def test_render_tosp_relative_links_and_titles():
     node = {
-        'path': '/NOCOS', 'gitItemPath': '/NOCOS.md',
+        'path': '/ACME', 'gitItemPath': '/ACME.md',
         'subPages': [
-            {'path': '/NOCOS/Forvaltning', 'gitItemPath': '/NOCOS/Forvaltning.md',
+            {'path': '/ACME/Forvaltning', 'gitItemPath': '/ACME/Forvaltning.md',
              'subPages': [
-                 {'path': '/NOCOS/Forvaltning/EasyDesk Forvaltning',
-                  'gitItemPath': '/NOCOS/Forvaltning/EasyDesk-Forvaltning.md',
+                 {'path': '/ACME/Forvaltning/EasyDesk Forvaltning',
+                  'gitItemPath': '/ACME/Forvaltning/EasyDesk-Forvaltning.md',
                   'subPages': []},
              ]},
         ],
     }
     out = res.render_tosp(node).splitlines()
-    # Links relative to NOCOS.md (root) -> full path under NOCOS/.
-    assert out[0] == '- [Forvaltning](NOCOS/Forvaltning.md)'
-    assert out[1] == '  - [EasyDesk Forvaltning](NOCOS/Forvaltning/EasyDesk-Forvaltning.md)'
+    # Links relative to ACME.md (root) -> full path under ACME/.
+    assert out[0] == '- [Forvaltning](ACME/Forvaltning.md)'
+    assert out[1] == '  - [EasyDesk Forvaltning](ACME/Forvaltning/EasyDesk-Forvaltning.md)'
 
 
 def test_render_tosp_links_relative_to_nested_page():
     node = {
-        'path': '/NOCOS/Forvaltning', 'gitItemPath': '/NOCOS/Forvaltning.md',
+        'path': '/ACME/Forvaltning', 'gitItemPath': '/ACME/Forvaltning.md',
         'subPages': [
-            {'path': '/NOCOS/Forvaltning/Sub',
-             'gitItemPath': '/NOCOS/Forvaltning/Sub.md', 'subPages': []},
+            {'path': '/ACME/Forvaltning/Sub',
+             'gitItemPath': '/ACME/Forvaltning/Sub.md', 'subPages': []},
         ],
     }
-    # From NOCOS/Forvaltning.md, the child is just Forvaltning/Sub.md.
+    # From ACME/Forvaltning.md, the child is just Forvaltning/Sub.md.
     assert res.render_tosp(node) == '- [Sub](Forvaltning/Sub.md)'
 
 
@@ -258,12 +258,12 @@ def test_expand_wiki_macros_both_tokens():
 
 
 def test_render_toc_relative_nesting_with_inconsistent_levels():
-    # Real NOCOS shape: a `##` heading precedes a `#` heading; ADO renders both
+    # Real ACME shape: a `##` heading precedes a `#` heading; ADO renders both
     # as top-level siblings (relative/stack nesting, not absolute hash count).
-    content = "##Devops\n### NOCOS\n# Debugging\n## Provisioning\n"
+    content = "##Devops\n### ACME\n# Debugging\n## Provisioning\n"
     assert res.render_toc(content).splitlines() == [
         '- [Devops](#devops)',
-        '  - [NOCOS](#nocos)',
+        '  - [ACME](#acme)',
         '- [Debugging](#debugging)',
         '  - [Provisioning](#provisioning)',
     ]

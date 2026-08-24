@@ -34,12 +34,12 @@ def test_probe_piggy_present(monkeypatch):
 def test_list_piggy_profiles_parses_default_marker(monkeypatch):
     monkeypatch.setattr(probe_mod.core_auth, 'get_profiles', lambda **kwargs: [
         BrokerProfile('brkh', default=False, registered=True, has_config=True),
-        BrokerProfile('crayon', default=False, registered=True, has_config=True),
-        BrokerProfile('swon', default=True, registered=True, has_config=True),
+        BrokerProfile('acme', default=False, registered=True, has_config=True),
+        BrokerProfile('globex', default=True, registered=True, has_config=True),
     ])
     aliases, default = probe_mod.list_piggy_profiles()
-    assert aliases == ['brkh', 'crayon', 'swon']
-    assert default == 'swon'
+    assert aliases == ['brkh', 'acme', 'globex']
+    assert default == 'globex'
 
 
 def test_list_piggy_profiles_no_piggy(monkeypatch):
@@ -57,7 +57,7 @@ def test_probe_profile_token_failure_captures_aadsts(monkeypatch):
         raise AuthExpiredError('ERROR: invalid_grant: AADSTS70043: refresh token expired')
 
     monkeypatch.setattr(probe_mod.core_auth, 'get_token', _raise)
-    finding = probe_mod.probe_profile_token('crayon')
+    finding = probe_mod.probe_profile_token('acme')
     assert finding['token_ok'] is False
     assert 'AADSTS70043' in finding['error']
     assert finding['minutes_remaining'] is None
@@ -86,9 +86,9 @@ def test_probe_profile_token_ok(monkeypatch):
     monkeypatch.setattr(
         probe_mod.core_auth,
         'get_token',
-        lambda **kwargs: BrokerToken(access_token=fake_jwt, audience='graph', profile='swon'),
+        lambda **kwargs: BrokerToken(access_token=fake_jwt, audience='graph', profile='globex'),
     )
-    finding = probe_mod.probe_profile_token('swon')
+    finding = probe_mod.probe_profile_token('globex')
     assert finding['token_ok'] is True
     assert isinstance(finding['minutes_remaining'], int)
     assert finding['minutes_remaining'] >= 59
@@ -158,9 +158,9 @@ def test_probe_profile_token_flags_audience_mismatch(monkeypatch):
     fake_jwt = '.'.join((b64(b'{"alg":"RS256"}'), b64(_json.dumps(payload).encode()), 'sig'))
     monkeypatch.setattr(
         probe_mod.core_auth, 'get_token',
-        lambda **kwargs: BrokerToken(access_token=fake_jwt, audience='graph', profile='swon'),
+        lambda **kwargs: BrokerToken(access_token=fake_jwt, audience='graph', profile='globex'),
     )
-    finding = probe_mod.probe_profile_token('swon', audience='graph')
+    finding = probe_mod.probe_profile_token('globex', audience='graph')
     assert finding['token_ok'] is True
     assert finding['audience_mismatch'] is True
     assert probe_mod.classify_finding(finding) == 'warn'
@@ -171,5 +171,5 @@ def test_probe_profile_coverage(monkeypatch):
         return {'token_ok': audience == 'graph'}
 
     monkeypatch.setattr(probe_mod, 'probe_profile_token', fake_token)
-    cov = probe_mod.probe_profile_coverage('swon', audiences=('graph', 'outlook'))
+    cov = probe_mod.probe_profile_coverage('globex', audiences=('graph', 'outlook'))
     assert cov == {'graph': True, 'outlook': False}

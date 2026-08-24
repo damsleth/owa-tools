@@ -25,6 +25,8 @@ TOOLS = (
     'owa-sites',
     'owa-teams',
     'owa-vids',
+    'owa-ado',
+    'owa-swodp',
 )
 
 

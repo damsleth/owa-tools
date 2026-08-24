@@ -26,13 +26,13 @@ def test_projects_emits_normalized_json(monkeypatch, tmp_config, clean_env, caps
 
     def fake_request(method, base, endpoint, token, **kwargs):
         seen['endpoint'] = endpoint
-        return {'value': [{'id': 'p', 'name': 'NOCOS', 'state': 'wellFormed'}]}
+        return {'value': [{'id': 'p', 'name': 'ACME', 'state': 'wellFormed'}]}
 
     monkeypatch.setattr(api_mod, 'ado_request', fake_request)
     rc = _run(['projects'], tmp_config, clean_env)
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
-    assert out[0]['name'] == 'NOCOS'
+    assert out[0]['name'] == 'ACME'
     assert seen['endpoint'] == '_apis/projects'
 
 
@@ -181,8 +181,8 @@ def test_prs_repo_scopes_endpoint(monkeypatch, tmp_config, clean_env, capsys):
         return {'value': []}
 
     monkeypatch.setattr(api_mod, 'ado_request', fake_request)
-    _run(['prs', '--repo', 'NOCOS-Main'], tmp_config, clean_env)
-    assert seen['endpoint'] == 'Proj/_apis/git/repositories/NOCOS-Main/pullrequests'
+    _run(['prs', '--repo', 'ACME-Main'], tmp_config, clean_env)
+    assert seen['endpoint'] == 'Proj/_apis/git/repositories/ACME-Main/pullrequests'
 
 
 def test_prs_repo_is_url_encoded(monkeypatch, tmp_config, clean_env, capsys):
@@ -251,7 +251,7 @@ def test_variable_group_show_single_json(monkeypatch, tmp_config, clean_env, cap
 
     def fake_request(method, base, endpoint, token, **kwargs):
         seen['endpoint'] = endpoint
-        return {'id': 15, 'name': 'NOCOS-m365-prod', 'type': 'Vsts',
+        return {'id': 15, 'name': 'ACME-m365-prod', 'type': 'Vsts',
                 'variables': {'TENANT': {'value': 't'}, 'SECRET': {'isSecret': True}}}
 
     monkeypatch.setattr(api_mod, 'ado_request', fake_request)
@@ -259,19 +259,19 @@ def test_variable_group_show_single_json(monkeypatch, tmp_config, clean_env, cap
     assert rc == 0
     assert seen['endpoint'] == 'Proj/_apis/distributedtask/variablegroups/15'
     out = json.loads(capsys.readouterr().out)
-    assert out['name'] == 'NOCOS-m365-prod'
+    assert out['name'] == 'ACME-m365-prod'
     assert out['variables'] == {'TENANT': 't', 'SECRET': '***'}
 
 
 def test_variable_group_show_single_pretty(monkeypatch, tmp_config, clean_env, capsys):
     def fake_request(method, base, endpoint, token, **kwargs):
-        return {'id': 15, 'name': 'NOCOS-m365-prod', 'type': 'Vsts',
+        return {'id': 15, 'name': 'ACME-m365-prod', 'type': 'Vsts',
                 'variables': {'TENANT': {'value': 't'}}}
 
     monkeypatch.setattr(api_mod, 'ado_request', fake_request)
     assert _run(['library', '15', '--pretty'], tmp_config, clean_env) == 0
     out = capsys.readouterr().out
-    assert 'NOCOS-m365-prod' in out and 'TENANT' in out and 't' in out
+    assert 'ACME-m365-prod' in out and 'TENANT' in out and 't' in out
 
 
 def test_subresource_endpoints(monkeypatch, tmp_config, clean_env, capsys):
@@ -324,13 +324,13 @@ def test_wikis_lists_normalized(monkeypatch, tmp_config, clean_env, capsys):
 
     def fake_request(method, base, endpoint, token, **kwargs):
         seen['endpoint'] = endpoint
-        return {'value': [{'id': 'w1', 'name': 'NOCOS.wiki', 'type': 'projectWiki'}]}
+        return {'value': [{'id': 'w1', 'name': 'ACME.wiki', 'type': 'projectWiki'}]}
 
     monkeypatch.setattr(api_mod, 'ado_request', fake_request)
     rc = _run(['wikis'], tmp_config, clean_env)
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
-    assert out[0]['name'] == 'NOCOS.wiki'
+    assert out[0]['name'] == 'ACME.wiki'
     assert seen['endpoint'] == 'Proj/_apis/wiki/wikis'
 
 
@@ -340,14 +340,14 @@ def test_wiki_by_id_includes_content(monkeypatch, tmp_config, clean_env, capsys)
     def fake_request(method, base, endpoint, token, query=None, **kwargs):
         seen['endpoint'] = endpoint
         seen['query'] = query
-        return {'id': 83, 'path': '/NOCOS', 'content': '# hi'}
+        return {'id': 83, 'path': '/ACME', 'content': '# hi'}
 
     monkeypatch.setattr(api_mod, 'ado_request', fake_request)
-    rc = _run(['wiki', '--wiki', 'NOCOS.wiki', '--id', '83'], tmp_config, clean_env)
+    rc = _run(['wiki', '--wiki', 'ACME.wiki', '--id', '83'], tmp_config, clean_env)
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
     assert out['content'] == '# hi'
-    assert seen['endpoint'] == 'Proj/_apis/wiki/wikis/NOCOS.wiki/pages/83'
+    assert seen['endpoint'] == 'Proj/_apis/wiki/wikis/ACME.wiki/pages/83'
     assert seen['query'] == {'includeContent': 'true'}
 
 

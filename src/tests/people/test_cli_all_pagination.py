@@ -59,11 +59,11 @@ def test_directory_all_unions_pages(monkeypatch, capsys):
         "users?", "https://graph.test/users-2",
         [_person("u1")], [_person("u2"), _person("u3")], seen=seen,
     ))
-    assert cli.cmd_directory(["norconsult", "--all"], {}, "tok", "https://graph.test") == 0
+    assert cli.cmd_directory(["acme", "--all"], {}, "tok", "https://graph.test") == 0
     rows = json.loads(capsys.readouterr().out)
     assert [r["id"] for r in rows] == ["u1", "u2", "u3"]
     # First-page URL carried the $search term and $top page size.
-    assert "norconsult" in seen[0]
+    assert "acme" in seen[0]
     assert "top" in seen[0].lower()
 
 

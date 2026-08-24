@@ -127,7 +127,7 @@ def test_cmd_find_empty_value_returns_empty_list(monkeypatch, capsys):
 
 def test_cmd_directory_unknown_flag_raises(monkeypatch):
     with pytest.raises(UsageError, match="Unknown flag"):
-        cli.cmd_directory(["norconsult", "--bogus"], {}, "tok", "https://graph.test")
+        cli.cmd_directory(["acme", "--bogus"], {}, "tok", "https://graph.test")
 
 
 def test_cmd_directory_all_pretty(monkeypatch, capsys):
@@ -135,7 +135,7 @@ def test_cmd_directory_all_pretty(monkeypatch, capsys):
         cli.api_mod, "paginate_all",
         lambda *a, **k: [_person_payload()],
     )
-    assert cli.cmd_directory(["norconsult", "--all", "--pretty"], {}, "tok", "https://graph.test") == 0
+    assert cli.cmd_directory(["acme", "--all", "--pretty"], {}, "tok", "https://graph.test") == 0
     out = capsys.readouterr().out
     assert "Ada Lovelace" in out
 
@@ -145,21 +145,21 @@ def test_cmd_directory_all_json(monkeypatch, capsys):
         cli.api_mod, "paginate_all",
         lambda *a, **k: [_person_payload()],
     )
-    assert cli.cmd_directory(["norconsult", "--all"], {}, "tok", "https://graph.test") == 0
+    assert cli.cmd_directory(["acme", "--all"], {}, "tok", "https://graph.test") == 0
     rows = json.loads(capsys.readouterr().out)
     assert rows[0]["id"] == "u1"
 
 
 def test_cmd_directory_single_page_pretty(monkeypatch, capsys):
     monkeypatch.setattr(cli.api_mod, "api_get", lambda *a, **k: _list_payload())
-    assert cli.cmd_directory(["norconsult", "--pretty"], {}, "tok", "https://graph.test") == 0
+    assert cli.cmd_directory(["acme", "--pretty"], {}, "tok", "https://graph.test") == 0
     out = capsys.readouterr().out
     assert "Ada Lovelace" in out
 
 
 def test_cmd_directory_single_page_api_failure(monkeypatch):
     monkeypatch.setattr(cli.api_mod, "api_get", lambda *a, **k: None)
-    assert cli.cmd_directory(["norconsult"], {}, "tok", "https://graph.test") == 1
+    assert cli.cmd_directory(["acme"], {}, "tok", "https://graph.test") == 1
 
 
 # ---------------------------------------------------------------------------
@@ -309,9 +309,9 @@ def test_cmd_config_no_profile_set(capsys):
 
 
 def test_cmd_config_profile_set_shows_it(capsys):
-    assert cli.cmd_config([], {"owa_piggy_profile": "crayon"}) == 0
+    assert cli.cmd_config([], {"owa_piggy_profile": "acme"}) == 0
     err = capsys.readouterr().err
-    assert "owa_piggy_profile=crayon" in err
+    assert "owa_piggy_profile=acme" in err
 
 
 # ---------------------------------------------------------------------------
@@ -426,7 +426,7 @@ def test_main_show_dispatch(monkeypatch, capsys):
 
 def test_main_directory_dispatch(monkeypatch, capsys):
     monkeypatch.setattr(cli.api_mod, "api_get", lambda *a, **k: _list_payload())
-    assert cli._main(["directory", "norconsult"]) == 0
+    assert cli._main(["directory", "acme"]) == 0
     rows = json.loads(capsys.readouterr().out)
     assert rows[0]["id"] == "u1"
 

@@ -24,7 +24,7 @@ Siblings:
 Profiles (audience=graph):
   alias    default  state  mins-left  note
   work              ok     78
-  crayon            fail   -          AADSTS70043 refresh token expired
+  acme              fail   -          AADSTS70043 refresh token expired
   home              ok     77
   agent    yes      ok     72
 

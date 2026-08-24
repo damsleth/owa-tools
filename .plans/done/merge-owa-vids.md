@@ -225,13 +225,13 @@ Example commands block in docs:
 
 ```bash
 # Probe a recording
-owa-vids info --manifest-url 'https://swon-mediap.svc.ms/transform/videomanifest?docid=...&format=dash' --profile swon --pretty
+owa-vids info --manifest-url 'https://globex-mediap.svc.ms/transform/videomanifest?docid=...&format=dash' --profile globex --pretty
 
 # Download and mux
-owa-vids get --manifest-url 'https://swon-mediap.svc.ms/...' --profile swon -o meeting.mp4
+owa-vids get --manifest-url 'https://globex-mediap.svc.ms/...' --profile globex -o meeting.mp4
 
 # Embed-URL path (region must already be cached or --region passed)
-owa-vids get --embed-url 'https://tenant.sharepoint.com/personal/user/_layouts/15/embed.aspx?uniqueId=...' --profile swon
+owa-vids get --embed-url 'https://tenant.sharepoint.com/personal/user/_layouts/15/embed.aspx?uniqueId=...' --profile globex
 
 # Cache the region
 owa-vids config --region switzerlandwest1-mediap.svc.ms

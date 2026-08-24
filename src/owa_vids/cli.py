@@ -72,9 +72,9 @@ Commands (unix-style verbs; suite-canonical aliases in parentheses):
 Requires ffmpeg on $PATH for `get` (the mux step).
 
 Examples:
-  owa-vids info 'https://contoso-my.sharepoint.com/.../stream.aspx?id=...' --profile swon --pretty
-  owa-vids get  'https://contoso-my.sharepoint.com/:v:/r/personal/.../rec.mp4?...' --profile swon
-  owa-vids get  --manifest-url '...videomanifest...&format=dash' --profile swon
+  owa-vids info 'https://contoso-my.sharepoint.com/.../stream.aspx?id=...' --profile globex --pretty
+  owa-vids get  'https://contoso-my.sharepoint.com/:v:/r/personal/.../rec.mp4?...' --profile globex
+  owa-vids get  --manifest-url '...videomanifest...&format=dash' --profile globex
   owa-vids config --region switzerlandwest1-mediap.svc.ms
 """)
     print()

@@ -13,19 +13,19 @@ cannot mint a DevOps token (AADSTS65002 preauth wall). Once a profile
 brokers `--audience devops`, owa-ado never touches refresh tokens itself.
 
 ```
-$ owa-ado config --org Norconsult-Group --project NOCOS
-default org saved: Norconsult-Group
-default project saved: NOCOS
+$ owa-ado config --org ACME-Corp --project ACME
+default org saved: ACME-Corp
+default project saved: ACME
 
 $ owa-ado projects --pretty
 name   state       visibility  id
-NOCOS  wellFormed  private     928251e9-...
+ACME   wellFormed  private     928251e9-...
 IAM    wellFormed  private     18348743-...
 
 $ owa-ado wi --mine --pretty
 id     type        state   assignedTo            title
 16972  User Story  New     Carl Joakim Damsleth  Consolidate toolchain
-17054  Task        Active  Carl Joakim Damsleth  Add Metier group
+17054  Task        Active  Carl Joakim Damsleth  Add billing group
 ```
 
 ## Setup
@@ -66,7 +66,7 @@ active iteration.
 
 ```bash
 owa-ado sprints --current --pretty
-owa-ado sprints --team "NOCOS Team"
+owa-ado sprints --team "ACME Team"
 ```
 
 ### `owa-ado wi`
@@ -172,7 +172,7 @@ List pull requests, or show one by positional id.
 
 ```bash
 owa-ado prs --status active --pretty
-owa-ado prs --repo NOCOS-Main --status all
+owa-ado prs --repo ACME-Main --status all
 owa-ado prs --status completed --all --top 200
 owa-ado prs 2971 --pretty
 ```
@@ -211,16 +211,16 @@ Show a wiki page, or — with no page given — the page tree of the wiki.
 
 Select the wiki with `--wiki <id|name>`; if the project has exactly one wiki
 it is used automatically. Identify a page by its permanent `--id <n>` (the
-number in a wiki URL, e.g. `.../_wiki/wikis/NOCOS.wiki/83/NOCOS` → id 83) or by
+number in a wiki URL, e.g. `.../_wiki/wikis/ACME.wiki/83/ACME` → id 83) or by
 `--path </Some/Page>` (a leading positional path works too; a missing leading
 `/` is added). With a page selected the Markdown `content` is included; the
 tree view (no page) lists paths only. `--pretty` prints the raw Markdown for a
 page, or an indented path tree.
 
 ```bash
-owa-ado wiki --wiki NOCOS.wiki --id 83 --pretty
-owa-ado wiki --wiki NOCOS.wiki /Home --pretty
-owa-ado wiki --wiki NOCOS.wiki
+owa-ado wiki --wiki ACME.wiki --id 83 --pretty
+owa-ado wiki --wiki ACME.wiki /Home --pretty
+owa-ado wiki --wiki ACME.wiki
 ```
 
 `--download <dir>` crawls the full page tree and mirrors it to disk as one
@@ -237,8 +237,8 @@ a nested list of the page's own headings (GitHub-style `#anchor` links, nested
 relative to heading depth as ADO renders them).
 
 ```bash
-owa-ado wiki --wiki NOCOS.wiki --download docs/wiki
-owa-ado wiki --wiki NOCOS.wiki --path /Onboarding --download docs/wiki --pretty
+owa-ado wiki --wiki ACME.wiki --download docs/wiki
+owa-ado wiki --wiki ACME.wiki --path /Onboarding --download docs/wiki --pretty
 ```
 
 ### `owa-ado variable-groups`
@@ -305,7 +305,7 @@ View or update configuration (`--profile`, `--org`, `--project`).
 
 ```bash
 owa-ado config
-owa-ado config --org Norconsult-Group --project NOCOS
+owa-ado config --org ACME-Corp --project ACME
 owa-ado config --unset ado_project
 owa-ado config --clear
 ```

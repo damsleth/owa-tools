@@ -26,9 +26,9 @@ def test_config_set_rejects_unknown_key(tmp_config, clean_env):
 
 def test_load_config_round_trip(tmp_config, clean_env):
     from owa_people import config as config_mod
-    config_mod.config_set('owa_piggy_profile', 'crayon')
+    config_mod.config_set('owa_piggy_profile', 'acme')
     cfg = config_mod.load_config()
-    assert cfg.get('owa_piggy_profile') == 'crayon'
+    assert cfg.get('owa_piggy_profile') == 'acme'
 
 
 def test_parse_kv_filters_unknown_keys():

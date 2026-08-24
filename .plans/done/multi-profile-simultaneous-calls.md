@@ -21,9 +21,9 @@ against each profile in one invocation, fanning out auth + execution and merging
 the results.
 
 ```
-owa-graph GET /me --profile crayon --profile brkh
-owa-drive ls --pretty --profile crayon --profile swon
-owa-mail  tui          --profile crayon --profile swon
+owa-graph GET /me --profile acme --profile brkh
+owa-drive ls --pretty --profile acme --profile globex
+owa-mail  tui          --profile acme --profile globex
 ```
 
 ## Goal
@@ -66,7 +66,7 @@ byte-identical (no regression for the common case).
 4. **Per-profile isolation.** One profile's auth failure or error must not abort
    the others — collect `{profile, ok, data|error}` per profile.
 5. **Output shape for N>1.** Wrap in a multi-profile envelope:
-   `{"_owa": {... "profiles": [...]}, "results": [{"profile": "crayon", "ok": true, "data": ...}, ...]}`.
+   `{"_owa": {... "profiles": [...]}, "results": [{"profile": "acme", "ok": true, "data": ...}, ...]}`.
    N==1 ⇒ **unchanged** legacy shape (no `results` wrapper) to avoid breaking
    scripts. `--pretty` ⇒ one labelled section per profile.
 6. **TUI is special.** A single curses screen can't be two profiles at once.
@@ -125,7 +125,7 @@ byte-identical (no regression for the common case).
 - **Per-profile audiences differ** (memory: `outlook` token huge, `graph`
   narrower; CA policy varies per profile). Fan-out must tolerate one profile
   lacking scope/consent while others succeed (§4 isolation covers it).
-- **Aliases:** crayon/brkh/swon are owa-piggy aliases; no change to alias
+- **Aliases:** acme/brkh/globex are owa-piggy aliases; no change to alias
   resolution — pass each through unchanged.
 - **TUI multi-profile** is the only genuinely hard verb; everything else is
   fan-out + merge. Don't let it block the rest — ship refusal, iterate later.

@@ -20,8 +20,8 @@ def test_build_url_drops_none_query_values():
 
 
 def test_build_url_encodes_spaces_in_path_but_keeps_structure():
-    url = api.build_url('https://x', 'NOCOS/NOCOS Team/_apis/work', api_version=None)
-    assert 'NOCOS%20Team' in url
+    url = api.build_url('https://x', 'ACME/ACME Team/_apis/work', api_version=None)
+    assert 'ACME%20Team' in url
     assert '/_apis/work' in url  # slashes preserved
 
 

@@ -81,7 +81,7 @@ owa-drive upload ./foo.txt "/Documents/foo.txt"   # alias for put
 owa-drive rm "/Documents/old.txt" --confirm
 owa-drive delete "/Documents/old.txt" --confirm   # alias for rm
 owa-drive refresh
-owa-drive config --profile crayon
+owa-drive config --profile acme
 ```
 
 `ls` returns a single page by default. Pass `--all` to follow
