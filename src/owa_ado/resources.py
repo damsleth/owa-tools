@@ -119,15 +119,16 @@ def work_item_attachments(wi):
     return out
 
 
-def normalize_work_item_detailed(wi):
-    """The thin work-item dict plus the description (HTML stripped) and
-    attachment urls - the useful extras without the full REST verbosity."""
+def normalize_work_item_detailed(wi, *, attachments=False):
+    """The thin work-item dict plus the description (HTML stripped), and with
+    attachments=True the attachment urls too."""
     item = normalize_work_item(wi)
     if not item:
         return item
     fields = wi.get('fields') or {}
     item['description'] = _strip_html(fields.get('System.Description'))
-    item['attachments'] = work_item_attachments(wi)
+    if attachments:
+        item['attachments'] = work_item_attachments(wi)
     return item
 
 

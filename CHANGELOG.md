@@ -14,6 +14,18 @@ per-tool subsections inside that release when useful.
   headless session capture, fixed Table API reads, and validated Pending-only
   batch writes. Description creation uses a verified POST, PATCH, GET sequence.
 
+### owa-ado
+
+- `wi <id>` now includes the work item's description by default. `--short`
+  skips it; `--detailed` no longer implies the description and adds only the
+  attachment list.
+
+### Docs
+
+- Examples, help text, and test fixtures use placeholder organisations
+  (`ACME-Corp`, `acme`, `globex`, `example.com`) instead of real customer,
+  employer, and colleague names.
+
 ## v1.4.0 - 2026-07-07
 
 ### owa-ado

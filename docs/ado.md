@@ -81,8 +81,17 @@ positional id, show that one work item.
 - `--top <n>` — cap results (default 50)
 - `--query <wiql>` — raw WIQL, overriding the builder
 
+Showing one item includes the work item's description (HTML stripped to
+plain text). Show-mode only:
+
+- `--short` — skip the description
+- `--detailed` — also list attachment names and urls
+- `--full` — raw, unnormalized REST payload
+
 ```bash
 owa-ado wi --mine --pretty
+owa-ado wi 16972 --short
+owa-ado wi 16972 --detailed --pretty
 owa-ado wi --state Active --type Bug --top 20
 owa-ado wi 16972 --pretty
 owa-ado wi --query "SELECT [System.Id] FROM workitems WHERE [System.State] = 'Active'"
