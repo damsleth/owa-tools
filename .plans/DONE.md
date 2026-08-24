@@ -15,7 +15,11 @@ pointing back here.
   `rtk proxy` corrupts JSON reads badly enough to invalidate a pre-write
   snapshot — verification reads must use the bare binary. Session-expiry
   behavior is an accepted documented residual risk.
-  Live prod status/full-sync reads passed. (2026-08-21, verified 2026-08-24)
+  Also added `submit` (Service Portal `timecardprocessor.do` processor, not the
+  Table API) and `delete` for a single card by `sys_id`, both Pending-only with
+  the guard verified live. Released as v1.5.0 on 2026-08-24: PyPI, CI-built
+  GitHub Release, Homebrew tap, clean-install verified.
+  (2026-08-21, verified and released 2026-08-24)
   Plan: [done/swodp-cli.md](done/swodp-cli.md).
 
 - **owa-planner-write-support** — mutating half of owa-planner shipped:
