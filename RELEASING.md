@@ -105,10 +105,13 @@ and the index is just stale.
 - `owa-tools` formula installs all eight consumer binaries plus the
   umbrella `owa` binary.
 - `owa-piggy` formula stays standalone in the same tap.
-- A draft formula lives at `src/packaging/homebrew/owa-tools.rb`. It is the
-  starting point to copy into the Homebrew tap repository at release
-  time. Update `url`, `sha256`, and `version` to match the published
-  sdist on PyPI.
+- Bump the tap with `src/scripts/update_tap.sh vX.Y.Z`, then push the tap.
+  It rewrites only `url` and `sha256` (over the GitHub tag tarball, not a
+  PyPI sdist) and leaves the rest of the formula alone.
+- The **tap is authoritative** for formula content.
+  `src/packaging/homebrew/owa-tools.rb` is a mirror the script writes so
+  the two cannot drift - not a template to hand-edit. The formula has no
+  `version` field; Homebrew derives it from the `url` tag.
 
 ## Backout / rollback
 
