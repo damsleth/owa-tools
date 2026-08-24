@@ -42,8 +42,10 @@ Read commands:
   categories  Build display-name -> raw-value Other category map.
   task         Look up a task by task number.
 
-Write command:
+Write commands:
   write        Apply a validated JSON row plan to Pending cards only.
+  submit       Move one Pending time card to Submitted.
+  delete       Delete one Pending time card by sys id.
 
 Common options:
   --instance <prod|uat>  Target instance (default: prod). Separate Edge profile per instance.
@@ -55,6 +57,8 @@ Examples:
   owa-swodp sync --week-start 2026-08-17
   owa-swodp cards --week-start 2026-08-17 --range-weeks 3
   owa-swodp write --instance uat --week-start 2026-08-17 --file rows.json --confirm
+  owa-swodp submit --sys-id fa6f509b2bfec3102ba6fe9cf291bf0f --confirm
+  owa-swodp delete --sys-id fa6f509b2bfec3102ba6fe9cf291bf0f --confirm
 """
     )
     print(schema_mod.MACHINE_SURFACE_HELP)
@@ -222,6 +226,43 @@ def _load_rows(path):
     return service.validate_write_rows(rows)
 
 
+def _parse_card(args, verb):
+    instance, pretty, debug, rest = _common(args)
+    sys_id = ""
+    confirmed = False
+    while rest:
+        flag, rest = rest[0], rest[1:]
+        if flag == "--sys-id":
+            sys_id, rest = _require_value(flag, rest)
+        elif flag in ("--confirm", "--yes"):
+            confirmed = True
+        elif not flag.startswith("-") and not sys_id:
+            sys_id = flag
+        else:
+            raise UsageError(f"Unknown argument: {flag}")
+    if not sys_id:
+        raise UsageError("time card sys id is required")
+    if not tty_mod.confirm(f"{verb} time card {sys_id} on SWODP {instance}? [y/N] ", confirm=confirmed):
+        raise UsageError(f"{verb.lower()} cancelled")
+    return instance, pretty, debug, sys_id
+
+
+def cmd_delete(args):
+    instance, pretty, debug, sys_id = _parse_card(args, "Delete")
+    result = service.delete_card(_capture(instance, debug), sys_id, debug=debug)
+    _emit({"ok": True, "instance": instance, **result}, pretty)
+    return 0
+
+
+def cmd_submit(args):
+    instance, pretty, debug, sys_id = _parse_card(args, "Submit")
+    result = service.submit_card(_capture(instance, debug), sys_id, debug=debug)
+    _emit({"ok": "detail" not in result, "instance": instance, **result}, pretty)
+    if "detail" in result:
+        raise ConflictError(result["detail"])
+    return 0
+
+
 def cmd_write(args):
     instance, pretty, debug, rest = _common(args)
     week_start = path = ""
@@ -260,6 +301,11 @@ _PRETTY = schema_mod.flag("--pretty", summary="Indented human-readable JSON")
 _DEBUG = schema_mod.flag("--debug", summary="Diagnostics to stderr")
 _COMMON = [_INSTANCE, _PRETTY, _DEBUG]
 _WEEK = schema_mod.flag("--week-start", value="<YYYY-MM-DD>", summary="Monday of the target week", required=True)
+_CARD = [
+    schema_mod.flag("<sys-id>", summary="Time card sys id", required=True),
+    schema_mod.flag("--sys-id", value="<sys-id>", summary="Time card sys id flag alternative"),
+    schema_mod.flag("--confirm", summary="Required outside a TTY"),
+]
 
 COMMAND_SCHEMA = [
     schema_mod.command("status", "Verify the Edge sidecar and SWODP API session", auth="swodp-session", flags=_COMMON + [schema_mod.flag("--json", summary="JSON output (default)")]),
@@ -271,6 +317,8 @@ COMMAND_SCHEMA = [
     schema_mod.command("allocations", "Fetch recent resource allocations", auth="swodp-session", flags=_COMMON + [schema_mod.flag("--since", value="<YYYY-MM-DD>", summary="Earliest allocation end date")]),
     schema_mod.command("categories", "Build the Other-category display/value map", auth="swodp-session", flags=_COMMON),
     schema_mod.command("task", "Look up a task number", auth="swodp-session", flags=_COMMON + [schema_mod.flag("<task-number>", summary="Task number", required=True), schema_mod.flag("--number", value="<task-number>", summary="Task number flag alternative")]),
+    schema_mod.command("submit", "Move one Pending time card to Submitted", auth="swodp-session", mutates=True, confirmation=True, idempotent=False, flags=_COMMON + _CARD),
+    schema_mod.command("delete", "Delete one Pending time card", auth="swodp-session", mutates=True, destructive=True, confirmation=True, idempotent=False, flags=_COMMON + _CARD),
     schema_mod.command("write", "Apply a validated row plan to Pending time cards", auth="swodp-session", mutates=True, destructive=True, confirmation=True, idempotent=False, flags=_COMMON + [_WEEK, schema_mod.flag("--file", value="<path|->", summary="JSON rows file or stdin", required=True), schema_mod.flag("--confirm", summary="Required outside a TTY")]),
 ]
 
@@ -300,6 +348,8 @@ def _main(argv):
         "categories": cmd_categories,
         "task": cmd_task,
         "write": cmd_write,
+        "submit": cmd_submit,
+        "delete": cmd_delete,
     }
     if cmd not in handlers:
         raise UsageError(f"Unknown command: {cmd}")
