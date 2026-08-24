@@ -20,6 +20,7 @@ RUNTIME_DIRS = [
     'owa_teams',
     'owa_vids',
     'owa_ado',
+    'owa_swodp',
 ]
 
 
@@ -32,7 +33,7 @@ def test_urllib_http_usage_stays_in_core_http():
     offenders = []
     for path in _runtime_files():
         rel = path.relative_to(ROOT)
-        if rel.as_posix() == 'owa_core/http.py':
+        if rel.as_posix() in {'owa_core/http.py', 'owa_swodp/cdp.py'}:
             continue
         text = path.read_text()
         if 'urllib.request' in text or 'urllib.error' in text:

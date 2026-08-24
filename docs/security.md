@@ -14,6 +14,11 @@ component that stores refresh tokens.
 - `owa-tools` must not read `~/.config/owa-piggy` directly and must not import
   `owa_piggy` Python modules.
 
+`owa-swodp` is a separate ServiceNow credential domain and does not use the
+broker. It owns dedicated prod/UAT Edge userdata directories under
+`~/.config/owa-swodp/`. CDP-captured cookies and `g_ck` stay in memory for one
+command and are never written by the CLI or emitted.
+
 ## Local Files
 
 Consumer config files are written atomically through `owa_core.config`:
@@ -26,6 +31,9 @@ Consumer config files are written atomically through `owa_core.config`:
 
 The suite intentionally does not store access tokens, refresh tokens, client
 secrets, cookies, tenant dumps, captured Microsoft responses, or live fixtures.
+The SWODP Edge userdata directories are the one explicit exception: they are
+browser profiles and necessarily contain browser-managed ServiceNow session
+state. The directories are mode `0700` where supported.
 
 ## Output
 

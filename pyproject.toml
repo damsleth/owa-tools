@@ -44,6 +44,7 @@ owa-sites = "owa_sites:main"
 owa-teams = "owa_teams:main"
 owa-vids = "owa_vids:main"
 owa-ado = "owa_ado:main"
+owa-swodp = "owa_swodp:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -66,6 +67,7 @@ packages = [
   "owa_teams",
   "owa_vids",
   "owa_ado",
+  "owa_swodp",
 ]
 
 [tool.setuptools.package-data]
@@ -102,6 +104,7 @@ source = [
   "owa_teams",
   "owa_vids",
   "owa_ado",
+  "owa_swodp",
 ]
 omit = ["*/__main__.py"]
 

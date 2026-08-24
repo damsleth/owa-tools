@@ -5,10 +5,11 @@ read the nearest local `AGENTS.md` for the files you are editing.
 
 ## Suite Purpose
 
-`owa-tools` is a CLI-only suite distribution with thirteen console scripts:
+`owa-tools` is a CLI-only suite distribution with fifteen consumer scripts plus
+the `owa` umbrella:
 `owa`, `owa-cal`, `owa-mail`, `owa-graph`, `owa-doctor`, `owa-people`,
 `owa-sched`, `owa-places`, `owa-drive`, `owa-todo`, `owa-planner`,
-`owa-sites`, `owa-teams`, and `owa-vids`.
+`owa-sites`, `owa-teams`, `owa-vids`, `owa-ado`, and `owa-swodp`.
 `owa-piggy` is a separate auth broker repository.
 
 `owa-tui` (separate repo) is the graphical frontend; this repo is CLI-only.
@@ -139,6 +140,7 @@ Actual signatures (verified against source):
 | `src/owa_sites/AGENTS.md` | changing SharePoint behavior |
 | `src/owa_teams/AGENTS.md` | changing Microsoft Teams behavior (channels, chats, chatsvc messages) |
 | `src/owa_vids/AGENTS.md` | changing meeting-recap video download behavior (DASH, segments, ffmpeg mux) |
+| `src/owa_swodp/AGENTS.md` | changing SWODP session capture, ServiceNow reads, or timesheet writes |
 | `src/tests/AGENTS.md` | adding or changing tests |
 | `src/tests/contract/AGENTS.md` | changing machine contract tests |
 | `src/tests/compat/AGENTS.md` | changing release-contract compatibility snapshots |

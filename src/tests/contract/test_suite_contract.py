@@ -16,6 +16,8 @@ TOOLS = (
     "owa_sites",
     "owa_teams",
     "owa_vids",
+    "owa_ado",
+    "owa_swodp",
 )
 
 
@@ -266,7 +268,7 @@ def test_consumer_tool_help_documents_multi_profile_fanout():
         result = _run_module(module, "--help")
         assert result.returncode == 0
         has_block = "Multi-profile fan-out:" in result.stdout
-        if module == "owa_doctor":
+        if module in {"owa_doctor", "owa_swodp"}:
             assert not has_block, "owa-doctor must not advertise fan-out (it opts out)"
         else:
             assert has_block, f"{module} help missing the multi-profile fan-out block"

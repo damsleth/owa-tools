@@ -1,5 +1,11 @@
 # swodp-cli
 
+> **Status: COMPLETE (2026-08-21).** Implemented as `owa-swodp` with
+> dedicated prod/UAT Edge sidecars, in-memory CDP session capture, fixed
+> ServiceNow reads, and validated Pending-only writes. Live prod status and
+> full-sync reads passed; no live writes were attempted because UAT has not
+> yet been signed in on this machine.
+
 _Created 2026-08-21_
 
 ## Feasibility — VERDICT: VIABLE (spiked and confirmed live against production SWODP, 2026-08-21)
