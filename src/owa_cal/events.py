@@ -205,6 +205,13 @@ def normalize_event(event):
         'location': loc.get('DisplayName') or '',
         'showAs': event.get('ShowAs') or '',
         'isAllDay': event.get('IsAllDay') or False,
+        # Recurrence shape. Consumers that write back need this: editing one
+        # Occurrence of a series is a different operation from editing a
+        # SingleInstance, and without these fields a caller cannot tell them
+        # apart. 'SingleInstance' is the safe default when absent (the webcal
+        # path has no equivalent).
+        'type': event.get('Type') or 'SingleInstance',
+        'seriesMasterId': event.get('SeriesMasterId') or None,
     }
 
 
