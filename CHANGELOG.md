@@ -8,12 +8,20 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+## v1.5.1 - 2026-08-25
+
 ### owa-swodp
 
 - New `recall <sys-id> --reason <text>` moves one Submitted time card to
   Recalled through the Service Portal processor. It requires confirmation,
   refuses other states with exit 15, sends the mandatory reason, and reads the
   card back to verify the state transition.
+
+### owa-todo
+
+- A profile-only invocation such as `owa-todo --profile all` now defaults to
+  `tasks` and returns the merged JSON envelope. Bare `owa-todo` still prints
+  help.
 
 ### owa-cal
 
