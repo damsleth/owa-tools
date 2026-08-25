@@ -39,7 +39,7 @@ from .format import format_events_pretty
 # compares the same normalized fields the listing surfaces.
 _EVENTS_SELECT = (
     'Id,Subject,Start,End,Location,Categories,ShowAs,IsAllDay,'
-    'OriginalStartTimeZone,OriginalEndTimeZone'
+    'OriginalStartTimeZone,OriginalEndTimeZone,Type,SeriesMasterId'
 )
 _EVENTS_ORDERBY = 'Start/DateTime'
 
