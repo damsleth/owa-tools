@@ -8,6 +8,13 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-swodp
+
+- New `recall <sys-id> --reason <text>` moves one Submitted time card to
+  Recalled through the Service Portal processor. It requires confirmation,
+  refuses other states with exit 15, sends the mandatory reason, and reads the
+  card back to verify the state transition.
+
 ### owa-cal
 
 - **`events` now reports recurrence shape.** Added `type`

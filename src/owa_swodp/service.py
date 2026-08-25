@@ -148,8 +148,8 @@ def task_lookup(session, task_number, *, debug=False):
     return rows[0] if rows else None
 
 
-def _pending_card(session, sys_id, *, debug=False):
-    """Fetch one time card and refuse to touch it unless it is Pending."""
+def _card_in_state(session, sys_id, required_state, operation, *, debug=False):
+    """Fetch one time card and require the state allowed for an operation."""
     if not SYS_ID_RE.fullmatch(sys_id or ""):
         raise UsageError("sys id must be 32 lowercase hex characters")
     record = api.request(
@@ -164,12 +164,17 @@ def _pending_card(session, sys_id, *, debug=False):
         record = record[0] if record else {}
     if not record:
         raise NotFoundError(f"time card not found: {sys_id}")
-    if record.get("state") != "Pending":
+    if record.get("state") != required_state:
         raise ConflictError(
             f"time card is {record.get('state') or 'in an unknown state'}; "
-            "only Pending cards may be changed"
+            f"only {required_state} cards may be {operation}"
         )
     return record
+
+
+def _pending_card(session, sys_id, *, debug=False):
+    """Fetch one time card and refuse to touch it unless it is Pending."""
+    return _card_in_state(session, sys_id, "Pending", "changed", debug=debug)
 
 
 def delete_card(session, sys_id, *, debug=False):
@@ -206,6 +211,44 @@ def submit_card(session, sys_id, *, debug=False):
         result["message"] = message
     if state.get("state") != "Submitted":
         result["detail"] = f"state is {state.get('state') or 'unknown'} after a successful submit"
+    return result
+
+
+def validate_recall_reason(reason):
+    if not isinstance(reason, str) or not reason.strip():
+        raise UsageError("recall reason must be non-empty")
+    return reason.strip()
+
+
+def recall_card(session, sys_id, reason, *, debug=False):
+    """Move one Submitted card to Recalled through the portal processor."""
+    reason = validate_recall_reason(reason)
+    card = _card_in_state(session, sys_id, "Submitted", "recalled", debug=debug)
+    payload = api.processor(
+        session,
+        "updateTimeCardState",
+        {"timecard_id": sys_id, "new_state": "Recalled", "reason": reason},
+        debug=debug,
+    )
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+    message = data.get("message") or payload.get("message") or ""
+    if payload.get("status") != "success":
+        raise ConflictError(f"SWODP refused the recall: {message or 'no reason given'}")
+    state = api.request(
+        session,
+        "GET",
+        "time_card",
+        sys_id=sys_id,
+        params={"sysparm_fields": "state"},
+        debug=debug,
+    )
+    if isinstance(state, list):
+        state = state[0] if state else {}
+    result = {"action": "recalled", "sys_id": sys_id, "state": state.get("state"), "card": card}
+    if message:
+        result["message"] = message
+    if state.get("state") != "Recalled":
+        result["detail"] = f"state is {state.get('state') or 'unknown'} after a successful recall"
     return result
 
 

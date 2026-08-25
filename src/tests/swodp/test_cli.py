@@ -134,7 +134,7 @@ def test_load_rows_reports_file_and_json_errors(tmp_path):
         cli._load_rows(str(bad))
 
 
-def test_submit_and_delete_require_sys_id_and_dispatch(monkeypatch, capsys):
+def test_card_commands_require_sys_id_and_dispatch(monkeypatch, capsys):
     monkeypatch.setattr(cli, "_capture", lambda *a, **k: CAPTURED)
     monkeypatch.setattr(
         cli.service, "delete_card", lambda *a, **k: {"action": "deleted", "sys_id": "x"}
@@ -144,13 +144,30 @@ def test_submit_and_delete_require_sys_id_and_dispatch(monkeypatch, capsys):
         "submit_card",
         lambda *a, **k: {"action": "submitted", "sys_id": "x", "state": "Submitted"},
     )
-    for args in (["delete", "x", "--confirm"], ["submit", "--sys-id", "x", "--confirm"]):
+    monkeypatch.setattr(
+        cli.service,
+        "recall_card",
+        lambda *a, **k: {"action": "recalled", "sys_id": "x", "state": "Recalled"},
+    )
+    for args in (
+        ["delete", "x", "--confirm"],
+        ["submit", "--sys-id", "x", "--confirm"],
+        ["recall", "x", "--reason", "Correction", "--confirm"],
+    ):
         assert cli.main(args) == 0
         assert json.loads(capsys.readouterr().out)["ok"] is True
 
-    for command in ("submit", "delete"):
+    for command in ("submit", "recall", "delete"):
         assert cli.main([command, "--confirm"]) == int(ExitCode.USAGE)
         assert "sys id is required" in capsys.readouterr().err
+
+
+def test_recall_requires_reason_before_capture(monkeypatch, capsys):
+    monkeypatch.setattr(
+        cli, "_capture", lambda *a, **k: pytest.fail("capture must not run")
+    )
+    assert cli.main(["recall", "x", "--confirm"]) == int(ExitCode.USAGE)
+    assert "reason" in capsys.readouterr().err
 
 
 def test_submit_conflicts_when_state_did_not_move(monkeypatch, capsys):
@@ -161,6 +178,19 @@ def test_submit_conflicts_when_state_did_not_move(monkeypatch, capsys):
         lambda *a, **k: {"action": "submitted", "sys_id": "x", "detail": "state is Pending"},
     )
     assert cli.main(["submit", "x", "--confirm"]) == int(ExitCode.CONFLICT)
+    assert json.loads(capsys.readouterr().out)["ok"] is False
+
+
+def test_recall_conflicts_when_state_did_not_move(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_capture", lambda *a, **k: CAPTURED)
+    monkeypatch.setattr(
+        cli.service,
+        "recall_card",
+        lambda *a, **k: {"action": "recalled", "sys_id": "x", "detail": "state is Submitted"},
+    )
+    assert cli.main(["recall", "x", "--reason", "Correction", "--confirm"]) == int(
+        ExitCode.CONFLICT
+    )
     assert json.loads(capsys.readouterr().out)["ok"] is False
 
 

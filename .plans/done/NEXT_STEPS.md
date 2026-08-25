@@ -1,5 +1,20 @@
 # owa-swodp next steps
 
+> **Plan reconciliation (2026-08-25):** The original production-verification
+> work below is complete and retained as evidence. Remaining production-readiness
+> work has been split out so unchecked historical steps are no longer mistaken
+> for current work:
+>
+> - `.plans/owa-swodp-production-readiness.md` — implement Recall and its
+>   offline/contract/documentation gates.
+> - Repo todo: live-verify Submit followed by Recall on the next legitimate
+>   operator-owned Pending card; do not manufacture production time data.
+> - Repo todo: capture the natural expired-session response and recovery when it
+>   occurs; do not damage a working Edge profile to force it.
+>
+> This plan can now be archived through `todo done`; its dated live evidence
+> remains authoritative for v1.5.0.
+
 > **Status (2026-08-24): DONE and RELEASED as v1.5.0.** Live production
 > verification passed, all gates green, published to PyPI, GitHub Release built
 > in CI with artifacts attached, Homebrew tap bumped, and a clean venv install

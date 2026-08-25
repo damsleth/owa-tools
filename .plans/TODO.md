@@ -70,3 +70,5 @@ overhaul, owa-doctor siblings cross-check, multi-profile fan-out).
 - owa-cal TUI (2026-06-17) — agenda browser adapter on `tui_kit.app`
   (`owa-cal tui`): event list + detail + confirm-gated respond, `/` search,
   `--day-range`. Part of the in-flight suite TUI rollout, not a standalone plan.
+- [ ] owa-swodp: live-verify Submit then Recall on the next legitimate Pending production card
+- [ ] owa-swodp: capture natural expired-session signal and verify setup recovery
