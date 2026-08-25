@@ -264,3 +264,50 @@ def test_submit_card_flags_state_that_did_not_move(monkeypatch):
     monkeypatch.setattr(service.api, "processor", lambda *a, **k: {"status": "success"})
     result = service.submit_card(SESSION, CARD_ID)
     assert "detail" in result and "Pending" in result["detail"]
+
+
+def test_recall_card_requires_reason_and_submitted_state(monkeypatch):
+    with pytest.raises(UsageError, match="reason"):
+        service.recall_card(SESSION, CARD_ID, "  ")
+
+    monkeypatch.setattr(service.api, "request", lambda *a, **k: {"state": "Approved"})
+    with pytest.raises(ConflictError, match="only Submitted"):
+        service.recall_card(SESSION, CARD_ID, "Correction")
+
+
+def test_recall_card_posts_reason_and_verifies_recalled(monkeypatch):
+    states = iter([{"state": "Submitted"}, {"state": "Recalled"}])
+    seen = {}
+    monkeypatch.setattr(service.api, "request", lambda *a, **k: next(states))
+
+    def processor(session, name, fields, **kwargs):
+        seen.update(name=name, fields=fields)
+        return {"status": "success", "data": {"message": "recalled"}}
+
+    monkeypatch.setattr(service.api, "processor", processor)
+    result = service.recall_card(SESSION, CARD_ID, "  Correction needed  ")
+    assert seen == {
+        "name": "updateTimeCardState",
+        "fields": {
+            "timecard_id": CARD_ID,
+            "new_state": "Recalled",
+            "reason": "Correction needed",
+        },
+    }
+    assert result["action"] == "recalled" and result["state"] == "Recalled"
+    assert result["message"] == "recalled" and "detail" not in result
+
+
+def test_recall_card_reports_processor_and_verification_failures(monkeypatch):
+    monkeypatch.setattr(service.api, "request", lambda *a, **k: {"state": "Submitted"})
+    monkeypatch.setattr(
+        service.api, "processor", lambda *a, **k: {"status": "error", "message": "denied"}
+    )
+    with pytest.raises(ConflictError, match="denied"):
+        service.recall_card(SESSION, CARD_ID, "Correction")
+
+    states = iter([{"state": "Submitted"}, {"state": "Submitted"}])
+    monkeypatch.setattr(service.api, "request", lambda *a, **k: next(states))
+    monkeypatch.setattr(service.api, "processor", lambda *a, **k: {"status": "success"})
+    result = service.recall_card(SESSION, CARD_ID, "Correction")
+    assert "detail" in result and "Submitted" in result["detail"]
