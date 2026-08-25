@@ -29,7 +29,11 @@ profile whose policy permits it with `--profile <alias>`.
 
 ```sh
 owa-todo --profile work tasks --pretty
+owa-todo --profile all                    # tasks across all active profiles, JSON
 ```
+
+When one or more profiles are selected and no command is supplied, `tasks` is
+the default command. Bare `owa-todo` still prints help.
 
 ---
 
