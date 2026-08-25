@@ -76,6 +76,44 @@ def _command_name(argv):
     return ''
 
 
+def _default_profile_command(argv):
+    """Default a profile-only invocation to the task listing.
+
+    Bare ``owa-todo`` remains the help surface. Once a caller selects one or
+    more profiles, however, there is a clear read-only default: list tasks for
+    those profiles. Resolve that default before the shared fan-out layer so it
+    captures JSON from ``tasks`` rather than trying to parse per-profile help
+    text as command output.
+    """
+    if not argv:
+        return argv
+
+    saw_profile = False
+    remaining = []
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg in ('--profile', '-p') and i + 1 < len(argv):
+            saw_profile = True
+            i += 2
+            continue
+        if arg.startswith('--profile=') or arg.startswith('-p='):
+            saw_profile = bool(arg.split('=', 1)[1]) or saw_profile
+            i += 1
+            continue
+        if arg in ('-A', '--all-profiles'):
+            saw_profile = True
+            i += 1
+            continue
+        if arg not in ('--agent', '--err-json', '--debug', '--verbose'):
+            remaining.append(arg)
+        i += 1
+
+    if saw_profile and not remaining:
+        return [*argv, 'tasks']
+    return argv
+
+
 def _require_int(flag, args):
     v, args = _require_value(flag, args)
     try:
@@ -843,6 +881,7 @@ def _main(argv):
 
 
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
     return mode_mod.run_with_output_modes(
-        'owa-todo', sys.argv[1:] if argv is None else argv, _main,
+        'owa-todo', _default_profile_command(argv), _main,
     )

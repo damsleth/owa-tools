@@ -4,6 +4,7 @@ from datetime import date
 
 import pytest
 
+from owa_core.auth import BrokerProfile
 from owa_todo import cli
 
 
@@ -20,6 +21,43 @@ def test_help_and_no_args(capsys):
     assert "owa-todo" in capsys.readouterr().out
     assert cli._main(["help"]) == 0
     assert "Commands:" in capsys.readouterr().out
+
+
+def test_profile_only_main_defaults_to_tasks_and_merges_json(monkeypatch, capsys):
+    monkeypatch.setattr(cli.api_mod, "api_get", lambda *a, **k: {"value": []})
+
+    assert cli.main(["--profile", "work", "--profile", "home"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["_owa"]["command"] == "tasks"
+    assert payload["_owa"]["profiles"] == ["work", "home"]
+    assert payload["results"] == [
+        {"profile": "work", "ok": True, "data": []},
+        {"profile": "home", "ok": True, "data": []},
+    ]
+
+
+def test_all_profile_main_defaults_to_tasks_and_returns_json(monkeypatch, capsys):
+    monkeypatch.setattr(
+        "owa_core.auth.get_profiles",
+        lambda **kwargs: [
+            BrokerProfile("work", True, True, True),
+            BrokerProfile("home", False, True, True),
+        ],
+    )
+    monkeypatch.setattr(cli.api_mod, "api_get", lambda *a, **k: {"value": []})
+
+    assert cli.main(["--profile", "all"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["_owa"]["command"] == "tasks"
+    assert payload["_owa"]["profiles"] == ["work", "home"]
+    assert all(result["ok"] for result in payload["results"])
+
+
+@pytest.mark.parametrize("profile_args", [["-A"], ["--all-profiles"]])
+def test_all_profile_aliases_default_to_tasks(profile_args):
+    assert cli._default_profile_command(profile_args) == [*profile_args, "tasks"]
 
 
 def test_subcommand_help_renders_required_marker(capsys):
