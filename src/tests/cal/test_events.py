@@ -39,6 +39,41 @@ def test_normalize_event_pascal():
     assert out['categories'] == ['ProjectX']
     assert out['showAs'] == 'Busy'
     assert out['isAllDay'] is False
+    # Absent Type/SeriesMasterId must read as a standalone event, never as an
+    # unknown: a consumer that writes back has to be able to trust this.
+    assert out['type'] == 'SingleInstance'
+    assert out['seriesMasterId'] is None
+
+
+def test_normalize_event_series_occurrence():
+    """One occurrence of a recurring series is distinguishable from a
+    standalone event. Callers that edit events need this: changing one
+    Occurrence is a different operation from changing a SingleInstance, and
+    guessing is not safe."""
+    e = {
+        'Id': 'OCC1',
+        'Subject': 'Birthday',
+        'Start': {'DateTime': '2026-08-28T00:00:00', 'TimeZone': 'UTC'},
+        'End': {'DateTime': '2026-08-29T00:00:00', 'TimeZone': 'UTC'},
+        'IsAllDay': True,
+        'Type': 'Occurrence',
+        'SeriesMasterId': 'MASTER1',
+    }
+    out = normalize_event(e)
+    assert out['type'] == 'Occurrence'
+    assert out['seriesMasterId'] == 'MASTER1'
+
+
+def test_normalize_event_series_master():
+    out = normalize_event({
+        'Id': 'MASTER1',
+        'Subject': 'Weekly sync',
+        'Start': {'DateTime': '2026-08-24T09:00:00', 'TimeZone': 'UTC'},
+        'End': {'DateTime': '2026-08-24T09:30:00', 'TimeZone': 'UTC'},
+        'Type': 'SeriesMaster',
+    })
+    assert out['type'] == 'SeriesMaster'
+    assert out['seriesMasterId'] is None
 
 
 def test_normalize_events_empty():

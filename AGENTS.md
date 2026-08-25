@@ -266,18 +266,25 @@ When the user says "cut a release" / "new patch version" / "ship it":
    same gates, rebuilds the artifacts in CI, and creates the GitHub
    Release at the tag with the wheel and sdist attached. The workflow
    does not touch PyPI.
-10. Bump the Homebrew tap. Fetch the GitHub-generated tarball, compute
-    its sha256, and update the formula:
+10. Bump the Homebrew tap:
     ```
-    curl -sL https://github.com/damsleth/owa-tools/archive/refs/tags/vX.Y.Z.tar.gz \
-      -o /tmp/owa-tools-X.Y.Z.tar.gz
-    shasum -a 256 /tmp/owa-tools-X.Y.Z.tar.gz
+    src/scripts/update_tap.sh vX.Y.Z        # add NO_COMMIT=1 to review first
+    git -C ../homebrew-tap push
     ```
-    Edit `~/Code/homebrew-tap/Formula/owa-tools.rb` - bump the `url`
-    tag, the `sha256`, and `version`. Use
-    `src/packaging/homebrew/owa-tools.rb` from this repo as the source of
-    truth for formula structure. Commit the tap with message
-    `owa-tools X.Y.Z` (matches existing tap convention) and push.
+    The script fetches the GitHub-generated tag tarball, computes its
+    sha256, rewrites **only** `url` and `sha256` in
+    `../homebrew-tap/Formula/owa-tools.rb`, mirrors the result into
+    `src/packaging/homebrew/owa-tools.rb`, and commits the tap with
+    message `owa-tools X.Y.Z` (the existing tap convention). It fails
+    loudly if the tag is not pushed yet rather than hashing a 404 page.
+
+    The **tap is authoritative** for formula content;
+    `src/packaging/homebrew/owa-tools.rb` is a mirror the script writes,
+    not a template to hand-edit. (It is easy to get this backwards: the
+    in-repo copy had drifted to describing nine binaries and a PyPI sdist
+    URL while the tap shipped sixteen binaries from the tag tarball.)
+    The formula has no `version` field - Homebrew derives the version
+    from the `url` tag.
 11. `brew upgrade owa-tools` on the dev machine to actually pull the
     new formula locally - the tap push only updates metadata; nothing
     on disk changes until brew refetches.
