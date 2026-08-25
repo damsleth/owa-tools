@@ -69,34 +69,42 @@ printf '%s' '[{"category":"admin","days":[1,0,0,0,0,0,0],"description":"Admin"}]
 
 ## Single-card commands
 
-A time sheet is a set of time cards; `submit` and `delete` act on exactly one
-card, addressed by its `sys_id` (from `cards`), and both require confirmation.
+A time sheet is a set of time cards. `submit`, `recall`, and `delete` act on
+exactly one card, addressed by its `sys_id` (from `cards`). All 3 require
+confirmation.
 
 ```bash
 owa-swodp submit --sys-id fa6f509b2bfec3102ba6fe9cf291bf0f --confirm
+owa-swodp recall --sys-id fa6f509b2bfec3102ba6fe9cf291bf0f \
+  --reason "Correction needed" --confirm
 owa-swodp delete fa6f509b2bfec3102ba6fe9cf291bf0f --confirm
 ```
 
-Both refuse anything that is not `Pending`, exiting 15, and exit 13 when the
-card does not exist. `delete` is the same Table API call `write` makes for a
-`remove` row, addressed by id instead of by category or task.
+`submit` and `delete` accept `Pending` cards. `recall` accepts `Submitted`
+cards and requires a nonblank reason. A state mismatch exits 15; a missing card
+exits 13. `delete` is the same Table API call `write` makes for a `remove` row,
+addressed by id instead of by category or task.
 
-`submit` is not a Table API operation. State transitions go through the Service
-Portal processor at
+State transitions go through the Service Portal processor at
 `timecardprocessor.do?sysparm_processor=TimeCardPortalService&sysparm_name=updateTimeCardState`,
-form-encoded as `new_state=Submitted&timecard_id=<sys_id>`, which answers with a
-bare `{"status": ..., "data": {...}}` object rather than a `result` envelope. A
-non-success status is reported as a conflict, and the card's state is read back
-afterwards; a card that did not actually move is flagged and exits 15.
-Submitting is not reversible from this CLI - undoing it needs a recall in the
-portal.
+which answers with a bare `{"status": ..., "data": {...}}` object. Submit sends
+`timecard_id` plus `new_state=Submitted`. Recall sends `timecard_id`,
+`new_state=Recalled`, and `reason`. Each command reads the card back afterwards;
+a card that didn't reach its target state is flagged and exits 15.
+
+Recalled cards are editable again in the SWODP portal. Recall can also revert
+actual effort and associated expense lines for project-related cards, matching
+the warning in the portal. The wire contract was confirmed from authenticated
+portal assets on 2026-08-25. The CLI path has offline coverage; live
+Submit-then-Recall verification waits for the next legitimate operator-owned
+Pending card.
 
 Read the week with the bare binary when the output gates a decision. Wrapping a
 read in an output-filtering proxy can drop rows and rewrite field values, which
 turns a pre-write snapshot into fiction.
 
-Only `Pending` cards are changed; submitted or approved cards are skipped. New
-descriptions use three steps because SWODP drops `comments` on insert: POST
+Batch writes and deletes change only `Pending` cards. New descriptions use
+three steps because SWODP drops `comments` on insert: POST
 without it, PATCH `comments`, then GET and verify. The batch is not retry-safe
 as a whole, requires `--confirm` outside a TTY, and is capped at 200 rows.
 
