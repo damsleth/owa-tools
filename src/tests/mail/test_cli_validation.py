@@ -448,3 +448,48 @@ def test_show_flag_id_still_works(monkeypatch, capsys):
     capsys.readouterr()
     assert rc == 0
     assert 'AAMkMSG' in seen['endpoint']
+
+
+@pytest.mark.parametrize('flag', ['--search', '--find', '--query'])
+def test_messages_search_aliases_are_equivalent(monkeypatch, capsys, flag):
+    """--find/--query are aliases for --search: same $search query, and the
+    same mutual-exclusion guard against $filter flags."""
+    from owa_mail import api as api_mod
+    from owa_mail.cli import cmd_messages
+
+    captured = {}
+
+    def fake_get(base, endpoint, token, debug=False):
+        captured['endpoint'] = endpoint
+        return {'value': []}
+
+    monkeypatch.setattr(api_mod, 'api_get', fake_get)
+    assert cmd_messages([flag, 'invoice'], {}, *_fake_token()) == 0
+    ep = captured['endpoint']
+    assert '%24search' in ep or '$search' in ep
+    assert 'invoice' in ep
+    assert '%24orderby' not in ep and '$orderby' not in ep
+
+    with pytest.raises(UsageError, match=r'\$search.*\$filter'):
+        cmd_messages([flag, 'hi', '--unread'], {}, *_fake_token())
+
+
+@pytest.mark.parametrize('flag', ['--search', '--find', '--query'])
+def test_read_search_aliases_are_equivalent(monkeypatch, flag):
+    from owa_mail import api as api_mod
+    from owa_mail.cli import cmd_read
+
+    captured = {}
+
+    def fake_get(base, endpoint, token, debug=False):
+        captured['endpoint'] = endpoint
+        return {'value': []}
+
+    monkeypatch.setattr(api_mod, 'api_get', fake_get)
+    with pytest.raises(UsageError, match='no messages match'):
+        cmd_read([flag, 'invoice'], {}, *_fake_token())
+    assert 'invoice' in captured['endpoint']
+    assert '%24search' in captured['endpoint'] or '$search' in captured['endpoint']
+
+    with pytest.raises(UsageError, match=r'\$search.*\$filter'):
+        cmd_read([flag, 'hi', '--from', 'a@b.c'], {}, *_fake_token())
