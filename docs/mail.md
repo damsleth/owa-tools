@@ -133,6 +133,7 @@ owa-mail messages --pretty                           # Inbox, last 25
 owa-mail messages --unread --limit 10 --pretty
 owa-mail messages --folder SentItems --since 2026-04-01 --pretty
 owa-mail messages --search 'subject:invoice'         # KQL search
+owa-mail messages --find 'subject:invoice'           # --find/--query alias --search
 owa-mail messages --has-attachments --importance high --pretty
 owa-mail messages --category Red --skip 25 --limit 25      # page 2 of a category
 owa-mail messages --orderby 'Subject asc' --pretty         # custom OData $orderby
