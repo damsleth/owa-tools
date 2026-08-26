@@ -8,6 +8,12 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-mail
+
+- `messages` and `read` accept `--find` / `--query` as aliases for
+  `--search`. Same KQL semantics and the same mutual-exclusion guard
+  against the `$filter` flags.
+
 ## v1.5.1 - 2026-08-25
 
 ### owa-swodp

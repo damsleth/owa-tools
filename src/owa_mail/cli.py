@@ -118,6 +118,7 @@ messages options:
   --from <addr>        Sender substring filter
   --subject <text>     Subject substring filter
   --search <kql>       KQL search (mutually exclusive with filters)
+                       Aliases: --find, --query
   --category <name>    Only messages tagged with this category
   --has-attachments    Only messages with attachments
   --importance <level> Only messages of importance low|normal|high
@@ -141,6 +142,7 @@ read options:
   --from <addr>        Sender substring filter
   --subject <text>     Subject substring filter
   --search <kql>       KQL search (mutually exclusive with filters)
+                       Aliases: --find, --query
   --since <date>       ReceivedDateTime >= date
   --until <date>       ReceivedDateTime <= date
   --pretty             Human-readable header block + body (default: JSON)
@@ -290,7 +292,7 @@ def cmd_messages(args, config, access_token, api_base):
             sender, args = _require_value(flag, args)
         elif flag == '--subject':
             subject_q, args = _require_value(flag, args)
-        elif flag == '--search':
+        elif flag in ('--search', '--find', '--query'):
             search, args = _require_value(flag, args)
         elif flag == '--since':
             v, args = _require_value(flag, args); since = resolve_date(v)
@@ -442,7 +444,7 @@ def cmd_read(args, config, access_token, api_base):
             sender, args = _require_value(flag, args)
         elif flag == '--subject':
             subject_q, args = _require_value(flag, args)
-        elif flag == '--search':
+        elif flag in ('--search', '--find', '--query'):
             search, args = _require_value(flag, args)
         elif flag == '--since':
             v, args = _require_value(flag, args); since = resolve_date(v)
@@ -1214,12 +1216,17 @@ COMMAND_SCOPES = {
     if cmd not in ('tui', 'attachment-get')  # can't fan out anyway
 }
 
+_FIND_FLAG = schema_mod.flag('--find', value='<kql>', summary='Alias for --search')
+_QUERY_FLAG = schema_mod.flag('--query', value='<kql>', summary='Alias for --search')
+
 _MESSAGES_FLAGS = [
     schema_mod.flag('--folder', value='<name|id>', summary='Inbox|Drafts|SentItems|DeletedItems|Junk|Archive'),
     schema_mod.flag('--unread', summary='Only unread messages'),
     schema_mod.flag('--from', value='<addr>', summary='Sender substring filter'),
     schema_mod.flag('--subject', value='<text>', summary='Subject substring filter'),
     schema_mod.flag('--search', value='<kql>', summary='KQL search (mutually exclusive with filters)'),
+    _FIND_FLAG,
+    _QUERY_FLAG,
     schema_mod.flag('--since', value='<date>', summary='ReceivedDateTime >= date'),
     schema_mod.flag('--until', value='<date>', summary='ReceivedDateTime <= date'),
     schema_mod.flag('--limit', value='<n>', summary='Max results per page (default 25, cap 200)'),
@@ -1247,6 +1254,8 @@ _READ_FLAGS = [
     schema_mod.flag('--from', value='<addr>', summary='Sender substring filter'),
     schema_mod.flag('--subject', value='<text>', summary='Subject substring filter'),
     schema_mod.flag('--search', value='<kql>', summary='KQL search (mutually exclusive with filters)'),
+    _FIND_FLAG,
+    _QUERY_FLAG,
     schema_mod.flag('--since', value='<date>', summary='ReceivedDateTime >= date'),
     schema_mod.flag('--until', value='<date>', summary='ReceivedDateTime <= date'),
     schema_mod.flag('--pretty', summary='Human-readable header block + body (default: JSON)'),
