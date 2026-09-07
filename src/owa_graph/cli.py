@@ -12,6 +12,7 @@ for its own flag loop.
 """
 import json
 import os
+import re
 import sys
 
 from owa_core import jwt as jwt_mod
@@ -212,6 +213,7 @@ Examples:
   owa-graph POST /me/sendMail --body @mail.json
   owa-graph PATCH /me/messages/AAMk... --body '{"isRead":true}'
   owa-graph GET /me/drive/root/children --beta
+  owa-graph beta/me                # same as `owa-graph /me --beta`
   owa-graph GET /me --curl | pbcopy        # placeholder token; safe to copy
   owa-graph GET /me --curl --include-token # inlines the live bearer token
   owa-graph GET me/events --audience outlook --pretty
@@ -416,6 +418,13 @@ def cmd_request(method, path, args, config):
         return 1
 
     debug = _debug_enabled(config)
+
+    # `owa-graph /beta/me` == `owa-graph /me --beta`; a `v1.0/` prefix is
+    # accepted and dropped so pasted Graph Explorer paths work as-is.
+    m = re.match(r'/?(beta|v1\.0)(?=[/?]|$)/?', path)
+    if m:
+        beta = beta or m.group(1) == 'beta'
+        path = path[m.end():]
 
     # In emit mode we still need a token (so the rendered command is
     # immediately runnable) but we never make the actual API call.

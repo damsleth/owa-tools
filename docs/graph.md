@@ -84,7 +84,7 @@ request with the right base URL and Bearer header.
 - `owa-graph batch <file|->` posts a JSON-batching request to `/$batch`;
   flat arrays are auto-wrapped in `{"requests": [...]}`. Batch always
   targets the `graph` audience regardless of the profile default.
-- `--beta` switches to `https://graph.microsoft.com/beta`.
+- `--beta` switches to `https://graph.microsoft.com/beta`. A `beta/` path prefix (`owa-graph /beta/me`, `owa-graph beta/me`) does the same; a `v1.0/` prefix is accepted and dropped.
 - `--audience` retargets at any FOCI audience `owa-piggy` knows about
   using the same query ergonomics. The 17 known audiences are:
   - `graph` - Microsoft Graph (default)
