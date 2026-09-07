@@ -98,6 +98,19 @@ def test_az_include_token_inlines_real_token(monkeypatch, capsys):
     assert 'Authorization=Bearer tok' in out
 
 
+@pytest.mark.parametrize('path', ['/beta/me', 'beta/me', 'beta/me?x=1'])
+def test_beta_path_prefix(monkeypatch, capsys, path):
+    _run(monkeypatch, 'GET', path, '--curl')
+    out = capsys.readouterr().out
+    assert 'graph.microsoft.com/beta/me' in out
+    assert '/beta/beta' not in out
+
+
+def test_v1_path_prefix_dropped(monkeypatch, capsys):
+    _run(monkeypatch, 'GET', '/v1.0/me', '--curl')
+    assert 'graph.microsoft.com/v1.0/me' in capsys.readouterr().out
+
+
 def test_beta_changes_base(monkeypatch, capsys):
     _run(monkeypatch, 'GET', '/me', '--beta', '--curl')
     out = capsys.readouterr().out
