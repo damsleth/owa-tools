@@ -8,6 +8,14 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+## v1.5.2 - 2026-09-07
+
+### owa-graph
+
+- A `beta/` path prefix selects the beta endpoint: `owa-graph /beta/me` and
+  `owa-graph beta/me` are equivalent to `owa-graph /me --beta`. A `v1.0/`
+  prefix is accepted and dropped so pasted Graph Explorer paths work as-is.
+
 ### owa-mail
 
 - `messages` and `read` accept `--find` / `--query` as aliases for
