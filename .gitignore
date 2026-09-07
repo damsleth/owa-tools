@@ -17,5 +17,5 @@ htmlcov/
 *.swp
 .claude/
 .serena/
-# headroom writes a CLAUDE.md, but we're using AGENTS.md globally
+# agent tools write a CLAUDE.md, but we're using AGENTS.md globally
 CLAUDE.md
