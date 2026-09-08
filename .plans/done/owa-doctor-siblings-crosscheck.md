@@ -1,5 +1,8 @@
 # owa-doctor-siblings-crosscheck
 
+> **Archive triage 2026-09-08: IMPLEMENTED.** Cross-check tests and canonical registry are present; test suite passed.
+> Original checkboxes and dated observations below are historical. Current work: [../TODO.md](../TODO.md).
+
 > **Status: DONE** — shipped in `b290aa1` (2026-05-29),
 > `test(doctor): cross-check siblings[] against per-binary --doctor schema`.
 > `tests/doctor/test_cli_report.py` now carries `_DOCTOR_PAYLOAD_SCHEMA`,

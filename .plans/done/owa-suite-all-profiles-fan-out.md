@@ -1,5 +1,8 @@
 # owa suite-wide "all profiles" fan-out
 
+> **Archive triage 2026-09-08: IMPLEMENTED; defects reopened.** Meta-profile expansion and stable keyed output exist. Review R5/R6/R7 track gaps in output/guards.
+> Original checkboxes and dated observations below are historical. Current work: [../TODO.md](../TODO.md).
+
 _Created 2026-06-15_
 
 ## Goal

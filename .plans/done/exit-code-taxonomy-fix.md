@@ -1,5 +1,8 @@
 # exit-code-taxonomy-fix
 
+> **Archive triage 2026-09-08: HISTORICAL DELIVERY COMPLETE; residual defects reopened.** HTTP typed-error migration exists. Review R8 and R12 track remaining propagation/caller issues; old unchecked refactor steps are not proof all dead code was removed.
+> Original checkboxes and dated observations below are historical. Current work: [../TODO.md](../TODO.md).
+
 > **DONE 2026-06-29** — see [../DONE.md](../DONE.md). Every networked `api.py`
 > raises its recoverable `OwaError`; the central handler maps it to the
 > documented exit code. End-to-end contract test added on owa-cal.

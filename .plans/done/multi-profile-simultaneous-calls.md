@@ -1,5 +1,8 @@
 # multi-profile simultaneous calls
 
+> **Archive triage 2026-09-08: IMPLEMENTED; defects reopened.** Shared fan-out exists. Review R5/R6/R7 cover redaction, result-status and guard defects.
+> Original checkboxes and dated observations below are historical. Current work: [../TODO.md](../TODO.md).
+
 _Created 2026-06-01 · Foundation shipped in v0.6.1 (2026-06-02)_
 
 > **Status: COMPLETE** (follow-up landed 2026-06-02). The fan-out **foundation**

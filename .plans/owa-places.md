@@ -2,7 +2,29 @@
 
 _Created 2026-06-01_
 
-## Feasibility — VERDICT: VIABLE (revised 2026-06-01) — via Outlook SchedulingB2, NOT Graph /places
+## Triage — 2026-09-08: PARTIAL, keep active
+
+`src/owa_places/` and its CLI registrations, docs, normalizers and mocked tests
+exist (introduced in `d875cde`). Scaffolding is no longer the blocker.
+`cli.py:_fetch_locations` sends `{"NumberOfLocations": limit}`; the original
+probe below records that shape as rejected. No successful sanitized capture is
+present in this plan or its tests. Historical 400 evidence has not been re-run.
+
+Remaining acceptance:
+
+- [ ] Capture a successful request/response with the operator's intended profile;
+      remove credentials and private location data from any retained fixture.
+- [ ] Replace the guessed DTO and container assumptions with that verified contract;
+      unknown response shapes must report a compatibility error, not an empty list.
+- [ ] Exercise the actual CLI against the sanitized fixture, including empty results,
+      filtering, room classification, zero/negative limits, auth and HTTP failures.
+- [ ] Run the focused Places tests and suite contract/docs gates, then record one
+      authorized read-only live result before archiving this plan.
+
+The historical steps below are retained as context; optional building/floor
+exploration is not implemented or required for the narrower room surface.
+
+## Historical feasibility — VERDICT: VIABLE (revised 2026-06-01) — via Outlook SchedulingB2, NOT Graph /places
 
 Reversed after dead ends:
 - **Graph Places API** (the rich, official one: `/places` + building/floor/section/
@@ -38,7 +60,7 @@ request payload (an undocumented internal DTO that guessing won't match).
       just initmeetinglocations.
 
 ## Steps (once payload captured)
-- [ ] Scaffold `src/owa_places/` per docs/new-tool-onboarding.md. Audience: `outlook`
+- [x] Scaffold `src/owa_places/` per docs/new-tool-onboarding.md. Audience: `outlook`
       (named, already supported). Base: `https://outlook.office.com/SchedulingB2/api/v1.0`.
 - [ ] `api.py`: `get_token(audience='outlook')`; `http.request('POST', url, body=...)`
       with the captured payload + a pinned `cv` correlation param.

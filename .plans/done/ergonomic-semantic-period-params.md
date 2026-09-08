@@ -1,5 +1,8 @@
 # Ergonomic & semantic period parameters for owa-tools
 
+> **Archive triage 2026-09-08: IMPLEMENTED.** Shared owa_core.periods and calendar/scheduling CLI period flags and tests exist.
+> Original checkboxes and dated observations below are historical. Current work: [../TODO.md](../TODO.md).
+
 _Created 2026-06-15_
 
 ## Goal

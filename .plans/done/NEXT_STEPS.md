@@ -1,5 +1,8 @@
 # owa-swodp next steps
 
+> **Archive triage 2026-09-08: COMPLETE with extracted follow-ups.** Original create/update/delete verification is historically complete. Live Submit/Recall and expiry remain in the active readiness plan and TODO.
+> Original checkboxes and dated observations below are historical. Current work: [../TODO.md](../TODO.md).
+
 > **Plan reconciliation (2026-08-25):** The original production-verification
 > work below is complete and retained as evidence. Remaining production-readiness
 > work has been split out so unchecked historical steps are no longer mistaken

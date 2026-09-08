@@ -1,5 +1,8 @@
 # owa-mail TUI overhaul: full-width, reading pane, search fix, esc menu + settings
 
+> **Archive triage 2026-09-08: HISTORICAL DELIVERY / NOW RETIRED HERE.** Built-in TUIs were removed in bbfc1c0. Historical follow-ups do not belong to this CLI-only backlog.
+> Original checkboxes and dated observations below are historical. Current work: [../TODO.md](../TODO.md).
+
 > **Status: DONE** — shipped in `23b5f21` (2026-06-01),
 > `feat(mail): full-width tui with reading pane, esc menu, and settings`.
 > All six unit modules landed (`tui_dates.py`, `tui_layout.py`, `tui_sort.py`,

@@ -1,5 +1,8 @@
 # owa-vids merge into owa-tools
 
+> **Archive triage 2026-09-08: IMPLEMENTED.** owa_vids package, registrations and tests exist; frozen-artifact asset parity was not rebuilt in this review.
+> Original checkboxes and dated observations below are historical. Current work: [../TODO.md](../TODO.md).
+
 > **Status: SHIPPED** — landed in **v0.8.0** (`d2f5502`, 2026-06-03,
 > `feat(owa-vids): add meeting-recap video downloader as 13th binary`),
 > released 2026-06-05. All twelve steps complete: package, registry, docs,

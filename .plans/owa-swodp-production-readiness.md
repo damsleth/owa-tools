@@ -2,6 +2,13 @@
 
 _Created 2026-08-25_
 
+> **Triage 2026-09-08: offline implementation complete; live gate OPEN.** Current
+> suite version is 1.5.2 and `d1eb7b0` contains Recall. Historical install/version
+> notes below describe the August snapshot. No production calls were made in
+> this review. Preserve both event-driven TODOs. Review R11 separately identifies
+> a destructive split-write ordering defect; fix it offline before split writes.
+
+
 ## Goal
 
 Close the remaining operational gap in `owa-swodp`: make a submitted card

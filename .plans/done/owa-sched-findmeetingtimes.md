@@ -1,5 +1,8 @@
 # owa-sched-findmeetingtimes
 
+> **Archive triage 2026-09-08: IMPLEMENTED; correctness defects reopened.** Server suggestions and local working-hours filtering exist. Review R2/R3 and timezone follow-up supersede any assumption of complete scheduling correctness.
+> Original checkboxes and dated observations below are historical. Current work: [../TODO.md](../TODO.md).
+
 _Created 2026-06-23_
 
 ## Goal

@@ -2,6 +2,16 @@
 
 _Created 2026-07-01_
 
+> **Triage 2026-09-08: DEFERRED / external dependency unverified.** No `owa_pim`
+> package, registration, or tests exist in this checkout. The auth observations
+> below are historical; the sibling broker was not inspected or changed in this
+> review. Revalidate its supported audience contract and tenant requirements
+> before implementation. Statements such as “never will be” are historical
+> assumptions, not verified current facts. First deliverable: an explicitly
+> authorized broker feasibility result, then pure scheduling tests and CLI
+> scaffolding. Use the current root verification gates, not the old 89% target.
+
+
 ## Feasibility — VERDICT: BLOCKED, pending an owa-piggy-side auth change (sibling repo)
 
 PIMELIM's core operation (self-activate a PIM-eligible directory role via Graph)

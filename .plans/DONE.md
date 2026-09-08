@@ -104,3 +104,22 @@ pointing back here.
 - [x] P2 owa-graph: --max-pages safety valve on --all, reconcile --raw/--curl/--az with --agent (binary_stdout_commands), force graph audience for batch (2026-06-30)
 - [x] P2 owa-mail: attachment-get fallback for item/reference attachments (no $value), move-by-display-name + copy command, --orderby/--skip, categories set/filter, --has-attachments/--importance filters, thread/conversation command (2026-06-30)
 - [x] P2 owa-cal: add attendees on create/update, --reminder, repeatable --category, recurrence; send Prefer outlook.timezone on calendarView window (off-by-one near midnight) (2026-06-30)
+
+## Reconciled 2026-09-08
+
+Moved these 12 already-completed historical entries out of TODO. Original completion dates and wording are preserved. The old Drive overwrite closure is superseded by current review finding R1; it is not evidence that the current guard is safe. The cleanup entry also overstates removal of dead wrappers, which remain in several adapters.
+
+- [x] **exit-code taxonomy collapses to 1** — DONE 2026-06-29: every `api.py` now `raise`s the recoverable OwaError (cal/mail/graph/drive/people/sched/todo/planner/sites/teams already converted; ado raises by design); the central `run_with_output_modes` → `emit_error` returns `int(error.exit_code)`. Fixed the last 4 swallow-and-return-None spots (upload-session paths in owa-mail/owa-drive). Added end-to-end contract test (`test_recoverable_errors_propagate_documented_exit_code`, owa-cal) asserting 10/13/14/15/20 reach the shell. Plan archived to done/. See [done/exit-code-taxonomy-fix.md](done/exit-code-taxonomy-fix.md).
+- [x] P0 owa-drive: put --force silently overwrites files >4MiB — RESOLVED earlier: the `_remote_exists` + `--force` preflight (exit 15) gates both the small PUT and the large upload-session path, so no silent overwrite. Per-file fail/replace/rename granularity remains a P2 nice-to-have, not data-loss.
+- [x] P0 owa-drive: get --out clobbers existing local file silently — FIXED: refuses with exit 15 unless --force
+- [x] P0 owa-ado: PR --repo interpolated unencoded into request path — FIXED: quote(repo, safe='') + build_url keeps '%' safe
+- [x] P1 suite-wide cleanup (post exit-code refactor): DONE — deleted the dead `try/except OwaError: raise` wrappers + `_handle_owa_error` (owa-ado/owa-drive), removed unreachable `if x is None: return 1` guards, fixed stale docstrings; hoisted `build_query` into owa_core/query.py (6 importers) and `_require_value` into owa_core.errors (all tools).
+- [x] P1 owa-graph: drop stale --app-client-id from config help text — DONE
+- [x] P1 owa-sites: positional --site — NO-OP: cmd_site already accepts the bare positional via pop_positional_id (line 139) and the help/schema already say "flag or positional"; regression tests test_site_positional + test_main_routes_site exist. Stale finding.
+- [x] P1 owa-people: dead show comment describes email-vs-id branching — DONE: comment corrected (Graph /users accepts both UPN and id at one endpoint, no branching needed)
+- [x] P1 owa-cal: wire dead-but-tested normalize_event_detail into a show --id command — DONE (`owa-cal show --id <id>`)
+- [x] P1 owa-ado: wire --iteration to build_wiql(iteration=); validate --status — DONE
+- [x] P1 owa-teams: rename messages --all → --system-events; add truncation signal at page cap — DONE
+- [x] P1 owa umbrella: route meta-commands (list/schema/version) through run_with_output_modes — DONE (meta-commands now honor --agent/--err-json); schema built in-process via importlib import of each tool's COMMAND_SCHEMA, no more 13 subprocesses.
+
+- **Legacy TUI backlog retired from this repository**, not completed: built-in TUIs were removed in `bbfc1c0`; CLI-only cleanup followed in `c73ce32`. Original fragments and completed calendar TUI note are preserved in [done/legacy-todo-2026-09-08.md](done/legacy-todo-2026-09-08.md). No sibling repository was modified.

@@ -1,5 +1,8 @@
 # owa-planner-write-support
 
+> **Archive triage 2026-09-08: IMPLEMENTED.** ETag-carrying normalizers and guarded mutation commands exist, with stale-ETag tests.
+> Original checkboxes and dated observations below are historical. Current work: [../TODO.md](../TODO.md).
+
 > **DONE 2026-06-29** — see [../DONE.md](../DONE.md). All steps shipped:
 > `plans.py normalize_*` preserve `@odata.etag` as `etag`; `api.py` has
 > `api_post`/`api_patch`/`api_delete` sending `If-Match: <etag>`; `cli.py` has

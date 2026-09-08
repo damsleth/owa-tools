@@ -1,5 +1,8 @@
 # scope-aware-profile-filtering
 
+> **Archive triage 2026-09-08: IMPLEMENTED FOR ALL-PROFILES.** Scope filtering exists for all-profile intent; explicitly named profiles are deliberately not filtered. Original broader wording is superseded by the current contract.
+> Original checkboxes and dated observations below are historical. Current work: [../TODO.md](../TODO.md).
+
 _Created 2026-06-16_
 
 ## Goal

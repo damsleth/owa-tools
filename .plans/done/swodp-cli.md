@@ -1,5 +1,8 @@
 # swodp-cli
 
+> **Archive triage 2026-09-08: IMPLEMENTED; live residual work extracted.** See NEXT_STEPS for dated production evidence and the active readiness plan for remaining live gates. Review R11 tracks split-write safety.
+> Original checkboxes and dated observations below are historical. Current work: [../TODO.md](../TODO.md).
+
 > **Status: COMPLETE (2026-08-21).** Implemented as `owa-swodp` with
 > dedicated prod/UAT Edge sidecars, in-memory CDP session capture, fixed
 > ServiceNow reads, and validated Pending-only writes. Live prod status and

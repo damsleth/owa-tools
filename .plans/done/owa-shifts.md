@@ -1,5 +1,8 @@
 # owa-shifts
 
+> **Archive triage 2026-09-08: CLOSED AS BLOCKED, NOT IMPLEMENTED.** Preserve the prior decision not to build. Historical auth limitations were not re-probed; unchecked implementation steps remain speculative.
+> Original checkboxes and dated observations below are historical. Current work: [../TODO.md](../TODO.md).
+
 _Created 2026-06-01_
 
 ## Goal
