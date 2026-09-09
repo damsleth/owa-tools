@@ -1,6 +1,9 @@
 """Normalize SchedulingB2 meeting-location payloads."""
 
 
+from owa_core.errors import InternalError
+
+
 def _first(*values):
     for value in values:
         if value not in (None, ''):
@@ -32,6 +35,8 @@ def normalize_location(raw):
         raw.get('SmtpAddress'),
         raw.get('address'),
     )
+    if not isinstance(email, str):
+        email = None
     return {
         'id': _first(raw.get('id'), raw.get('Id'), raw.get('itemId'), raw.get('ItemId'), email),
         'name': _first(raw.get('displayName'), raw.get('DisplayName'), raw.get('name'), raw.get('Name'), email),
@@ -50,7 +55,7 @@ def _iter_candidates(payload):
         yield from payload
         return
     if not isinstance(payload, dict):
-        return
+        raise InternalError("unrecognized SchedulingB2 locations response")
     for key in (
         'locations',
         'Locations',
@@ -69,13 +74,15 @@ def _iter_candidates(payload):
             # plus 'value') doesn't yield the same locations more than once.
             yield from values
             return
+    raise InternalError("unrecognized SchedulingB2 locations response")
 
 
 def normalize_locations(payload):
     rows = []
     for item in _iter_candidates(payload):
-        if isinstance(item, dict):
-            rows.append(normalize_location(item))
+        if not isinstance(item, dict):
+            raise InternalError("unrecognized SchedulingB2 location record")
+        rows.append(normalize_location(item))
     return rows
 
 

@@ -8,6 +8,7 @@ from owa_drive import cli
 
 @pytest.fixture(autouse=True)
 def _stub(monkeypatch):
+    monkeypatch.setattr(cli, "_remote_exists", lambda *a, **k: False)
     monkeypatch.setattr(cli.config_mod, "load_config", lambda: {})
     monkeypatch.setattr(
         cli.auth_mod, "setup_auth",

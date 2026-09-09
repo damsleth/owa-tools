@@ -126,3 +126,10 @@ Mitigations: every command spec declares its audience and scope assumptions;
 Default tests must not contact Microsoft or a real broker profile. Live tests
 must be opt-in and require explicit environment variables such as
 `OWA_LIVE_TESTS=1` and `OWA_PROFILE=<alias>`.
+
+## Diagnostic redaction
+
+HTTP debug URLs omit userinfo, query strings, and fragments so signed transfer
+URLs don't expose their capabilities. JSON message-content fields are scrubbed
+through escaped quotes and truncated strings. Profile fan-out error messages
+use the same redactor as single-profile errors.

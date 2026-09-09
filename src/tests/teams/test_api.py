@@ -259,3 +259,11 @@ def test_chatsvc_post_recoverable_reraises(monkeypatch):
                         lambda *a, **k: (_ for _ in ()).throw(errors.RateLimitedError('429')))
     with pytest.raises(errors.RateLimitedError):
         api_mod.chatsvc_post('https://t/v1', 'c', {}, 'tok')
+
+
+def test_graph_collect_signals_page_cap_with_next_link(monkeypatch):
+    from owa_core.http import Response
+    monkeypatch.setattr(api_mod.http, 'request', lambda *a, **k: Response(
+        200, {}, {'value':[{'id':'first'}]}, b'', next_link='https://example.invalid/next',
+    ))
+    assert api_mod.graph_collect('https://example.invalid', 'me/chats', 'fake', max_pages=1) == ([{'id':'first'}], True)

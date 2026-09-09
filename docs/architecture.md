@@ -54,7 +54,7 @@ is introduced.
 
 ## Ruff and formatting
 
-One code style, enforced by `ruff format .` and `ruff check .`.
+Lint is enforced by `ruff check .`; formatting is not a CI gate.
 
 ```toml
 [tool.ruff]
@@ -62,8 +62,8 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "RUF"]
-ignore = []
+select = ["E", "F", "W", "I", "B"]
+ignore = ["E501", "E702", "E741", "B904", "B905"]
 ```
 
 If rules are too noisy, narrow them deliberately - do not leave CI running a

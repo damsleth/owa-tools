@@ -155,7 +155,7 @@ def test_availability_rejects_too_many_attendees():
 def test_availability_tz_override_passed_to_get_schedule(monkeypatch):
     seen = {}
 
-    def fake_post(base, endpoint, token, body=None, debug=False):
+    def fake_post(base, endpoint, token, body=None, debug=False, extra_headers=None):
         seen["tz"] = body["startTime"]["timeZone"]
         return _schedule_payload()
 

@@ -166,12 +166,18 @@ def _call_get_schedule(who, from_date, to_date, start_hhmm, end_hhmm,
     }
     payload = api_mod.api_post(
         api_base, 'me/calendar/getSchedule', access_token,
-        body=body, debug=debug,
+        body=body, extra_headers={'Prefer': f'outlook.timezone="{tz}"'}, debug=debug,
     )
     if payload is None:
         return None
     items = payload.get('value') or []
-    return [normalize_attendee(it) for it in items]
+    attendees = [normalize_attendee(it) for it in items]
+    returned = {a['email'].lower() for a in attendees}
+    attendees.extend(
+        {'email': email, 'busy': [], 'workingHours': None, 'error': 'schedule missing from response'}
+        for email in who if email.lower() not in returned
+    )
+    return attendees
 
 
 def _duration_iso(minutes):
@@ -451,7 +457,7 @@ def cmd_find_time(args, config, access_token, api_base):
         day_start = make_local_iso(d, start_hhmm)
         day_end = make_local_iso(d, end_hhmm)
         all_slots.extend(
-            find_open_slots(attendees, day_start, day_end, duration)
+            find_open_slots(attendees, day_start, day_end, duration, timezone=tz)
         )
     if limit is not None:
         all_slots = all_slots[:limit]

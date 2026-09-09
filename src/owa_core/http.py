@@ -1,4 +1,5 @@
 """Shared HTTP helpers for Microsoft 365 APIs."""
+import http.client
 import json
 import sys
 import time
@@ -15,7 +16,7 @@ from .errors import (
     RateLimitedError,
     ScopeInsufficientError,
 )
-from .secrets import redact
+from .secrets import redact, safe_url
 
 RETRY_AFTER_CAP_SECONDS = 60
 
@@ -127,7 +128,7 @@ def request(
             data = json.dumps(body).encode('utf-8')
             all_headers.setdefault('Content-Type', 'application/json')
     if debug:
-        print(f'DEBUG: {method} {url}', file=sys.stderr)
+        print(f'DEBUG: {method} {safe_url(url)}', file=sys.stderr)
         if body is not None and not isinstance(body, (bytes, bytearray)):
             print(f'DEBUG: body: {redact(json.dumps(body))[:500]}', file=sys.stderr)
 
@@ -172,7 +173,9 @@ def request(
             )
         _raise_for_http_error(error, debug=debug)
     except urllib.error.URLError as exc:
-        raise NetworkError(f'network error: {exc.reason}', cause=exc)
+        raise NetworkError(f'network error: {redact(exc.reason)}', cause=exc)
+    except (OSError, http.client.HTTPException) as exc:
+        raise NetworkError('network transport failed or response interrupted', cause=exc)
 
 
 def request_unauthenticated(
@@ -207,7 +210,7 @@ def request_unauthenticated(
     all_headers = dict(headers or {})
     data = bytes(body) if isinstance(body, (bytes, bytearray)) else body
     if debug:
-        print(f'DEBUG: {method} {url} (unauthenticated)', file=sys.stderr)
+        print(f'DEBUG: {method} {safe_url(url)} (unauthenticated)', file=sys.stderr)
     req = urllib.request.Request(url, data=data, headers=all_headers, method=method)
     try:
         with urlopen(req, timeout=timeout) as resp:
@@ -245,7 +248,9 @@ def request_unauthenticated(
             )
         _raise_for_http_error(error, debug=debug)
     except urllib.error.URLError as exc:
-        raise NetworkError(f'network error: {exc.reason}', cause=exc)
+        raise NetworkError(f'network error: {redact(exc.reason)}', cause=exc)
+    except (OSError, http.client.HTTPException) as exc:
+        raise NetworkError('network transport failed or response interrupted', cause=exc)
 
 
 def paginate(
@@ -255,6 +260,7 @@ def paginate(
     headers=None,
     retry=0,
     max_pages=None,
+    on_truncate=None,
     debug=False,
     urlopen=urllib.request.urlopen,
     sleep=time.sleep,
@@ -283,4 +289,6 @@ def paginate(
             return
         pages += 1
         if max_pages is not None and pages >= max_pages:
+            if url and on_truncate is not None:
+                on_truncate(pages, url)
             return

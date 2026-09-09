@@ -11,6 +11,7 @@ import sys
 from owa_core import http
 from owa_core import upload as upload_mod
 from owa_core.errors import InternalError
+from owa_core.secrets import safe_url
 
 UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024
 
@@ -47,7 +48,7 @@ def api_get_binary(base, endpoint, access_token, debug=False):
     ).bytes
 
 
-def api_put_binary(base, endpoint, access_token, content_bytes, debug=False):
+def api_put_binary(base, endpoint, access_token, content_bytes, debug=False, *, conflict_behavior="fail"):
     """PUT raw bytes in a single request (small-file content upload).
 
     Graph caps the simple PUT path at UPLOAD_LIMIT_BYTES. Callers must
@@ -56,9 +57,10 @@ def api_put_binary(base, endpoint, access_token, content_bytes, debug=False):
     against Graph.
     """
     url = f'{base}/{endpoint.lstrip("/")}'
+    url += ('&' if '?' in url else '?') + '@microsoft.graph.conflictBehavior=' + conflict_behavior
     if debug:
         print(
-            f'DEBUG: PUT {url} ({len(content_bytes)} bytes)',
+            f'DEBUG: PUT {safe_url(url)} ({len(content_bytes)} bytes)',
             file=sys.stderr,
         )
     if len(content_bytes) > UPLOAD_LIMIT_BYTES:
@@ -78,7 +80,7 @@ def api_put_binary(base, endpoint, access_token, content_bytes, debug=False):
 
 
 def api_upload_session(base, session_endpoint, access_token, content_bytes,
-                       debug=False, chunk_size=upload_mod.DEFAULT_CHUNK_SIZE):
+                       debug=False, chunk_size=upload_mod.DEFAULT_CHUNK_SIZE, *, conflict_behavior="fail"):
     """Upload arbitrary-size bytes via a Graph resumable upload session.
 
     Creates an upload session against `session_endpoint`
@@ -88,7 +90,7 @@ def api_upload_session(base, session_endpoint, access_token, content_bytes,
     JSON. Raises ``InternalError`` if the session response was malformed.
     """
     url = f'{base}/{session_endpoint.lstrip("/")}'
-    body = {'item': {'@microsoft.graph.conflictBehavior': 'replace'}}
+    body = {'item': {'@microsoft.graph.conflictBehavior': conflict_behavior}}
     session = http.request(
         'POST', url, token=access_token, body=body, debug=debug,
     ).json

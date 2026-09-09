@@ -26,7 +26,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from owa_core.modes import is_doctor_invocation, run_with_output_modes
+from owa_core.modes import is_doctor_invocation, run_with_output_modes, split_mode_flags
 from owa_core.registry import CONSUMER_TOOLS
 from owa_core.schema import schema_for
 
@@ -268,6 +268,14 @@ def main(argv: list[str] | None = None) -> int:
         return emit_doctor("owa", "--json" in argv)
     if not argv:
         return cmd_help([])
+    # Let consumers own output capture and binary guards, including --agent.
+    _, _, filtered = split_mode_flags(argv)
+    if filtered:
+        short = filtered[0].removeprefix('owa-')
+        if short in TOOL_PACKAGES and filtered[0] not in COMMANDS:
+            forwarded = argv.copy()
+            forwarded.remove(filtered[0])
+            return cmd_dispatch(short, forwarded)
     return run_with_output_modes(
         "owa", argv, _meta_dispatch, fan_out_profiles=False,
     )

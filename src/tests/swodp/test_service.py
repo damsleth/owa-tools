@@ -182,7 +182,7 @@ def test_split_replaces_pending_cards(monkeypatch):
     def fake_request(session, method, table, **kwargs):
         calls.append((method, table, kwargs))
         if method == "GET" and kwargs.get("params", {}).get("sysparm_limit") == "200":
-            return [{"sys_id": "old", "task.number": "TABC123", "state": "Pending"}]
+            return [{"sys_id": "a" * 32, "task.number": "TABC123", "state": "Pending"}]
         if table == "task" and method == "GET":
             return [{"sys_id": "task-id"}]
         if table == "resource_allocation":
@@ -190,13 +190,13 @@ def test_split_replaces_pending_cards(monkeypatch):
         if method == "POST":
             return {"sys_id": f"new-{len(calls)}"}
         if method == "GET" and kwargs.get("sys_id"):
-            return {"comments": "saved"}
+            return {"comments": "saved", "state": "Pending"}
         return {}
 
     monkeypatch.setattr(service.api, "request", fake_request)
     rows = [valid_row(split=True, description="one"), valid_row(split=True, description="two")]
     result = service.write_week(SESSION, "2026-08-17", rows)
-    assert [row["action"] for row in result] == ["deleted", "created", "created"]
+    assert [row["action"] for row in result] == ["created", "created", "deleted"]
     assert sum(call[0] == "POST" for call in calls) == 2
 
 

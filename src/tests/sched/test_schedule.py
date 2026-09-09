@@ -129,9 +129,9 @@ def test_parse_working_hours_happy_path():
         'endTime': '16:00:00.0000000',
         'timeZone': {'name': 'W. Europe Standard Time'},
     })
-    assert wh['days'] == {0, 1, 2}
-    assert wh['start'] == time(8, 0)
-    assert wh['end'] == time(16, 0)
+    assert wh['days'] == [0, 1, 2]
+    assert wh['start'] == '08:00:00'
+    assert wh['end'] == '16:00:00'
 
 
 def test_parse_working_hours_returns_none_when_incomplete():
@@ -153,8 +153,8 @@ def test_normalize_attendee_captures_working_hours():
             'endTime': '17:00:00.0000000',
         },
     })
-    assert out['workingHours']['days'] == {0, 1, 2, 3, 4}
-    assert out['workingHours']['start'] == time(9, 0)
+    assert out['workingHours']['days'] == [0, 1, 2, 3, 4]
+    assert out['workingHours']['start'] == '09:00:00'
 
 
 def test_normalize_attendee_working_hours_none_when_absent():
@@ -170,7 +170,7 @@ def _attendee_with_wh(email, *, days, start, end, busy=None):
     return {
         'email': email,
         'busy': busy or [],
-        'workingHours': {'days': set(days), 'start': start, 'end': end},
+        'workingHours': {'days': list(days), 'start': start.isoformat(), 'end': end.isoformat()},
         'error': None,
     }
 

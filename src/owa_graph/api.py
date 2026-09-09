@@ -42,8 +42,8 @@ def api_request(method, base, endpoint, access_token, body=None,
     - `extra_headers` is an optional dict of additional headers.
     - `retry=True` honors `Retry-After` on one 429/503 and retries one
       transport failure.
-    - Returns parsed JSON on 2xx (or raw bytes if raw=True), None on
-      return-to-caller failures, and exits on auth/permission failures.
+    - Returns parsed JSON on 2xx (or bytes if raw=True); raises typed OwaError
+      on HTTP or transport failures.
     """
     url = f'{base}/{endpoint}' if not endpoint.startswith('http') else endpoint
     try:
@@ -63,21 +63,16 @@ def api_request(method, base, endpoint, access_token, body=None,
         if retry:
             if debug:
                 print(f'DEBUG: {error.message} - retrying once', file=sys.stderr)
-            try:
-                return _run_request(
-                    method,
-                    url,
-                    access_token,
-                    body=body,
-                    extra_headers=extra_headers,
-                    debug=debug,
-                    raw=raw,
-                    retry=0,
-                )
-            except (AuthExpiredError, ScopeInsufficientError) as retry_error:
-                raise retry_error
-            except OwaError as retry_error:
-                raise retry_error
+            return _run_request(
+                method,
+                url,
+                access_token,
+                body=body,
+                extra_headers=extra_headers,
+                debug=debug,
+                raw=raw,
+                retry=0,
+            )
         raise error
     except (ConflictError, InternalError, NotFoundError, RateLimitedError) as error:
         raise error

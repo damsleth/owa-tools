@@ -4,7 +4,7 @@
 # symlink for every console-script name (owa-cal, owa-mail, ...), so the
 # umbrella's subprocess calls to sibling tools (owa list / owa schema) resolve
 # against the same frozen binary. Run from packaging/: `pyinstaller owa.spec`.
-from PyInstaller.utils.hooks import collect_submodules, copy_metadata
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 from owa_core.registry import CONSUMER_TOOLS
 
@@ -18,7 +18,7 @@ for pkg in _packages:
 
 # Bundle the installed dist metadata so importlib.metadata.version("owa-tools")
 # resolves inside the frozen binary (suite_version() depends on it).
-datas = copy_metadata("owa-tools")
+datas = copy_metadata("owa-tools") + collect_data_files("owa_graph")
 
 a = Analysis(
     ["pyinstaller_entry.py"],

@@ -8,6 +8,7 @@ import sys
 from .errors import OwaError, UsageError, emit_error
 from .profiles_args import ALL_PROFILES, normalize_all_flags, parse_profiles
 from .schema import SCHEMA_VERSION
+from .secrets import redact
 from .version import suite_version
 
 _TRUTHY = {'1', 'true', 'yes', 'on'}
@@ -32,9 +33,16 @@ def split_mode_flags(argv):
 
 
 def command_name(argv):
+    skip_value = False
     for arg in argv:
+        if skip_value:
+            skip_value = False
+            continue
         if arg == '--':
             return ''
+        if arg in ('--profile', '-p', '--audience', '--scope', '--region', '--instance'):
+            skip_value = True
+            continue
         if not arg.startswith('-'):
             return arg
     return ''
@@ -96,7 +104,7 @@ def _mode_environment(tool, command, err_json):
 def run_with_output_modes(
     tool, argv, dispatch, *,
     binary_stdout_commands=(), interactive_commands=(), fan_out_profiles=True,
-    audience=None, command_scopes=None,
+    audience=None, command_scopes=None, command_aliases=None,
 ):
     """Run a legacy CLI dispatcher with shared agent/error modes.
 
@@ -162,6 +170,7 @@ def run_with_output_modes(
             all_requested=all_requested,
             audience=audience,
             command_scopes=command_scopes,
+            command_aliases=command_aliases,
         )
 
     # N<=1: byte-identical path. Pass the ORIGINAL filtered argv straight to
@@ -169,6 +178,7 @@ def run_with_output_modes(
     # subcommand --profile, OWA_PROFILE, dangling-flag errors) behave exactly
     # as before.
     command = command_name(filtered)
+    command = (command_aliases or {}).get(command, command)
 
     if agent and command in interactive_commands:
         return emit_error(
@@ -318,7 +328,7 @@ def _filter_profiles_by_scope(tool, profiles, audience, acceptable, *, debug):
 def _run_multi_profile(
     tool, rest, profiles, dispatch, *,
     agent, err_json, binary_stdout_commands, interactive_commands,
-    all_requested=False, audience=None, command_scopes=None,
+    all_requested=False, audience=None, command_scopes=None, command_aliases=None,
 ):
     """Run `dispatch` once per profile and merge the captured results.
 
@@ -327,6 +337,7 @@ def _run_multi_profile(
     run and re-emitted as a single merged shape keyed by profile.
     """
     command = command_name(rest)
+    command = (command_aliases or {}).get(command, command)
 
     if command in interactive_commands:
         return emit_error(
@@ -374,9 +385,15 @@ def _run_multi_profile(
                     rc = int(dispatch(per_argv) or 0)
             except OwaError as error:
                 rc = int(error.exit_code)
-                err_msg = error.message
+                err_msg = redact(error.message)
             except SystemExit as exc:
                 rc = int(exc.code or 0)
+        if rc == 0 and not pretty and not ndjson and captured.getvalue().strip():
+            try:
+                json.loads(captured.getvalue())
+            except json.JSONDecodeError:
+                rc = 2
+                err_msg = 'non-JSON output'
         ok = (rc == 0 and err_msg is None)
         records.append({
             'profile': p,
@@ -415,16 +432,7 @@ def _emit_multi_json(tool, command, profiles, records):
             if not text:
                 data = None
             else:
-                try:
-                    data = json.loads(text)
-                except json.JSONDecodeError:
-                    results.append({
-                        'profile': r['profile'],
-                        'ok': False,
-                        'error': 'non-JSON output',
-                        'exit_code': r['rc'],
-                    })
-                    continue
+                data = json.loads(text)
             results.append({'profile': r['profile'], 'ok': True, 'data': data})
         else:
             results.append({

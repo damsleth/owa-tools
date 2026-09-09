@@ -7,6 +7,7 @@ the redaction primitive.
 """
 import re
 from dataclasses import dataclass
+from urllib.parse import urlsplit, urlunsplit
 
 REDACTION = '[redacted-secret]'
 BODY_REDACTION = '[redacted-body]'
@@ -28,7 +29,8 @@ CLIENT_SECRET_RE = re.compile(
 # while keeping the key so log structure stays readable. The exact-key
 # match (`"content"`, not `"contentType"`) leaves harmless metadata alone.
 BODY_FIELD_RE = re.compile(
-    r'(?i)("(?:body|content|text|html_body|plain_body)"\s*:\s*)"[^"]*"'
+    r'(?i)("(?:body|content|text|html_body|plain_body)"\s*:\s*)'
+    r'"(?:[^"\\]|\\[\s\S])*(?:"|\\?$)'
 )
 
 
@@ -84,3 +86,13 @@ def redact(value):
     text = REFRESH_RE.sub(REDACTION, text)
     text = JWT_RE.sub(REDACTION, text)
     return BODY_FIELD_RE.sub(r'\1"' + BODY_REDACTION + '"', text)
+
+
+def safe_url(value):
+    """Format a diagnostic URL without userinfo, query capabilities or fragments."""
+    try:
+        parts = urlsplit(value)
+        host = parts.netloc.rsplit('@', 1)[-1]
+        return redact(urlunsplit((parts.scheme, host, parts.path, '', '')))
+    except ValueError:
+        return '[redacted-url]'

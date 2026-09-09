@@ -36,3 +36,9 @@ because the endpoint is undocumented and may drift.
 Errors use the suite exit-code taxonomy. Because SchedulingB2 is internal to
 Outlook, shape drift should be treated as a recoverable compatibility issue and
 fixed in the normalizer rather than by changing the auth model.
+
+## Response validation
+
+Unrecognized response containers or malformed place rows exit 20 instead of
+returning a misleading empty result. The live request/response contract still
+needs verification against a sanitized successful response.

@@ -11,7 +11,7 @@ import urllib.parse
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
-from owa_core.errors import UsageError, _require_value, emit_error, emit_message
+from owa_core.errors import NotFoundError, UsageError, _require_value, emit_error, emit_message
 
 from . import __version__
 from . import api as api_mod
@@ -387,14 +387,16 @@ def cmd_org_chart(args, config, access_token, api_base):
     person = normalize_person(base, 'directory')
     person_id = base.get('id') or target
 
-    # Walk managers up to `depth` levels. A missing manager is a 404, which
-    # api_get surfaces as None - treat as "top of chain" and stop.
+    # A missing manager is a valid end of the management chain.
     chain = []
     current = person_id
     for _ in range(depth):
-        mgr = api_mod.api_get(
-            api_base, f'users/{_quote_id(str(current))}/manager', access_token, debug=debug,
-        )
+        try:
+            mgr = api_mod.api_get(
+                api_base, f'users/{_quote_id(str(current))}/manager', access_token, debug=debug,
+            )
+        except NotFoundError:
+            break
         if not mgr:
             break
         chain.append(normalize_person(mgr, 'directory'))

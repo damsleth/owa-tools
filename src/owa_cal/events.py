@@ -7,6 +7,8 @@ owa-piggy auth path.
 """
 from datetime import datetime, timedelta, timezone
 
+from owa_core.timezones import WINDOWS_TZ_TO_IANA
+
 try:
     from zoneinfo import ZoneInfo
 except ImportError:  # Python 3.8: keep the stdlib-only fallback below.
@@ -15,21 +17,7 @@ except ImportError:  # Python 3.8: keep the stdlib-only fallback below.
 # Windows timezone names -> IANA names for accurate stdlib zoneinfo
 # conversion where available. Outlook REST returns these names in the
 # TimeZone field.
-WINDOWS_TZ_TO_IANA = {
-    'UTC': 'UTC',
-    'W. Europe Standard Time': 'Europe/Berlin',
-    'Romance Standard Time': 'Europe/Paris',
-    'Central European Standard Time': 'Europe/Warsaw',
-    'Central Europe Standard Time': 'Europe/Budapest',
-    'E. Europe Standard Time': 'Europe/Bucharest',
-    'FLE Standard Time': 'Europe/Helsinki',
-    'GTB Standard Time': 'Europe/Athens',
-    'GMT Standard Time': 'Europe/London',
-    'Eastern Standard Time': 'America/New_York',
-    'Pacific Standard Time': 'America/Los_Angeles',
-    'Mountain Standard Time': 'America/Denver',
-    'Central Standard Time': 'America/Chicago',
-}
+
 
 # Windows timezone names -> UTC offset hours (winter baseline). Used only
 # when zoneinfo is unavailable.

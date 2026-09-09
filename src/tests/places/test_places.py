@@ -24,3 +24,19 @@ def test_filter_locations_query_rooms_and_limit():
         {'name': 'Cafe', 'email': None, 'building': 'HQ', 'floor': '1'},
     ]
     assert places.filter_locations(rows, query='room', rooms_only=True, limit=1) == [rows[0]]
+
+
+def test_unknown_payload_is_not_an_empty_result():
+    import pytest
+
+    from owa_core.errors import InternalError
+    for payload in ({'newContainer': []}, None, {'Locations':[None]}):
+        with pytest.raises(InternalError):
+            places.normalize_locations(payload)
+    assert places.normalize_locations({'Locations':[]}) == []
+
+
+def test_street_address_is_not_a_room_email():
+    rows = places.normalize_locations({'Locations':[{'name':'Cafe','address':{'city':'Oslo'}}]})
+    assert rows[0]['email'] is None
+    assert places.filter_locations(rows, rooms_only=True) == []

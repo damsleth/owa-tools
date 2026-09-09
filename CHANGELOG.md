@@ -8,6 +8,21 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+- Drive uploads fail closed on existence-check errors and enforce no-overwrite
+  on the server unless `--force` is supplied.
+- SWODP splits validate and verify replacements before deleting originals,
+  retaining card IDs and snapshots when a later step fails.
+- Scheduling output serializes working hours correctly, converts attendee
+  timezones, and refuses free-time results when availability is incomplete.
+- Redaction handles escaped and truncated message bodies, profile fan-out
+  errors, and signed URLs in HTTP debug logs.
+- Profile fan-out reports invalid JSON as failure. Drive download aliases and
+  umbrella dispatch enforce the same binary-output guards.
+- Transport timeouts and interrupted reads return typed network errors.
+  Teams reports page-cap truncation; org charts stop cleanly at manager 404s.
+- Places rejects unknown response shapes. Frozen Graph bundles include path,
+  scope, and audience data used by offline discovery.
+
 ## v1.5.2 - 2026-09-07
 
 ### owa-graph
