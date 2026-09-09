@@ -123,3 +123,12 @@ Moved these 12 already-completed historical entries out of TODO. Original comple
 - [x] P1 owa umbrella: route meta-commands (list/schema/version) through run_with_output_modes — DONE (meta-commands now honor --agent/--err-json); schema built in-process via importlib import of each tool's COMMAND_SCHEMA, no more 13 subprocesses.
 
 - **Legacy TUI backlog retired from this repository**, not completed: built-in TUIs were removed in `bbfc1c0`; CLI-only cleanup followed in `c73ce32`. Original fragments and completed calendar TUI note are preserved in [done/legacy-todo-2026-09-08.md](done/legacy-todo-2026-09-08.md). No sibling repository was modified.
+- [x] P1 R1: make Drive no-force uploads fail closed and enforce server-side no-overwrite (2026-09-09)
+- [x] P1 R11: validate SWODP split replacements before deleting existing Pending cards; retain partial-progress evidence (2026-09-09)
+- [x] P1 R4/R5/R9: close escaped-body, fan-out error, and signed-URL logging leaks (2026-09-09)
+- [x] P1 R2/R3: make scheduling output JSON-safe and refuse free-time claims for failed attendees (2026-09-09)
+- [x] P2 R6/R7: fix fan-out exit-status consistency and canonical binary-command guards (2026-09-09)
+- [x] P2 R8: map transport timeouts and interrupted reads to typed network errors (2026-09-09)
+- [x] P2 R10: propagate Teams page-cap truncation to CLI results (2026-09-09)
+- [x] P2 R12: stop org-chart manager traversal cleanly on top-of-chain 404 (2026-09-09)
+- [x] P2 review follow-ups: verify scheduling timezones and frozen Graph data assets; reconcile semantic docs drift (see ../.tmp/reviews/2026-09-08/REVIEW.md) (2026-09-09)

@@ -98,25 +98,13 @@ reason when scopes are unavailable.
 
 ## Coverage gates
 
-Configured in `pyproject.toml` with `branch = true` and `fail_under = 89` over
-the nine runtime packages (currently ~89.4% line+branch).
+`pyproject.toml` enables branch coverage over all 17 runtime packages and
+sets a combined line-and-branch floor of 89%. CI enforces that floor and a
+separate 95% gate for `owa_core`. Local contributor verification uses the
+stricter 90% total gate documented in `AGENTS.md`.
 
-```toml
-[tool.coverage.run]
-branch = true
-source = ["owa", "owa_core", "owa_cal", "owa_mail", "owa_graph", "owa_doctor", "owa_people", "owa_sched", "owa_drive", "owa_todo"]
-
-[tool.coverage.report]
-fail_under = 89
-show_missing = true
-skip_covered = true
-```
-
-The aspirational targets are a ratchet, not a release blocker: total `>=90%`,
-`owa_core >=95%`, branch `>=85%` on the core contract modules, per-tool
-`>=85%`. The weakest current spots are `owa_todo` (newest tool) and parts of
-`owa_people` / `owa_sched`. Ratchet `fail_under` upward as those fill in; do
-not block maintenance work on hitting 90/95.
+Coverage percentages describe exercised lines and branches; offline tests
+cannot establish tenant-specific API behavior. Keep live acceptance separate.
 
 ## Test data policy
 
@@ -137,11 +125,12 @@ Release. Neither workflow publishes to PyPI - that is a local `uv publish`.
 
 ```sh
 ruff check .
-ruff format --check .
 python src/scripts/check_stdlib_only.py
 python src/scripts/check_no_secrets.py
 python src/scripts/check_docs_sync.py
-pytest -q --cov
-python -m build && python src/scripts/check_artifacts.py dist/*
+coverage run --source=owa_core -m pytest -q
+coverage report --fail-under=95
+pytest -q --cov --cov-fail-under=90
+uv build && python src/scripts/check_artifacts.py dist/*
 python src/scripts/check_console_smoke.py
 ```

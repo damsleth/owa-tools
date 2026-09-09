@@ -7,7 +7,14 @@ import re
 from collections import defaultdict
 from datetime import date, timedelta
 
-from owa_core.errors import ConflictError, NotFoundError, ScopeInsufficientError, UsageError
+from owa_core.errors import (
+    ConflictError,
+    NotFoundError,
+    OwaError,
+    ScopeInsufficientError,
+    UsageError,
+)
+from owa_core.secrets import redact
 
 from . import api
 
@@ -374,19 +381,19 @@ def _create_card(session, identity, body, *, debug=False):
     sys_id = created.get("sys_id") if isinstance(created, dict) else None
     if not sys_id:
         return {"taskNumber": identity, "action": "failed", "detail": "POST lacked sys_id"}
-    if description:
-        api.request(
-            session,
-            "PATCH",
-            "time_card",
-            sys_id=sys_id,
-            body={DESCRIPTION_FIELD: description},
-            debug=debug,
-        )
     result = {"taskNumber": identity, "action": "created", "sys_id": sys_id}
-    detail = _verify_description(session, sys_id, description, debug=debug)
-    if detail:
-        result["detail"] = detail
+    try:
+        if description:
+            api.request(
+                session, "PATCH", "time_card", sys_id=sys_id,
+                body={DESCRIPTION_FIELD: description}, debug=debug,
+            )
+        detail = _verify_description(session, sys_id, description, debug=debug)
+        if detail:
+            result.update(action="failed", detail=detail)
+    except OwaError as exc:
+        # POST may already have succeeded. Never lose the new ID or retry blindly.
+        result.update(action="failed", detail=redact(exc.message))
     return result
 
 
@@ -420,19 +427,22 @@ def _project_base(session, week_start, task_number, *, debug=False):
 
 
 def write_week(session, week_start, rows, *, debug=False):
-    parse_iso_date(week_start, name="week start")
+    card_range(week_start, weeks=0)
     validate_write_rows(rows)
     existing = api.request(
         session,
         "GET",
         "time_card",
         params={
-            "sysparm_fields": "sys_id,task.number,category,state",
+            "sysparm_fields": "sys_id,task,task.number,category,state,comments,week_starts_on,"
+                + ",".join(DAY_FIELDS),
             "sysparm_query": f"user.user_name={session.user}^week_starts_on={week_start}",
             "sysparm_limit": "200",
         },
         debug=debug,
     )
+    if len(existing) >= 200:
+        raise ConflictError("time-card preflight reached 200 rows; refusing an incomplete snapshot")
     by_task, by_category = defaultdict(list), defaultdict(list)
     for card in existing:
         key = card.get("task.number")
@@ -458,6 +468,24 @@ def write_week(session, week_start, rows, *, debug=False):
     plain_rows = []
     for row in rows:
         (split_groups[_identity(row)] if row.get("split") else plain_rows).append(row)
+
+    # Resolve every split before *any* mutation, including unrelated plain rows.
+    # Mixing split and ordinary writes to one identity makes the snapshot stale.
+    if set(split_groups) & {_identity(row) for row in plain_rows}:
+        raise UsageError("cannot mix split and ordinary writes for the same identity")
+    split_bases = {}
+    for identity, group in split_groups.items():
+        sample = group[0]
+        if any(card.get("state") != "Pending" for card in cards_for(sample)):
+            raise ConflictError(f"cannot split {identity}: existing cards must all be Pending")
+        base = (
+            _project_base(session, week_start, sample["taskNumber"], debug=debug)
+            if sample.get("taskNumber")
+            else {"week_starts_on": week_start, "category": sample["category"]}
+        )
+        if base is None:
+            raise NotFoundError(f"split task not found: {identity}")
+        split_bases[identity] = base
 
     for row in plain_rows:
         identity = _identity(row)
@@ -491,20 +519,32 @@ def write_week(session, week_start, rows, *, debug=False):
             continue
         results.append(_create_card(session, identity, {**body, **base}, debug=debug))
 
+    # Preserve originals until all replacements in a group are created and verified.
+    # On any partial failure return IDs/snapshots; do not perform an implicit rollback.
     for identity, group in split_groups.items():
-        sample = group[0]
-        delete_pending(identity, cards_for(sample))
-        base = (
-            _project_base(session, week_start, sample["taskNumber"], debug=debug)
-            if sample.get("taskNumber")
-            else {"week_starts_on": week_start, "category": sample["category"]}
-        )
-        if base is None:
-            results.extend(
-                {"taskNumber": identity, "action": "skipped", "detail": "task not found"}
-                for _ in group
-            )
-            continue
-        for row in group:
-            results.append(_create_card(session, identity, {**_days_body(row), **base}, debug=debug))
+        originals = cards_for(group[0])
+        created = []
+        try:
+            for row in group:
+                result = _create_card(
+                    session, identity, {**_days_body(row), **split_bases[identity]}, debug=debug,
+                )
+                results.append(result)
+                if result.get("sys_id"):
+                    created.append(result["sys_id"])
+                if result["action"] == "failed":
+                    result.update(original_cards=originals, replacement_ids=created)
+                    return results
+            # Recheck all originals before removing any; creation can take time.
+            for card in originals:
+                _pending_card(session, card["sys_id"], debug=debug)
+            for card in originals:
+                api.request(session, "DELETE", "time_card", sys_id=card["sys_id"], debug=debug)
+                results.append({"taskNumber": identity, "action": "deleted", "sys_id": card["sys_id"]})
+        except OwaError as exc:
+            results.append({
+                "taskNumber": identity, "action": "failed", "detail": redact(exc.message),
+                "original_cards": originals, "replacement_ids": created,
+            })
+            return results
     return results

@@ -223,7 +223,7 @@ def test_put_batch_skips_existing_uploads_rest(monkeypatch, tmp_path, capfd):
     monkeypatch.setattr(cli, "_remote_exists", fake_exists)
     uploaded = []
 
-    def fake_put(api_base, endpoint, token, data, debug=False):
+    def fake_put(api_base, endpoint, token, data, debug=False, **kwargs):
         uploaded.append(endpoint)
         return _drive_item(endpoint.rsplit("/", 1)[-1].split(":")[0])
 
@@ -250,7 +250,7 @@ def test_put_batch_per_file_failure_does_not_abort(monkeypatch, tmp_path, capfd)
 
     calls = []
 
-    def fake_put(api_base, endpoint, token, data, debug=False):
+    def fake_put(api_base, endpoint, token, data, debug=False, **kwargs):
         calls.append(endpoint)
         if endpoint.endswith("/a.txt:/content"):
             # Production api_put_binary RAISES recoverable OwaErrors (it does

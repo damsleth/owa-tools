@@ -23,7 +23,7 @@ Open slots:
 
 ## Install
 
-Part of the `owa-tools` suite — one install gives you all nine binaries plus the `owa-piggy` auth broker:
+Part of the `owa-tools` suite — install the CLI suite and the separate `owa-piggy` auth broker:
 
 ```bash
 brew install damsleth/tap/owa-piggy damsleth/tap/owa-tools
@@ -119,8 +119,16 @@ See [agent-integration.md](agent-integration.md) for the full contract.
   getSchedule response when Graph advertises them: a candidate slot survives
   only if it lands on a working day and inside the working window of every
   attendee that publishes one (attendees with no published working hours add no
-  constraint). Its overlap math still uses naive local datetimes (DST-unsafe);
-  use `find-time --server` for Graph server-side ranking that sidesteps the
-  timezone math entirely.
+  constraint). Busy intervals and working-hour windows are converted between
+  the requested timezone and each attendee's timezone, including seasonal
+  offsets and local weekdays. Supported zones are IANA names and the Windows
+  names in the shared timezone mapping. Unknown or custom zones exit 2;
+  use `find-time --server` for those calendars.
+- Local slot finding exits 15 when a requested attendee is missing, Graph
+  returns an attendee error, or busy intervals/working hours cannot be parsed.
+  It cannot claim free time from incomplete availability.
+- Normalized `workingHours` uses a sorted `days` array (Monday = 0), ISO time
+  strings in `start` and `end`, and the upstream `timeZone` value. It is safe
+  to serialize in JSON, agent envelopes, and profile fan-out results.
 - Graph's per-attendee error surface (e.g. mailbox not found, calendar hidden)
   is preserved on the JSON output; consult the `error` field on each attendee.

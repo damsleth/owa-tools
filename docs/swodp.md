@@ -108,6 +108,14 @@ three steps because SWODP drops `comments` on insert: POST
 without it, PATCH `comments`, then GET and verify. The batch is not retry-safe
 as a whole, requires `--confirm` outside a TTY, and is capped at 200 rows.
 
+Split rows resolve all replacement tasks before any writes. For each split
+identity, the CLI creates and verifies every replacement before deleting any
+original card, then rechecks that all originals are still Pending. A failed
+step stops the batch and returns original-card snapshots and replacement IDs
+for reconciliation. Created cards can remain after a later failure; inspect
+those IDs and the current week before retrying. The operation is not atomic.
+A full 200-card existing-week snapshot is refused because it may be truncated.
+
 ## Machine contract
 
 Default output is JSON. `--pretty` indents it, `--agent` adds the suite envelope,

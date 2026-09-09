@@ -19,6 +19,7 @@ TOOLS = (
     'owa-doctor',
     'owa-people',
     'owa-sched',
+    'owa-places',
     'owa-drive',
     'owa-todo',
     'owa-planner',

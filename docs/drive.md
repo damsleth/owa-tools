@@ -25,7 +25,7 @@ deleted: /Documents/old.txt
 
 ## Install
 
-Part of the `owa-tools` suite — one install gives you all nine binaries plus the `owa-piggy` auth broker:
+Part of the `owa-tools` suite — install the CLI suite and the separate `owa-piggy` auth broker:
 
 ```bash
 brew install damsleth/tap/owa-piggy damsleth/tap/owa-tools
@@ -106,10 +106,10 @@ owa-drive put ./big-video.mp4 /Documents/big-video.mp4
 ### Overwrite handling and batch upload
 
 `put` refuses to overwrite an existing remote item by default and exits with
-code `15` (CONFLICT). OneDrive enables file-version history on every drive,
-so the refusal is a bandwidth optimization — it lets `put` skip the upload
-bytes when the remote is already there — not a data-loss guard. Pass
-`--force` to overwrite:
+code `15` (CONFLICT). A failed existence check stops that upload. Both direct
+uploads and upload sessions request server-side conflict rejection, protecting
+against another writer creating the destination after the check. Pass
+`--force` to request replacement:
 
 ```bash
 owa-drive put ./report.md /Documents/report.md            # exits 15 if exists
@@ -130,7 +130,7 @@ owa-drive put ./*.md /Documents/notes
 
 In batch mode, existing remote files are *skipped* (not refused) so the rest
 of the batch keeps going; per-file upload failures are recorded in `failed`
-but never abort the run. Exit code is `0` when `failed` is empty (skips count
+and the batch continues. Auth failures abort the run. Exit code is `0` when `failed` is empty (skips count
 as success), `1` otherwise. `--force` re-uploads everything and skips the
 existence preflight altogether.
 

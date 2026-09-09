@@ -21,7 +21,6 @@ from owa_core.errors import (
     InternalError,
     NetworkError,
     NotFoundError,
-    OwaError,
     RateLimitedError,
     UsageError,
     _require_value,
@@ -243,14 +242,7 @@ def cmd_get(args, config, access_token, api_base):
 
 
 def _remote_exists(api_base, remote, access_token, debug):
-    """Silent existence check. Returns True/False/None (None = error).
-
-    OneDrive enables versioning by default, so refusing to overwrite is a
-    bandwidth optimisation - it lets `put` skip a re-upload when the
-    remote item is already present. Returns None (instead of False) on
-    transient errors so callers can decide whether to proceed or abort;
-    we proceed by default (the user asked us to upload).
-    """
+    """Return False only for a missing target; other failures abort the upload."""
     if not remote or remote == '/':
         return False
     url = f'{api_base}/{paths_mod.item_endpoint(remote).lstrip("/")}'
@@ -258,12 +250,10 @@ def _remote_exists(api_base, remote, access_token, debug):
         response = http_mod.request('GET', url, token=access_token, debug=debug)
     except NotFoundError:
         return False
-    except OwaError:
-        return None
     return bool(response.json)
 
 
-def _upload_one(local, remote, *, config, access_token, api_base, debug):
+def _upload_one(local, remote, *, config, access_token, api_base, debug, force=False):
     """Read and PUT a single file. Returns ('uploaded', item) or
     ('failed', None). Selects the simple PUT path or the upload-session
     path based on size, mirroring the per-file logic that single-file
@@ -287,7 +277,7 @@ def _upload_one(local, remote, *, config, access_token, api_base, debug):
             return 'failed', None
         _info(f'uploading {len(data)} bytes via upload session...')
         payload = api_mod.api_upload_session(
-            api_base, session_endpoint, access_token, data, debug=debug,
+            api_base, session_endpoint, access_token, data, debug=debug, conflict_behavior="replace" if force else "fail",
         )
     else:
         try:
@@ -296,7 +286,7 @@ def _upload_one(local, remote, *, config, access_token, api_base, debug):
             _error(str(exc))
             return 'failed', None
         payload = api_mod.api_put_binary(
-            api_base, endpoint, access_token, data, debug=debug,
+            api_base, endpoint, access_token, data, debug=debug, conflict_behavior="replace" if force else "fail",
         )
     if payload is None:
         return 'failed', None
@@ -356,21 +346,20 @@ def cmd_put(args, config, access_token, api_base):
             if batch else positional[1]
         )
 
-        if not force:
-            exists = _remote_exists(api_base, remote, access_token, debug)
-            if exists is True:
-                # Skip-and-continue: in batch mode the rest of the files
-                # MUST still upload (the whole point of the batch). In
-                # single-file mode the user gets exit 15 below.
-                _info(f'skip (exists, no --force): {remote}')
-                skipped.append({'local': local, 'remote': remote})
-                continue
-
         try:
+            if not force:
+                exists = _remote_exists(api_base, remote, access_token, debug)
+                if exists is True:
+                    # Skip-and-continue: in batch mode the rest of the files
+                    # MUST still upload (the whole point of the batch). In
+                    # single-file mode the user gets exit 15 below.
+                    _info(f'skip (exists, no --force): {remote}')
+                    skipped.append({'local': local, 'remote': remote})
+                    continue
             status, item = _upload_one(
                 local, remote,
                 config=config, access_token=access_token,
-                api_base=api_base, debug=debug,
+                api_base=api_base, debug=debug, force=force,
             )
         except _RECOVERABLE_UPLOAD_ERRORS as exc:
             # Batch mode is fault-tolerant per file: a transient upload error
@@ -673,6 +662,7 @@ def main(argv=None):
         sys.argv[1:] if argv is None else argv,
         _main,
         binary_stdout_commands=('get',),
+        command_aliases={alias: cmd['name'] for cmd in COMMAND_SCHEMA for alias in cmd.get('aliases', [])},
         audience=auth_mod.AUDIENCE,
         command_scopes=COMMAND_SCOPES,
     )

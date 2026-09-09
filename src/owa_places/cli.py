@@ -79,7 +79,7 @@ def _fetch_locations(args, config, access_token, api_base, *, rooms_only):
         debug=_debug_enabled(config),
     )
     rows = places_mod.filter_locations(
-        places_mod.normalize_locations(payload or {}),
+        places_mod.normalize_locations(payload),
         query=query,
         rooms_only=rooms_only,
         limit=limit,

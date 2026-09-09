@@ -6,18 +6,11 @@ Review priorities use P1 for high-impact defects and P2 for other correctness/co
 
 ## Code review remediation
 
-See [review findings and acceptance criteria](reviews/2026-09-08/REVIEW.md).
-Offline reproductions are retained beside the report. Implementation is pending.
+See [review findings and acceptance criteria](../.tmp/reviews/2026-09-08/REVIEW.md).
+All 12 reproduced defects and locally verifiable follow-ups are fixed.
+See [fixes and validation](../.tmp/reviews/2026-09-08/FIXES.md). Historical reproductions
+are retained beside the report; completed tasks are archived in DONE.md.
 
-- [ ] P1 R1: make Drive no-force uploads fail closed and enforce server-side no-overwrite
-- [ ] P1 R11: validate SWODP split replacements before deleting existing Pending cards; retain partial-progress evidence
-- [ ] P1 R4/R5/R9: close escaped-body, fan-out error, and signed-URL logging leaks
-- [ ] P1 R2/R3: make scheduling output JSON-safe and refuse free-time claims for failed attendees
-- [ ] P2 R6/R7: fix fan-out exit-status consistency and canonical binary-command guards
-- [ ] P2 R8: map transport timeouts and interrupted reads to typed network errors
-- [ ] P2 R10: propagate Teams page-cap truncation to CLI results
-- [ ] P2 R12: stop org-chart manager traversal cleanly on top-of-chain 404
-- [ ] P2 review follow-ups: verify scheduling timezones and frozen Graph data assets; reconcile semantic docs drift (see reviews/2026-09-08/REVIEW.md)
 
 ## Active plans
 

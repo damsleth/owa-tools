@@ -101,3 +101,11 @@ structured mode is available.
 Agents editing the codebase should start at the root `AGENTS.md`, then read the
 nearest local `AGENTS.md`. The root file indexes each local instruction file and
 the tests enforce that runtime packages keep local guidance.
+
+## Binary downloads and fan-out failures
+
+Drive `get` and `download` share the binary-output guards, including through
+`owa drive` and with leading profile flags. Use `--out` to combine a download
+with an agent envelope; raw stdout bytes cannot be wrapped. Multiple-profile
+binary downloads are refused. In JSON fan-out mode, non-JSON command output
+counts as a failed profile: mixed results exit 2 and all failures exit 1.

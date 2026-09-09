@@ -95,7 +95,7 @@ def test_api_upload_session_creates_session_and_drives_upload(monkeypatch):
     assert out == {'id': 'big-1', 'name': 'big.bin'}
     assert seen['method'] == 'POST'
     assert seen['url'].endswith('/createUploadSession')
-    assert seen['body'] == {'item': {'@microsoft.graph.conflictBehavior': 'replace'}}
+    assert seen['body'] == {'item': {'@microsoft.graph.conflictBehavior': 'fail'}}
     assert seen['upload_url'] == 'https://up.example.test/sess'
     assert seen['content'] == b'x' * 100
 

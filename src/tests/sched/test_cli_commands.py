@@ -91,7 +91,7 @@ def test_main_schema_profile_and_debug(monkeypatch, capsys):
 def test_availability_and_find_time(monkeypatch, capsys):
     calls = []
 
-    def fake_post(api_base, endpoint, access_token, *, body, debug=False):
+    def fake_post(api_base, endpoint, access_token, *, body, debug=False, extra_headers=None):
         calls.append((api_base, endpoint, access_token, body, debug))
         return _schedule_payload()
 
@@ -177,7 +177,7 @@ def test_sched_config_and_refresh(monkeypatch, capsys):
 def test_find_time_server_posts_findmeetingtimes(monkeypatch, capsys):
     calls = []
 
-    def fake_post(base, endpoint, token, body=None, debug=False):
+    def fake_post(base, endpoint, token, body=None, debug=False, extra_headers=None):
         calls.append((base, endpoint, token, body, debug))
         return {
             "meetingTimeSuggestions": [{
