@@ -44,6 +44,10 @@ Resolution order (most specific wins):
 - **org**: `--org/-o` › `OWA_ADO_ORG` › config `ado_org`
 - **project**: `--project/-P` › `OWA_ADO_PROJECT` › config `ado_project`
 
+A project from config is a default for routing. A project named on the
+command line or in the environment is also a filter for `wi` listings; see
+`--mine` below.
+
 `projects` needs only an org; every other command is project-scoped.
 
 ## Commands
@@ -75,7 +79,10 @@ Without an id, list work items via WIQL (alias: `workitems`). With a
 positional id, show that one work item.
 
 - `--mine` — assigned to me (the default when no other filter or
-  `--query` is given)
+  `--query` is given). Spans **every project in the organisation**: the
+  configured project routes the request but does not filter it, so work
+  assigned to you in another project still shows up. Pass `--project/-P`
+  (or `OWA_ADO_PROJECT`) to narrow the listing to one project.
 - `--state <state>` — filter by state (e.g. `Active`, `New`)
 - `--type <type>` — filter by work-item type (e.g. `Task`, `Bug`)
 - `--top <n>` — cap results (default 50)
@@ -89,7 +96,8 @@ plain text). Show-mode only:
 - `--full` — raw, unnormalized REST payload
 
 ```bash
-owa-ado wi --mine --pretty
+owa-ado wi --mine --pretty                  # every project
+owa-ado wi --mine --project "One Project"   # narrowed to one
 owa-ado wi 16972 --short
 owa-ado wi 16972 --detailed --pretty
 owa-ado wi --state Active --type Bug --top 20

@@ -66,6 +66,25 @@ def _resolve_project(config):
     return project
 
 
+def _project_scope(config):
+    """The project a `wi` listing should be pinned to, or None for org-wide.
+
+    The REST route is always project-scoped, but a WIQL query without a
+    TeamProject clause spans the whole organisation through it. Binding the
+    default listing to the configured project hid work assigned to you in every
+    other project, which the IAM + NOCOS -> "IAM og NOCOS Forvaltning" migration
+    turned from a corner case into the common one: items live on both sides of
+    the move at once.
+
+    A project named this run (--project/-P, or OWA_ADO_PROJECT) is the user
+    asking to narrow, and is honoured. A project that only came from config is
+    a default for routing, not a filter.
+    """
+    if config.get('_project_explicit'):
+        return config.get('ado_project', '').strip() or None
+    return os.environ.get('OWA_ADO_PROJECT', '').strip() or None
+
+
 def print_help():
     print("""owa-ado - Azure DevOps CLI for Outlook / Microsoft 365 identities
 
@@ -88,6 +107,8 @@ Commands:
                        --detailed      (show) add attachments.
                        --full          (show) raw full REST payload.
                        --mine          Assigned to me (default when no --query).
+                                       Spans every project in the org; pass
+                                       --project/-P to narrow to one.
                        --state <s>     Filter by state.
                        --type <t>      Filter by work-item type.
                        --top <n>       Cap results (default 50).
@@ -284,8 +305,8 @@ def cmd_wi(args, config, token, base):
     if not query:
         if not (mine or state or wi_type or iteration):
             mine = True
-        query = res.build_wiql(project=project, mine=mine, state=state,
-                               wi_type=wi_type, iteration=iteration)
+        query = res.build_wiql(project=_project_scope(config), mine=mine,
+                               state=state, wi_type=wi_type, iteration=iteration)
     # WIQL has no TOP clause; cap the id set server-side with $top instead.
     wiql = api_mod.ado_request(
         'POST', base, f'{project}/_apis/wit/wiql', token,
@@ -1172,7 +1193,7 @@ COMMAND_SCHEMA = [
                            schema_mod.flag('--short', summary='(show) skip the description'),
                            schema_mod.flag('--detailed', summary='(show) add attachments'),
                            schema_mod.flag('--full', summary='(show) raw full REST payload'),
-                           schema_mod.flag('--mine', summary='Assigned to me'),
+                           schema_mod.flag('--mine', summary='Assigned to me, across every project'),
                            schema_mod.flag('--state', value='<state>', summary='Filter by state'),
                            schema_mod.flag('--type', value='<type>', summary='Filter by work-item type'),
                            schema_mod.flag('--top', value='<n>', summary='Cap results (default 50)'),
@@ -1358,6 +1379,9 @@ def _main(argv):
         config['ado_org'] = org_override
     if project_override:
         config['ado_project'] = project_override
+        # Not an allowed config key, so it can never reach disk: owa-ado only
+        # ever persists via config_set(key, value), never the whole dict.
+        config['_project_explicit'] = True
 
     if cmd == 'config':
         return cmd_config(rest, config)

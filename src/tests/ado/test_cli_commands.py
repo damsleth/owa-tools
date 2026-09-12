@@ -73,6 +73,54 @@ def test_wi_list_builds_wiql_then_batches_fields(monkeypatch, tmp_config, clean_
     assert calls[1][3]['ids'] == '11,22'
 
 
+def _wiql_for(argv, tmp_config, clean_env, monkeypatch):
+    """Run a `wi` listing and hand back the WIQL text it posted."""
+    tmp_config.parent.mkdir(parents=True, exist_ok=True)
+    tmp_config.write_text('ado_org="Org"\nado_project="Proj"\n')
+    sent = {}
+
+    def fake_request(method, base, endpoint, token, **kwargs):
+        if endpoint.endswith('/wiql'):
+            sent['query'] = (kwargs.get('body') or {}).get('query', '')
+            sent['endpoint'] = endpoint
+            return {'workItems': []}
+        return {'value': []}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake_request)
+    assert cli_mod.main(argv) == 0
+    return sent
+
+
+def test_wi_mine_spans_projects_when_project_only_from_config(
+        monkeypatch, tmp_config, clean_env, capsys):
+    """A configured project routes the request; it must not filter the query.
+
+    Binding the default listing to it hid every work item assigned to you in
+    another project, which the IAM + NOCOS board migration made routine.
+    """
+    sent = _wiql_for(['wi', '--mine'], tmp_config, clean_env, monkeypatch)
+    capsys.readouterr()
+    assert '[System.AssignedTo] = @Me' in sent['query']
+    assert 'System.TeamProject' not in sent['query']
+    # The route stays project-scoped even though the query is not.
+    assert sent['endpoint'].startswith('Proj/')
+
+
+def test_wi_mine_narrows_when_project_given_explicitly(
+        monkeypatch, tmp_config, clean_env, capsys):
+    sent = _wiql_for(['--project', 'Other', 'wi', '--mine'],
+                     tmp_config, clean_env, monkeypatch)
+    capsys.readouterr()
+    assert "[System.TeamProject] = 'Other'" in sent['query']
+
+
+def test_wi_mine_narrows_from_env(monkeypatch, tmp_config, clean_env, capsys):
+    monkeypatch.setenv('OWA_ADO_PROJECT', 'FromEnv')
+    sent = _wiql_for(['wi', '--mine'], tmp_config, clean_env, monkeypatch)
+    capsys.readouterr()
+    assert "[System.TeamProject] = 'FromEnv'" in sent['query']
+
+
 def test_wi_show_single_by_id(monkeypatch, tmp_config, clean_env, capsys):
     def fake_request(method, base, endpoint, token, **kwargs):
         assert endpoint == '_apis/wit/workitems/777'
