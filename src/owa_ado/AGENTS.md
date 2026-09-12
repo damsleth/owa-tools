@@ -8,6 +8,12 @@
   from `--org/-o` › `OWA_ADO_ORG` › config `ado_org`. Project resolves the same
   way; every command except `projects` is project-scoped and fails fast on a
   missing project before auth.
+- That scoping is the REST route, not a filter. `wi` listings build their WIQL
+  without a `[System.TeamProject]` clause unless the project was named on the
+  command line or in the environment, so `--mine` follows assignment across the
+  whole organisation. A config-only project would otherwise hide work items
+  living in any other project, which is the normal state during a board
+  migration. `_project_scope` in `cli.py` owns the distinction.
 - Every request carries an `api-version` query param; list endpoints page via
   the `x-ms-continuationtoken` response header, not `@odata.nextLink`.
 - Work-item create/update use the `application/json-patch+json` media type

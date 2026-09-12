@@ -8,6 +8,14 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-ado
+
+- `wi --mine` now spans every project in the organisation. The configured
+  project routes the request but no longer filters the WIQL, so work items
+  assigned to you in another project are no longer invisible. Naming a project
+  with `--project/-P` or `OWA_ADO_PROJECT` still narrows the listing, so the
+  explicit path is unchanged.
+
 - Drive uploads fail closed on existence-check errors and enforce no-overwrite
   on the server unless `--force` is supplied.
 - SWODP splits validate and verify replacements before deleting originals,
