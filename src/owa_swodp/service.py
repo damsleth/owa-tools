@@ -343,6 +343,10 @@ def validate_write_rows(rows):
             raise UsageError(f"row {index + 1} split may only be true")
         if row.get("split") and row.get("remove"):
             raise UsageError(f"row {index + 1} split cannot remove")
+        if "new" in row and row["new"] is not True:
+            raise UsageError(f"row {index + 1} new may only be true")
+        if row.get("new") and (row.get("remove") or row.get("split")):
+            raise UsageError(f"row {index + 1} new cannot remove or split")
     return rows
 
 
@@ -496,11 +500,19 @@ def write_week(session, week_start, rows, *, debug=False):
             else:
                 results.append({"taskNumber": identity, "action": "skipped", "detail": "card not found"})
             continue
+        # A non-Pending card is frozen, but the week is not: SWODP accepts an
+        # additional card on the same task/category. Opt in per row; auto-creating
+        # would make a re-run of the same plan double the hours.
+        cards = [] if row.get("new") else cards
         card = next((item for item in cards if item.get("state") == "Pending"), cards[0] if cards else None)
         body = _days_body(row)
         if card:
             if card.get("state") != "Pending":
-                results.append({"taskNumber": identity, "action": "skipped", "detail": f"state={card.get('state')}"})
+                results.append({
+                    "taskNumber": identity,
+                    "action": "skipped",
+                    "detail": f"state={card.get('state')}; set \"new\": true to add a second card",
+                })
                 continue
             api.request(session, "PATCH", "time_card", sys_id=card["sys_id"], body=body, debug=debug)
             result = {"taskNumber": identity, "action": "updated", "sys_id": card["sys_id"]}

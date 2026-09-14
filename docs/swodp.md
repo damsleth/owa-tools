@@ -51,6 +51,14 @@ mandatory. A card saved with a blank one is rejected by the timesheet portal
 of the whole timesheet, so the plan is refused before any request is sent.
 `remove` rows do not need one.
 
+A card in a terminal state (`Processed`, `Approved`) cannot be changed, deleted
+or recalled, and a plain row targeting one is skipped. The *week* is not locked:
+SWODP accepts an additional card on the same task or category in that same week,
+and that new card can be submitted normally. Set `"new": true` on a row to
+create one instead of matching the existing card. It is opt-in because
+auto-creating would double the hours whenever the same plan is written twice.
+`new` cannot be combined with `remove` or `split`.
+
 ```json
 [{"taskNumber":"TABC123","days":[7.5,7.5,0,0,0,0,0],"description":"Implementation and review"}]
 ```
