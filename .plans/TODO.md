@@ -18,6 +18,10 @@ are retained beside the report; completed tasks are archived in DONE.md.
 - [owa-pim](owa-pim.md): deferred; no package exists here. Broker dependency and tenant feasibility require separate verification/authorization.
 - [SWODP production readiness](owa-swodp-production-readiness.md): Recall implementation complete; live acceptance remains outstanding.
 
+## Feature gaps
+
+- [ ] owa-ado: add `pr-create`. Opening a PR is the one release step the CLI cannot do, so it falls back to the portal or to raw REST. Hit on 2026-09-14 opening NOCOS-Main `test` -> `main` (PR 3869), which had to go through `POST _apis/git/repositories/{repo}/pullrequests` with an owa-piggy `devops` token; `az devops` is no help, it wants its own `az devops login` even with `az account` signed in. Mirror `wi-create`: `--source`/`--target` refs, `--title`, `--description` (accept `-` for stdin, descriptions are long), `--repo`, `--draft`, `--confirm`. Read back `mergeStatus` and `hasConflicts` after create, the way the swodp commands verify their own writes.
+
 ## Event-driven verification
 
 - [ ] owa-swodp: live-verify Submit then Recall on the next legitimate Pending production card
