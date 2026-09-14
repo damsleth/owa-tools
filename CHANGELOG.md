@@ -16,6 +16,11 @@ per-tool subsections inside that release when useful.
   with `--project/-P` or `OWA_ADO_PROJECT` still narrows the listing, so the
   explicit path is unchanged.
 
+- SWODP write rows accept `"new": true`, which creates an additional card on a
+  task or category instead of matching an existing one. A `Processed` or
+  `Approved` card is frozen, but its week is not, so hours missed in a past
+  week go on a new card. The skip message for a frozen card now says so.
+
 - Drive uploads fail closed on existence-check errors and enforce no-overwrite
   on the server unless `--force` is supplied.
 - SWODP splits validate and verify replacements before deleting originals,

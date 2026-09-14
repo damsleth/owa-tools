@@ -311,3 +311,27 @@ def test_recall_card_reports_processor_and_verification_failures(monkeypatch):
     monkeypatch.setattr(service.api, "processor", lambda *a, **k: {"status": "success"})
     result = service.recall_card(SESSION, CARD_ID, "Correction")
     assert "detail" in result and "Submitted" in result["detail"]
+
+
+def test_new_row_creates_second_card_beside_processed_one(monkeypatch):
+    def fake_request(session, method, table, **kwargs):
+        if method == "GET" and kwargs.get("params", {}).get("sysparm_limit") == "200":
+            return [{"sys_id": "frozen", "task.number": "TABC123", "state": "Processed"}]
+        if table == "task" and method == "GET":
+            return [{"sys_id": "task-id"}]
+        if table == "resource_allocation":
+            raise ScopeInsufficientError("no allocation access")
+        if method == "POST":
+            return {"sys_id": "second-card"}
+        if method == "GET" and kwargs.get("sys_id") == "second-card":
+            return {"comments": "Work", "notes": ""}
+        return {}
+
+    monkeypatch.setattr(service.api, "request", fake_request)
+    without = service.write_week(SESSION, "2026-08-17", [valid_row(description="Work")])
+    assert without[0]["action"] == "skipped"
+    assert 'set "new": true' in without[0]["detail"]
+
+    with_new = service.write_week(SESSION, "2026-08-17", [valid_row(description="Work", new=True)])
+    assert with_new[0]["action"] == "created"
+    assert with_new[0]["sys_id"] == "second-card"

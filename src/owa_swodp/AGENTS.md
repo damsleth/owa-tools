@@ -19,6 +19,10 @@ sidecar profile. It does not use or import `owa-piggy`.
 - Description is mandatory on `time_card`; a blank one blocks timesheet
   submission in the portal. Write rows must carry a non-empty `description`
   unless they are `remove` rows.
+- `Processed`/`Approved` cards are frozen, but their week is not: a second card
+  on the same task or category in that week is accepted and submittable. Rows
+  opt in with `"new": true`; it stays opt-in so a replayed plan cannot double
+  hours. Verified live 2026-09-14 on T1PRJTSK4228809, week 2026-08-31.
 - Live writes go to UAT where an instance exists. Production-only verification
   needs explicit operator authorization plus snapshot, one row, verify, restore.
 - Never gate a decision on a read passed through an output-filtering proxy; it
