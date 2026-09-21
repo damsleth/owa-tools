@@ -10,6 +10,12 @@ per-tool subsections inside that release when useful.
 
 ### owa-ado
 
+- New `pr-create`: open a pull request from the CLI. `--repo --source
+  --target --title`, plus `--description -` (stdin), `--draft` and the
+  usual `--confirm` gate. The PR is re-read once after create so the
+  reported `mergeStatus` is settled rather than `queued`.
+- `prs` output now includes `mergeStatus`.
+
 - `wi --mine` now spans every project in the organisation. The configured
   project routes the request but no longer filters the WIQL, so work items
   assigned to you in another project are no longer invisible. Naming a project

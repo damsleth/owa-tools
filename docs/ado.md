@@ -194,6 +194,28 @@ owa-ado prs --status completed --all --top 200
 owa-ado prs 2971 --pretty
 ```
 
+### `owa-ado pr-create`
+
+Open a pull request. `--repo`, `--source`, `--target` and `--title` are
+required; branch names may be bare (`test`) or full refs
+(`refs/heads/test`). `--description -` reads the body from stdin, which
+is the usual way to pass a long release description. `--draft` opens it
+as a draft. Confirms before writing unless `--confirm` is passed.
+
+The created PR is re-read once before printing, so the reported
+`mergeStatus` is usually the settled value (`succeeded`, `conflicts`, …)
+rather than the `queued` the create response always returns. DevOps
+computes the merge asynchronously, so it can still read `queued`;
+`owa-ado prs <id>` re-checks. There is no `hasConflicts` field —
+`mergeStatus: conflicts` is the conflict signal.
+
+```bash
+owa-ado pr-create --repo ACME-Main --source test --target main \
+  --title "Release 2026.09" --confirm
+git log --oneline main..test | owa-ado pr-create --repo ACME-Main \
+  --source test --target main --title "Release" --description - --confirm
+```
+
 ### `owa-ado pipelines`
 
 List pipeline definitions. `--all` / `--pretty`.

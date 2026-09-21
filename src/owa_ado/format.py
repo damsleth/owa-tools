@@ -93,7 +93,8 @@ def format_pr(pr):
     for label, key in (
         ('repo', 'repo'), ('createdBy', 'createdBy'),
         ('source', 'sourceBranch'), ('target', 'targetBranch'),
-        ('draft', 'isDraft'), ('created', 'created'), ('url', 'url'),
+        ('draft', 'isDraft'), ('mergeStatus', 'mergeStatus'),
+        ('created', 'created'), ('url', 'url'),
     ):
         if pr.get(key) is not None:
             lines.append(f"  {label}: {pr.get(key)}")
