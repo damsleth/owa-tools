@@ -26,6 +26,10 @@ EXCLUDED_PARTS = {
     'dist',
     'owa_tools.egg-info',
 }
+# Gitignored and machine-local. Every hit is a `hash = "sha256:<64 hex>"`
+# entry from the resolver's package index - long hex that matches the
+# token shape, never a credential.
+EXCLUDED_NAMES = {'uv.lock'}
 EXCLUDED_SUFFIXES = {'.pyc', '.pyo', '.so', '.dylib', '.png', '.jpg', '.jpeg', '.gif'}
 
 
@@ -34,6 +38,8 @@ def is_scanned(path: Path) -> bool:
     if any(part in EXCLUDED_PARTS for part in rel.parts):
         return False
     if rel.parts and rel.parts[0] == '.plans':
+        return False
+    if path.name in EXCLUDED_NAMES:
         return False
     if path.suffix.lower() in EXCLUDED_SUFFIXES:
         return False
