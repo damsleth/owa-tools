@@ -66,8 +66,10 @@ The compact form (full annotated checklist lives in `AGENTS.md` ->
 git checkout main
 git pull --ff-only
 
-# Bump version in pyproject.toml and add a changelog entry.
-$EDITOR pyproject.toml CHANGELOG.md
+# Bump the version in BOTH places, and add a changelog entry.
+# src/tests/core/test_version.py asserts the current version string; if you
+# only edit pyproject.toml the suite fails at the gate step.
+$EDITOR pyproject.toml src/tests/core/test_version.py CHANGELOG.md
 git commit -am "release: vX.Y.Z"
 git push
 

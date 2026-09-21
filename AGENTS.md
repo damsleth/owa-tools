@@ -214,8 +214,11 @@ When the user says "cut a release" / "new patch version" / "ship it":
 2. Commit feature work separately from the version bump. Keep one
    `release: vX.Y.Z` commit on top of the feature commits so `git log`
    reads cleanly.
-3. Update `pyproject.toml` `version = "X.Y.Z"`. No other file tracks the
-   version today.
+3. Update `pyproject.toml` `version = "X.Y.Z"` **and** the hardcoded string
+   in `src/tests/core/test_version.py`
+   (`test_root_pyproject_version_parser_reads_current_project`). Those are
+   the only two places the version is written; miss the test and the suite
+   goes red at the gate step, after the feature commits are already in.
 4. Update `CHANGELOG.md` for the new version.
 5. Run all gates locally (these are also the gates the release workflow
    re-runs):
