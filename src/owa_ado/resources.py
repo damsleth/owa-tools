@@ -171,6 +171,7 @@ def normalize_pr(pr):
         'sourceBranch': (pr.get('sourceRefName') or '').replace('refs/heads/', '') or None,
         'targetBranch': (pr.get('targetRefName') or '').replace('refs/heads/', '') or None,
         'isDraft': pr.get('isDraft'),
+        'mergeStatus': pr.get('mergeStatus'),
         'created': pr.get('creationDate'),
         'url': pr.get('url'),
     }

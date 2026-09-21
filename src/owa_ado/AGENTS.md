@@ -21,7 +21,12 @@
 - WIQL has no `TOP` clause; cap with the `$top` query param on the wiql POST.
 - Path segments are percent-encoded (team names contain spaces); keep `/`, `$`,
   and `:` safe so the create route `$Type` and segment separators survive.
-- Mutations (`wi-create`, `wi-update`) require `--confirm` or a TTY.
+- Mutations (`wi-create`, `wi-update`, `pr-create`) require `--confirm` or a
+  TTY. `pr-create` POSTs to the repo-scoped route
+  (`{project}/_apis/git/repositories/{repo}/pullrequests`), so `--repo` is
+  required there even though `prs` can list org-wide. It re-reads the PR once
+  after create: the create response always reports `mergeStatus: queued`.
+  There is no `hasConflicts` field; `mergeStatus: conflicts` is the signal.
 - Docs live in `docs/ado.md`; update before release (CI enforces docs sync).
 
 Nearest tests: `src/tests/ado/`.

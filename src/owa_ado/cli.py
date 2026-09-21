@@ -21,7 +21,7 @@ from urllib.parse import quote
 
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
-from owa_core.errors import UsageError, _require_value
+from owa_core.errors import OwaError, UsageError, _require_value
 
 from . import __version__
 from . import api as api_mod
@@ -130,6 +130,9 @@ Commands:
                        --status active|completed|abandoned|all  (default active)
                        --top <n>       Cap results (default 50).
                        --all           Page through all results (capped by --top).
+  pr-create            Open a pull request (confirm-gated).
+                       --repo <name> --source <ref> --target <ref> --title <t>
+                       [--description <text|->] [--draft]
   pipelines            List pipeline definitions.
   runs                 List recent pipeline runs (builds).
                        --pipeline <id> Filter to one definition.
@@ -158,7 +161,7 @@ Common options:
   --all                Follow continuation tokens until exhausted
                        (projects, repos, pipelines, prs, runs).
   --api-version <ver>  Override the DevOps api-version for one call.
-  --confirm            Skip confirmation prompts (wi-* mutations).
+  --confirm            Skip confirmation prompts (wi-* and pr-create).
 
 Examples:
   owa-ado config --org ACME-Corp --project ACME
@@ -167,6 +170,8 @@ Examples:
   owa-ado wi 12345 --pretty
   owa-ado wi-create --type Task --title "Wire reseed" --assign @me --confirm
   owa-ado prs --status active --pretty
+  owa-ado pr-create --repo ACME-Main --source test --target main \\
+          --title "Release" --description - --confirm
   owa-ado pipelines --pretty
   owa-ado runs --top 10 --pretty
   owa-ado wikis --pretty
@@ -748,6 +753,88 @@ def cmd_prs(args, config, token, base):
     return _emit([res.normalize_pr(p) for p in items], pretty, fmt.format_prs)
 
 
+def _branch_ref(name):
+    """Accept `main` or `refs/heads/main`; DevOps wants the full ref."""
+    return name if name.startswith('refs/') else f'refs/heads/{name}'
+
+
+def cmd_pr_create(args, config, token, base):
+    repo = source = target = title = description = api_version = ''
+    draft = confirm = False
+    while args:
+        flag, args = args[0], args[1:]
+        if flag == '--repo':
+            repo, args = _require_value(flag, args)
+        elif flag == '--source':
+            source, args = _require_value(flag, args)
+        elif flag == '--target':
+            target, args = _require_value(flag, args)
+        elif flag == '--title':
+            title, args = _require_value(flag, args)
+        elif flag == '--description':
+            description, args = _require_value(flag, args)
+        elif flag == '--api-version':
+            api_version, args = _require_value(flag, args)
+        elif flag == '--draft':
+            draft = True
+        elif flag == '--confirm':
+            confirm = True
+        else:
+            raise UsageError(f'Unknown flag: {flag}')
+
+    # --repo/--source/--target/--title are enforced by the schema precheck;
+    # --repo is required here (unlike `prs`) because the create route only
+    # exists under a repository.
+    project = _resolve_project(config)
+    debug = _debug_enabled(config)
+    ver = _api_version(api_version)
+
+    if not confirm:
+        rc = _confirm_or_abort(
+            'pr-create',
+            f'about to open a pull request in {repo}: {source} -> {target}',
+        )
+        if rc:
+            return rc
+    # Read stdin after the confirm gate: the gate needs a TTY on stdin and
+    # `--description -` consumes it.
+    if description == '-':
+        description = sys.stdin.read()
+
+    body = {
+        'sourceRefName': _branch_ref(source),
+        'targetRefName': _branch_ref(target),
+        'title': title,
+    }
+    if description:
+        body['description'] = description
+    if draft:
+        body['isDraft'] = True
+
+    endpoint = f'{project}/_apis/git/repositories/{quote(repo, safe="")}/pullrequests'
+    payload = api_mod.ado_request('POST', base, endpoint, token, body=body,
+                                  api_version=ver, debug=debug)
+    pr = res.normalize_pr(payload)
+    # The create response always reports mergeStatus "queued" - DevOps
+    # computes the merge asynchronously. One read-back usually settles it to
+    # succeeded/conflicts, which is the whole point of reporting it.
+    # ponytail: one re-read, no polling; `owa-ado prs <id>` for a later check.
+    pr_id = pr.get('id')
+    if pr_id:
+        try:
+            fresh = api_mod.ado_request(
+                'GET', base, f'{project}/_apis/git/pullrequests/{pr_id}', token,
+                api_version=ver, debug=debug,
+            )
+        except OwaError as error:
+            _info(f'pull request created; merge-status read-back failed: {error}')
+            fresh = None
+        if fresh:
+            pr = res.normalize_pr(fresh)
+    print(json.dumps(pr))
+    return 0
+
+
 def cmd_pipelines(args, config, token, base):
     pretty, all_pages = _parse_list_flags(args, allow_all=True)
     project = _resolve_project(config)
@@ -1153,7 +1240,7 @@ def _parse_list_flags(args, *, allow_all=False):
 AUTHED_COMMANDS = {
     'projects', 'sprints', 'wi', 'wi-create', 'wi-update',
     'wi-comment', 'wi-link', 'wi-unlink', 'wi-delete',
-    'repos', 'prs', 'pipelines', 'runs',
+    'repos', 'prs', 'pr-create', 'pipelines', 'runs',
     'wikis', 'wiki',
 } | set(_SUBRESOURCES)
 
@@ -1262,6 +1349,18 @@ COMMAND_SCHEMA = [
                            schema_mod.flag('--status', value='active|completed|abandoned|all', summary='Status filter (default active)'),
                            schema_mod.flag('--top', value='<n>', summary='Cap results (default 50)'),
                            _ALL, _API_VERSION, _PRETTY,
+                       ]),
+    schema_mod.command('pr-create', 'Open a pull request', auth='devops',
+                       mutates=True, confirmation=True, idempotent=False,
+                       flags=[
+                           schema_mod.flag('--repo', value='<name>', summary='Repository', required=True),
+                           schema_mod.flag('--source', value='<ref>', summary='Source branch or ref', required=True),
+                           schema_mod.flag('--target', value='<ref>', summary='Target branch or ref', required=True),
+                           schema_mod.flag('--title', value='<title>', summary='Pull-request title', required=True),
+                           schema_mod.flag('--description', value='<text|->', summary='Description (- reads stdin)'),
+                           schema_mod.flag('--draft', summary='Open as a draft'),
+                           _API_VERSION,
+                           schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
                        ]),
     schema_mod.command('pipelines', 'List pipeline definitions', auth='devops',
                        flags=[_ALL, _PRETTY]),
@@ -1407,6 +1506,7 @@ def _main(argv):
         'sprints': cmd_sprints,
         'wi': cmd_wi,
         'wi-create': cmd_wi_create,
+        'pr-create': cmd_pr_create,
         'wi-update': cmd_wi_update,
         'wi-comment': cmd_wi_comment,
         'wi-link': cmd_wi_link,

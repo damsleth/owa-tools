@@ -137,3 +137,96 @@ def test_refresh_unreachable_org(monkeypatch, tmp_config, clean_env):
     monkeypatch.setattr(auth_mod, 'do_token_refresh', lambda c, debug=False: 'tok')
     monkeypatch.setattr(api_mod, 'ado_request', lambda *a, **k: None)
     assert cli_mod.main(['--org', 'O', 'refresh']) == 1
+
+
+def test_pr_create_prompts_and_proceeds(monkeypatch, tmp_config, clean_env):
+    monkeypatch.setattr(tty_mod, 'require_confirm_or_tty', lambda *, action: None)
+    monkeypatch.setattr(tty_mod, 'confirm', lambda *a, **k: True)
+    calls = []
+
+    def fake(method, base, endpoint, token, **kw):
+        calls.append((method, endpoint, kw.get('body')))
+        return {'pullRequestId': 9, 'mergeStatus': 'succeeded'}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake)
+    rc = _base(['pr-create', '--repo', 'R', '--source', 'test',
+                '--target', 'main', '--title', 'x'])
+    assert rc == 0
+    assert calls[0][0] == 'POST'
+    assert calls[0][1] == 'P/_apis/git/repositories/R/pullrequests'
+    assert calls[0][2] == {'sourceRefName': 'refs/heads/test',
+                           'targetRefName': 'refs/heads/main', 'title': 'x'}
+    # read-back GET settles mergeStatus
+    assert calls[1][:2] == ('GET', 'P/_apis/git/pullrequests/9')
+
+
+def test_pr_create_aborts_on_no(monkeypatch, tmp_config, clean_env):
+    monkeypatch.setattr(tty_mod, 'require_confirm_or_tty', lambda *, action: None)
+    monkeypatch.setattr(tty_mod, 'confirm', lambda *a, **k: False)
+    monkeypatch.setattr(api_mod, 'ado_request',
+                        lambda *a, **k: pytest.fail('must not write on abort'))
+    rc = _base(['pr-create', '--repo', 'R', '--source', 'a', '--target', 'b',
+                '--title', 'x'])
+    assert rc == 1
+
+
+def test_pr_create_non_tty_is_usage_error(monkeypatch, tmp_config, clean_env):
+    def boom(*, action):
+        raise UsageError('not a tty; pass --confirm')
+
+    monkeypatch.setattr(tty_mod, 'require_confirm_or_tty', boom)
+    rc = _base(['pr-create', '--repo', 'R', '--source', 'a', '--target', 'b',
+                '--title', 'x'])
+    assert rc == 2
+
+
+def test_pr_create_stdin_description_draft_and_full_refs(monkeypatch, tmp_config,
+                                                         clean_env, capsys):
+    import io
+    import json as json_mod
+    monkeypatch.setattr('sys.stdin', io.StringIO('long body\n'))
+    bodies = []
+
+    def fake(method, base, endpoint, token, **kw):
+        bodies.append(kw.get('body'))
+        if method == 'POST':
+            return {'pullRequestId': 9, 'mergeStatus': 'queued'}
+        return {'pullRequestId': 9, 'mergeStatus': 'conflicts'}
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake)
+    rc = _base(['pr-create', '--repo', 'R', '--source', 'refs/heads/a',
+                '--target', 'refs/heads/b', '--title', 'x',
+                '--description', '-', '--draft', '--confirm'])
+    assert rc == 0
+    assert bodies[0] == {'sourceRefName': 'refs/heads/a',
+                         'targetRefName': 'refs/heads/b', 'title': 'x',
+                         'description': 'long body\n', 'isDraft': True}
+    # the settled read-back value wins over the create response
+    assert json_mod.loads(capsys.readouterr().out)['mergeStatus'] == 'conflicts'
+
+
+def test_pr_create_readback_failure_still_reports_the_pr(monkeypatch, tmp_config,
+                                                         clean_env, capsys):
+    import json as json_mod
+
+    from owa_core.errors import NetworkError
+
+    def fake(method, base, endpoint, token, **kw):
+        if method == 'POST':
+            return {'pullRequestId': 9, 'mergeStatus': 'queued'}
+        raise NetworkError('readback failed')
+
+    monkeypatch.setattr(api_mod, 'ado_request', fake)
+    rc = _base(['pr-create', '--repo', 'R', '--source', 'a', '--target', 'b',
+                '--title', 'x', '--confirm'])
+    assert rc == 0
+    assert json_mod.loads(capsys.readouterr().out)['mergeStatus'] == 'queued'
+
+
+def test_pr_create_requires_repo(monkeypatch, tmp_config, clean_env):
+    assert _base(['pr-create', '--source', 'a', '--target', 'b',
+                  '--title', 'x', '--confirm']) == 2
+    assert _base(['pr-create', '--repo', 'R', '--target', 'b',
+                  '--title', 'x', '--confirm']) == 2
+    assert _base(['pr-create', '--repo', 'R', '--source', 'a', '--target', 'b',
+                  '--confirm']) == 2
