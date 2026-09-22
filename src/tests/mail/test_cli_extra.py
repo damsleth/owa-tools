@@ -1,4 +1,4 @@
-"""Extra CLI coverage tests for owa_mail.cli and owa_mail.dates.
+"""Extra CLI coverage tests for owa_mail.cli.
 
 Targets the Missing line ranges reported by coverage:
   cli.py:  83-227, 232, 240-241, 284, 286, 321, 323, 335, 351, 363-366,
@@ -6,56 +6,12 @@ Targets the Missing line ranges reported by coverage:
            749, 753, 770, 797, 813, 815->822, 841, 843, 868, 873, 876,
            881-883, 885, 896, 911, 921, 924, 947, 958, 978->980,
            1158-1159, 1161-1162, 1164-1165, 1169, 1172-1173, 1181, 1193, 1197
-  dates.py: 10, 14, 18, 25, 27, 29 (resolve_date helpers)
 """
 import json
 
 import pytest
 
 from owa_mail import cli
-from owa_mail.dates import resolve_date, today, tomorrow, yesterday
-
-# ---------------------------------------------------------------------------
-# dates.py coverage (lines 10, 14, 18, 25, 27, 29)
-# ---------------------------------------------------------------------------
-
-def test_today_returns_iso_string():
-    import re
-    result = today()
-    assert re.match(r'^\d{4}-\d{2}-\d{2}$', result)
-
-
-def test_tomorrow_is_one_day_after_today():
-    from datetime import date, timedelta
-    expected = (date.today() + timedelta(days=1)).strftime('%Y-%m-%d')
-    assert tomorrow() == expected
-
-
-def test_yesterday_is_one_day_before_today():
-    from datetime import date, timedelta
-    expected = (date.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-    assert yesterday() == expected
-
-
-def test_resolve_date_today():
-    result = resolve_date('today')
-    assert result == today()
-
-
-def test_resolve_date_tomorrow():
-    result = resolve_date('tomorrow')
-    assert result == tomorrow()
-
-
-def test_resolve_date_yesterday():
-    result = resolve_date('yesterday')
-    assert result == yesterday()
-
-
-def test_resolve_date_passthrough():
-    assert resolve_date('2026-05-01') == '2026-05-01'
-    assert resolve_date('') == ''
-
 
 # ---------------------------------------------------------------------------
 # Fixtures shared across cli tests

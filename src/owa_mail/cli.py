@@ -16,6 +16,7 @@ from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
 from owa_core.errors import NotFoundError, UsageError, _require_value, emit_error, emit_message
+from owa_core.periods import resolve_day
 
 from . import __version__
 from . import api as api_mod
@@ -24,7 +25,6 @@ from . import auth as auth_mod
 from . import config as config_mod
 from . import folders as folders_mod
 from . import messages as messages_mod
-from .dates import resolve_date
 from .format import (
     format_attachments_pretty,
     format_folders_pretty,
@@ -295,9 +295,9 @@ def cmd_messages(args, config, access_token, api_base):
         elif flag in ('--search', '--find', '--query'):
             search, args = _require_value(flag, args)
         elif flag == '--since':
-            v, args = _require_value(flag, args); since = resolve_date(v)
+            v, args = _require_value(flag, args); since = resolve_day(v)
         elif flag == '--until':
-            v, args = _require_value(flag, args); until = resolve_date(v)
+            v, args = _require_value(flag, args); until = resolve_day(v)
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
         elif flag == '--skip':
@@ -447,9 +447,9 @@ def cmd_read(args, config, access_token, api_base):
         elif flag in ('--search', '--find', '--query'):
             search, args = _require_value(flag, args)
         elif flag == '--since':
-            v, args = _require_value(flag, args); since = resolve_date(v)
+            v, args = _require_value(flag, args); since = resolve_day(v)
         elif flag == '--until':
-            v, args = _require_value(flag, args); until = resolve_date(v)
+            v, args = _require_value(flag, args); until = resolve_day(v)
         elif flag == '--pretty':
             pretty = True
         else:
