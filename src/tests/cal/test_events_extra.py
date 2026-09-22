@@ -1,8 +1,8 @@
 """Extra tests for owa_cal.events and owa_cal.ics to raise coverage above 90%.
 
 Targets uncovered paths:
-- events.py: _nth_weekday, _is_dst_us, _parse_outlook_datetime (fractional+suffix edge),
-  _windows_zoneinfo (unmapped tz), _fallback_timezone (US DST + unknown tz),
+- events.py: _parse_outlook_datetime (fractional+suffix edge),
+  _windows_zoneinfo (unmapped tz, missing tzdata),
   to_local (ValueError branch), _attendee_brief (non-dict input),
   normalize_events_detail, build_patch_json 'end' key
 - ics.py: webcals:// rewrite, _split_params (param without =), _split_property (no colon),
@@ -10,77 +10,10 @@ Targets uncovered paths:
   TZID-with-known-zone path), parse_ics (END without matching stack, nested VEVENT guard),
   filter_by_range (empty start dropped)
 """
-from datetime import datetime
+from zoneinfo import ZoneInfoNotFoundError
 
 from owa_cal import events as ev_mod
 from owa_cal import ics as ics_mod
-
-# ---------------------------------------------------------------------------
-# events._nth_weekday (lines 73-82)
-# ---------------------------------------------------------------------------
-
-def test_nth_weekday_returns_correct_day():
-    from owa_cal.events import _nth_weekday
-    # Second Sunday (weekday 6) of March 2026 is the 8th
-    day = _nth_weekday(2026, 3, 6, 2)
-    assert day == 8
-
-
-def test_nth_weekday_returns_zero_when_not_found():
-    from owa_cal.events import _nth_weekday
-    # There is no 6th Sunday in any month
-    day = _nth_weekday(2026, 3, 6, 6)
-    assert day == 0
-
-
-# ---------------------------------------------------------------------------
-# events._is_dst_us (lines 108-116)
-# ---------------------------------------------------------------------------
-
-def test_is_dst_us_winter_january():
-    from owa_cal.events import _is_dst_us
-    assert _is_dst_us(datetime(2026, 1, 15)) is False
-
-
-def test_is_dst_us_december():
-    from owa_cal.events import _is_dst_us
-    assert _is_dst_us(datetime(2026, 12, 1)) is False
-
-
-def test_is_dst_us_summer_july():
-    from owa_cal.events import _is_dst_us
-    assert _is_dst_us(datetime(2026, 7, 15)) is True
-
-
-def test_is_dst_us_march_start_boundary():
-    from owa_cal.events import _is_dst_us
-    # 2026-03-08: second Sunday in March (DST starts 2:00)
-    # Before 2:00 -> still standard time
-    assert _is_dst_us(datetime(2026, 3, 8, 1, 59)) is False
-    # At 2:00 -> DST
-    assert _is_dst_us(datetime(2026, 3, 8, 2, 0)) is True
-
-
-def test_is_dst_us_november_end_boundary():
-    from owa_cal.events import _is_dst_us
-    # First Sunday in November 2026 is the 1st
-    # Before 2:00 -> still DST
-    assert _is_dst_us(datetime(2026, 11, 1, 1, 59)) is True
-    # At/after 2:00 -> standard time
-    assert _is_dst_us(datetime(2026, 11, 1, 2, 0)) is False
-
-
-def test_is_dst_us_march_day_before_start():
-    from owa_cal.events import _is_dst_us
-    # Day before DST start = not DST
-    assert _is_dst_us(datetime(2026, 3, 7)) is False
-
-
-def test_is_dst_us_november_day_after_end():
-    from owa_cal.events import _is_dst_us
-    # Day after DST end
-    assert _is_dst_us(datetime(2026, 11, 2)) is False
-
 
 # ---------------------------------------------------------------------------
 # events._parse_outlook_datetime: fractional seconds without suffix (line 135)
@@ -111,30 +44,14 @@ def test_windows_zoneinfo_unmapped_name_returns_none():
 
 
 # ---------------------------------------------------------------------------
-# events._fallback_timezone: unknown tz returns UTC (line 153), US DST path
+# events: missing tzdata falls back to UTC
 # ---------------------------------------------------------------------------
 
-def test_fallback_timezone_unknown_returns_utc():
-    from owa_cal.events import _fallback_timezone
-    tz = _fallback_timezone('NonExistent Timezone', datetime(2026, 7, 1))
-    from datetime import timezone
-    assert tz == timezone.utc
-
-
-def test_fallback_timezone_us_dst_active():
-    from owa_cal.events import _fallback_timezone
-    # Eastern in summer: base -5, DST +1 = -4
-    tz = _fallback_timezone('Eastern Standard Time', datetime(2026, 7, 15, 12))
-    from datetime import timedelta, timezone
-    assert tz == timezone(timedelta(hours=-4))
-
-
-def test_fallback_timezone_us_standard():
-    from owa_cal.events import _fallback_timezone
-    # Eastern in winter: base -5, no DST = -5
-    tz = _fallback_timezone('Eastern Standard Time', datetime(2026, 1, 15, 12))
-    from datetime import timedelta, timezone
-    assert tz == timezone(timedelta(hours=-5))
+def test_windows_zoneinfo_missing_tzdata_returns_none(monkeypatch):
+    def boom(_name):
+        raise ZoneInfoNotFoundError('no tzdata')
+    monkeypatch.setattr(ev_mod, 'ZoneInfo', boom)
+    assert ev_mod._windows_zoneinfo('Eastern Standard Time') is None
 
 
 # ---------------------------------------------------------------------------
