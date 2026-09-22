@@ -147,3 +147,16 @@ def test_retry_auth_failure_raises(monkeypatch):
     with pytest.raises(AuthExpiredError) as exc:
         api.api_request('GET', 'https://x/y', 'a', 't', retry=True)
     assert exc.value.exit_code == 11
+
+
+def test_retry_does_not_replay_post_after_transport_failure(monkeypatch):
+    calls = []
+
+    def boom(*args, **kwargs):
+        calls.append(args[0])
+        raise api.NetworkError('reset')
+
+    monkeypatch.setattr(api, '_run_request', boom)
+    with pytest.raises(api.NetworkError):
+        api.api_request('POST', 'https://x/y', 'a', 't', body={}, retry=True)
+    assert calls == ['POST']
