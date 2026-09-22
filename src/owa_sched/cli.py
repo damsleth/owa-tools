@@ -679,4 +679,5 @@ def main(argv=None):
         'owa-sched', sys.argv[1:] if argv is None else argv, _main,
         audience=auth_mod.AUDIENCE,
         command_scopes=COMMAND_SCOPES,
+        commands=COMMAND_SCHEMA,
     )

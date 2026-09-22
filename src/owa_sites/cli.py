@@ -636,4 +636,5 @@ def _main(argv):
 def main(argv=None):
     return mode_mod.run_with_output_modes(
         'owa-sites', sys.argv[1:] if argv is None else argv, _main,
+        commands=COMMAND_SCHEMA,
     )

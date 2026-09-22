@@ -1530,4 +1530,5 @@ def main(argv=None):
         'owa-ado',
         sys.argv[1:] if argv is None else argv,
         _main,
+        commands=COMMAND_SCHEMA,
     )

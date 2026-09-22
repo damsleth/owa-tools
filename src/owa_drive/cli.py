@@ -662,7 +662,7 @@ def main(argv=None):
         sys.argv[1:] if argv is None else argv,
         _main,
         binary_stdout_commands=('get',),
-        command_aliases={alias: cmd['name'] for cmd in COMMAND_SCHEMA for alias in cmd.get('aliases', [])},
         audience=auth_mod.AUDIENCE,
         command_scopes=COMMAND_SCOPES,
+        commands=COMMAND_SCHEMA,
     )

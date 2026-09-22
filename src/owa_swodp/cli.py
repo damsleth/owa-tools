@@ -385,4 +385,5 @@ def main(argv=None):
         _main,
         interactive_commands=("setup",),
         fan_out_profiles=False,
+        commands=COMMAND_SCHEMA,
     )

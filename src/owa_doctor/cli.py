@@ -249,4 +249,5 @@ def main(argv=None):
     return mode_mod.run_with_output_modes(
         'owa-doctor', sys.argv[1:] if argv is None else argv, _main,
         fan_out_profiles=False,
+        commands=COMMAND_SCHEMA,
     )

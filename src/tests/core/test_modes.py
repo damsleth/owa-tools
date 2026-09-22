@@ -124,6 +124,16 @@ def test_agent_mode_refuses_interactive_command(capsys):
     assert 'cannot run under' in captured.err
 
 
+def test_alias_resolves_through_command_schema(capsys):
+    rc = modes.run_with_output_modes(
+        'owa-x', ['--agent', 'ui'], lambda _argv: 0,
+        interactive_commands=('tui',),
+        commands=[{'name': 'tui', 'aliases': ['ui']}],
+    )
+    assert rc == 2
+    assert 'interactive terminal' in capsys.readouterr().err
+
+
 def test_agent_env_refuses_interactive_command(monkeypatch, capsys):
     monkeypatch.setenv('OWA_AGENT', '1')
     launched = []
