@@ -256,13 +256,6 @@ def test_search(monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out) == [{'Title': 'Doc'}]
 
 
-def test_data_none_returns_one(monkeypatch):
-    monkeypatch.setattr(cli.api_mod, 'sp_get', lambda *a, **k: None)
-    assert cli.cmd_site(['x'], {}, 'tok', BASE) == 1
-    monkeypatch.setattr(cli.api_mod, 'paginate_sp', lambda *a, **k: None)
-    assert cli.cmd_lists([], {}, 'tok', BASE) == 1
-
-
 def test_unknown_flag_rejected():
     with pytest.raises(cli.UsageError, match='Unknown flag'):
         cli.cmd_site(['--nope'], {}, 'tok', BASE)

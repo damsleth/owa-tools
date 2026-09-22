@@ -159,10 +159,7 @@ def _odata(select, expand):
 
 def _fetch(endpoint, all_pages, access_token, api_base, debug):
     if all_pages:
-        items = api_mod.paginate_all(api_base, endpoint, access_token, debug=debug)
-        if items is None:
-            return None
-        return {'value': items}
+        return {'value': api_mod.paginate_all(api_base, endpoint, access_token, debug=debug)}
     return api_mod.api_get(api_base, endpoint, access_token, debug=debug)
 
 
@@ -457,8 +454,6 @@ def cmd_plans(args, config, access_token, api_base):
     base_ep = f'groups/{_quote(group)}/planner/plans' if group else 'me/planner/plans'
     endpoint = base_ep + _odata(select, expand)
     data = _fetch(endpoint, all_pages, access_token, api_base, debug)
-    if data is None:
-        return 1
     rows = plans_mod.normalize_plans(data)
     print(format_plans_pretty(rows) if pretty else json.dumps(rows))
     return 0
@@ -487,8 +482,6 @@ def cmd_buckets(args, config, access_token, api_base):
     debug = _debug_enabled(config)
     endpoint = f'planner/plans/{_quote(plan)}/buckets' + _odata(select, expand)
     data = _fetch(endpoint, all_pages, access_token, api_base, debug)
-    if data is None:
-        return 1
     rows = plans_mod.normalize_buckets(data)
     print(format_buckets_pretty(rows) if pretty else json.dumps(rows))
     return 0
@@ -520,8 +513,6 @@ def cmd_tasks(args, config, access_token, api_base):
     base_ep = f'planner/plans/{_quote(plan)}/tasks' if plan else 'me/planner/tasks'
     endpoint = base_ep + _odata(select, expand)
     data = _fetch(endpoint, all_pages, access_token, api_base, debug)
-    if data is None:
-        return 1
     rows = plans_mod.normalize_tasks(data)
     want = plans_mod.normalize_status(status) if status else None
     if want:
@@ -554,8 +545,6 @@ def cmd_task(args, config, access_token, api_base):
     raw = api_mod.api_get(
         api_base, f'planner/tasks/{_quote(task_id)}{_odata(select, expand)}', access_token, debug=debug,
     )
-    if raw is None:
-        return 1
     task = plans_mod.normalize_task(raw)
     detail_raw = api_mod.api_get(
         api_base, f'planner/tasks/{_quote(task_id)}/details', access_token, debug=debug,

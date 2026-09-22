@@ -161,8 +161,6 @@ def cmd_site(args, config, access_token, base):
     site = _resolve_site(site, config)
     debug = _debug_enabled(config)
     data = api_mod.sp_get(base, sites_mod.web_endpoint(site), access_token, debug=debug)
-    if data is None:
-        return 1
     web = sites_mod.normalize_web(data)
     print(format_web_pretty(web) if pretty else json.dumps(web))
     return 0
@@ -191,8 +189,6 @@ def cmd_lists(args, config, access_token, base):
     debug = _debug_enabled(config)
     endpoint = sites_mod.lists_endpoint(site, filter=filter_, orderby=orderby, expand=expand)
     data = api_mod.paginate_sp(base, endpoint, access_token, debug=debug)
-    if data is None:
-        return 1
     rows = sites_mod.normalize_lists(data, include_hidden=include_hidden)
     print(format_lists_pretty(rows) if pretty else json.dumps(rows))
     return 0
@@ -243,8 +239,6 @@ def cmd_items(args, config, access_token, base):
         max_pages=None if all_pages else max_pages,
         on_truncate=lambda pages, _next: truncated.update(pages=pages),
     )
-    if data is None:
-        return 1
     if truncated:
         _info(
             f"warning: stopped after {truncated['pages']} pages (--max-pages cap); "
@@ -341,8 +335,6 @@ def cmd_files(args, config, access_token, base):
     data = api_mod.paginate_sp(
         base, sites_mod.folder_files_endpoint(site, path), access_token, debug=debug,
     )
-    if data is None:
-        return 1
     rows = sites_mod.normalize_files(data)
     print(format_files_pretty(rows) if pretty else json.dumps(rows))
     return 0
@@ -369,8 +361,6 @@ def cmd_search(args, config, access_token, base):
     data = api_mod.sp_get(
         base, sites_mod.search_endpoint(query, rowlimit=rowlimit), access_token, debug=debug,
     )
-    if data is None:
-        return 1
     rows = sites_mod.flatten_search_rows(data)
     print(format_search_pretty(rows) if pretty else json.dumps(rows))
     return 0
