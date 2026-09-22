@@ -121,6 +121,22 @@ def test_wi_mine_narrows_from_env(monkeypatch, tmp_config, clean_env, capsys):
     assert "[System.TeamProject] = 'FromEnv'" in sent['query']
 
 
+def test_explicit_project_beats_env_for_route_and_filter(
+        monkeypatch, tmp_config, clean_env, capsys):
+    monkeypatch.setenv('OWA_ADO_PROJECT', 'FromEnv')
+    sent = _wiql_for(['-P', 'Other', 'wi', '--mine'], tmp_config, clean_env, monkeypatch)
+    capsys.readouterr()
+    assert sent['endpoint'].startswith('Other/')
+    assert "[System.TeamProject] = 'Other'" in sent['query']
+
+
+def test_wi_type_filter_without_mine_stays_on_project(
+        monkeypatch, tmp_config, clean_env, capsys):
+    sent = _wiql_for(['wi', '--type', 'Bug'], tmp_config, clean_env, monkeypatch)
+    capsys.readouterr()
+    assert "[System.TeamProject] = 'Proj'" in sent['query']
+
+
 def test_wi_show_single_by_id(monkeypatch, tmp_config, clean_env, capsys):
     def fake_request(method, base, endpoint, token, **kwargs):
         assert endpoint == '_apis/wit/workitems/777'

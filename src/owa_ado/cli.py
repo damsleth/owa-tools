@@ -56,7 +56,8 @@ def _resolve_org(config):
 
 
 def _resolve_project(config):
-    project = (os.environ.get('OWA_ADO_PROJECT', '').strip()
+    explicit = config.get('ado_project', '').strip() if config.get('_project_explicit') else ''
+    project = (explicit or os.environ.get('OWA_ADO_PROJECT', '').strip()
                or config.get('ado_project', '').strip())
     if not project:
         raise UsageError(
@@ -310,7 +311,8 @@ def cmd_wi(args, config, token, base):
     if not query:
         if not (mine or state or wi_type or iteration):
             mine = True
-        query = res.build_wiql(project=_project_scope(config), mine=mine,
+        # Only --mine is org-wide; plain --state/--type/--iteration stay on the project.
+        query = res.build_wiql(project=_project_scope(config) if mine else project, mine=mine,
                                state=state, wi_type=wi_type, iteration=iteration)
     # WIQL has no TOP clause; cap the id set server-side with $top instead.
     wiql = api_mod.ado_request(
