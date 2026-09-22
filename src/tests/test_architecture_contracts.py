@@ -77,14 +77,14 @@ def test_legacy_broker_shims_do_not_return():
 
 
 def test_tool_lists_derive_from_one_registry():
-    """The umbrella's CONSUMERS and owa-doctor's SIBLINGS must both come from
+    """The umbrella's TOOL_PACKAGES and owa-doctor's SIBLINGS must both come from
     owa_core.registry so a newly added tool can't be probed/dispatched by one
     and forgotten by the other (owa-todo previously drifted out of SIBLINGS)."""
-    from owa.cli import CONSUMERS
+    from owa.cli import TOOL_PACKAGES
     from owa_core.registry import CONSUMER_TOOLS
     from owa_doctor.probe import SIBLINGS
 
-    assert CONSUMERS == CONSUMER_TOOLS
+    assert [f"owa-{short}" for short in TOOL_PACKAGES] == list(CONSUMER_TOOLS)
     # SIBLINGS is the broker plus every consumer, in registry order.
     assert SIBLINGS == ("owa-piggy",) + CONSUMER_TOOLS
     assert set(CONSUMER_TOOLS) <= set(SIBLINGS)
