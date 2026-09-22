@@ -1,16 +1,7 @@
 """Outlook REST HTTP helper for owa-mail."""
 from owa_core import http
 from owa_core import upload as upload_mod
-from owa_core.errors import (
-    AuthExpiredError,
-    ConflictError,
-    InternalError,
-    NetworkError,
-    NotFoundError,
-    OwaError,
-    RateLimitedError,
-    ScopeInsufficientError,
-)
+from owa_core.errors import InternalError
 from owa_core.query import build_query  # noqa: F401  (re-exported for api_mod.build_query)
 
 
@@ -23,14 +14,7 @@ def api_request(method, base, endpoint, access_token, body=None, debug=False):
     - Raises typed ``OwaError`` subclasses for expected failures.
     """
     url = f'{base}/{endpoint}'
-    try:
-        return http.request(method, url, token=access_token, body=body, debug=debug).json
-    except (AuthExpiredError, ScopeInsufficientError) as error:
-        raise error
-    except (ConflictError, InternalError, NetworkError, NotFoundError, RateLimitedError) as error:
-        raise error
-    except OwaError as error:
-        raise error
+    return http.request(method, url, token=access_token, body=body, debug=debug).json
 
 
 def api_get(base, endpoint, access_token, debug=False):
@@ -47,14 +31,9 @@ def paginate_all(base, endpoint, access_token, extra_headers=None, debug=False):
     subclasses for expected failures.
     """
     url = f'{base}/{endpoint}'
-    try:
-        return list(http.paginate(
-            url, token=access_token, headers=extra_headers, debug=debug,
-        ))
-    except (AuthExpiredError, ScopeInsufficientError) as error:
-        raise error
-    except OwaError as error:
-        raise error
+    return list(http.paginate(
+        url, token=access_token, headers=extra_headers, debug=debug,
+    ))
 
 
 def api_get_binary(base, endpoint, access_token, debug=False):
@@ -64,14 +43,9 @@ def api_get_binary(base, endpoint, access_token, debug=False):
     expected failures.
     """
     url = f'{base}/{endpoint}'
-    try:
-        return http.request(
-            'GET', url, token=access_token, raw=True, debug=debug,
-        ).bytes
-    except (AuthExpiredError, ScopeInsufficientError) as error:
-        raise error
-    except OwaError as error:
-        raise error
+    return http.request(
+        'GET', url, token=access_token, raw=True, debug=debug,
+    ).bytes
 
 
 def api_upload_attachment_session(base, session_endpoint, access_token,
@@ -85,23 +59,13 @@ def api_upload_attachment_session(base, session_endpoint, access_token,
     JSON. Raises typed ``OwaError`` subclasses for expected failures.
     """
     url = f'{base}/{session_endpoint}'
-    try:
-        session = http.request(
-            'POST', url, token=access_token, body=session_body, debug=debug,
-        ).json
-    except (AuthExpiredError, ScopeInsufficientError) as error:
-        raise error
-    except OwaError as error:
-        raise error
+    session = http.request(
+        'POST', url, token=access_token, body=session_body, debug=debug,
+    ).json
     if not isinstance(session, dict):
         raise InternalError('attachment upload session returned no body')
     upload_url = session.get('uploadUrl') or session.get('UploadUrl')
     if not upload_url:
         raise InternalError('attachment upload session had no uploadUrl')
-    try:
-        return upload_mod.upload_session(upload_url, content_bytes, debug=debug)
-    except (AuthExpiredError, ScopeInsufficientError) as error:
-        raise error
-    except OwaError as error:
-        raise error
+    return upload_mod.upload_session(upload_url, content_bytes, debug=debug)
 
