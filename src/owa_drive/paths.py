@@ -28,17 +28,10 @@ def normalize_path(p):
     return p
 
 
-def _quote_segment(seg):
+def _quoted_path(p):
     # Graph wants segments URL-encoded but path separators preserved
     # in the surrounding ":/<path>:/" wrapper.
-    return urllib.parse.quote(seg, safe='')
-
-
-def _quoted_path(p):
-    p = normalize_path(p)
-    if not p:
-        return ''
-    return '/'.join(_quote_segment(s) for s in p.split('/'))
+    return urllib.parse.quote(normalize_path(p), safe='/')
 
 
 def item_endpoint(path):

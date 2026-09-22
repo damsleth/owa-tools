@@ -30,14 +30,10 @@ DEFAULT_TIMEOUT = 5
 COVERAGE_AUDIENCES = ('graph', 'outlook')
 
 
-def _which(cmd):
-    return shutil.which(cmd)
-
-
 def _version_of(cmd, timeout=DEFAULT_TIMEOUT):
     """Run `<cmd> --version` and return the parsed version string,
     or None if the tool is missing or doesn't print one."""
-    path = _which(cmd)
+    path = shutil.which(cmd)
     if not path:
         return None
     try:
@@ -63,7 +59,7 @@ def probe_piggy(timeout=DEFAULT_TIMEOUT):
     answered `--version` within the timeout (a broker that is present but
     wedged is installed-but-unreachable).
     """
-    path = _which('owa-piggy')
+    path = shutil.which('owa-piggy')
     if not path:
         return {'installed': False, 'reachable': False, 'version': None, 'path': None}
     version = _version_of('owa-piggy', timeout=timeout)
@@ -81,7 +77,7 @@ def probe_siblings(timeout=DEFAULT_TIMEOUT):
     for name in SIBLINGS:
         if name == 'owa-piggy':
             continue
-        path = _which(name)
+        path = shutil.which(name)
         out.append({
             'name': name,
             'installed': path is not None,

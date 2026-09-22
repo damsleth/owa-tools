@@ -3,10 +3,7 @@
 
 def pad(s, width):
     """Right-pad with spaces to `width`. Returns `s` as-is if longer."""
-    s = str(s) if s is not None else ''
-    if len(s) >= width:
-        return s
-    return s + ' ' * (width - len(s))
+    return ('' if s is None else str(s)).ljust(width)
 
 
 def truncate(s, n, suffix='…'):

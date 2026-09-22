@@ -32,10 +32,6 @@ _FLAG_TOKENS = frozenset({
 })
 
 
-def _quote(s):
-    return shlex.quote(s)
-
-
 def _serialize_body(body):
     """Return (literal_string, is_json) for a body value.
 
@@ -61,7 +57,7 @@ def _auth_header_arg(label, access_token, include_token):
     to the value, e.g. `'Authorization: Bearer '` (curl) or
     `'Authorization=Bearer '` (az --headers)."""
     if include_token:
-        return _quote(f'{label}{access_token}')
+        return shlex.quote(f'{label}{access_token}')
     return f'"{label}{_TOKEN_PLACEHOLDER}"'
 
 
@@ -81,18 +77,18 @@ def render_curl(method, url, access_token, headers=None, body=None,
 
     needs_content_type = body is not None
     if needs_content_type:
-        parts += ['-H', _quote('Content-Type: application/json')]
+        parts += ['-H', shlex.quote('Content-Type: application/json')]
     if headers:
         for k, v in headers.items():
-            parts += ['-H', _quote(f'{k}: {v}')]
+            parts += ['-H', shlex.quote(f'{k}: {v}')]
 
     if body is not None:
         if body_is_file_ref:
-            parts += ['--data', _quote(f'@{body}')]
+            parts += ['--data', shlex.quote(f'@{body}')]
         else:
-            parts += ['--data', _quote(_serialize_body(body))]
+            parts += ['--data', shlex.quote(_serialize_body(body))]
 
-    parts += [_quote(url)]
+    parts += [shlex.quote(url)]
     return _join_continuation(parts)
 
 
@@ -103,18 +99,18 @@ def render_az(method, url, access_token, headers=None, body=None,
 
     By default the bearer token is rendered as a `$OWA_TOKEN` placeholder;
     pass `include_token=True` to inline the real token."""
-    parts = ['az', 'rest', '--method', method.lower(), '--uri', _quote(url)]
+    parts = ['az', 'rest', '--method', method.lower(), '--uri', shlex.quote(url)]
 
     parts += ['--headers']
     parts += [_auth_header_arg('Authorization=Bearer ', access_token, include_token)]
     if headers:
-        parts += [_quote(f'{k}={v}') for k, v in headers.items()]
+        parts += [shlex.quote(f'{k}={v}') for k, v in headers.items()]
 
     if body is not None:
         if body_is_file_ref:
-            parts += ['--body', _quote(f'@{body}')]
+            parts += ['--body', shlex.quote(f'@{body}')]
         else:
-            parts += ['--body', _quote(_serialize_body(body))]
+            parts += ['--body', shlex.quote(_serialize_body(body))]
     return _join_continuation(parts)
 
 

@@ -14,13 +14,13 @@ class _FakeProc:
 
 
 def test_probe_piggy_missing(monkeypatch):
-    monkeypatch.setattr(probe_mod, '_which', lambda c: None)
+    monkeypatch.setattr(probe_mod.shutil, 'which', lambda c: None)
     out = probe_mod.probe_piggy()
     assert out == {'installed': False, 'reachable': False, 'version': None, 'path': None}
 
 
 def test_probe_piggy_present(monkeypatch):
-    monkeypatch.setattr(probe_mod, '_which', lambda c: '/usr/bin/owa-piggy')
+    monkeypatch.setattr(probe_mod.shutil, 'which', lambda c: '/usr/bin/owa-piggy')
     monkeypatch.setattr(
         subprocess, 'run',
         lambda *a, **kw: _FakeProc(stdout='owa-piggy 0.7.1\n'),
@@ -110,7 +110,7 @@ def test_classify_finding():
 
 def test_probe_piggy_unreachable(monkeypatch):
     """Broker on PATH but --version times out -> installed but not reachable."""
-    monkeypatch.setattr(probe_mod, '_which', lambda c: '/usr/bin/owa-piggy')
+    monkeypatch.setattr(probe_mod.shutil, 'which', lambda c: '/usr/bin/owa-piggy')
 
     def _timeout(*a, **kw):
         raise subprocess.TimeoutExpired(cmd='owa-piggy', timeout=kw.get('timeout'))
@@ -129,7 +129,7 @@ def test_version_of_threads_timeout(monkeypatch):
         seen['timeout'] = kw.get('timeout')
         return _FakeProc(stdout='owa-cal 1.2.3\n')
 
-    monkeypatch.setattr(probe_mod, '_which', lambda c: '/usr/bin/owa-cal')
+    monkeypatch.setattr(probe_mod.shutil, 'which', lambda c: '/usr/bin/owa-cal')
     monkeypatch.setattr(subprocess, 'run', _run)
     assert probe_mod._version_of('owa-cal', timeout=9) == '1.2.3'
     assert seen['timeout'] == 9

@@ -15,6 +15,7 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
@@ -123,7 +124,7 @@ def _workdir(workdir, job):
     if workdir:
         return workdir
     tag = (job.item_id or 'recap')[-12:]
-    return os.path.join(os.environ.get('TMPDIR', '/tmp'), f'owa-vids-{tag}')
+    return os.path.join(tempfile.gettempdir(), f'owa-vids-{tag}')
 
 
 def _default_out(job):
