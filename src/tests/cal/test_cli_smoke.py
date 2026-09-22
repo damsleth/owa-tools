@@ -96,7 +96,7 @@ def test_subprocess_inherits_env_for_uvx_one_liner(monkeypatch, tmp_path, clean_
 
     monkeypatch.setattr(core_auth.shutil, 'which', lambda name: '/usr/bin/owa-piggy')
     monkeypatch.setattr(core_auth.subprocess, 'run', fake_run)
-    auth_mod._refresh_via_owa_piggy({}, debug=False)
+    auth_mod.do_token_refresh({}, debug=False)
 
     # The contract: no explicit env= means the child inherits the
     # parent's environment, which is what owa-piggy needs to see
@@ -133,14 +133,14 @@ def test_profile_flag_forwards_to_owa_piggy(monkeypatch, tmp_path, clean_env):
     monkeypatch.setattr(core_auth.shutil, 'which', lambda name: '/usr/bin/owa-piggy')
     monkeypatch.setattr(core_auth.subprocess, 'run', fake_run)
 
-    result = auth_mod._refresh_via_owa_piggy(
+    result = auth_mod.do_token_refresh(
         {'owa_piggy_profile': 'work'}, debug=False
     )
     assert result is None
     assert captured['argv'] == ['owa-piggy', 'token', '--audience', 'outlook', '--json', '--profile', 'work']
 
 
-def test_refresh_via_owa_piggy_no_profile(monkeypatch, clean_env):
+def test_do_token_refresh_no_profile(monkeypatch, clean_env):
     from owa_cal import auth as auth_mod
     from owa_core import auth as core_auth
 
@@ -162,7 +162,7 @@ def test_refresh_via_owa_piggy_no_profile(monkeypatch, clean_env):
 
     monkeypatch.setattr(core_auth.shutil, 'which', lambda name: '/usr/bin/owa-piggy')
     monkeypatch.setattr(core_auth.subprocess, 'run', fake_run)
-    auth_mod._refresh_via_owa_piggy({}, debug=False)
+    auth_mod.do_token_refresh({}, debug=False)
     assert captured['argv'] == ['owa-piggy', 'token', '--audience', 'outlook', '--json']
 
 

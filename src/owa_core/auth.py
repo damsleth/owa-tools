@@ -13,7 +13,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
-from .errors import AuthExpiredError, InternalError
+from .errors import AuthExpiredError, InternalError, OwaError, emit_error
 from .jwt import token_minutes_remaining
 from .secrets import redact
 
@@ -169,6 +169,18 @@ def get_token_for_config(config, *, tool_name, audience, scope=None, debug=False
         scope=scope,
         debug=debug,
     )
+
+
+def refresh_access_token(config, *, tool_name, audience, debug=False):
+    """`get_token_for_config` for `<tool> refresh`: render an expected
+    failure to stderr and return None instead of raising."""
+    try:
+        return get_token_for_config(
+            config, tool_name=tool_name, audience=audience, debug=debug,
+        ).access_token
+    except OwaError as error:
+        emit_error(error)
+        return None
 
 
 def get_profiles(*, tool_name, debug=False):
