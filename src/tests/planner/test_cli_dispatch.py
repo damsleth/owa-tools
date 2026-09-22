@@ -72,12 +72,6 @@ def test_main_all_pages(monkeypatch, capsys, stub_auth):
     assert json.loads(capsys.readouterr().out)[0]['id'] == 'p1'
 
 
-def test_main_data_none_returns_one(monkeypatch, capsys, stub_auth):
-    _stub_get(monkeypatch, None)
-    assert cli._main(['plans']) == 1
-    capsys.readouterr()
-
-
 def test_main_profile_requires_value():
     with pytest.raises(cli.UsageError, match='--profile requires a value'):
         cli._main(['--profile'])

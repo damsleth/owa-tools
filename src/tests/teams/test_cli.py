@@ -122,12 +122,6 @@ def test_main_messages_requires_exactly_one_target(stub_chatsvc):
         cli._main(['messages', '--channel', 'a', '--chat', 'b'])
 
 
-def test_main_returns_1_when_api_returns_none(monkeypatch, stub_graph, capsys):
-    monkeypatch.setattr(cli.api_mod, 'graph_get', lambda base, ep, tok, **k: None)
-    assert cli._main(['teams']) == 1
-    capsys.readouterr()
-
-
 # --- global flags + surface ---------------------------------------------------
 
 def test_main_debug_and_profile_flags(monkeypatch, capsys):
@@ -345,12 +339,6 @@ def test_members_channel_uses_walled_endpoint(monkeypatch, capsys, stub_graph):
     capsys.readouterr()
 
 
-def test_members_returns_1_when_api_returns_none(monkeypatch, capsys, stub_graph):
-    monkeypatch.setattr(cli.api_mod, 'graph_paginate', lambda base, ep, tok, **k: None)
-    assert cli._main(['members', '--chat', 'c']) == 1
-    capsys.readouterr()
-
-
 def test_members_pretty(monkeypatch, capsys, stub_graph):
     monkeypatch.setattr(cli.api_mod, 'graph_paginate',
                         lambda base, ep, tok, **k: [{'displayName': 'Ada', 'roles': ['owner'], 'email': 'a@x'}])
@@ -440,12 +428,6 @@ def test_send_region_override_forwarded(monkeypatch, capsys):
     monkeypatch.setattr(cli.api_mod, 'chatsvc_post', lambda base, cid, body, tok, **k: {})
     assert cli._main(['send', '--chat', 'c', '--text', 'hi', '--region', 'amer', '--confirm']) == 0
     assert seen['region'] == 'amer'
-    capsys.readouterr()
-
-
-def test_send_returns_1_when_post_returns_none(monkeypatch, capsys, stub_chatsvc):
-    monkeypatch.setattr(cli.api_mod, 'chatsvc_post', lambda base, cid, body, tok, **k: None)
-    assert cli._main(['send', '--chat', 'c', '--text', 'hi', '--confirm']) == 1
     capsys.readouterr()
 
 

@@ -228,8 +228,6 @@ def _resolve_folder(value, access_token, api_base, debug):
     callers can `return rc`.
     """
     data = api_mod.api_get(api_base, 'me/taskfolders', access_token, debug=debug)
-    if data is None:
-        return None, 1
     folders = tasks_mod.normalize_folders(data)
     low = value.lower()
     for f in folders:
@@ -244,12 +242,8 @@ def _resolve_folder(value, access_token, api_base, debug):
 
 def _fetch_tasks(endpoint, all_pages, access_token, api_base, debug):
     if all_pages:
-        items = api_mod.paginate_all(api_base, endpoint, access_token, debug=debug)
-        if items is None:
-            return None
-        return {'value': items}
-    data = api_mod.api_get(api_base, endpoint, access_token, debug=debug)
-    return data
+        return {'value': api_mod.paginate_all(api_base, endpoint, access_token, debug=debug)}
+    return api_mod.api_get(api_base, endpoint, access_token, debug=debug)
 
 
 def cmd_lists(args, config, access_token, api_base):
@@ -265,8 +259,6 @@ def cmd_lists(args, config, access_token, api_base):
             raise UsageError(f'Unknown flag: {flag}')
     debug = _debug_enabled(config)
     data = _fetch_tasks('me/taskfolders', all_pages, access_token, api_base, debug)
-    if data is None:
-        return 1
     folders = tasks_mod.normalize_folders(data)
     if pretty:
         print(format_folders_pretty(folders))
@@ -355,9 +347,7 @@ def cmd_list_delete(args, config, access_token, api_base):
             _info('Aborted.')
             return 0
 
-    result = api_mod.api_request('DELETE', api_base, _folder_path(folder_id), access_token, debug=debug)
-    if result is None:
-        return 1
+    api_mod.api_request('DELETE', api_base, _folder_path(folder_id), access_token, debug=debug)
     _info('Deleted.')
     return 0
 
@@ -405,8 +395,6 @@ def cmd_tasks(args, config, access_token, api_base):
         params['$orderby'] = orderby
     endpoint = f'{base_endpoint}?{api_mod.build_query(params)}'
     data = _fetch_tasks(endpoint, all_pages, access_token, api_base, debug)
-    if data is None:
-        return 1
 
     normalized = tasks_mod.normalize_tasks(data)
     want_status = tasks_mod.normalize_status(status) if status else None
@@ -610,9 +598,7 @@ def cmd_delete(args, config, access_token, api_base):
             _info('Aborted.')
             return 0
 
-    result = api_mod.api_request('DELETE', api_base, _task_path(task_id), access_token, debug=debug)
-    if result is None:
-        return 1
+    api_mod.api_request('DELETE', api_base, _task_path(task_id), access_token, debug=debug)
     _info('Deleted.')
     return 0
 

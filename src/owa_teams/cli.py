@@ -171,8 +171,6 @@ def cmd_teams(args, config):
     debug = _debug_enabled(config)
     access_token, base = auth_mod.graph_setup(config, debug=debug)
     data = api_mod.graph_get(base, teams_mod.joined_teams_endpoint(), access_token, debug=debug)
-    if data is None:
-        return 1
     rows = teams_mod.normalize_teams(data)
     print(format_teams_pretty(rows) if pretty else json.dumps(rows))
     return 0
@@ -212,8 +210,6 @@ def cmd_channels(args, config):
         base, teams_mod.channels_endpoint(team), access_token,
         top=None if fetch_all else top, debug=debug,
     )
-    if data is None:
-        return 1
     rows = teams_mod.normalize_channels(data)
     if truncated:
         _info(f'note: output truncated at {top} channels; use --top <n> or --all for more')
@@ -242,8 +238,6 @@ def cmd_chats(args, config):
         base, teams_mod.chats_endpoint(top=page), access_token,
         top=None if fetch_all else top, debug=debug,
     )
-    if data is None:
-        return 1
     rows = teams_mod.normalize_chats(data, chat_type=chat_type)
     if truncated:
         _info(f'note: output truncated at {top} chats; use --top <n> or --all for more')
@@ -292,8 +286,6 @@ def cmd_messages(args, config):
         base, conversation_id, access_token,
         page_size=_page_size(config), max_pages=limit, since_dt=since_dt, debug=debug,
     )
-    if raw is None:
-        return 1
     if channel:
         rows = teams_mod.normalize_channel_messages(
             raw, team_id=team, channel_id=channel, include_system=include_system,
@@ -338,8 +330,6 @@ def cmd_members(args, config):
         # lacks; this surfaces as ScopeInsufficientError (exit 12). See AGENTS.md.
         endpoint = teams_mod.channel_members_endpoint(team, channel)
     data = api_mod.graph_paginate(base, endpoint, access_token, debug=debug)
-    if data is None:
-        return 1
     rows = teams_mod.normalize_members(data)
     print(format_members_pretty(rows) if pretty else json.dumps(rows))
     return 0
@@ -422,8 +412,6 @@ def cmd_send(args, config):
     access_token, base = auth_mod.chatsvc_setup(config, debug=debug, region=region)
     _info(f'sending to {target}...')
     payload = api_mod.chatsvc_post(base, conversation_id, body, access_token, debug=debug)
-    if payload is None:
-        return 1
     print(json.dumps(teams_mod.normalize_send_result(conversation_id, body, payload)))
     return 0
 
