@@ -26,7 +26,7 @@ def test_cmd_version(capsys):
 
 
 def test_cmd_list_reports_installed_and_missing(monkeypatch, capsys):
-    monkeypatch.setattr(cli, "CONSUMERS", ("owa-cal", "owa-mail"))
+    monkeypatch.setattr(cli, "CONSUMER_TOOLS", ("owa-cal", "owa-mail"))
     monkeypatch.setattr(cli, "_which", lambda name: f"/bin/{name}" if name == "owa-cal" else None)
     monkeypatch.setattr(cli, "_version_of", lambda name: f"{name} 1.2.3")
 
@@ -50,7 +50,7 @@ def test_cmd_list_reports_installed_and_missing(monkeypatch, capsys):
 
 
 def test_cmd_list_pretty_renders_table(monkeypatch, capsys):
-    monkeypatch.setattr(cli, "CONSUMERS", ("owa-cal", "owa-mail"))
+    monkeypatch.setattr(cli, "CONSUMER_TOOLS", ("owa-cal", "owa-mail"))
     monkeypatch.setattr(cli, "_which", lambda name: f"/bin/{name}" if name == "owa-cal" else None)
     monkeypatch.setattr(cli, "_version_of", lambda name: f"{name} 1.2.3")
 
@@ -80,20 +80,13 @@ def test_version_of_prefers_version_output(monkeypatch):
     assert cli._version_of("owa-cal") == "owa-cal 9.9"
 
 
-def test_version_of_falls_back_to_help(monkeypatch):
-    calls = []
+def test_version_of_ignores_failing_version(monkeypatch):
     monkeypatch.setattr(cli, "_which", lambda name: f"/bin/{name}")
-
-    def fake_run(args, **kwargs):
-        del kwargs
-        calls.append(args[-1])
-        if args[-1] == "--version":
-            return subprocess.CompletedProcess(args, 2, stdout="", stderr="unknown command\n")
-        return subprocess.CompletedProcess(args, 0, stdout="Usage: owa-mail\nmore\n", stderr="")
-
-    monkeypatch.setattr(cli.subprocess, "run", fake_run)
-    assert cli._version_of("owa-mail") == "Usage: owa-mail"
-    assert calls == ["--version", "--help"]
+    monkeypatch.setattr(
+        cli.subprocess, "run",
+        lambda args, **kwargs: subprocess.CompletedProcess(args, 2, stdout="", stderr="unknown command\n"),
+    )
+    assert cli._version_of("owa-mail") is None
 
 
 def test_version_of_returns_none_when_missing_or_failing(monkeypatch):
@@ -163,65 +156,27 @@ def test_cmd_schema_requires_tool_value(capsys):
     assert "--tool requires a value" in capsys.readouterr().err
 
 
-def test_cmd_schema_aggregates_schema_outcomes(monkeypatch, capsys):
-    # Use proper "owa-<short>" names so TOOL_PACKAGES lookup succeeds.
-    monkeypatch.setattr(cli, "CONSUMERS", ("owa-ok", "owa-missing", "owa-noschema"))
-    monkeypatch.setattr(cli, "TOOL_PACKAGES", {
-        "ok": "owa_ok",
-        "missing": "owa_missing",
-        "noschema": "owa_noschema",
-    })
-
-    ok_module = types.SimpleNamespace(COMMAND_SCHEMA=[{"name": "events"}])
-    noschema_module = types.SimpleNamespace()  # no COMMAND_SCHEMA attr
+def test_cmd_schema_tool_filters_consumers(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "CONSUMER_TOOLS", ("owa-a", "owa-b"))
+    seen = []
 
     def fake_import(name):
-        if name == "owa_ok.cli":
-            return ok_module
-        if name == "owa_missing.cli":
-            raise ImportError("not installed")
-        if name == "owa_noschema.cli":
-            return noschema_module
-        raise ImportError(name)
+        seen.append(name)
+        return types.SimpleNamespace(COMMAND_SCHEMA=[{"name": "x"}])
 
     monkeypatch.setattr(cli.importlib, "import_module", fake_import)
-    assert cli.cmd_schema([]) == 0
-
-    rows = json.loads(capsys.readouterr().out)
-    # owa-ok: imported successfully, has COMMAND_SCHEMA
-    assert rows[0]["tool"] == "owa-ok"
-    assert rows[0]["installed"] is True
-    assert rows[0]["schema_supported"] is True
-    assert rows[0]["schema"]["commands"] == [{"name": "events"}]
-    # owa-missing: ImportError -> installed=False
-    assert rows[1] == {"tool": "owa-missing", "installed": False}
-    # owa-noschema: imported but no COMMAND_SCHEMA attr
-    assert rows[2]["tool"] == "owa-noschema"
-    assert rows[2]["installed"] is True
-    assert rows[2]["schema_supported"] is False
-
-
-def test_cmd_schema_tool_filters_consumers(monkeypatch, capsys):
-    monkeypatch.setattr(cli, "CONSUMERS", ("owa-a", "owa-b"))
-    monkeypatch.setattr(cli, "TOOL_PACKAGES", {"a": "owa_a", "b": "owa_b"})
-    # owa-b has no COMMAND_SCHEMA
-    monkeypatch.setattr(
-        cli.importlib,
-        "import_module",
-        lambda name: types.SimpleNamespace(),
-    )
-
     assert cli.cmd_schema(["--tool", "owa-b"]) == 0
     rows = json.loads(capsys.readouterr().out)
     assert [row["tool"] for row in rows] == ["owa-b"]
-    assert rows[0]["schema_supported"] is False
+    assert seen == ["owa_b.cli"]
+    assert rows[0]["installed"] is True and rows[0]["schema_supported"] is True
 
 
 # ── run_with_output_modes routing (task 1) ───────────────────────────────────
 
 def test_list_agent_emits_envelope(monkeypatch, capsys):
     """--agent on `list` must produce {"_owa": ..., "data": [...]} envelope."""
-    monkeypatch.setattr(cli, "CONSUMERS", ("owa-cal",))
+    monkeypatch.setattr(cli, "CONSUMER_TOOLS", ("owa-cal",))
     monkeypatch.setattr(cli, "_which", lambda name: None)
     monkeypatch.setattr(cli, "_version_of", lambda name: None)
 
@@ -245,8 +200,7 @@ def test_meta_dispatch_unknown_command_errors(capsys):
 
 def test_cmd_schema_uses_inprocess_import_not_subprocess(monkeypatch, capsys):
     """cmd_schema must NOT call subprocess.run; it imports COMMAND_SCHEMA."""
-    monkeypatch.setattr(cli, "CONSUMERS", ("owa-cal",))
-    monkeypatch.setattr(cli, "TOOL_PACKAGES", {"cal": "owa_cal_stub"})
+    monkeypatch.setattr(cli, "CONSUMER_TOOLS", ("owa-cal",))
 
     cal_module = types.SimpleNamespace(COMMAND_SCHEMA=[{"name": "events"}])
     monkeypatch.setattr(cli.importlib, "import_module", lambda name: cal_module)

@@ -10,9 +10,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from owa import cli as umbrella_cli  # noqa: E402
 from owa_ado.cli import COMMAND_SCHEMA as ADO_SCHEMA  # noqa: E402
 from owa_cal.cli import COMMAND_SCHEMA as CAL_SCHEMA  # noqa: E402
+from owa_core.registry import CONSUMER_TOOLS  # noqa: E402
 from owa_doctor.cli import COMMAND_SCHEMA as DOCTOR_SCHEMA  # noqa: E402
 from owa_drive.cli import COMMAND_SCHEMA as DRIVE_SCHEMA  # noqa: E402
 from owa_graph import resources as graph_resources  # noqa: E402
@@ -136,7 +136,7 @@ def check_command_docs():
 def check_readme_tool_list():
     readme = (REPO_ROOT / 'README.md').read_text(encoding='utf-8')
     failures = []
-    for tool in umbrella_cli.CONSUMERS:
+    for tool in CONSUMER_TOOLS:
         if f'`{tool}`' not in readme:
             failures.append(f'README.md: missing `{tool}` from tool list')
     if '`owa`' not in readme:

@@ -32,15 +32,10 @@ from owa_core.schema import schema_for
 
 from . import __version__
 
-# Canonical consumer list lives in owa_core.registry so the umbrella and
-# owa-doctor can never drift. Re-exported as CONSUMERS for back-compat
-# with check_docs_sync and the release-contract tests.
-CONSUMERS = CONSUMER_TOOLS
-
-# Short tool name -> import package, derived from CONSUMERS so the two
+# Short tool name -> import package, derived from the registry so the two
 # never drift: "owa-cal" -> ("cal", "owa_cal"). Used by tool dispatch.
 TOOL_PACKAGES = {
-    name[len("owa-"):]: name.replace("-", "_") for name in CONSUMERS
+    name[len("owa-"):]: name.replace("-", "_") for name in CONSUMER_TOOLS
 }
 
 
@@ -61,40 +56,21 @@ def _which(name: str) -> str | None:
 
 
 def _version_of(binary: str) -> str | None:
-    """Best-effort version lookup. Tries `--version`, falls back to the
-    first line of `--help`. Returns None on failure.
-
-    Several owa-* CLIs do not implement --version yet; that's tracked as
-    Phase 6 work in the implementation plan. This function works against
-    today's state."""
+    """First line of `<binary> --version`, or None on failure."""
     path = _which(binary)
     if path is None:
         return None
-
-    def _run(args: list[str]) -> str | None:
-        try:
-            out = subprocess.run(
-                [path, *args],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-        except (subprocess.TimeoutExpired, OSError):
-            return None
-        return (out.stdout or out.stderr or "").strip() or None
-
-    text = _run(["--version"])
-    if text and not _looks_like_error(text):
-        return text.splitlines()[0]
-    text = _run(["--help"])
-    if text:
-        return text.splitlines()[0]
-    return None
-
-
-def _looks_like_error(text: str) -> bool:
-    head = text.lower()
-    return head.startswith(("error", "usage:", "unknown")) or "unknown command" in head
+    try:
+        out = subprocess.run(
+            [path, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    text = out.stdout.strip() if out.returncode == 0 else ""
+    return text.splitlines()[0] if text else None
 
 
 def cmd_list(argv: list[str]) -> int:
@@ -106,7 +82,7 @@ def cmd_list(argv: list[str]) -> int:
             sys.stderr.write(f"unknown flag: {a}\n")
             return 2
     rows = []
-    for name in CONSUMERS:
+    for name in CONSUMER_TOOLS:
         path = _which(name)
         rows.append({
             "tool": name,
@@ -187,29 +163,16 @@ def cmd_schema(argv: list[str]) -> int:
             return 2
         only = argv[1]
     aggregate = []
-    for name in CONSUMERS:
+    for name in CONSUMER_TOOLS:
         if only and name != only:
             continue
-        short = name[len("owa-"):] if name.startswith("owa-") else name
-        package = TOOL_PACKAGES.get(short)
-        entry: dict[str, object] = {"tool": name}
-        if package is None:
-            entry["installed"] = False
-            aggregate.append(entry)
-            continue
-        try:
-            module = importlib.import_module(f"{package}.cli")
-        except ImportError:
-            entry["installed"] = False
-            aggregate.append(entry)
-            continue
-        entry["installed"] = True
-        if hasattr(module, "COMMAND_SCHEMA"):
-            entry["schema"] = schema_for(name, module.COMMAND_SCHEMA)
-            entry["schema_supported"] = True
-        else:
-            entry["schema_supported"] = False
-        aggregate.append(entry)
+        module = importlib.import_module(f"{name.replace('-', '_')}.cli")
+        aggregate.append({
+            "tool": name,
+            "installed": True,
+            "schema": schema_for(name, module.COMMAND_SCHEMA),
+            "schema_supported": True,
+        })
     json.dump(aggregate, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return 0
@@ -240,8 +203,8 @@ def _meta_dispatch(argv: list[str]) -> int:
     """Inner dispatcher for umbrella meta-commands.
 
     Called by run_with_output_modes after --agent/--err-json are stripped.
-    Handles list/schema/version/help; unknown first tokens fall through to
-    tool dispatch so pass-through still works.
+    Handles list/schema/version/help; tool names never reach here because
+    main() routes them to cmd_dispatch first.
     """
     if not argv:
         return cmd_help([])
@@ -249,11 +212,6 @@ def _meta_dispatch(argv: list[str]) -> int:
     handler = COMMANDS.get(cmd)
     if handler is not None:
         return handler(rest)
-    # Tool dispatch: `owa <tool> ...` forwards to the consumer CLI.
-    # Accept the binary form too (`owa owa-cal ...`).
-    short = cmd[len("owa-"):] if cmd.startswith("owa-") else cmd
-    if short in TOOL_PACKAGES:
-        return cmd_dispatch(short, rest)
     sys.stderr.write(f"unknown command: {cmd}\n")
     return 2
 
