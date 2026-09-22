@@ -24,11 +24,7 @@ Stdlib only, per the project ground rule.
 """
 from datetime import date, datetime, timezone
 from urllib import error, request
-
-try:
-    from zoneinfo import ZoneInfo
-except ImportError:
-    ZoneInfo = None
+from zoneinfo import ZoneInfo
 
 from . import __version__
 
@@ -129,7 +125,7 @@ def _unescape_ical_text(s):
 
 
 def _zone_for_tzid(tzid):
-    if not tzid or ZoneInfo is None:
+    if not tzid:
         return None
     try:
         return ZoneInfo(tzid)

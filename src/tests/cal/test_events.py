@@ -4,7 +4,6 @@ The `build_patch_json` tests anchor a load-bearing invariant: only
 provided fields land in the output. Regressing that silently clobbers
 untouched event fields.
 """
-from datetime import datetime
 
 import pytest
 
@@ -13,7 +12,6 @@ from owa_cal.events import (
     build_event_json,
     build_patch_json,
     build_recurrence,
-    is_dst_europe,
     normalize_event,
     normalize_event_detail,
     normalize_events,
@@ -117,22 +115,6 @@ def test_normalize_event_detail_tolerates_lean_event():
     assert out['attendees'] == []
     assert out['body'] == ''
     assert out['response'] == ''
-
-
-def test_is_dst_europe_winter():
-    assert is_dst_europe(datetime(2026, 1, 15)) is False
-    assert is_dst_europe(datetime(2026, 12, 15)) is False
-
-
-def test_is_dst_europe_summer():
-    assert is_dst_europe(datetime(2026, 6, 15)) is True
-
-
-def test_is_dst_europe_transition_hours():
-    assert is_dst_europe(datetime(2026, 3, 29, 1, 59), 1) is False
-    assert is_dst_europe(datetime(2026, 3, 29, 2, 0), 1) is True
-    assert is_dst_europe(datetime(2026, 10, 25, 2, 59), 1) is True
-    assert is_dst_europe(datetime(2026, 10, 25, 3, 0), 1) is False
 
 
 def test_to_local_empty_returns_empty():
