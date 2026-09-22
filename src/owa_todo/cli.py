@@ -775,27 +775,7 @@ def _main(argv):
         print(f'owa-todo {__version__}')
         return 0
 
-    debug_flag = False
-    profile_override = ''
-    # Strip global flags (--debug/--verbose, --profile) from anywhere in
-    # argv. Exception: on `owa-todo config`, --profile is a subcommand flag.
-    is_config_cmd = mode_mod.command_name(argv) == 'config'
-    filtered = []
-    i = 0
-    while i < len(argv):
-        a = argv[i]
-        if a in ('--debug', '--verbose'):
-            debug_flag = True
-        elif a == '--profile' and not (is_config_cmd and 'config' in filtered):
-            if i + 1 >= len(argv):
-                raise UsageError('--profile requires a value')
-            profile_override = argv[i + 1]
-            i += 2
-            continue
-        else:
-            filtered.append(a)
-        i += 1
-    argv = filtered
+    argv, debug_flag, profile_override = mode_mod.strip_global_flags(argv)
 
     if not argv:
         print_help()
