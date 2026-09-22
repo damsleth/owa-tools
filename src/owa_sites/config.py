@@ -30,10 +30,6 @@ def load_config():
     return _core.load_config_file(CONFIG_PATH)
 
 
-def save_config(config):
-    _core.save_config(CONFIG_PATH, config)
-
-
 def config_set(key, value):
     _core.config_set(CONFIG_PATH, ALLOWED_KEYS, key, value)
 

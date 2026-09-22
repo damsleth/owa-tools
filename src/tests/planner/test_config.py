@@ -1,10 +1,11 @@
 """Config file round-trip for owa-planner (no writes outside tmp_path)."""
 
+from owa_core import config as core_config
 from owa_planner import config as config_mod
 
 
 def test_save_and_load_roundtrip(tmp_config):
-    config_mod.save_config({'owa_piggy_profile': 'work'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
     assert config_mod.load_config()['owa_piggy_profile'] == 'work'
 
 

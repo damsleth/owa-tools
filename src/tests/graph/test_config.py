@@ -2,6 +2,7 @@
 and env-var override precedence."""
 import pytest
 
+from owa_core import config as core_config
 from owa_graph import config as config_mod
 
 
@@ -21,7 +22,7 @@ owa_piggy_profile=work
 debug="true"
 malformed line
 '''
-    out = config_mod._parse_lines(text)
+    out = core_config.parse_lines(text)
     assert out == {
         'default_audience': 'graph',
         'owa_piggy_profile': 'work',
@@ -31,7 +32,7 @@ malformed line
 
 def test_parse_kv_stream_drops_unknown_keys(tmp_config):
     text = 'owa_piggy_profile="work"\nUNKNOWN_KEY="y"\n'
-    assert config_mod.parse_kv_stream(text) == {'owa_piggy_profile': 'work'}
+    assert core_config.parse_kv_stream(text, config_mod.ALLOWED_KEYS) == {'owa_piggy_profile': 'work'}
 
 
 def test_load_config_default_audience_when_no_file(tmp_config):

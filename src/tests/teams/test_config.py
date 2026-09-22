@@ -1,6 +1,7 @@
 """Config round-trip tests for owa-teams. Writes only under tmp_path."""
 import pytest
 
+from owa_core import config as core_config
 from owa_teams import config as config_mod
 
 
@@ -22,5 +23,5 @@ def test_config_set_rejects_unknown_key(tmp_config):
 
 
 def test_save_config_round_trip(tmp_config):
-    config_mod.save_config({'page_size': '20'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'page_size': '20'})
     assert config_mod.load_config()['page_size'] == '20'
