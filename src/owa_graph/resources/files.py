@@ -27,7 +27,7 @@ def cmd_list(args, ctx):
     else:
         path = '/me/drive/root/children'
     query = [('$top', parsed.get('--top', '25'))]
-    return ctx.get(path, query=query, pretty_shape='drive')
+    return ctx.get(path, query=query)
 
 
 def cmd_download(args, ctx):
@@ -94,7 +94,7 @@ def cmd_search(args, ctx):
     quoted = term.replace("'", "''")
     endpoint = f"/me/drive/root/search(q='{quote(quoted, safe='')}')"
     query = [('$top', parsed.get('--top', '25'))]
-    return ctx.get(endpoint, query=query, pretty_shape='drive')
+    return ctx.get(endpoint, query=query)
 
 
 COMMANDS = {

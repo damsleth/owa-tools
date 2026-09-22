@@ -13,7 +13,7 @@ from . import _argv
 
 def cmd_whoami(args, ctx):
     _argv.parse(args)
-    return ctx.get('/me', pretty_shape='me')
+    return ctx.get('/me')
 
 
 def cmd_photo(args, ctx):
@@ -39,12 +39,12 @@ def cmd_photo(args, ctx):
 
 def cmd_manager(args, ctx):
     _argv.parse(args)
-    return ctx.get('/me/manager', pretty_shape='users')
+    return ctx.get('/me/manager')
 
 
 def cmd_directreports(args, ctx):
     _argv.parse(args)
-    return ctx.get('/me/directReports', pretty_shape='users')
+    return ctx.get('/me/directReports')
 
 
 COMMANDS = {

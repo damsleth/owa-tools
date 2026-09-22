@@ -36,7 +36,7 @@ def cmd_list(args, ctx):
     if parsed.get('--select'):
         query.append(('$select', parsed['--select']))
     return ctx.get(f'/me/mailFolders/{folder}/messages',
-                   query=query, pretty_shape='messages')
+                   query=query)
 
 
 def cmd_read(args, ctx):
@@ -44,7 +44,7 @@ def cmd_read(args, ctx):
     msg_id = parsed.get('--id') or (pos[0] if pos else None)
     if not msg_id:
         raise UsageError('read requires --id <message-id>')
-    return ctx.get(f'/me/messages/{msg_id}', pretty_shape='messages')
+    return ctx.get(f'/me/messages/{msg_id}')
 
 
 def _recipients(value):

@@ -778,7 +778,7 @@ def _dispatch_resource_group(group_name, args, config):
         config, audience=audience, debug=debug,
     )
     ctx = ctx_mod.RequestContext(
-        config=config, access_token=access_token, api_base=api_base,
+        access_token=access_token, api_base=api_base,
         debug=debug, pretty=pretty, ndjson=ndjson, retry=retry,
     )
     handler = group_module.COMMANDS[shortcut][0]

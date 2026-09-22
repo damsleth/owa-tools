@@ -32,20 +32,20 @@ class FakeCtx:
     retry: bool = False
     calls: list[tuple] = field(default_factory=list)
 
-    def get(self, path, *, query=None, headers=None, pretty_shape=None, paginate=False):
-        self.calls.append(("GET", path, query, headers, pretty_shape, paginate))
+    def get(self, path, *, query=None, headers=None, paginate=False):
+        self.calls.append(("GET", path, query, headers, paginate))
         return 0
 
-    def post(self, path, body, *, headers=None, pretty_shape=None):
-        self.calls.append(("POST", path, body, headers, pretty_shape))
+    def post(self, path, body, *, headers=None):
+        self.calls.append(("POST", path, body, headers))
         return 0
 
-    def patch(self, path, body, *, headers=None, pretty_shape=None):
-        self.calls.append(("PATCH", path, body, headers, pretty_shape))
+    def patch(self, path, body, *, headers=None):
+        self.calls.append(("PATCH", path, body, headers))
         return 0
 
-    def put(self, path, body, *, headers=None, pretty_shape=None):
-        self.calls.append(("PUT", path, body, headers, pretty_shape))
+    def put(self, path, body, *, headers=None):
+        self.calls.append(("PUT", path, body, headers))
         return 0
 
     def delete(self, path, *, headers=None):
@@ -65,7 +65,6 @@ def test_calendar_events_defaults_and_view(ctx):
         "/me/events",
         [("$top", "25"), ("$orderby", "start/dateTime")],
         None,
-        None,
         False,
     )
 
@@ -83,7 +82,6 @@ def test_calendar_events_defaults_and_view(ctx):
             ("$select", "id"),
         ],
         None,
-        None,
         False,
     )
 
@@ -98,7 +96,7 @@ def test_calendar_mutations_and_validation(ctx):
         calendar.cmd_create([], ctx)
 
     assert calendar.cmd_update(["evt", "--subject", "New"], ctx) == 0
-    assert ctx.calls[-1] == ("PATCH", "/me/events/evt", {"subject": "New"}, None, None)
+    assert ctx.calls[-1] == ("PATCH", "/me/events/evt", {"subject": "New"}, None)
     with pytest.raises(UsageError, match="update needs"):
         calendar.cmd_update(["--id", "evt"], ctx)
 
@@ -108,29 +106,29 @@ def test_calendar_mutations_and_validation(ctx):
     assert ctx.calls[-1][1] == "/me/findMeetingTimes"
     assert ctx.calls[-1][2]["meetingDuration"] == "PT1H"
     assert calendar.cmd_accept(["evt", "--comment", "ok"], ctx) == 0
-    assert ctx.calls[-1] == ("POST", "/me/events/evt/accept", {"comment": "ok", "sendResponse": True}, None, None)
+    assert ctx.calls[-1] == ("POST", "/me/events/evt/accept", {"comment": "ok", "sendResponse": True}, None)
     with pytest.raises(UsageError, match="decline requires"):
         calendar.cmd_decline([], ctx)
 
 
 def test_chats_handlers(ctx):
     assert chats.cmd_list(["--top", "3"], ctx) == 0
-    assert ctx.calls[-1] == ("GET", "/me/chats", [("$top", "3")], None, None, False)
+    assert ctx.calls[-1] == ("GET", "/me/chats", [("$top", "3")], None, False)
     assert chats.cmd_messages(["chat-1"], ctx) == 0
     assert ctx.calls[-1][1] == "/chats/chat-1/messages"
     with pytest.raises(UsageError, match="messages requires"):
         chats.cmd_messages([], ctx)
     assert chats.cmd_send(["--chat", "chat-1", "--body", "hello"], ctx) == 0
-    assert ctx.calls[-1] == ("POST", "/chats/chat-1/messages", {"body": {"content": "hello"}}, None, None)
+    assert ctx.calls[-1] == ("POST", "/chats/chat-1/messages", {"body": {"content": "hello"}}, None)
     with pytest.raises(UsageError):
         chats.cmd_send([], ctx)
 
 
 def test_contacts_handlers(ctx):
     assert contacts.cmd_list(["--top", "2"], ctx) == 0
-    assert ctx.calls[-1] == ("GET", "/me/contacts", [("$top", "2")], None, None, False)
+    assert ctx.calls[-1] == ("GET", "/me/contacts", [("$top", "2")], None, False)
     assert contacts.cmd_find(["ada"], ctx) == 0
-    assert ctx.calls[-1] == ("GET", "/me/contacts", [("$search", '"ada"')], {"ConsistencyLevel": "eventual"}, None, False)
+    assert ctx.calls[-1] == ("GET", "/me/contacts", [("$search", '"ada"')], {"ConsistencyLevel": "eventual"}, False)
     with pytest.raises(UsageError, match="find requires"):
         contacts.cmd_find([], ctx)
     assert contacts.cmd_create(["--name", "Ada", "--email", "ada@example.com"], ctx) == 0
@@ -152,14 +150,13 @@ def test_directory_handlers(ctx):
         "/auditLogs/directoryAudits",
         [("$top", "7"), ("$filter", "activityDateTime ge now")],
         None,
-        None,
         False,
     )
 
 
 def test_files_handlers(ctx, tmp_path, monkeypatch, capfd):
     assert files.cmd_list(["--path", "/Reports", "--top", "9"], ctx) == 0
-    assert ctx.calls[-1] == ("GET", "/me/drive/root:/Reports:/children", [("$top", "9")], None, "drive", False)
+    assert ctx.calls[-1] == ("GET", "/me/drive/root:/Reports:/children", [("$top", "9")], None, False)
 
     with pytest.raises(UsageError, match="download requires"):
         files.cmd_download([], ctx)
@@ -177,11 +174,11 @@ def test_files_handlers(ctx, tmp_path, monkeypatch, capfd):
         files.cmd_upload(["--file", str(tmp_path / "missing"), "--path", "/x"], ctx)
 
     assert files.cmd_share(["item-1", "--type", "edit", "--scope", "anonymous"], ctx) == 0
-    assert ctx.calls[-1] == ("POST", "/me/drive/items/item-1/createLink", {"type": "edit", "scope": "anonymous"}, None, None)
+    assert ctx.calls[-1] == ("POST", "/me/drive/items/item-1/createLink", {"type": "edit", "scope": "anonymous"}, None)
     assert files.cmd_delete(["item-1"], ctx) == 0
     assert ctx.calls[-1] == ("DELETE", "/me/drive/items/item-1", None)
     assert files.cmd_search(["budget", "--top", "4"], ctx) == 0
-    assert ctx.calls[-1] == ("GET", "/me/drive/root/search(q='budget')", [("$top", "4")], None, "drive", False)
+    assert ctx.calls[-1] == ("GET", "/me/drive/root/search(q='budget')", [("$top", "4")], None, False)
     with pytest.raises(UsageError):
         files.cmd_search([], ctx)
 
@@ -228,7 +225,7 @@ def test_planner_handlers(ctx, monkeypatch):
 
     monkeypatch.setattr(graph_api, "api_request", lambda *args, **kwargs: {"@odata.etag": "tag-1"})
     assert planner.cmd_complete(["task-1"], ctx) == 0
-    assert ctx.calls[-1] == ("PATCH", "/planner/tasks/task-1", {"percentComplete": 100}, {"If-Match": "tag-1"}, None)
+    assert ctx.calls[-1] == ("PATCH", "/planner/tasks/task-1", {"percentComplete": 100}, {"If-Match": "tag-1"})
 
     monkeypatch.setattr(graph_api, "api_request", lambda *args, **kwargs: {"id": "task-1"})
     with pytest.raises(InternalError, match="no etag"):
@@ -257,7 +254,6 @@ def test_presence_handlers(ctx):
             "expirationDuration": "PT1H",
         },
         None,
-        None,
     )
     with pytest.raises(UsageError):
         presence.cmd_set([], ctx)
@@ -265,7 +261,7 @@ def test_presence_handlers(ctx):
 
 def test_sites_handlers(ctx):
     assert sites.cmd_find(["sharepoint"], ctx) == 0
-    assert ctx.calls[-1] == ("GET", "/sites", [("search", "sharepoint")], None, None, False)
+    assert ctx.calls[-1] == ("GET", "/sites", [("search", "sharepoint")], None, False)
     with pytest.raises(UsageError, match="find requires"):
         sites.cmd_find([], ctx)
     assert sites.cmd_lists(["site-1"], ctx) == 0
@@ -277,7 +273,6 @@ def test_sites_handlers(ctx):
         "GET",
         "/sites/site-1/lists/list-1/items",
         [("$top", "6"), ("$expand", "fields")],
-        None,
         None,
         False,
     )
@@ -293,7 +288,7 @@ def test_teams_handlers(ctx):
     with pytest.raises(UsageError, match="channels requires"):
         teams.cmd_channels([], ctx)
     assert teams.cmd_messages(["team-1", "chan-1", "--top", "2"], ctx) == 0
-    assert ctx.calls[-1] == ("GET", "/teams/team-1/channels/chan-1/messages", [("$top", "2")], None, None, False)
+    assert ctx.calls[-1] == ("GET", "/teams/team-1/channels/chan-1/messages", [("$top", "2")], None, False)
     assert teams.cmd_send(["--team", "team-1", "--channel", "chan-1", "--body", "hello"], ctx) == 0
     assert ctx.calls[-1][1] == "/teams/team-1/channels/chan-1/messages"
     assert teams.cmd_members(["team-1"], ctx) == 0
@@ -306,7 +301,7 @@ def test_todo_handlers(ctx):
     assert todo.cmd_lists([], ctx) == 0
     assert ctx.calls[-1][1] == "/me/todo/lists"
     assert todo.cmd_tasks(["list-1", "--top", "3"], ctx) == 0
-    assert ctx.calls[-1] == ("GET", "/me/todo/lists/list-1/tasks", [("$top", "3")], None, None, False)
+    assert ctx.calls[-1] == ("GET", "/me/todo/lists/list-1/tasks", [("$top", "3")], None, False)
     with pytest.raises(UsageError, match="tasks requires"):
         todo.cmd_tasks([], ctx)
     assert todo.cmd_add(["--list", "list-1", "--title", "Ship", "--body", "details"], ctx) == 0
@@ -314,7 +309,7 @@ def test_todo_handlers(ctx):
     with pytest.raises(UsageError):
         todo.cmd_add(["--list", "list-1"], ctx)
     assert todo.cmd_complete(["--list", "list-1", "--id", "task-1"], ctx) == 0
-    assert ctx.calls[-1] == ("PATCH", "/me/todo/lists/list-1/tasks/task-1", {"status": "completed"}, None, None)
+    assert ctx.calls[-1] == ("PATCH", "/me/todo/lists/list-1/tasks/task-1", {"status": "completed"}, None)
     with pytest.raises(UsageError):
         todo.cmd_complete(["--list", "list-1"], ctx)
 
@@ -326,7 +321,6 @@ def test_users_handlers(ctx):
         "/users",
         [("$top", "4"), ("$select", "id,mail"), ("$filter", "accountEnabled eq true")],
         None,
-        "users",
         False,
     )
     assert users.cmd_find(["ada", "--top", "2"], ctx) == 0
@@ -335,7 +329,6 @@ def test_users_handlers(ctx):
         "/users",
         [("$search", '"displayName:ada" OR "mail:ada"'), ("$top", "2")],
         {"ConsistencyLevel": "eventual"},
-        "users",
         False,
     )
     with pytest.raises(UsageError, match="find requires"):
@@ -359,7 +352,7 @@ def test_mail_resource_remaining_handlers(ctx):
         mail.cmd_read([], ctx)
 
     assert mail.cmd_reply(["m1", "--comment", "thanks"], ctx) == 0
-    assert ctx.calls[-1] == ("POST", "/me/messages/m1/reply", {"comment": "thanks"}, None, None)
+    assert ctx.calls[-1] == ("POST", "/me/messages/m1/reply", {"comment": "thanks"}, None)
     assert mail.cmd_replyall(["m1"], ctx) == 0
     assert ctx.calls[-1][1] == "/me/messages/m1/replyAll"
     assert mail.cmd_forward(["m1", "--to", "a@example.com,b@example.com", "--comment", "fyi"], ctx) == 0
@@ -372,8 +365,8 @@ def test_mail_resource_remaining_handlers(ctx):
         mail.cmd_forward(["m1"], ctx)
 
     assert mail.cmd_move(["m1", "--to", "Archive"], ctx) == 0
-    assert ctx.calls[-1] == ("POST", "/me/messages/m1/move", {"destinationId": "Archive"}, None, None)
+    assert ctx.calls[-1] == ("POST", "/me/messages/m1/move", {"destinationId": "Archive"}, None)
     with pytest.raises(UsageError):
         mail.cmd_move(["m1"], ctx)
     assert mail.cmd_flag(["m1", "--status", "complete"], ctx) == 0
-    assert ctx.calls[-1] == ("PATCH", "/me/messages/m1", {"flag": {"flagStatus": "complete"}}, None, None)
+    assert ctx.calls[-1] == ("PATCH", "/me/messages/m1", {"flag": {"flagStatus": "complete"}}, None)

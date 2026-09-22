@@ -13,7 +13,7 @@ def cmd_list(args, ctx):
         query.append(('$select', parsed['--select']))
     if parsed.get('--filter'):
         query.append(('$filter', parsed['--filter']))
-    return ctx.get('/users', query=query, pretty_shape='users')
+    return ctx.get('/users', query=query)
 
 
 def cmd_find(args, ctx):
@@ -24,7 +24,7 @@ def cmd_find(args, ctx):
     query = [('$search', f'"displayName:{term}" OR "mail:{term}"'),
              ('$top', parsed.get('--top', '10'))]
     headers = {'ConsistencyLevel': 'eventual'}
-    return ctx.get('/users', query=query, headers=headers, pretty_shape='users')
+    return ctx.get('/users', query=query, headers=headers)
 
 
 def cmd_get(args, ctx):
@@ -32,7 +32,7 @@ def cmd_get(args, ctx):
     user_id = parsed.get('--id') or (pos[0] if pos else None)
     if not user_id:
         raise UsageError('get requires a user id (positional or --id)')
-    return ctx.get(f'/users/{user_id}', pretty_shape='users')
+    return ctx.get(f'/users/{user_id}')
 
 
 def cmd_manager(args, ctx):
@@ -40,7 +40,7 @@ def cmd_manager(args, ctx):
     user_id = parsed.get('--id') or (pos[0] if pos else None)
     if not user_id:
         raise UsageError('manager requires a user id')
-    return ctx.get(f'/users/{user_id}/manager', pretty_shape='users')
+    return ctx.get(f'/users/{user_id}/manager')
 
 
 def cmd_directreports(args, ctx):
@@ -48,7 +48,7 @@ def cmd_directreports(args, ctx):
     user_id = parsed.get('--id') or (pos[0] if pos else None)
     if not user_id:
         raise UsageError('directreports requires a user id')
-    return ctx.get(f'/users/{user_id}/directReports', pretty_shape='users')
+    return ctx.get(f'/users/{user_id}/directReports')
 
 
 COMMANDS = {

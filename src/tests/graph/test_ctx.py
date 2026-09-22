@@ -6,7 +6,7 @@ from owa_graph.ctx import RequestContext
 
 
 def _ctx(**kwargs):
-    return RequestContext({}, "tok", "https://graph.test/v1.0", **kwargs)
+    return RequestContext("tok", "https://graph.test/v1.0", **kwargs)
 
 
 def test_get_merges_headers_and_emits_json(monkeypatch, capsys):
@@ -19,12 +19,12 @@ def test_get_merges_headers_and_emits_json(monkeypatch, capsys):
     from owa_graph import ctx as ctx_mod
 
     monkeypatch.setattr(ctx_mod.api_mod, "api_request", fake_request)
-    rc = _ctx(extra_headers={"Prefer": "x"}).get("/me", headers={"ConsistencyLevel": "eventual"})
+    rc = _ctx().get("/me", headers={"ConsistencyLevel": "eventual"})
 
     assert rc == 0
     assert json.loads(capsys.readouterr().out) == {"value": [{"id": "1"}]}
     assert seen["method"] == "GET"
-    assert seen["kwargs"]["extra_headers"] == {"Prefer": "x", "ConsistencyLevel": "eventual"}
+    assert seen["kwargs"]["extra_headers"] == {"ConsistencyLevel": "eventual"}
 
 
 def test_mutating_delete_pretty_and_ndjson(monkeypatch, capsys):
