@@ -27,3 +27,4 @@ are retained beside the report; completed tasks are archived in DONE.md.
 - [ ] owa-swodp: capture natural expired-session signal and verify setup recovery
 
 Historical TUI work is retired from this CLI-only repository; see [snapshot](done/legacy-todo-2026-09-08.md).
+- [ ] when fanning out with -A, any token related error, warning or wait time, e.g. due to expired token requiring refresh, should surface immediately, instead of leaving the user waiting for the underlying operation to finish, time out or err. this might require a contract change across all of the owa tools, owa piggy and owa tui
