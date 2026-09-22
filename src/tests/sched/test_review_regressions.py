@@ -84,3 +84,22 @@ def test_unsupported_working_timezone_fails_explicitly(zone):
     raw['workingHours']['timeZone'] = zone
     with pytest.raises(UsageError):
         schedule.find_open_slots([schedule.normalize_attendee(raw)], '2026-09-07T08:00:00','2026-09-07T17:00:00',30)
+
+
+def test_busy_accepts_graph_seven_digit_fraction():
+    rows = [schedule.normalize_attendee(attendee(scheduleItems=[{
+        'status': 'busy', 'subject': 'x',
+        'start': {'dateTime': '2026-09-07T09:00:00.0000000', 'timeZone': 'UTC'},
+        'end': {'dateTime': '2026-09-07T10:00:00.0000000', 'timeZone': 'UTC'},
+    }], workingHours={'daysOfWeek': ['monday'], 'startTime': '08:00:00', 'endTime': '17:00:00',
+                      'timeZone': {'name': 'UTC'}}))]
+    slots = schedule.find_open_slots(rows, '2026-09-07T09:00:00', '2026-09-07T11:00:00', 60, timezone='UTC')
+    assert slots == [('2026-09-07T10:00:00', '2026-09-07T11:00:00')]
+
+
+def test_working_hours_accept_non_western_windows_zone():
+    rows = [schedule.normalize_attendee(attendee(workingHours={
+        'daysOfWeek': ['monday'], 'startTime': '09:00:00', 'endTime': '17:00:00',
+        'timeZone': {'name': 'India Standard Time'},
+    }))]
+    assert schedule.find_open_slots(rows, '2026-09-07T04:00:00', '2026-09-07T05:00:00', 60, timezone='UTC')
