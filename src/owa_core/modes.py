@@ -7,7 +7,7 @@ import sys
 
 from .errors import OwaError, UsageError, emit_error
 from .profiles_args import ALL_PROFILES, normalize_all_flags, parse_profiles
-from .schema import SCHEMA_VERSION
+from .schema import SCHEMA_VERSION, resolve_alias
 from .secrets import redact
 from .version import suite_version
 
@@ -104,7 +104,7 @@ def _mode_environment(tool, command, err_json):
 def run_with_output_modes(
     tool, argv, dispatch, *,
     binary_stdout_commands=(), interactive_commands=(), fan_out_profiles=True,
-    audience=None, command_scopes=None, command_aliases=None,
+    audience=None, command_scopes=None, commands=(),
 ):
     """Run a legacy CLI dispatcher with shared agent/error modes.
 
@@ -170,7 +170,7 @@ def run_with_output_modes(
             all_requested=all_requested,
             audience=audience,
             command_scopes=command_scopes,
-            command_aliases=command_aliases,
+            commands=commands,
         )
 
     # N<=1: byte-identical path. Pass the ORIGINAL filtered argv straight to
@@ -178,7 +178,7 @@ def run_with_output_modes(
     # subcommand --profile, OWA_PROFILE, dangling-flag errors) behave exactly
     # as before.
     command = command_name(filtered)
-    command = (command_aliases or {}).get(command, command)
+    command = resolve_alias(command, commands)
 
     if agent and command in interactive_commands:
         return emit_error(
@@ -328,7 +328,7 @@ def _filter_profiles_by_scope(tool, profiles, audience, acceptable, *, debug):
 def _run_multi_profile(
     tool, rest, profiles, dispatch, *,
     agent, err_json, binary_stdout_commands, interactive_commands,
-    all_requested=False, audience=None, command_scopes=None, command_aliases=None,
+    all_requested=False, audience=None, command_scopes=None, commands=(),
 ):
     """Run `dispatch` once per profile and merge the captured results.
 
@@ -337,7 +337,7 @@ def _run_multi_profile(
     run and re-emitted as a single merged shape keyed by profile.
     """
     command = command_name(rest)
-    command = (command_aliases or {}).get(command, command)
+    command = resolve_alias(command, commands)
 
     if command in interactive_commands:
         return emit_error(

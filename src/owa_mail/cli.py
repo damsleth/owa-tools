@@ -1444,4 +1444,5 @@ def main(argv=None):
         interactive_commands=('tui',),
         audience=auth_mod.AUDIENCE,
         command_scopes=COMMAND_SCOPES,
+        commands=COMMAND_SCHEMA,
     )

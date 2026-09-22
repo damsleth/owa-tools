@@ -182,4 +182,5 @@ def main(argv=None):
         _main,
         audience=auth_mod.AUDIENCE,
         command_scopes=COMMAND_SCOPES,
+        commands=COMMAND_SCHEMA,
     )

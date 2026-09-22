@@ -1344,4 +1344,5 @@ def main(argv=None):
         interactive_commands=(),
         audience=auth_mod.AUDIENCE,
         command_scopes=COMMAND_SCOPES,
+        commands=COMMAND_SCHEMA,
     )

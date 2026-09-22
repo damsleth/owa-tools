@@ -444,4 +444,5 @@ def main(argv=None):
         # bytes - so it is NOT a binary stdout command. Revisit only if a
         # future `--out -` pipe mode is added.
         binary_stdout_commands=(),
+        commands=COMMAND_SCHEMA,
     )

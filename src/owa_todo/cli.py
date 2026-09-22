@@ -884,4 +884,5 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     return mode_mod.run_with_output_modes(
         'owa-todo', _default_profile_command(argv), _main,
+        commands=COMMAND_SCHEMA,
     )
