@@ -9,32 +9,11 @@ This package is imported lazily from ``cli.main`` only when the user
 actually invokes a group; the verb-first path stays free of any
 resource-table imports so cold-start cost is unaffected.
 """
+import importlib
 
-# Group registry: maps the user-facing group name to the lazy loader.
-# Loaders are zero-arg functions returning the module; we don't import
-# at package import time because ``owa-graph --help`` should never pay
-# for resource code it doesn't run.
-
-_GROUP_LOADERS = {
-    'me': lambda: __import__('owa_graph.resources.me', fromlist=['_']),
-    'mail': lambda: __import__('owa_graph.resources.mail', fromlist=['_']),
-    'calendar': lambda: __import__('owa_graph.resources.calendar', fromlist=['_']),
-    'files': lambda: __import__('owa_graph.resources.files', fromlist=['_']),
-    'users': lambda: __import__('owa_graph.resources.users', fromlist=['_']),
-    'teams': lambda: __import__('owa_graph.resources.teams', fromlist=['_']),
-    'chats': lambda: __import__('owa_graph.resources.chats', fromlist=['_']),
-    'presence': lambda: __import__('owa_graph.resources.presence', fromlist=['_']),
-    'contacts': lambda: __import__('owa_graph.resources.contacts', fromlist=['_']),
-    'groups': lambda: __import__('owa_graph.resources.groups', fromlist=['_']),
-    'planner': lambda: __import__('owa_graph.resources.planner', fromlist=['_']),
-    'todo': lambda: __import__('owa_graph.resources.todo', fromlist=['_']),
-    'sites': lambda: __import__('owa_graph.resources.sites', fromlist=['_']),
-    'directory': lambda: __import__('owa_graph.resources.directory', fromlist=['_']),
-}
-
-
-# Short descriptions used by top-level ``--help``. Kept here (not in the
-# group modules) so help generation is import-free.
+# Group registry: user-facing group name -> short description used by
+# top-level ``--help``. Kept here (not in the group modules) so help
+# generation is import-free; group modules are imported lazily.
 GROUP_DESCRIPTIONS = {
     'me': 'Profile, photo, manager, direct reports',
     'mail': 'Read, send, reply, move, flag messages',
@@ -55,7 +34,7 @@ GROUP_DESCRIPTIONS = {
 
 def known_groups():
     """Return the iterable of registered group names."""
-    return _GROUP_LOADERS.keys()
+    return GROUP_DESCRIPTIONS.keys()
 
 
 def load_group(name):
@@ -64,4 +43,6 @@ def load_group(name):
     Raises :class:`KeyError` for unknown groups; callers should check
     against :func:`known_groups` first.
     """
-    return _GROUP_LOADERS[name]()
+    if name not in GROUP_DESCRIPTIONS:
+        raise KeyError(name)
+    return importlib.import_module(f'{__name__}.{name}')
