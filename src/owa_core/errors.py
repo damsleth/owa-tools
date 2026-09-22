@@ -68,7 +68,7 @@ class InternalError(OwaError):
     exit_code = ExitCode.INTERNAL
 
 
-def _env_truthy(name):
+def env_truthy(name):
     return os.environ.get(name, '').strip().lower() in {'1', 'true', 'yes', 'on'}
 
 
@@ -88,7 +88,7 @@ def emit_error(error, *, stream=None, tool=None, command=None, err_json=None):
     """Print one error to stderr and return its exit code."""
     stream = stream or sys.stderr
     if err_json is None:
-        err_json = _env_truthy('OWA_ERR_JSON') or _env_truthy('OWA_ERR_JSON_ACTIVE')
+        err_json = env_truthy('OWA_ERR_JSON') or env_truthy('OWA_ERR_JSON_ACTIVE')
     if err_json:
         payload = {
             'error': {

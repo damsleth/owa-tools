@@ -5,17 +5,11 @@ import json
 import os
 import sys
 
-from .errors import OwaError, UsageError, emit_error
+from .errors import OwaError, UsageError, emit_error, env_truthy
 from .profiles_args import ALL_PROFILES, normalize_all_flags, parse_profiles
 from .schema import SCHEMA_VERSION, resolve_alias
 from .secrets import redact
 from .version import suite_version
-
-_TRUTHY = {'1', 'true', 'yes', 'on'}
-
-
-def env_truthy(name):
-    return os.environ.get(name, '').strip().lower() in _TRUTHY
 
 
 def split_mode_flags(argv):
