@@ -88,20 +88,6 @@ def _date_delta_days(start_date, end_date):
     return (end - start).days
 
 
-def _command_name(argv):
-    i = 0
-    while i < len(argv):
-        arg = argv[i]
-        if arg in ('--debug', '--verbose'):
-            i += 1
-            continue
-        if arg == '--profile':
-            i += 2
-            continue
-        return arg
-    return ''
-
-
 def print_help():
     """owa-cal help output. Kept verbatim to the zsh version so muscle
     memory still works."""
@@ -1234,7 +1220,7 @@ def _main(argv):
     # Strip global flags (--debug/--verbose, --profile) from anywhere in
     # argv. Exception: on `owa-cal config`, --profile is a subcommand
     # flag that writes to the config file, so leave it in place.
-    is_config_cmd = _command_name(argv) == 'config'
+    is_config_cmd = mode_mod.command_name(argv) == 'config'
     filtered = []
     i = 0
     while i < len(argv):

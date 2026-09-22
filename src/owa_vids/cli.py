@@ -345,20 +345,6 @@ COMMAND_SCHEMA = [
 ]
 
 
-def _command_name(argv):
-    i = 0
-    while i < len(argv):
-        a = argv[i]
-        if a in ('--debug', '--verbose'):
-            i += 1
-            continue
-        if a == '--profile':
-            i += 2
-            continue
-        return a
-    return ''
-
-
 def _main(argv):
     handled = schema_mod.maybe_emit_schema(argv, tool='owa-vids', commands=COMMAND_SCHEMA)
     if handled is not None:
@@ -376,7 +362,7 @@ def _main(argv):
 
     debug_flag = False
     profile_override = ''
-    is_config_cmd = _command_name(argv) == 'config'
+    is_config_cmd = mode_mod.command_name(argv) == 'config'
     filtered = []
     i = 0
     while i < len(argv):

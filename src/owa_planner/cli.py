@@ -52,20 +52,6 @@ def _quote(value):
     return urllib.parse.quote(value, safe='')
 
 
-def _command_name(argv):
-    i = 0
-    while i < len(argv):
-        arg = argv[i]
-        if arg in ('--debug', '--verbose'):
-            i += 1
-            continue
-        if arg == '--profile':
-            i += 2
-            continue
-        return arg
-    return ''
-
-
 def print_help():
     print("""owa-planner - Microsoft Planner CLI for Microsoft 365
 
@@ -767,7 +753,7 @@ def _main(argv):
     profile_override = ''
     # Strip global flags (--debug/--verbose, --profile) from anywhere in argv.
     # Exception: on `owa-planner config`, --profile is a subcommand flag.
-    is_config_cmd = _command_name(argv) == 'config'
+    is_config_cmd = mode_mod.command_name(argv) == 'config'
     filtered = []
     i = 0
     while i < len(argv):

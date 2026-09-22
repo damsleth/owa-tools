@@ -9,7 +9,6 @@ Covers:
                  attendees=None (return 1), JSON output, unknown flag
 - cmd_config: unknown flag branch
 - cmd_refresh: extra-arg branch, no displayName path
-- _command_name: empty-argv fallback
 - _main dispatch: help / --help / -h, --version / -v, empty-after-filter,
                   config/refresh, unknown command, find-time
 """
@@ -281,20 +280,6 @@ def test_refresh_no_displayname_still_succeeds(monkeypatch, capsys):
     # No "Authenticated as" line, but no error either
     out = capsys.readouterr()
     assert "Authenticated as" not in out.err
-
-
-# ---------------------------------------------------------------------------
-# _command_name — fallback to empty string
-# ---------------------------------------------------------------------------
-
-def test_command_name_returns_empty_for_no_real_token():
-    assert cli._command_name([]) == ""
-    assert cli._command_name(["--debug", "--verbose"]) == ""
-    assert cli._command_name(["--profile", "work"]) == ""
-
-
-def test_command_name_skips_profile_value():
-    assert cli._command_name(["--profile", "work", "availability"]) == "availability"
 
 
 # ---------------------------------------------------------------------------

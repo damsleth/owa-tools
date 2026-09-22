@@ -2,7 +2,6 @@
 
 Targets:
 - print_help / help / --version entry points (_main lines 1071-1078)
-- _command_name returning '' (line 93)
 - _split_datetime no-T path (line 65)
 - _date_delta_days missing values (line 76)
 - _require_value raises UsageError (line 242)
@@ -33,7 +32,6 @@ import owa_cal.auth as auth_mod
 from owa_cal import cli
 from owa_cal.cli import (
     UsageError,
-    _command_name,
     _date_delta_days,
     _split_datetime,
     cmd_categories,
@@ -97,22 +95,6 @@ def test_date_delta_days_missing_end():
 
 def test_date_delta_days_both_present():
     assert _date_delta_days('2026-04-20', '2026-04-22') == 2
-
-
-def test_command_name_empty_argv():
-    assert _command_name([]) == ''
-
-
-def test_command_name_skips_debug_verbose():
-    assert _command_name(['--debug', '--verbose', 'events']) == 'events'
-
-
-def test_command_name_skips_profile():
-    assert _command_name(['--profile', 'work', 'events']) == 'events'
-
-
-def test_command_name_only_global_flags_returns_empty():
-    assert _command_name(['--debug', '--profile', 'work']) == ''
 
 
 # ---------------------------------------------------------------------------
