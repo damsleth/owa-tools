@@ -4,14 +4,7 @@ import urllib.parse
 
 from owa_core import http
 from owa_core.errors import (
-    AuthExpiredError,
-    ConflictError,
-    InternalError,
     NetworkError,
-    NotFoundError,
-    OwaError,
-    RateLimitedError,
-    ScopeInsufficientError,
 )
 
 RETRY_AFTER_CAP_SECONDS = http.RETRY_AFTER_CAP_SECONDS
@@ -41,43 +34,22 @@ def api_request(method, base, endpoint, access_token, body=None,
       to send raw.
     - `extra_headers` is an optional dict of additional headers.
     - `retry=True` honors `Retry-After` on one 429/503 and retries one
-      transport failure.
+      transport failure (GET/HEAD/OPTIONS only).
     - Returns parsed JSON on 2xx (or bytes if raw=True); raises typed OwaError
       on HTTP or transport failures.
     """
     url = f'{base}/{endpoint}' if not endpoint.startswith('http') else endpoint
+    kwargs = dict(body=body, extra_headers=extra_headers, debug=debug, raw=raw)
     try:
-        return _run_request(
-            method,
-            url,
-            access_token,
-            body=body,
-            extra_headers=extra_headers,
-            debug=debug,
-            raw=raw,
-            retry=1 if retry else 0,
-        )
-    except (AuthExpiredError, ScopeInsufficientError) as error:
-        raise error
+        return _run_request(method, url, access_token, retry=1 if retry else 0, **kwargs)
     except NetworkError as error:
-        if retry:
-            if debug:
-                print(f'DEBUG: {error.message} - retrying once', file=sys.stderr)
-            return _run_request(
-                method,
-                url,
-                access_token,
-                body=body,
-                extra_headers=extra_headers,
-                debug=debug,
-                raw=raw,
-                retry=0,
-            )
-        raise error
-    except (ConflictError, InternalError, NotFoundError, RateLimitedError) as error:
-        raise error
-    except OwaError as error:
-        raise error
+        # A transport failure may land after the server acted; resending a
+        # POST/PATCH could send the mail twice. Only replay safe methods.
+        if not retry or method.upper() not in ('GET', 'HEAD', 'OPTIONS'):
+            raise
+        if debug:
+            print(f'DEBUG: {error.message} - retrying once', file=sys.stderr)
+        return _run_request(method, url, access_token, retry=0, **kwargs)
 
 
 def paginate(method, url, access_token, extra_headers=None,
