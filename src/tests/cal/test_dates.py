@@ -1,17 +1,5 @@
 """Tests for date helpers."""
-from owa_cal.dates import iso_week_range, make_datetime, resolve_date, today
-
-
-def test_resolve_date_passthrough():
-    assert resolve_date('2026-04-20') == '2026-04-20'
-
-
-def test_resolve_date_keywords_are_iso():
-    for kw in ('today', 'tomorrow', 'yesterday'):
-        out = resolve_date(kw)
-        # YYYY-MM-DD shape
-        assert len(out) == 10
-        assert out[4] == '-' and out[7] == '-'
+from owa_cal.dates import iso_week_range, make_datetime, today
 
 
 def test_today_is_iso():

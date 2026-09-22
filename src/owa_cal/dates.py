@@ -10,26 +10,6 @@ def today():
     return date.today().strftime('%Y-%m-%d')
 
 
-def tomorrow():
-    return (date.today() + timedelta(days=1)).strftime('%Y-%m-%d')
-
-
-def yesterday():
-    return (date.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-
-
-def resolve_date(value):
-    """Map today/tomorrow/yesterday to an ISO date; pass anything else
-    through untouched."""
-    if value == 'today':
-        return today()
-    if value == 'tomorrow':
-        return tomorrow()
-    if value == 'yesterday':
-        return yesterday()
-    return value
-
-
 def iso_week_range(week, year):
     """Monday and Sunday (YYYY-MM-DD) for an ISO week."""
     week = int(week)
@@ -55,14 +35,3 @@ def make_datetime(date_val, time_val=''):
         return date_val
     return f'{date_val}T00:00:00'
 
-
-def current_iso_week():
-    """Returns (week, year) for today."""
-    today_dt = date.today()
-    iso = today_dt.isocalendar()
-    # isocalendar() returns (year, week, weekday) on 3.9+, a namedtuple
-    # on older; handle both.
-    try:
-        return iso.week, iso.year
-    except AttributeError:
-        return iso[1], iso[0]

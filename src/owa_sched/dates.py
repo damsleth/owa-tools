@@ -8,24 +8,6 @@ pure.
 from datetime import date, datetime, timedelta
 
 
-def today():
-    return date.today().isoformat()
-
-
-def resolve_date(value):
-    """Accept YYYY-MM-DD, today, tomorrow, yesterday."""
-    v = (value or '').strip().lower()
-    if v in ('', 'today'):
-        return today()
-    if v == 'tomorrow':
-        return (date.today() + timedelta(days=1)).isoformat()
-    if v == 'yesterday':
-        return (date.today() - timedelta(days=1)).isoformat()
-    # Validate format
-    datetime.strptime(value, '%Y-%m-%d')
-    return value
-
-
 def parse_hhmm(s):
     """'09:00' -> time(9, 0). Strict format."""
     return datetime.strptime(s, '%H:%M').time()
@@ -36,10 +18,6 @@ def iso_week_range(week, year):
     monday = date.fromisocalendar(year, week, 1)
     friday = date.fromisocalendar(year, week, 5)
     return monday.isoformat(), friday.isoformat()
-
-
-def current_year():
-    return date.today().isocalendar()[0]
 
 
 def make_local_iso(date_str, time_str):

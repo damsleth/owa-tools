@@ -1,5 +1,5 @@
 """Pure-function tests for dates.py."""
-from datetime import date, datetime
+from datetime import datetime
 
 from owa_sched.dates import (
     daterange,
@@ -8,18 +8,8 @@ from owa_sched.dates import (
     overlaps,
     parse_hhmm,
     parse_local_iso,
-    resolve_date,
     slots_in_window,
 )
-
-
-def test_resolve_date_keywords():
-    assert resolve_date('today') == date.today().isoformat()
-    assert resolve_date('') == date.today().isoformat()
-
-
-def test_resolve_date_explicit():
-    assert resolve_date('2026-05-12') == '2026-05-12'
 
 
 def test_parse_hhmm_strict():
