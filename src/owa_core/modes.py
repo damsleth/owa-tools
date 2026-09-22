@@ -42,6 +42,34 @@ def command_name(argv):
     return ''
 
 
+def strip_global_flags(argv):
+    """Strip --debug/--verbose and --profile <alias> from anywhere in argv.
+
+    Exception: on ``<tool> config``, a --profile after the command is the
+    subcommand's own flag and stays in argv. Returns
+    ``(argv, debug, profile)``.
+    """
+    debug = False
+    profile = ''
+    is_config_cmd = command_name(argv) == 'config'
+    filtered = []
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a in ('--debug', '--verbose'):
+            debug = True
+        elif a == '--profile' and not (is_config_cmd and 'config' in filtered):
+            if i + 1 >= len(argv):
+                raise UsageError('--profile requires a value')
+            profile = argv[i + 1]
+            i += 2
+            continue
+        else:
+            filtered.append(a)
+        i += 1
+    return filtered, debug, profile
+
+
 def envelope(tool, command, data):
     meta = {
         'suite': 'owa-tools',
