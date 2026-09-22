@@ -1,29 +1,30 @@
 """Pagination + retry coverage for the graph wrapper."""
 import pytest
 
+from owa_core import http
 from owa_core.errors import RateLimitedError
 from owa_graph import api
 
 
 def test_parse_retry_after_seconds():
-    assert api._parse_retry_after('30') == 30
+    assert http._parse_retry_after('30') == 30
 
 
 def test_parse_retry_after_zero():
-    assert api._parse_retry_after('0') == 0
+    assert http._parse_retry_after('0') == 0
 
 
 def test_parse_retry_after_negative_clamped():
-    assert api._parse_retry_after('-5') == 0
+    assert http._parse_retry_after('-5') == 0
 
 
 def test_parse_retry_after_none_returns_default():
-    assert api._parse_retry_after(None, default=2) == 2
-    assert api._parse_retry_after('', default=7) == 7
+    assert http._parse_retry_after(None, default=2) == 2
+    assert http._parse_retry_after('', default=7) == 7
 
 
 def test_parse_retry_after_http_date_falls_back():
-    assert api._parse_retry_after('Wed, 21 Oct 2026 07:28:00 GMT', default=4) == 4
+    assert http._parse_retry_after('Wed, 21 Oct 2026 07:28:00 GMT', default=4) == 4
 
 
 def test_paginate_walks_nextlinks(monkeypatch):

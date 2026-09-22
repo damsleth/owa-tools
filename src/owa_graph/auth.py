@@ -35,29 +35,6 @@ AUDIENCE_API_BASE = {
     'devops':     'https://app.vssps.visualstudio.com',
 }
 
-# Audience short name -> one-liner description. Mirrors the prose owa-piggy
-# prints for `owa-piggy audiences` (owa_piggy/scopes.py:KNOWN_AUDIENCES).
-# Covers every key in AUDIENCE_API_BASE.
-AUDIENCE_DESC = {
-    'graph':      'Microsoft Graph (default)',
-    'outlook':    'Outlook REST',
-    'outlook365': 'Outlook REST (alternate)',
-    'teams':      'Microsoft Teams middle-tier (mt/part, Skype audience)',
-    'ic3':        'Microsoft Teams chatsvc / asyncgw (modern)',
-    'csa':        'Microsoft Teams chat-service aggregator (updates, chatsAndTeams)',
-    'presence':   'Microsoft Teams presence / pubsub (ups)',
-    'uis':        'Microsoft Teams user/notification settings (nss)',
-    'azure':      'Azure Resource Manager',
-    'keyvault':   'Azure Key Vault',
-    'storage':    'Azure Blob/Table/Queue Storage',
-    'sql':        'Azure SQL',
-    'substrate':  'Office Substrate (Copilot, search)',
-    'manage':     'Office Management API',
-    'powerbi':    'Power BI',
-    'flow':       'Power Automate',
-    'devops':     'Azure DevOps',
-}
-
 GRAPH_BETA_BASE = 'https://graph.microsoft.com/beta'
 
 def _log_token_remaining(access, debug):

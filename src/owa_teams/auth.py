@@ -24,7 +24,6 @@ round-trip) is a later enhancement - see AGENTS.md.
 """
 
 from owa_core import auth as _core
-from owa_core.errors import OwaError, emit_error
 
 TOOL_NAME = 'owa-teams'
 
@@ -63,12 +62,3 @@ def chatsvc_setup(config, debug=False, region=None):
     region = (region or '').strip().lower() or resolve_region(config)
     base = f'{CHATSVC_HOST}/api/chatsvc/{region}/v1'
     return token.access_token, base
-
-
-def do_graph_refresh(config, debug=False):
-    try:
-        access, _base = graph_setup(config, debug=debug)
-    except OwaError as error:
-        emit_error(error)
-        return None
-    return access
