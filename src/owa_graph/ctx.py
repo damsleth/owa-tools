@@ -11,7 +11,7 @@ We lock the contract here once.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence, Tuple
 
 from . import api as api_mod
@@ -29,14 +29,12 @@ class RequestContext:
     return the handler's exit code (0 or 1). The context owns output
     formatting so each handler stays at 5-15 LOC.
     """
-    config: Mapping[str, Any]
     access_token: str
     api_base: str
     debug: bool = False
     pretty: bool = False
     ndjson: bool = False
     retry: bool = False
-    extra_headers: dict = field(default_factory=dict)
 
     # ------------------------------------------------------------------
     # Verb wrappers
@@ -44,32 +42,28 @@ class RequestContext:
 
     def get(self, path: str, *, query: Optional[QueryPairs] = None,
             headers: Optional[Mapping[str, str]] = None,
-            pretty_shape: Optional[str] = None,
             paginate: bool = False) -> int:
         url = api_mod.build_url(self.api_base, path, query)
         merged = self._merge_headers(headers)
         if paginate:
-            return self._emit_paginated(url, merged, pretty_shape)
+            return self._emit_paginated(url, merged)
         result = api_mod.api_request(
             'GET', '', url, self.access_token,
             extra_headers=merged, debug=self.debug, retry=self.retry,
         )
-        return self._emit(result, pretty_shape)
+        return self._emit(result)
 
     def post(self, path: str, body: Any, *,
-             headers: Optional[Mapping[str, str]] = None,
-             pretty_shape: Optional[str] = None) -> int:
-        return self._mutating('POST', path, body, headers, pretty_shape)
+             headers: Optional[Mapping[str, str]] = None) -> int:
+        return self._mutating('POST', path, body, headers)
 
     def patch(self, path: str, body: Any, *,
-              headers: Optional[Mapping[str, str]] = None,
-              pretty_shape: Optional[str] = None) -> int:
-        return self._mutating('PATCH', path, body, headers, pretty_shape)
+              headers: Optional[Mapping[str, str]] = None) -> int:
+        return self._mutating('PATCH', path, body, headers)
 
     def put(self, path: str, body: Any, *,
-            headers: Optional[Mapping[str, str]] = None,
-            pretty_shape: Optional[str] = None) -> int:
-        return self._mutating('PUT', path, body, headers, pretty_shape)
+            headers: Optional[Mapping[str, str]] = None) -> int:
+        return self._mutating('PUT', path, body, headers)
 
     def delete(self, path: str, *,
                headers: Optional[Mapping[str, str]] = None) -> int:
@@ -86,13 +80,13 @@ class RequestContext:
         # check the exit code.
         if result == {}:
             return 0
-        return self._emit(result, None)
+        return self._emit(result)
 
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
 
-    def _mutating(self, method, path, body, headers, pretty_shape):
+    def _mutating(self, method, path, body, headers):
         url = api_mod.build_url(self.api_base, path)
         merged = self._merge_headers(headers)
         result = api_mod.api_request(
@@ -100,16 +94,12 @@ class RequestContext:
             body=body, extra_headers=merged,
             debug=self.debug, retry=self.retry,
         )
-        return self._emit(result, pretty_shape)
+        return self._emit(result)
 
     def _merge_headers(self, headers):
-        if not headers:
-            return dict(self.extra_headers) if self.extra_headers else None
-        merged = dict(self.extra_headers) if self.extra_headers else {}
-        merged.update(headers)
-        return merged
+        return dict(headers) if headers else None
 
-    def _emit(self, result, pretty_shape):
+    def _emit(self, result):
         if result is None:
             return 1
         if self.ndjson:
@@ -125,7 +115,7 @@ class RequestContext:
             print(json.dumps(result, ensure_ascii=False))
         return 0
 
-    def _emit_paginated(self, url, headers, pretty_shape):
+    def _emit_paginated(self, url, headers):
         items_iter = api_mod.paginate(
             'GET', url, self.access_token,
             extra_headers=headers, debug=self.debug, retry=self.retry,
