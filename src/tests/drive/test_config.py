@@ -1,4 +1,5 @@
 """owa-drive config file I/O. No network, no real config path."""
+from owa_core import config as core_config
 from owa_drive import config as config_mod
 
 
@@ -16,12 +17,12 @@ def test_config_set_and_load_round_trips(tmp_path, monkeypatch):
 def test_save_config_writes_owner_only_perms(tmp_path, monkeypatch):
     path = tmp_path / 'owa-drive' / 'config'
     monkeypatch.setattr(config_mod, 'CONFIG_PATH', path)
-    config_mod.save_config({'owa_piggy_profile': 'work'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
     # Secret-bearing config files are written 0600.
     assert (path.stat().st_mode & 0o777) == 0o600
 
 
 def test_parse_kv_stream_filters_to_allowlist():
-    parsed = config_mod.parse_kv_stream('owa_piggy_profile="work"\nbogus="x"\n')
+    parsed = core_config.parse_kv_stream('owa_piggy_profile="work"\nbogus="x"\n', config_mod.ALLOWED_KEYS)
     assert parsed.get('owa_piggy_profile') == 'work'
     assert 'bogus' not in parsed

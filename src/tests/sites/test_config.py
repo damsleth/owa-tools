@@ -1,12 +1,12 @@
 """Config file round-trip for owa-sites (no writes outside tmp_path)."""
-
 import pytest
 
+from owa_core import config as core_config
 from owa_sites import config as config_mod
 
 
 def test_save_and_load_roundtrip(tmp_config):
-    config_mod.save_config({'sharepoint_host': 'contoso.sharepoint.com'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'sharepoint_host': 'contoso.sharepoint.com'})
     assert config_mod.load_config()['sharepoint_host'] == 'contoso.sharepoint.com'
 
 

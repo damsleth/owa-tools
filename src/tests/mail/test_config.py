@@ -3,31 +3,32 @@ import stat
 
 import pytest
 
+from owa_core import config as core_config
 from owa_mail.config import (
+    ALLOWED_KEYS,
     config_set,
     load_config,
-    parse_kv_stream,
     save_config,
 )
 
 
 def test_parse_kv_stream_basic():
-    out = parse_kv_stream('owa_piggy_profile=work\ndebug=1\n')
+    out = core_config.parse_kv_stream('owa_piggy_profile=work\ndebug=1\n', ALLOWED_KEYS)
     assert out == {'owa_piggy_profile': 'work', 'debug': '1'}
 
 
 def test_parse_kv_stream_strips_quotes():
-    out = parse_kv_stream('owa_piggy_profile="work"\ndebug=\'1\'\n')
+    out = core_config.parse_kv_stream('owa_piggy_profile="work"\ndebug=\'1\'\n', ALLOWED_KEYS)
     assert out == {'owa_piggy_profile': 'work', 'debug': '1'}
 
 
 def test_parse_kv_stream_rejects_unknown_keys():
-    out = parse_kv_stream('EVIL=1\nowa_piggy_profile=ok\n')
+    out = core_config.parse_kv_stream('EVIL=1\nowa_piggy_profile=ok\n', ALLOWED_KEYS)
     assert out == {'owa_piggy_profile': 'ok'}
 
 
 def test_parse_kv_stream_ignores_comments_and_blanks():
-    out = parse_kv_stream('\n# comment\nowa_piggy_profile=work\n\n')
+    out = core_config.parse_kv_stream('\n# comment\nowa_piggy_profile=work\n\n', ALLOWED_KEYS)
     assert out == {'owa_piggy_profile': 'work'}
 
 
@@ -56,7 +57,7 @@ def test_owa_piggy_profile_roundtrip(tmp_config, clean_env):
 
 
 def test_parse_kv_stream_preserves_profile_key():
-    out = parse_kv_stream('owa_piggy_profile="work"\n')
+    out = core_config.parse_kv_stream('owa_piggy_profile="work"\n', ALLOWED_KEYS)
     assert out == {'owa_piggy_profile': 'work'}
 
 

@@ -29,24 +29,12 @@ DEFAULT_WORK_START = '08:00'
 DEFAULT_WORK_END = '17:00'
 
 
-def _parse_lines(text):
-    return _core.parse_lines(text)
-
-
-def parse_kv_stream(text):
-    return _core.parse_kv_stream(text, ALLOWED_KEYS)
-
-
 def load_config():
     config = _core.load_config_file(CONFIG_PATH)
     config.setdefault('default_timezone', DEFAULT_TIMEZONE)
     config.setdefault('default_work_start', DEFAULT_WORK_START)
     config.setdefault('default_work_end', DEFAULT_WORK_END)
     return config
-
-
-def save_config(config):
-    _core.save_config(CONFIG_PATH, config)
 
 
 def config_set(key, value):

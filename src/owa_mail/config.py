@@ -22,14 +22,6 @@ ALLOWED_KEYS = (
 )
 
 
-def _parse_lines(text):
-    return _core.parse_lines(text)
-
-
-def parse_kv_stream(text):
-    return _core.parse_kv_stream(text, ALLOWED_KEYS)
-
-
 def load_config():
     return _core.load_config_file(CONFIG_PATH)
 

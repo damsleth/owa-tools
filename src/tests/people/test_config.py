@@ -1,4 +1,5 @@
 """Config file I/O tests."""
+from owa_core import config as core_config
 
 
 def test_config_set_creates_file(tmp_config, clean_env):
@@ -38,5 +39,5 @@ def test_parse_kv_filters_unknown_keys():
         'access_token="should-be-dropped"\n'
         'debug="1"\n'
     )
-    parsed = config_mod.parse_kv_stream(raw)
+    parsed = core_config.parse_kv_stream(raw, config_mod.ALLOWED_KEYS)
     assert parsed == {'owa_piggy_profile': 'x', 'debug': '1'}
