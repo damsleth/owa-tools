@@ -56,6 +56,8 @@ def _iter_candidates(payload):
         return
     if not isinstance(payload, dict):
         raise InternalError("unrecognized SchedulingB2 locations response")
+    if not payload:
+        return  # empty 2xx body: the user simply has no locations
     for key in (
         'locations',
         'Locations',
@@ -68,6 +70,8 @@ def _iter_candidates(payload):
         'value',
     ):
         values = payload.get(key)
+        if key in payload and values is None:
+            return
         if isinstance(values, list):
             # A SchedulingB2 response uses ONE container key. Stop at the first
             # match so a payload exposing several (e.g. both casings, or a key

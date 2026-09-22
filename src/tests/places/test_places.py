@@ -34,6 +34,8 @@ def test_unknown_payload_is_not_an_empty_result():
         with pytest.raises(InternalError):
             places.normalize_locations(payload)
     assert places.normalize_locations({'Locations':[]}) == []
+    assert places.normalize_locations({}) == []
+    assert places.normalize_locations({'Locations': None}) == []
 
 
 def test_street_address_is_not_a_room_email():
