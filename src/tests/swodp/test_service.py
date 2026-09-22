@@ -335,3 +335,23 @@ def test_new_row_creates_second_card_beside_processed_one(monkeypatch):
     with_new = service.write_week(SESSION, "2026-08-17", [valid_row(description="Work", new=True)])
     assert with_new[0]["action"] == "created"
     assert with_new[0]["sys_id"] == "second-card"
+
+
+def test_new_row_rerun_updates_its_pending_card(monkeypatch):
+    calls = []
+
+    def fake_request(session, method, table, **kwargs):
+        calls.append(method)
+        if method == "GET" and kwargs.get("params", {}).get("sysparm_limit") == "200":
+            return [
+                {"sys_id": "frozen", "task.number": "TABC123", "state": "Processed"},
+                {"sys_id": "second-card", "task.number": "TABC123", "state": "Pending"},
+            ]
+        if method == "GET" and kwargs.get("sys_id") == "second-card":
+            return {"comments": "Work", "notes": ""}
+        return {}
+
+    monkeypatch.setattr(service.api, "request", fake_request)
+    result = service.write_week(SESSION, "2026-08-17", [valid_row(description="Work", new=True)])
+    assert result[0] == {"taskNumber": "TABC123", "action": "updated", "sys_id": "second-card"}
+    assert "POST" not in calls
