@@ -17,6 +17,7 @@ from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
 from owa_core.errors import NotFoundError, UsageError, _require_value, emit_error, emit_message
 from owa_core.periods import resolve_day
+from owa_core.query import build_query
 
 from . import __version__
 from . import api as api_mod
@@ -349,7 +350,7 @@ def cmd_messages(args, config, access_token, api_base):
         )
     except ValueError as e:
         raise UsageError(str(e))
-    q = api_mod.build_query(params)
+    q = build_query(params)
     if all_pages:
         items = api_mod.paginate_all(api_base, f'{path}?{q}', access_token, debug=debug)
         if items is None:
@@ -394,7 +395,7 @@ def cmd_show(args, config, access_token, api_base):
         raise UsageError('--id is required')
 
     debug = _debug_enabled(config)
-    q = api_mod.build_query({'$select': messages_mod.SHOW_SELECT})
+    q = build_query({'$select': messages_mod.SHOW_SELECT})
     try:
         raw = api_mod.api_get(
             api_base, f'{messages_mod.message_path(message_id)}?{q}', access_token, debug=debug
@@ -473,7 +474,7 @@ def cmd_read(args, config, access_token, api_base):
         since=since, until=until, limit=page,
         select=messages_mod.LIST_SELECT_WITH_BODY,
     )
-    data = api_mod.api_get(api_base, f'{path}?{api_mod.build_query(params)}', access_token, debug=debug)
+    data = api_mod.api_get(api_base, f'{path}?{build_query(params)}', access_token, debug=debug)
     if data is None:
         return 1
     flat = messages_mod.normalize_messages(data, keep_body=True)
@@ -510,7 +511,7 @@ def cmd_attachments(args, config, access_token, api_base):
     debug = _debug_enabled(config)
     # Select only metadata fields - never $select ContentBytes here, so
     # we don't pull base64 blobs into a listing.
-    q = api_mod.build_query({'$select': 'Id,Name,ContentType,Size,IsInline'})
+    q = build_query({'$select': 'Id,Name,ContentType,Size,IsInline'})
     raw = api_mod.api_get(
         api_base,
         f'{attachments_mod.attachment_path(message_id)}?{q}',
@@ -733,7 +734,7 @@ def cmd_send(args, config, access_token, api_base):
         # added via upload session after the initial create.
         latest = api_mod.api_get(
             api_base,
-            f'{messages_mod.message_path(draft_flat["id"])}?{api_mod.build_query({"$select": messages_mod.LIST_SELECT})}',
+            f'{messages_mod.message_path(draft_flat["id"])}?{build_query({"$select": messages_mod.LIST_SELECT})}',
             access_token, debug=debug,
         )
         print(json.dumps(messages_mod.normalize_message(latest) if latest else draft_flat))
@@ -825,7 +826,7 @@ def _reply_like(args, config, access_token, api_base, action):
         # Re-fetch normalized state after patch.
         latest = api_mod.api_get(
             api_base,
-            f'{messages_mod.message_path(draft_id)}?{api_mod.build_query({"$select": messages_mod.LIST_SELECT})}',
+            f'{messages_mod.message_path(draft_id)}?{build_query({"$select": messages_mod.LIST_SELECT})}',
             access_token, debug=debug,
         )
         print(json.dumps(messages_mod.normalize_message(latest or draft)))
@@ -875,7 +876,7 @@ def cmd_delete(args, config, access_token, api_base):
             return emit_error(error)
         existing = api_mod.api_get(
             api_base,
-            f'{messages_mod.message_path(message_id)}?{api_mod.build_query({"$select":"Id,Subject,From,ReceivedDateTime"})}',
+            f'{messages_mod.message_path(message_id)}?{build_query({"$select":"Id,Subject,From,ReceivedDateTime"})}',
             access_token, debug=debug,
         )
         if existing is None:
@@ -912,7 +913,7 @@ def _resolve_destination_id(destination, access_token, api_base, debug):
         return folders_mod.resolve_folder_id(destination)
     # Not well-known: could be an opaque id or a display name. Look up by
     # display name; if nothing matches, fall back to treating it as an id.
-    q = api_mod.build_query(folders_mod.folder_lookup_query(destination))
+    q = build_query(folders_mod.folder_lookup_query(destination))
     data = api_mod.api_get(api_base, f'me/MailFolders?{q}', access_token, debug=debug)
     if data is None:
         return None
@@ -1074,7 +1075,7 @@ def cmd_thread(args, config, access_token, api_base):
         '$orderby': 'ReceivedDateTime desc',
         '$filter': messages_mod.conversation_filter(conversation_id),
     }
-    q = api_mod.build_query(params)
+    q = build_query(params)
     if all_pages:
         items = api_mod.paginate_all(api_base, f'me/messages?{q}', access_token, debug=debug)
         if items is None:
@@ -1105,7 +1106,7 @@ def cmd_folders(args, config, access_token, api_base):
             raise UsageError(f'Unknown flag: {flag}')
 
     debug = _debug_enabled(config)
-    q = api_mod.build_query({
+    q = build_query({
         '$select': 'Id,DisplayName,UnreadItemCount,TotalItemCount',
         '$top': 100,
     })

@@ -2,7 +2,6 @@
 from owa_core import http
 from owa_core import upload as upload_mod
 from owa_core.errors import InternalError
-from owa_core.query import build_query  # noqa: F401  (re-exported for api_mod.build_query)
 
 
 def api_request(method, base, endpoint, access_token, body=None, debug=False):
