@@ -734,20 +734,6 @@ AUTHED_COMMANDS = {
 }
 
 
-def _command_name(argv):
-    i = 0
-    while i < len(argv):
-        a = argv[i]
-        if a in ('--debug', '--verbose'):
-            i += 1
-            continue
-        if a == '--profile':
-            i += 2
-            continue
-        return a
-    return ''
-
-
 _TOP_FLAG = schema_mod.flag('--top', value='<n>', summary='Alias for --limit')
 _SELECT_FLAG = schema_mod.flag('--select', value='<props>', summary='OData $select passthrough')
 _FILTER_FLAG = schema_mod.flag('--filter', value='<expr>', summary='OData $filter passthrough')
@@ -884,7 +870,7 @@ def _main(argv):
 
     debug_flag = False
     profile_override = ''
-    is_config_cmd = _command_name(argv) == 'config'
+    is_config_cmd = mode_mod.command_name(argv) == 'config'
     filtered = []
     i = 0
     while i < len(argv):

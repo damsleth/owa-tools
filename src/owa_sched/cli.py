@@ -524,20 +524,6 @@ def cmd_refresh(args, config):
 AUTHED_COMMANDS = {'availability', 'find-time'}
 
 
-def _command_name(argv):
-    i = 0
-    while i < len(argv):
-        a = argv[i]
-        if a in ('--debug', '--verbose'):
-            i += 1
-            continue
-        if a == '--profile':
-            i += 2
-            continue
-        return a
-    return ''
-
-
 _AVAILABILITY_FLAGS = [
     schema_mod.flag('--who', value='<addr[,addr]>', summary='Comma-separated attendee emails', required=True),
     schema_mod.flag('--date', value='<date>', summary='Specific day (YYYY-MM-DD, today/tomorrow/yesterday, +n/-n, weekday[+n])'),
@@ -606,7 +592,7 @@ def _main(argv):
 
     debug_flag = False
     profile_override = ''
-    is_config_cmd = _command_name(argv) == 'config'
+    is_config_cmd = mode_mod.command_name(argv) == 'config'
     filtered = []
     i = 0
     while i < len(argv):

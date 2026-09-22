@@ -63,20 +63,6 @@ def _resolve_date(value):
     return value
 
 
-def _command_name(argv):
-    i = 0
-    while i < len(argv):
-        arg = argv[i]
-        if arg in ('--debug', '--verbose'):
-            i += 1
-            continue
-        if arg == '--profile':
-            i += 2
-            continue
-        return arg
-    return ''
-
-
 def _default_profile_command(argv):
     """Default a profile-only invocation to the task listing.
 
@@ -793,7 +779,7 @@ def _main(argv):
     profile_override = ''
     # Strip global flags (--debug/--verbose, --profile) from anywhere in
     # argv. Exception: on `owa-todo config`, --profile is a subcommand flag.
-    is_config_cmd = _command_name(argv) == 'config'
+    is_config_cmd = mode_mod.command_name(argv) == 'config'
     filtered = []
     i = 0
     while i < len(argv):

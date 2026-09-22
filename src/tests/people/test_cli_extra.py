@@ -11,7 +11,6 @@ Targets:
   - cmd_contacts: --limit, --all paginate error, --all pretty, no-search extras (269,287,290,306)
   - cmd_config: unknown flag, no-profile branch (317,328)
   - cmd_refresh: displayName absent (348->350)
-  - _command_name: exhausted loop returns '' (371)
   - _main: no args, help flag, version flag, --debug-only -> empty argv, --profile missing value,
            subcommand help, config dispatch, refresh dispatch, bare-word shorthand,
            unknown-flag command, full dispatch to show/directory/me/contacts (424-503)
@@ -326,23 +325,6 @@ def test_cmd_refresh_no_displayname(monkeypatch, capsys):
     err = capsys.readouterr().err
     # Should not crash; no "Authenticated as" line since no name
     assert "Traceback" not in err
-
-
-# ---------------------------------------------------------------------------
-# _command_name: exhausted loop returns ''
-# ---------------------------------------------------------------------------
-
-def test_command_name_exhausted_returns_empty():
-    # Only global flags, no command
-    assert cli._command_name(["--debug", "--profile", "x"]) == ""
-
-
-def test_command_name_finds_command():
-    assert cli._command_name(["--debug", "--profile", "x", "find"]) == "find"
-
-
-def test_command_name_plain():
-    assert cli._command_name(["me"]) == "me"
 
 
 # ---------------------------------------------------------------------------
