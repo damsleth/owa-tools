@@ -502,8 +502,10 @@ def write_week(session, week_start, rows, *, debug=False):
             continue
         # A non-Pending card is frozen, but the week is not: SWODP accepts an
         # additional card on the same task/category. Opt in per row; auto-creating
-        # would make a re-run of the same plan double the hours.
-        cards = [] if row.get("new") else cards
+        # would make a re-run of the same plan double the hours. With "new", reuse
+        # the Pending card a previous run created instead of adding another.
+        if row.get("new"):
+            cards = [item for item in cards if item.get("state") == "Pending"]
         card = next((item for item in cards if item.get("state") == "Pending"), cards[0] if cards else None)
         body = _days_body(row)
         if card:
