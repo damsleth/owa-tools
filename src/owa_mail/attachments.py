@@ -14,6 +14,8 @@ import mimetypes
 import os
 import urllib.parse
 
+from .messages import _pick_dict, _pick_str
+
 # Fallback when the filename gives no hint; Graph/Outlook accept this and
 # clients sniff the real type, but a specific type renders better (e.g.
 # inline images, PDFs opening in-app).
@@ -30,16 +32,6 @@ def guess_content_type(name):
 INLINE_LIMIT_BYTES = 3 * 1024 * 1024
 
 FILE_ATTACHMENT_TYPE = '#Microsoft.OutlookServices.FileAttachment'
-
-
-def _pick_str(d, *keys):
-    if not isinstance(d, dict):
-        return ''
-    for k in keys:
-        v = d.get(k)
-        if v:
-            return v
-    return ''
 
 
 def _short_type(odata_type):
@@ -121,23 +113,13 @@ def attachment_resource(raw):
     flat = normalize_attachment(raw)
     if not isinstance(raw, dict):
         return flat
-    item = _pick_dict_local(raw, 'Item', 'item')
+    item = _pick_dict(raw, 'Item', 'item')
     if item:
         flat['item'] = item
     source = _pick_str(raw, 'SourceUrl', 'sourceUrl')
     if source:
         flat['source_url'] = source
     return flat
-
-
-def _pick_dict_local(d, *keys):
-    if not isinstance(d, dict):
-        return {}
-    for k in keys:
-        v = d.get(k)
-        if isinstance(v, dict):
-            return v
-    return {}
 
 
 def read_file_attachment(path):

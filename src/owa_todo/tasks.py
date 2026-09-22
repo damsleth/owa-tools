@@ -144,21 +144,12 @@ def normalize_tasks(response):
     return [normalize_task(t) for t in response.get('value', [])]
 
 
-def _due_datetime(date_value, tz):
-    """Build a DueDateTime/StartDateTime object from a YYYY-MM-DD date.
+def _zoned_datetime(value, tz):
+    """Build a {DateTime, TimeZone} object anchored in the configured tz.
 
-    To Do treats due/start as a day; we anchor it at local midnight in
-    the configured timezone, matching how the calendar tool emits dates.
-    """
-    return {'DateTime': f'{date_value}T00:00:00', 'TimeZone': tz or 'UTC'}
-
-
-def _reminder_datetime(value, tz):
-    """Build a ReminderDateTime object from an ISO datetime string.
-
-    Accepts a bare `YYYY-MM-DDTHH:MM[:SS]` (anchored in the configured
-    timezone). Reminders are a point in time, so IsReminderOn is set by
-    the caller alongside this field.
+    Due/start are days in To Do, so callers pass them as `{date}T00:00:00`
+    (local midnight); reminders pass a full `YYYY-MM-DDTHH:MM[:SS]` and set
+    IsReminderOn alongside.
     """
     return {'DateTime': value, 'TimeZone': tz or 'UTC'}
 
@@ -191,13 +182,13 @@ def build_task_json(subject, importance='', due='', start='', body_text='', tz='
         'Importance': normalize_importance(importance) or 'Normal',
     }
     if due:
-        out['DueDateTime'] = _due_datetime(due, tz)
+        out['DueDateTime'] = _zoned_datetime(f'{due}T00:00:00', tz)
     if start:
-        out['StartDateTime'] = _due_datetime(start, tz)
+        out['StartDateTime'] = _zoned_datetime(f'{start}T00:00:00', tz)
     if body_text:
         out['Body'] = {'ContentType': 'Text', 'Content': body_text}
     if reminder:
-        out['ReminderDateTime'] = _reminder_datetime(reminder, tz)
+        out['ReminderDateTime'] = _zoned_datetime(reminder, tz)
         out['IsReminderOn'] = True
     if recurrence:
         out['Recurrence'] = _recurrence_object(recurrence, start, tz)
@@ -225,11 +216,11 @@ def build_task_patch(fields, tz):
         elif key == 'body':
             out['Body'] = {'ContentType': 'Text', 'Content': val}
         elif key == 'due':
-            out['DueDateTime'] = _due_datetime(val, tz)
+            out['DueDateTime'] = _zoned_datetime(f'{val}T00:00:00', tz)
         elif key == 'start':
-            out['StartDateTime'] = _due_datetime(val, tz)
+            out['StartDateTime'] = _zoned_datetime(f'{val}T00:00:00', tz)
         elif key == 'reminder':
-            out['ReminderDateTime'] = _reminder_datetime(val, tz)
+            out['ReminderDateTime'] = _zoned_datetime(val, tz)
             out['IsReminderOn'] = True
         elif key == 'recurrence':
             out['Recurrence'] = _recurrence_object(val, fields.get('start', ''), tz)

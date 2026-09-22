@@ -18,7 +18,7 @@ import sys
 from owa_core import jwt as jwt_mod
 from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
-from owa_core.errors import UsageError, _require_value, emit_message
+from owa_core.errors import UsageError, _require_value, emit_message, env_truthy
 
 from . import __version__
 from . import api as api_mod
@@ -104,7 +104,7 @@ def _agent_active():
     """True when running under the agent envelope (`--agent` or
     `OWA_AGENT=1`). The mode layer strips `--agent` before dispatch, so
     we read the env it honors plus the raw argv for the CLI flag."""
-    return mode_mod.env_truthy('OWA_AGENT') or '--agent' in sys.argv
+    return env_truthy('OWA_AGENT') or '--agent' in sys.argv
 
 
 def print_help():
