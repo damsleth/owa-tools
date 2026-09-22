@@ -7,9 +7,6 @@ from owa_core.errors import (
     NetworkError,
 )
 
-RETRY_AFTER_CAP_SECONDS = http.RETRY_AFTER_CAP_SECONDS
-_parse_retry_after = http._parse_retry_after
-
 
 def _run_request(method, url, access_token, *, body, extra_headers, debug, raw, retry):
     response = http.request(

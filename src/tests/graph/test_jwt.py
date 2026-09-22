@@ -78,8 +78,3 @@ def test_scopes_in_token_returns_empty_when_no_scope_claims():
     tok = _make_payload_token({'foo': 'bar'})
     assert jwt_mod.scopes_in_token(tok) == set()
 
-
-def test_scope_in_token_predicate():
-    tok = _make_payload_token({'scp': 'Mail.Read User.Read'})
-    assert jwt_mod.scope_in_token(tok, 'Mail.Read')
-    assert not jwt_mod.scope_in_token(tok, 'Mail.ReadWrite')

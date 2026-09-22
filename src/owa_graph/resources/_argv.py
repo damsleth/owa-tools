@@ -9,7 +9,7 @@ Positional args are returned in order.
 """
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 
 def parse(args: List[str], *, flags: Tuple[str, ...] = (),
@@ -42,8 +42,3 @@ def parse(args: List[str], *, flags: Tuple[str, ...] = (),
         positional.append(a)
         i += 1
     return parsed, positional
-
-
-def opt(parsed: dict, name: str, default: Optional[str] = None) -> Optional[str]:
-    """Return ``parsed[name]`` if set, else ``default``."""
-    return parsed.get(name, default)

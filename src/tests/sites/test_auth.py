@@ -76,10 +76,6 @@ def test_setup_auth_pinned_host_no_discovery(monkeypatch):
     assert base == 'https://contoso.sharepoint.com'
 
 
-def test_do_token_refresh_failure_returns_none(monkeypatch, capsys):
-    _patch_owa_piggy(monkeypatch, lambda *a, **k: FakeProc(), available=False)
-    assert auth_mod.do_token_refresh({}, debug=False) is None
-    assert 'owa-piggy not found' in capsys.readouterr().err
 
 
 def test_setup_auth_raises_when_broker_missing(monkeypatch):

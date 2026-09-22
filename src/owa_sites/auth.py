@@ -22,7 +22,7 @@ The Graph `/sites` API is NOT used: the shared token lacks `Sites.Read.All`, so
 
 from owa_core import auth as _core
 from owa_core import http
-from owa_core.errors import InternalError, OwaError, emit_error
+from owa_core.errors import InternalError
 
 TOOL_NAME = 'owa-sites'
 GRAPH_AUDIENCE = 'graph'
@@ -72,12 +72,3 @@ def setup_auth(config, debug=False):
         config, tool_name=TOOL_NAME, audience=GRAPH_AUDIENCE, scope=scope, debug=debug,
     )
     return token.access_token, f'https://{host}'
-
-
-def do_token_refresh(config, debug=False):
-    try:
-        access, _base = setup_auth(config, debug=debug)
-    except OwaError as error:
-        emit_error(error)
-        return None
-    return access

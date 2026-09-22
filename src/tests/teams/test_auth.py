@@ -1,7 +1,6 @@
 """Auth wiring tests for owa-teams - the two-door token setup. No network."""
 import types
 
-from owa_core import errors
 from owa_teams import auth as auth_mod
 
 
@@ -64,16 +63,4 @@ def test_resolve_region():
     assert auth_mod.resolve_region({'teams_region': ''}) == 'emea'
 
 
-def test_do_graph_refresh_happy(monkeypatch):
-    monkeypatch.setattr(auth_mod._core, 'get_token_for_config', lambda config, **k: _fake_token('x'))
-    assert auth_mod.do_graph_refresh({}) == 'x'
 
-
-def test_do_graph_refresh_failure_emits_and_returns_none(monkeypatch, capsys):
-    def boom(config, **k):
-        raise errors.AuthExpiredError('broker down', remediation='run owa-piggy setup')
-
-    monkeypatch.setattr(auth_mod._core, 'get_token_for_config', boom)
-    assert auth_mod.do_graph_refresh({}) is None
-    err = capsys.readouterr().err
-    assert 'broker down' in err
