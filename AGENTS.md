@@ -107,17 +107,17 @@ Actual signatures (verified against source):
 - `owa_core.auth.get_token_for_config(config, *, tool_name, audience, scope=None, debug=False)` — line 163, `auth.py`
 - `owa_core.auth.BrokerToken` — dataclass, line 24, `auth.py`
 - `owa_core.conventions.data_error(...)` — line 104, `conventions.py`
-- `owa_core.http.request(...)` — line 104, `http.py`; `paginate(...)` — line 251, `http.py`
-- `owa_cal.api.api_request(method, base, endpoint, access_token, body=None, debug=False)` — line 24, `api.py`
-- `owa_cal.api.api_get(base, endpoint, access_token, debug=False)` — line 45, `api.py`
-- `owa_cal.events.normalize_event(event)` — line 188, `events.py`; `normalize_events(response)` — line 211, `events.py`
-- `owa_mail.api.api_request(method, base, endpoint, access_token, body=None, debug=False)` — line 25, `api.py`
-- `owa_mail.api.api_get(base, endpoint, access_token, debug=False)` — line 46, `api.py`
-- `owa_mail.api.paginate_all(base, endpoint, access_token, extra_headers=None, debug=False)` — line 50, `api.py`
-- `owa_mail.messages.build_list_query(unread=False, sender='', subject_q='', search='', ...)` — line 40, `messages.py`
-- `owa_mail.messages.normalize_message(raw)` — line 160, `messages.py`; `normalize_messages(raw, keep_body=False)` — line 192, `messages.py`
-- `owa_graph.api.api_request(method, base, endpoint, access_token, body=None, ...)` — line 36, `api.py`
-- `owa_graph.api.paginate(method, url, access_token, extra_headers=None, ...)` — line 93, `api.py`
+- `owa_core.http.request(...)` — line 105, `http.py`; `paginate(...)` — line 256, `http.py`
+- `owa_cal.api.api_request(method, base, endpoint, access_token, body=None, debug=False)` — line 5, `api.py`
+- `owa_cal.api.api_get(base, endpoint, access_token, debug=False)` — line 18, `api.py`
+- `owa_cal.events.normalize_event(event)` — line 69, `events.py`; `normalize_events(response)` — line 99, `events.py`
+- `owa_mail.api.api_request(method, base, endpoint, access_token, body=None, debug=False)` — line 7, `api.py`
+- `owa_mail.api.api_get(base, endpoint, access_token, debug=False)` — line 19, `api.py`
+- `owa_mail.api.paginate_all(base, endpoint, access_token, extra_headers=None, debug=False)` — line 23, `api.py`
+- `owa_mail.messages.build_list_query(unread=False, sender='', subject_q='', search='', ...)` — line 54, `messages.py`
+- `owa_mail.messages.normalize_message(raw)` — line 195, `messages.py`; `normalize_messages(raw, keep_body=False)` — line 228, `messages.py`
+- `owa_graph.api.api_request(method, base, endpoint, access_token, body=None, ...)` — line 25, `api.py`
+- `owa_graph.api.paginate(method, url, access_token, extra_headers=None, ...)` — line 52, `api.py`
 
 ## Repository Map
 
