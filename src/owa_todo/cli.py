@@ -19,6 +19,7 @@ from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
 from owa_core.errors import UsageError, _require_value, emit_error, emit_message
+from owa_core.query import build_query
 
 from . import __version__
 from . import api as api_mod
@@ -393,7 +394,7 @@ def cmd_tasks(args, config, access_token, api_base):
         params['$filter'] = filter_q
     if orderby:
         params['$orderby'] = orderby
-    endpoint = f'{base_endpoint}?{api_mod.build_query(params)}'
+    endpoint = f'{base_endpoint}?{build_query(params)}'
     data = _fetch_tasks(endpoint, all_pages, access_token, api_base, debug)
 
     normalized = tasks_mod.normalize_tasks(data)

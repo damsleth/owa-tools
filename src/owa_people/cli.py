@@ -12,12 +12,12 @@ from owa_core import modes as mode_mod
 from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
 from owa_core.errors import NotFoundError, UsageError, _require_value, emit_error, emit_message
+from owa_core.query import build_query
 
 from . import __version__
 from . import api as api_mod
 from . import auth as auth_mod
 from . import config as config_mod
-from .api import build_query
 from .format import format_groups_pretty, format_people_pretty, format_person_pretty
 from .people import normalize_group, normalize_person
 

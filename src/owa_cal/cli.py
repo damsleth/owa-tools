@@ -19,6 +19,7 @@ from owa_core import periods as periods_mod
 from owa_core import schema as schema_mod
 from owa_core import tty as tty_mod
 from owa_core.errors import UsageError, _require_value, emit_error, emit_message
+from owa_core.query import build_query
 
 from . import __version__
 from . import api as api_mod
@@ -405,7 +406,7 @@ def cmd_events(args, config, access_token, api_base):
 
     # --limit still controls page size ($top per request); --all follows
     # @odata.nextLink until every page is exhausted.
-    q = api_mod.build_query({
+    q = build_query({
         'startDateTime': start_dt,
         'endDateTime': end_dt,
         '$top': limit,
@@ -465,7 +466,7 @@ def cmd_show(args, config, access_token, api_base):
         raise UsageError('--id is required')
 
     debug = _debug_enabled(config)
-    q = api_mod.build_query({'$select': _DETAIL_SELECT})
+    q = build_query({'$select': _DETAIL_SELECT})
     raw = api_mod.api_get(api_base, f'{_event_path(event_id)}?{q}', access_token, debug=debug)
     if raw is None:
         return 1
@@ -568,7 +569,7 @@ def _check_duplicates(created, check_date, access_token, api_base, debug):
     """Post-create: warn if another event with the same subject/time
     already existed that day. Best-effort; failures are swallowed."""
     select_fields = 'Id,Subject,Start,End'
-    q = api_mod.build_query({
+    q = build_query({
         'startDateTime': f'{check_date}T00:00:00',
         'endDateTime': f'{check_date}T23:59:59',
         '$top': 50,
