@@ -22,48 +22,48 @@ def _patch_owa_piggy(monkeypatch, fake_run, available=True):
     return auth_mod
 
 
-def test_refresh_via_owa_piggy_returns_access_token(monkeypatch, clean_env):
+def test_do_token_refresh_returns_access_token(monkeypatch, clean_env):
     def fake_run(argv, *args, **kwargs):
         if argv == ['owa-piggy', '--version']:
             return FakeProc(stdout='owa-piggy 0.7.1\n')
         return FakeProc(stdout=json.dumps({'access_token': 'fake-access-token-for-tests'}))
 
     auth_mod = _patch_owa_piggy(monkeypatch, fake_run)
-    assert auth_mod._refresh_via_owa_piggy({}, debug=False) == 'fake-access-token-for-tests'
+    assert auth_mod.do_token_refresh({}, debug=False) == 'fake-access-token-for-tests'
 
 
-def test_refresh_via_owa_piggy_non_json_output(monkeypatch, capsys, clean_env):
+def test_do_token_refresh_non_json_output(monkeypatch, capsys, clean_env):
     def fake_run(argv, *args, **kwargs):
         if argv == ['owa-piggy', '--version']:
             return FakeProc(stdout='owa-piggy 0.7.1\n')
         return FakeProc(stdout='not json at all')
 
     auth_mod = _patch_owa_piggy(monkeypatch, fake_run)
-    assert auth_mod._refresh_via_owa_piggy({}, debug=False) is None
+    assert auth_mod.do_token_refresh({}, debug=False) is None
     assert 'non-JSON' in capsys.readouterr().err
 
 
-def test_refresh_via_owa_piggy_missing_access_token(monkeypatch, clean_env):
+def test_do_token_refresh_missing_access_token(monkeypatch, clean_env):
     def fake_run(argv, *args, **kwargs):
         if argv == ['owa-piggy', '--version']:
             return FakeProc(stdout='owa-piggy 0.7.1\n')
         return FakeProc(stdout=json.dumps({'foo': 'bar'}))
 
     auth_mod = _patch_owa_piggy(monkeypatch, fake_run)
-    assert auth_mod._refresh_via_owa_piggy({}, debug=False) is None
+    assert auth_mod.do_token_refresh({}, debug=False) is None
 
 
-def test_refresh_via_owa_piggy_not_in_path(monkeypatch, capsys, clean_env):
+def test_do_token_refresh_not_in_path(monkeypatch, capsys, clean_env):
     auth_mod = _patch_owa_piggy(
         monkeypatch, fake_run=lambda *a, **k: FakeProc(), available=False
     )
-    assert auth_mod._refresh_via_owa_piggy({}, debug=False) is None
+    assert auth_mod.do_token_refresh({}, debug=False) is None
     err = capsys.readouterr().err
     assert 'owa-piggy not found' in err
     assert 'damsleth/tap/owa-piggy' in err
 
 
-def test_refresh_via_owa_piggy_subprocess_failure_prints_stderr(
+def test_do_token_refresh_subprocess_failure_prints_stderr(
     monkeypatch, capsys, clean_env,
 ):
     def fake_run(argv, *args, **kwargs):
@@ -72,7 +72,7 @@ def test_refresh_via_owa_piggy_subprocess_failure_prints_stderr(
         return FakeProc(returncode=1, stderr='ERROR: profile not found')
 
     auth_mod = _patch_owa_piggy(monkeypatch, fake_run)
-    assert auth_mod._refresh_via_owa_piggy({}, debug=False) is None
+    assert auth_mod.do_token_refresh({}, debug=False) is None
     assert 'profile not found' in capsys.readouterr().err
 
 
@@ -83,7 +83,7 @@ def test_owa_piggy_version_too_old_blocks_refresh(monkeypatch, capsys, clean_env
         raise AssertionError('token call should be blocked')
 
     auth_mod = _patch_owa_piggy(monkeypatch, fake_run)
-    assert auth_mod._refresh_via_owa_piggy({}, debug=False) is None
+    assert auth_mod.do_token_refresh({}, debug=False) is None
     assert 'too old' in capsys.readouterr().err
 
 
@@ -94,7 +94,7 @@ def test_owa_piggy_version_unparseable_does_not_block(monkeypatch, clean_env):
         return FakeProc(stdout=json.dumps({'access_token': 'fake-access-token-for-tests'}))
 
     auth_mod = _patch_owa_piggy(monkeypatch, fake_run)
-    assert auth_mod._refresh_via_owa_piggy({}, debug=False) == 'fake-access-token-for-tests'
+    assert auth_mod.do_token_refresh({}, debug=False) == 'fake-access-token-for-tests'
 
 
 def test_setup_auth_owa_piggy_failure_raises_auth_error(monkeypatch, clean_env):

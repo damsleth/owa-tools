@@ -7,7 +7,7 @@ audience as an argument and resolves the API base URL accordingly.
 import sys
 
 from owa_core import auth as _core
-from owa_core.errors import OwaError, UsageError, emit_error
+from owa_core.errors import UsageError
 
 TOOL_NAME = 'owa-graph'
 
@@ -37,20 +37,6 @@ AUDIENCE_API_BASE = {
 
 GRAPH_BETA_BASE = 'https://graph.microsoft.com/beta'
 
-def _log_token_remaining(access, debug):
-    _core.log_token_remaining(access, debug)
-
-
-def _refresh_via_owa_piggy(config, audience='graph', debug=False):
-    try:
-        token = _core.get_token_for_config(
-            config, tool_name=TOOL_NAME, audience=audience, debug=debug,
-        )
-    except OwaError as error:
-        emit_error(error)
-        return None
-    return token.access_token
-
 
 def resolve_api_base(audience, beta=False):
     """Audience short-name -> API base URL.
@@ -73,7 +59,9 @@ def resolve_api_base(audience, beta=False):
 
 
 def do_token_refresh(config, audience='graph', debug=False):
-    return _refresh_via_owa_piggy(config, audience=audience, debug=debug)
+    return _core.refresh_access_token(
+        config, tool_name=TOOL_NAME, audience=audience, debug=debug,
+    )
 
 
 def setup_auth(config, audience='graph', beta=False, debug=False):

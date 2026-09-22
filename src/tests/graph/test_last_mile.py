@@ -24,18 +24,18 @@ def _make_token(seconds_left):
 
 
 def test_log_token_remaining_emits_when_debug(capsys):
-    auth_mod._log_token_remaining(_make_token(900), debug=True)
+    core_auth.log_token_remaining(_make_token(900), debug=True)
     err = capsys.readouterr().err
     assert 'token exchange ok' in err
 
 
 def test_log_token_remaining_silent_when_remaining_none(capsys):
     # Garbage token -> token_minutes_remaining returns None -> no print.
-    auth_mod._log_token_remaining('not.a.token', debug=True)
+    core_auth.log_token_remaining('not.a.token', debug=True)
     assert capsys.readouterr().err == ''
 
 
-def test_refresh_via_owa_piggy_debug_logs_argv(monkeypatch, capsys):
+def test_do_token_refresh_debug_logs_argv(monkeypatch, capsys):
     monkeypatch.setattr(core_auth.shutil, 'which', lambda _: '/usr/bin/owa-piggy')
 
     class _Proc:
@@ -50,7 +50,7 @@ def test_refresh_via_owa_piggy_debug_logs_argv(monkeypatch, capsys):
         return _Proc(stdout=json.dumps({'access_token': _make_token(600)}))
 
     monkeypatch.setattr(core_auth.subprocess, 'run', _run)
-    auth_mod._refresh_via_owa_piggy({}, audience='graph', debug=True)
+    auth_mod.do_token_refresh({}, audience='graph', debug=True)
     err = capsys.readouterr().err
     assert 'auth via owa-piggy' in err
     assert '--audience graph --json' in err

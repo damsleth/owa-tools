@@ -11,7 +11,6 @@ Unlike the Graph tools, the API base is per-organisation
 token; the CLI layer builds the org-scoped base from config.
 """
 from owa_core import auth as _core
-from owa_core.errors import OwaError, emit_error
 
 TOOL_NAME = 'owa-ado'
 AUDIENCE = 'devops'
@@ -23,23 +22,10 @@ def org_base(org):
     return f'{ADO_BASE}/{org.strip("/")}'
 
 
-def _log_token_remaining(access, debug):
-    _core.log_token_remaining(access, debug)
-
-
-def _refresh_via_owa_piggy(config, debug=False):
-    try:
-        token = _core.get_token_for_config(
-            config, tool_name=TOOL_NAME, audience=AUDIENCE, debug=debug,
-        )
-    except OwaError as error:
-        emit_error(error)
-        return None
-    return token.access_token
-
-
 def do_token_refresh(config, debug=False):
-    return _refresh_via_owa_piggy(config, debug=debug)
+    return _core.refresh_access_token(
+        config, tool_name=TOOL_NAME, audience=AUDIENCE, debug=debug,
+    )
 
 
 def setup_auth(config, debug=False):
