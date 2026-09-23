@@ -243,6 +243,14 @@ def test_delete_task_without_confirm_refuses_when_not_a_tty(monkeypatch):
         cli.cmd_delete_task(['t1', '--etag', 'abc'], {}, 'tok', BASE)
 
 
+def test_delete_task_checks_etag_before_prompting(monkeypatch):
+    monkeypatch.setattr(cli.tty_mod, 'is_interactive', lambda **k: True)
+    monkeypatch.setattr(cli.tty_mod, 'confirm', lambda *a, **k: pytest.fail('prompted before etag check'))
+    monkeypatch.setattr(cli.api_mod, 'api_get', lambda *a, **k: _raw_task())
+    with pytest.raises(cli.UsageError, match='--etag is required'):
+        cli.cmd_delete_task(['t1'], {}, 'tok', BASE)
+
+
 def test_update_plan_details_sets_categories(monkeypatch, capsys):
     calls = {}
 

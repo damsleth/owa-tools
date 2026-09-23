@@ -330,6 +330,7 @@ def cmd_delete_task(args, config, access_token, api_base):
             raise UsageError(f'Unknown option for delete-task: {flag}')
     if not task_id:
         raise UsageError('--id is required')
+    etag = _require_etag(etag)  # before the prompt, not after the user said yes
     if not confirm:
         tty_mod.require_confirm_or_tty(action='delete Planner task')
         raw = api_mod.api_get(api_base, f'planner/tasks/{_quote(task_id)}', access_token, debug=debug)
@@ -341,7 +342,7 @@ def cmd_delete_task(args, config, access_token, api_base):
         api_base,
         f'planner/tasks/{_quote(task_id)}',
         access_token,
-        etag=_require_etag(etag),
+        etag=etag,
         debug=debug,
     )
     _print_json({'deleted': task_id})
