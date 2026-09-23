@@ -21,10 +21,10 @@ Resolution order (the "closest profile wins" rule, see cli.py):
 """
 import json
 import os
-import tempfile
 from pathlib import Path
 
 from owa_core import auth as core_auth
+from owa_core import config as core_config
 from owa_core.errors import OwaError
 
 PROFILES_PATH = Path(
@@ -49,30 +49,9 @@ def load_local():
 
 
 def save_local(profiles):
-    """Atomic write + chmod 0600. The webcal URL is a bearer secret;
-    the parent dir is 0700 too. Mirrors owa_core.config.save_config:
-    mkstemp creates the file with mode 0600, fsync hits disk before the
-    rename, and the rename is atomic on POSIX."""
-    PROFILES_PATH.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(PROFILES_PATH.parent, 0o700)
-    payload = json.dumps(profiles, indent=2, sort_keys=True) + '\n'
-    fd, tmp_path = tempfile.mkstemp(
-        prefix='.profiles.', suffix='.tmp', dir=str(PROFILES_PATH.parent),
-    )
-    tmp = Path(tmp_path)
-    try:
-        os.chmod(tmp, 0o600)
-        with os.fdopen(fd, 'w') as f:
-            f.write(payload)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp, PROFILES_PATH)
-    except Exception:
-        try:
-            tmp.unlink()
-        except FileNotFoundError:
-            pass
-        raise
+    """Atomic write, file 0600 and parent dir 0700: the webcal URL is a
+    bearer secret."""
+    core_config.write_private(PROFILES_PATH, json.dumps(profiles, indent=2, sort_keys=True) + '\n')
 
 
 def add_local(alias, webcal_url):
