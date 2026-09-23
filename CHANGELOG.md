@@ -6,7 +6,20 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
-## Unreleased
+## v1.7.0 - 2026-09-23
+
+### Packaging
+
+- `owa-tools` now depends on `owa-piggy`, so `pip install owa-tools` (or
+  `pipx install --include-deps owa-tools`) brings the auth broker along. The
+  Homebrew formula makes `owa-piggy` a hard dependency instead of recommended.
+  Runtime code still only talks to it as a subprocess.
+
+### owa-sched
+
+- An attendee whose Graph entry carries an empty `workingHours: {}` is treated
+  as having no working hours, not as an "unparseable working hours" error that
+  blanked their whole row.
 
 ### owa-vids
 
