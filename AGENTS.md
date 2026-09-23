@@ -92,7 +92,7 @@ these without a major-version bump.
 | Module | Stable symbols |
 |---|---|
 | `owa_core.auth` | `get_token(...)`, `get_token_for_config(...)`, `BrokerToken` |
-| `owa_core.conventions` | `OwaError` taxonomy (see `owa_core.errors`), `data_error()` |
+| `owa_core.errors` | `OwaError` taxonomy |
 | `owa_core.http` | `request(...)`, `paginate(...)` |
 | `owa_core.config` | `load_config_file(...)` and related loaders |
 | `owa_cal.api` | `api_request(...)`, `api_get(...)` |
@@ -106,7 +106,6 @@ Actual signatures (verified against source):
 - `owa_core.auth.get_token(...)` — line 109, `auth.py`
 - `owa_core.auth.get_token_for_config(config, *, tool_name, audience, scope=None, debug=False)` — line 163, `auth.py`
 - `owa_core.auth.BrokerToken` — dataclass, line 24, `auth.py`
-- `owa_core.conventions.data_error(...)` — line 104, `conventions.py`
 - `owa_core.http.request(...)` — line 105, `http.py`; `paginate(...)` — line 256, `http.py`
 - `owa_cal.api.api_request(method, base, endpoint, access_token, body=None, debug=False)` — line 5, `api.py`
 - `owa_cal.api.api_get(base, endpoint, access_token, debug=False)` — line 18, `api.py`
