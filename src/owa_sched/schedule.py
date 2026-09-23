@@ -77,7 +77,7 @@ def normalize_attendee(entry):
         else:
             out['error'] = str(err)
         return out
-    if entry.get('workingHours') is not None and out['workingHours'] is None:
+    if entry.get('workingHours') and out['workingHours'] is None:
         out['error'] = 'unparseable working hours'
     items = entry.get('scheduleItems') or []
     for it in items:

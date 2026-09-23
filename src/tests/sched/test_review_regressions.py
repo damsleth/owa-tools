@@ -40,6 +40,12 @@ def test_unknown_availability_refuses_suggestions(raw):
         schedule.find_open_slots([schedule.normalize_attendee(raw)], '2026-09-07T08:00:00', '2026-09-07T17:00:00', 30)
 
 
+def test_empty_working_hours_is_absent_not_an_error():
+    row = schedule.normalize_attendee(attendee(workingHours={}))
+    assert row['error'] is None
+    assert row['workingHours'] is None
+
+
 @pytest.mark.parametrize('payload', [{'value':[]}, {'value':[attendee(error={'message':'missing'})]}])
 def test_missing_requested_schedule_is_not_free(monkeypatch, payload):
     monkeypatch.setattr(cli.api_mod, 'api_post', lambda *a, **k: payload)
