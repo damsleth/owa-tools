@@ -205,6 +205,44 @@ def test_delete_task_requires_etag_and_confirm(monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out) == {'deleted': 't1'}
 
 
+@pytest.mark.parametrize('flags,expected', [
+    (['--status', 'notstarted'], {'percentComplete': 0}),
+    (['--status', 'inprogress'], {'percentComplete': 50}),
+    (['--status', 'completed'], {'percentComplete': 100}),
+    (['--percent-complete', '100'], {'percentComplete': 100}),
+    (['--priority', '10'], {'priority': 10}),
+    (['--applied-category', 'category1=true'], {'appliedCategories': {'category1': True}}),
+    (['--applied-category', 'category2=off'], {'appliedCategories': {'category2': False}}),
+    (['--percent-complete', '101'], '--percent-complete must be between 0 and 100'),
+    (['--priority', '11'], '--priority must be between 0 and 10'),
+    (['--applied-category', 'category1=maybe'], '--applied-category requires true or false'),
+    (['--status', 'bogus'], '--status must be notstarted, inprogress, or completed'),
+])
+def test_update_task_flag_to_body(monkeypatch, flags, expected):
+    seen = {}
+    monkeypatch.setattr(
+        cli.api_mod, 'api_patch',
+        lambda base, ep, tok, body=None, etag='', debug=False: seen.update(body=body),
+    )
+    monkeypatch.setattr(cli.api_mod, 'api_get', lambda *a, **k: _raw_task())
+    argv = ['t1', '--etag', 'e', *flags]
+    if isinstance(expected, str):
+        with pytest.raises(cli.UsageError, match=expected):
+            cli.cmd_update_task(argv, {}, 'tok', BASE)
+        assert seen == {}
+    else:
+        assert cli.cmd_update_task(argv, {}, 'tok', BASE) == 0
+        assert seen['body'] == expected
+
+
+def test_delete_task_without_confirm_refuses_when_not_a_tty(monkeypatch):
+    monkeypatch.setattr(cli.tty_mod, 'is_interactive', lambda **k: False)
+    monkeypatch.setattr(cli.api_mod, 'api_get', lambda *a, **k: pytest.fail('no read before refusal'))
+    monkeypatch.setattr(cli.api_mod, 'api_delete', lambda *a, **k: pytest.fail('must not delete'))
+    with pytest.raises(cli.UsageError, match='refuses to run non-interactively without --confirm'):
+        cli.cmd_delete_task(['t1', '--etag', 'abc'], {}, 'tok', BASE)
+
+
 def test_update_plan_details_sets_categories(monkeypatch, capsys):
     calls = {}
 
