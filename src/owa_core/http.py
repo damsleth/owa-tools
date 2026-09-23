@@ -102,6 +102,38 @@ def _decode_response(raw, *, raw_mode):
         raise InternalError('HTTP response was not valid JSON', cause=exc)
 
 
+def _send(method, url, *, data, headers, timeout, retry, retry_statuses, debug, sleep, urlopen):
+    """Open one request, riding Retry-After on `retry_statuses` up to `retry`
+    times. Returns ``(status, headers, body_bytes)`` or raises OwaError."""
+    while True:
+        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+        try:
+            with urlopen(req, timeout=timeout) as resp:
+                raw_bytes = resp.read()
+                return (
+                    getattr(resp, 'status', getattr(resp, 'code', 200)),
+                    _headers_dict(getattr(resp, 'headers', None)),
+                    raw_bytes,
+                )
+        except urllib.error.HTTPError as error:
+            if error.code not in retry_statuses or retry <= 0:
+                _raise_for_http_error(error, debug=debug)
+            wait = _parse_retry_after((getattr(error, 'headers', None) or {}).get('Retry-After'))
+            if wait > RETRY_AFTER_CAP_SECONDS:
+                raise RateLimitedError(
+                    f'rate limited ({error.code}); server asked for {wait}s '
+                    f'(>cap {RETRY_AFTER_CAP_SECONDS}s). Try again later.',
+                )
+            if debug:
+                print(f'DEBUG: {error.code} - retrying in {wait}s', file=sys.stderr)
+            sleep(wait)
+            retry -= 1
+        except urllib.error.URLError as exc:
+            raise NetworkError(f'network error: {redact(exc.reason)}', cause=exc)
+        except (OSError, http.client.HTTPException) as exc:
+            raise NetworkError('network transport failed or response interrupted', cause=exc)
+
+
 def request(
     method,
     url,
@@ -132,50 +164,20 @@ def request(
         if body is not None and not isinstance(body, (bytes, bytearray)):
             print(f'DEBUG: body: {redact(json.dumps(body))[:500]}', file=sys.stderr)
 
-    req = urllib.request.Request(url, data=data, headers=all_headers, method=method)
-    try:
-        with urlopen(req, timeout=timeout) as resp:
-            raw_bytes = resp.read()
-            resp_headers = _headers_dict(getattr(resp, 'headers', None))
-            payload = _decode_response(raw_bytes, raw_mode=raw)
-            next_link = payload.get('@odata.nextLink') if isinstance(payload, dict) else None
-            return Response(
-                status=getattr(resp, 'status', getattr(resp, 'code', 200)),
-                headers=resp_headers,
-                json=payload,
-                bytes=raw_bytes,
-                next_link=next_link,
-                request_id=_request_id(resp_headers),
-            )
-    except urllib.error.HTTPError as error:
-        if error.code in (429, 503) and retry > 0:
-            wait = _parse_retry_after(getattr(error, 'headers', {}).get('Retry-After'))
-            if wait <= RETRY_AFTER_CAP_SECONDS:
-                if debug:
-                    print(f'DEBUG: {error.code} - retrying in {wait}s', file=sys.stderr)
-                sleep(wait)
-                return request(
-                    method,
-                    url,
-                    token=token,
-                    body=body,
-                    headers=headers,
-                    timeout=timeout,
-                    retry=retry - 1,
-                    raw=raw,
-                    debug=debug,
-                    sleep=sleep,
-                    urlopen=urlopen,
-                )
-            raise RateLimitedError(
-                f'rate limited ({error.code}); server asked for {wait}s '
-                f'(>cap {RETRY_AFTER_CAP_SECONDS}s). Try again later.',
-            )
-        _raise_for_http_error(error, debug=debug)
-    except urllib.error.URLError as exc:
-        raise NetworkError(f'network error: {redact(exc.reason)}', cause=exc)
-    except (OSError, http.client.HTTPException) as exc:
-        raise NetworkError('network transport failed or response interrupted', cause=exc)
+    status, resp_headers, raw_bytes = _send(
+        method, url, data=data, headers=all_headers, timeout=timeout, retry=retry,
+        retry_statuses=(429, 503), debug=debug, sleep=sleep, urlopen=urlopen,
+    )
+    payload = _decode_response(raw_bytes, raw_mode=raw)
+    next_link = payload.get('@odata.nextLink') if isinstance(payload, dict) else None
+    return Response(
+        status=status,
+        headers=resp_headers,
+        json=payload,
+        bytes=raw_bytes,
+        next_link=next_link,
+        request_id=_request_id(resp_headers),
+    )
 
 
 def request_unauthenticated(
@@ -211,46 +213,17 @@ def request_unauthenticated(
     data = bytes(body) if isinstance(body, (bytes, bytearray)) else body
     if debug:
         print(f'DEBUG: {method} {safe_url(url)} (unauthenticated)', file=sys.stderr)
-    req = urllib.request.Request(url, data=data, headers=all_headers, method=method)
-    try:
-        with urlopen(req, timeout=timeout) as resp:
-            raw_bytes = resp.read()
-            resp_headers = _headers_dict(getattr(resp, 'headers', None))
-            return Response(
-                status=getattr(resp, 'status', getattr(resp, 'code', 200)),
-                headers=resp_headers,
-                json=None,
-                bytes=raw_bytes,
-                request_id=_request_id(resp_headers),
-            )
-    except urllib.error.HTTPError as error:
-        if error.code in retry_statuses and retry > 0:
-            wait = _parse_retry_after(_headers_dict(getattr(error, 'headers', None)).get('Retry-After'))
-            if wait <= RETRY_AFTER_CAP_SECONDS:
-                if debug:
-                    print(f'DEBUG: {error.code} - retrying in {wait}s', file=sys.stderr)
-                sleep(wait)
-                return request_unauthenticated(
-                    method,
-                    url,
-                    body=body,
-                    headers=headers,
-                    timeout=timeout,
-                    retry=retry - 1,
-                    retry_statuses=retry_statuses,
-                    debug=debug,
-                    sleep=sleep,
-                    urlopen=urlopen,
-                )
-            raise RateLimitedError(
-                f'rate limited ({error.code}); server asked for {wait}s '
-                f'(>cap {RETRY_AFTER_CAP_SECONDS}s). Try again later.',
-            )
-        _raise_for_http_error(error, debug=debug)
-    except urllib.error.URLError as exc:
-        raise NetworkError(f'network error: {redact(exc.reason)}', cause=exc)
-    except (OSError, http.client.HTTPException) as exc:
-        raise NetworkError('network transport failed or response interrupted', cause=exc)
+    status, resp_headers, raw_bytes = _send(
+        method, url, data=data, headers=all_headers, timeout=timeout, retry=retry,
+        retry_statuses=retry_statuses, debug=debug, sleep=sleep, urlopen=urlopen,
+    )
+    return Response(
+        status=status,
+        headers=resp_headers,
+        json=None,
+        bytes=raw_bytes,
+        request_id=_request_id(resp_headers),
+    )
 
 
 def paginate(
