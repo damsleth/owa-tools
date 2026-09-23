@@ -95,6 +95,11 @@ owa-mail messages --since 2026-04-01 | jq '[.[] | select(.has_attachments)] | le
 owa-mail folders | jq '.[] | select(.unread > 0)'
 ```
 
+`--since` / `--until` take the same day forms as `owa-cal --date`:
+`YYYY-MM-DD`, `today` / `yesterday` / `tomorrow`, a signed day offset
+(`-7`), or a weekday in the current ISO week (`monday`, `monday-1` for last
+week's). Anything else is a usage error (exit 2).
+
 `messages` and `folders` cap at a single page by default. Pass `--all`
 to follow `@odata.nextLink` until the collection is exhausted; `--limit`
 still controls the page size requested per round-trip. Output shape is
