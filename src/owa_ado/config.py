@@ -37,10 +37,6 @@ def load_config():
     return _core.load_config_file(CONFIG_PATH)
 
 
-def save_config(config):
-    _core.save_config(CONFIG_PATH, config)
-
-
 def config_set(key, value):
     _core.config_set(CONFIG_PATH, ALLOWED_KEYS, key, value)
 
@@ -48,7 +44,7 @@ def config_set(key, value):
 def config_unset(key):
     """Remove one key from the config. Returns True if it was present.
 
-    `save_config` preserves any line whose key isn't in the dict, so dropping
+    `_core.save_config` preserves any line whose key isn't in the dict, so dropping
     a key means rewriting from the remaining allowed pairs only.
     """
     if key not in ALLOWED_KEYS:

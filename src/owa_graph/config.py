@@ -7,7 +7,7 @@ chmod 0600.
 Mechanics live in owa_core.config; this file just declares the
 per-tool path, allowlist, and defaults.
 """
-import os  # noqa: F401  (kept so tests can monkeypatch config_mod.os.replace)
+import os
 from pathlib import Path
 
 from owa_core import config as _core
@@ -29,10 +29,6 @@ def load_config():
     config = _core.load_config_file(CONFIG_PATH)
     config.setdefault('default_audience', DEFAULT_AUDIENCE)
     return config
-
-
-def save_config(config):
-    _core.save_config(CONFIG_PATH, config)
 
 
 def config_set(key, value):

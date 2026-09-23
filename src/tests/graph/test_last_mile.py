@@ -8,6 +8,7 @@ import time
 import pytest
 
 from owa_core import auth as core_auth
+from owa_core import config as core_config
 from owa_graph import auth as auth_mod
 from owa_graph import config as config_mod
 from owa_graph import emit
@@ -66,10 +67,10 @@ def test_save_config_unlinks_tmp_on_replace_failure(monkeypatch, tmp_path):
 
     def _boom(*a, **k):
         raise OSError('disk full')
-    monkeypatch.setattr(config_mod.os, 'replace', _boom)
+    monkeypatch.setattr(core_config.os, 'replace', _boom)
 
     with pytest.raises(OSError, match='disk full'):
-        config_mod.save_config({'owa_piggy_profile': 'work'})
+        core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
 
     # No leftover temp files in the target dir.
     leftovers = [p for p in target.parent.iterdir() if p.name.startswith('.config.')]
@@ -82,19 +83,19 @@ def test_save_config_swallows_unlink_failure_in_cleanup(monkeypatch, tmp_path):
 
     def _boom(*a, **k):
         raise OSError('disk full')
-    monkeypatch.setattr(config_mod.os, 'replace', _boom)
+    monkeypatch.setattr(core_config.os, 'replace', _boom)
 
     # Pre-empt: make Path.unlink raise FileNotFoundError to exercise that
     # branch in the except handler.
-    real_unlink = config_mod.Path.unlink
+    real_unlink = core_config.Path.unlink
     def _missing(self, *a, **k):
         raise FileNotFoundError(str(self))
-    monkeypatch.setattr(config_mod.Path, 'unlink', _missing)
+    monkeypatch.setattr(core_config.Path, 'unlink', _missing)
     try:
         with pytest.raises(OSError, match='disk full'):
-            config_mod.save_config({'owa_piggy_profile': 'work'})
+            core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
     finally:
-        monkeypatch.setattr(config_mod.Path, 'unlink', real_unlink)
+        monkeypatch.setattr(core_config.Path, 'unlink', real_unlink)
 
 
 # ---------------------------------------------------------------------------

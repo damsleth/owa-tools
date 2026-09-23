@@ -4,6 +4,7 @@ import pytest
 from owa_ado import api as api_mod
 from owa_ado import config as config_mod
 from owa_ado import resources as res
+from owa_core import config as core_config
 from owa_core.errors import OwaError
 from owa_core.http import Response
 
@@ -27,7 +28,7 @@ def test_build_wiql_iteration_clause():
 
 
 def test_config_round_trip(tmp_config):
-    config_mod.save_config({'ado_org': 'Org', 'ado_project': 'Proj'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'ado_org': 'Org', 'ado_project': 'Proj'})
     loaded = config_mod.load_config()
     assert loaded['ado_org'] == 'Org'
     config_mod.config_set('owa_piggy_profile', 'work')
