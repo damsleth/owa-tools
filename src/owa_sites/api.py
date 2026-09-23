@@ -39,7 +39,8 @@ def paginate_sp(base, endpoint, access_token, debug=False, max_pages=50, on_trun
     next_link)` fires once (if provided) so the caller can surface a truncation
     signal. Natural exhaustion never fires it.
     """
-    return list(http.paginate(
+    # An empty 2xx body decodes to {}; that is no rows, not one blank row.
+    return [item for item in http.paginate(
         f'{base}/{endpoint}', token=access_token, headers={'Accept': ACCEPT_JSON},
         max_pages=max_pages, on_truncate=on_truncate, debug=debug,
-    ))
+    ) if item != {}]
