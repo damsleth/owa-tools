@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Reject committed source that contains token-shaped secrets.
 
-The scanner is deliberately shape-based and stdlib-only. It ignores generated
-and local-only directories, while still scanning runtime code, tests, docs, and
-GitHub workflows.
+The scanner is deliberately shape-based and stdlib-only. Inside a git checkout
+it scans tracked and untracked-but-not-ignored files, so gitignored local
+captures never trip it; outside one it walks the tree. Either way it skips
+generated and local-only directories, while still scanning runtime code, tests,
+docs, and GitHub workflows.
 """
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -46,8 +49,19 @@ def is_scanned(path: Path) -> bool:
     return path.is_file()
 
 
+def candidate_paths():
+    try:
+        out = subprocess.run(
+            ['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+            cwd=REPO_ROOT, capture_output=True, check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return REPO_ROOT.rglob('*')
+    return (REPO_ROOT / name for name in out.decode('utf-8').split('\0') if name)
+
+
 def iter_files():
-    for path in REPO_ROOT.rglob('*'):
+    for path in candidate_paths():
         if is_scanned(path):
             yield path
 
