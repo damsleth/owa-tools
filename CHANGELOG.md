@@ -8,6 +8,16 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-vids
+
+- **Breaking:** removed the `--manifest-url` / `--embed-url` back-compat
+  flags. Paste the videomanifest or embed-page URL as the source instead; the
+  kind is auto-detected.
+- **Breaking:** the one-time import of the old standalone
+  `~/.config/owa-vids/config.json` and the legacy single `region` config key
+  are gone. The per-profile `regions` cache is unaffected; a region cached
+  only under `region` is re-detected on next use.
+
 ### owa-mail
 
 - `messages` / `read` `--since` and `--until` accept the same day forms as

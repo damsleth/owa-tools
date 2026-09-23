@@ -33,6 +33,10 @@ recording's URL - the kind is auto-detected:
 - **The "Copy link" sharing URL** -
   `https://tenant-my.sharepoint.com/:v:/r/personal/user/.../rec.mp4?...`.
   Handed straight to Graph `/shares`.
+- **The videomanifest URL** -
+  `<...svc.ms/transform/videomanifest?...&format=dash>`, copied from DevTools
+  (Network tab, filter `videomanifest`). The region is parsed straight from it.
+- **The Teams/Stream embed page** - `<...embed.aspx?uniqueId=...>`.
 
 owa-vids resolves the item's `driveId`/`itemId`/`cTag` via Graph `/shares`
 and builds the `videomanifest` URL itself, so there is no DevTools step.
@@ -40,15 +44,6 @@ and builds the `videomanifest` URL itself, so there is no DevTools step.
 The media region (`*-mediap.svc.ms`) is **auto-detected** from the item's
 thumbnail URLs on first use and cached per profile; `--region <host>`
 overrides it. See [config](#owa-vids-config).
-
-Two explicit source flags remain for back-compat:
-
-- `--manifest-url '<...svc.ms/transform/videomanifest?...&format=dash>'` -
-  the full manifest URL copied from DevTools (Network tab, filter
-  `videomanifest`, the `application/dash+xml` request). The region is parsed
-  straight from it.
-- `--embed-url '<...embed.aspx?uniqueId=...>'` - the Teams/Stream player
-  page URL.
 
 ## Commands
 
@@ -80,8 +75,8 @@ Prints a JSON result line on success: `{"out": ..., "bytes": ..., "title": ...}`
 # Just paste the watch-in-browser or sharing URL
 owa-vids get 'https://tenant-my.sharepoint.com/:v:/r/personal/user/.../rec.mp4?...' --profile globex -o meeting.mp4
 
-# Explicit manifest URL still works
-owa-vids get --manifest-url 'https://globex-mediap.svc.ms/transform/videomanifest?docid=...&format=dash' --profile globex
+# A videomanifest URL from DevTools works too
+owa-vids get 'https://globex-mediap.svc.ms/transform/videomanifest?docid=...&format=dash' --profile globex
 ```
 
 ### `owa-vids check`
@@ -109,12 +104,7 @@ owa-vids config --profile globex
 owa-vids config            # show current values (region shown per profile)
 ```
 
-The region is stored in a `regions` JSON map keyed by profile; the legacy
-single `region` key is still read as a fallback for pre-1.1.1 configs.
-
-Users of the old standalone `owa-vids` script: the legacy
-`~/.config/owa-vids/config.json` is migrated to the suite-standard
-`KEY="VALUE"` format automatically on first run.
+The region is stored in a `regions` JSON map keyed by profile.
 
 ## Globals
 
