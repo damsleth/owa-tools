@@ -232,8 +232,8 @@ def resolve_window(*, iso_week_range, date_=None, from_=None, to_=None,
         raise UsageError('conflicting period flags: --week and --month')
 
     if has_range:
-        f = resolve_day(from_, today=today) if from_ else _today(today).isoformat()
-        t = resolve_day(to_, today=today) if to_ else f
+        f = resolve_day(from_, today=today, flag='--from') if from_ else _today(today).isoformat()
+        t = resolve_day(to_, today=today, flag='--to') if to_ else f
         return f, t
 
     if has_date:
