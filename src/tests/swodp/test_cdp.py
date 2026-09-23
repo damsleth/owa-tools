@@ -98,7 +98,7 @@ def test_ws_handshake_and_exact_read_failures(monkeypatch):
         cdp._recv_exact(FakeSocket(), 1)
 
 
-def test_cdp_session_call_buffers_events_and_maps_error(monkeypatch):
+def test_cdp_session_call_skips_events_and_maps_error(monkeypatch):
     sock = FakeSocket()
     messages = iter(
         [
@@ -112,24 +112,9 @@ def test_cdp_session_call_buffers_events_and_maps_error(monkeypatch):
     monkeypatch.setattr(cdp, "_send_frame", lambda *a: None)
     session = cdp.CdpSession(1, "ws://localhost/devtools/page/1")
     assert session.call("Runtime.enable") == {"ok": True}
-    assert session.wait_event("Network.event") == {"x": 1}
     with pytest.raises(cdp.CdpError, match="bad"):
         session.call("Bad.method")
     session.close()
     assert sock.closed
 
 
-def test_wait_event_reads_until_predicate_matches(monkeypatch):
-    sock = FakeSocket()
-    messages = iter(
-        [
-            json.dumps({"id": 99, "result": {}}),
-            json.dumps({"method": "Event", "params": {"value": 1}}),
-            json.dumps({"method": "Event", "params": {"value": 2}}),
-        ]
-    )
-    monkeypatch.setattr(cdp, "_ws_handshake", lambda *a: sock)
-    monkeypatch.setattr(cdp, "_recv_frame", lambda *a: next(messages))
-    session = cdp.CdpSession(1, "ws://localhost/devtools/page/1")
-    assert session.wait_event("Event", lambda value: value["value"] == 2) == {"value": 2}
-    assert session.wait_event("Event") == {"value": 1}

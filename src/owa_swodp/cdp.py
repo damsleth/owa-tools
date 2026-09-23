@@ -1,20 +1,9 @@
 """Minimal stdlib Chrome DevTools Protocol client.
 
-Used by capture.py to drive Edge for both first-time setup (visible
-sign-in, capture /token response) and silent reseed (headless, force a
-silent refresh, capture /token response). Same primitives as the
-inline WS code in scripts/scrape_edge.py - kept as a separate module
-because that script stays self-contained for its own runtime
-(invoked via `python3 scripts/scrape_edge.py` outside the package).
-This is the canonical copy: the framing (length encodings, masking,
-ping/pong) is regression-tested in tests/test_cdp.py, and the twin in
-scrape_edge.py carries a "keep in sync" marker pointing back here.
-
-CdpSession multiplexes one WebSocket connection between request/response
-calls (call) and continuous event listening (wait_event). Buffered
-events are not lost while a `call` is in flight, so a network event
-that fires before we even ask for getResponseBody still gets delivered
-to whoever is waiting for it.
+session.py uses it to drive Edge: find the page tab, open its WebSocket and
+issue request/response ``call``s (Runtime.evaluate, Network.getCookies).
+Ported from owa-piggy's cdp.py; the framing (length encodings, masking,
+ping/pong) is regression-tested in tests/swodp/test_cdp.py.
 """
 import base64
 import json
@@ -23,8 +12,6 @@ import socket
 import struct
 import time
 import urllib.request
-
-CDP_HELPER_PARITY_VERSION = 1
 
 
 def find_tab(port, timeout=15.0):
@@ -138,25 +125,20 @@ def _recv_frame(s):
 
 
 class CdpSession:
-    """One WebSocket multiplexed between call() and wait_event().
+    """One WebSocket to a CDP target, used for request/response calls.
 
-    Every CDP message has either an `id` (response to one of our calls)
-    or a `method` (server-pushed event). We buffer events that arrive
-    while a `call` is reading replies so wait_event() can deliver them
-    in order afterwards.
+    Server-pushed events (messages without our `id`) are ignored.
     """
 
     def __init__(self, port, ws_url):
         path = '/' + ws_url.split('/', 3)[3]
         self._sock = _ws_handshake('localhost', port, path)
         self._next_id = 0
-        self._buffered = []
 
     def call(self, method, params=None, *, timeout=30.0):
         """Send a CDP command, return its `result` dict.
 
-        Raises TimeoutError if no matching reply arrives within `timeout`.
-        Events received in the meantime are buffered for wait_event."""
+        Raises TimeoutError if no matching reply arrives within `timeout`."""
         self._next_id += 1
         msg_id = self._next_id
         _send_frame(self._sock, 0x1, json.dumps({
@@ -172,50 +154,8 @@ class CdpSession:
                     if 'error' in msg:
                         raise CdpError(method, msg['error'])
                     return msg.get('result', {})
-                if 'method' in msg:
-                    self._buffered.append(msg)
         finally:
             self._sock.settimeout(None)
-
-    def wait_event(self, method_name, predicate=None, *, timeout=60.0):
-        """Block until a matching event arrives. Returns the event's
-        `params` dict.
-
-        `predicate(params) -> bool` filters; pass None to take the first
-        event of the given method. Raises TimeoutError on the deadline.
-        Stray responses (id-bearing messages with no waiter) are dropped.
-        """
-        if predicate is None:
-            predicate = lambda *_: True  # noqa: E731
-
-        # Drain buffered events first so a fast event isn't missed.
-        for i, msg in enumerate(self._buffered):
-            if (msg.get('method') == method_name
-                    and predicate(msg.get('params', {}))):
-                self._buffered.pop(i)
-                return msg['params']
-
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            remaining = deadline - time.monotonic()
-            self._sock.settimeout(max(0.1, remaining))
-            try:
-                msg = json.loads(_recv_frame(self._sock))
-            except socket.timeout:
-                continue
-            finally:
-                self._sock.settimeout(None)
-            if 'id' in msg:
-                continue
-            if (msg.get('method') == method_name
-                    and predicate(msg.get('params', {}))):
-                return msg['params']
-            # Any other event - keep for a later wait_event with a
-            # different filter (e.g. loadingFinished after responseReceived).
-            self._buffered.append(msg)
-        raise TimeoutError(
-            f'no {method_name} event matching predicate within {timeout}s'
-        )
 
     def close(self):
         try:
