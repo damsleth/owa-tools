@@ -44,14 +44,9 @@ def load_config_file(path):
 
 
 def save_config(path, config):
-    """Atomically rewrite the config file, preserving unknown lines
-    and any comments. Write to a sibling temp file, fsync, chmod 0600,
-    then rename. Rename within a filesystem is atomic on POSIX, so
-    readers see either the old contents or the new ones, never a
-    truncated mix."""
+    """Atomically rewrite the config file (see `write_private`),
+    preserving unknown lines and any comments."""
     p = Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(p.parent, 0o700)
     lines = []
     existing_keys = set()
     if p.exists():
@@ -67,16 +62,25 @@ def save_config(path, config):
     for k, v in config.items():
         if k not in existing_keys:
             lines.append(f'{k}="{v}"')
-    payload = '\n'.join(lines) + '\n'
+    write_private(p, '\n'.join(lines) + '\n')
 
+
+def write_private(path, text):
+    """Atomically replace `path` with `text`: parent dir 0700, file 0600.
+    Write to a sibling temp file, fsync, then rename. Rename within a
+    filesystem is atomic on POSIX, so readers see either the old contents
+    or the new ones, never a truncated mix."""
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(p.parent, 0o700)
     fd, tmp_path = tempfile.mkstemp(
-        prefix='.config.', suffix='.tmp', dir=str(p.parent),
+        prefix=f'.{p.name}.', suffix='.tmp', dir=str(p.parent),
     )
     tmp = Path(tmp_path)
     try:
         os.chmod(tmp, 0o600)
         with os.fdopen(fd, 'w') as f:
-            f.write(payload)
+            f.write(text)
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp, p)

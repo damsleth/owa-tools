@@ -8,7 +8,6 @@ Mechanics live in owa_core.config; this file declares the per-tool path
 and allowlist only.
 """
 import os
-import tempfile
 from pathlib import Path
 
 from owa_core import config as _core
@@ -72,22 +71,4 @@ def config_clear():
 
 def _rewrite(pairs):
     """Atomically rewrite the config to exactly `pairs` (allowed keys only)."""
-    p = Path(CONFIG_PATH)
-    p.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(p.parent, 0o700)
-    payload = ''.join(f'{k}="{v}"\n' for k, v in pairs.items())
-    fd, tmp_path = tempfile.mkstemp(prefix='.config.', suffix='.tmp', dir=str(p.parent))
-    tmp = Path(tmp_path)
-    try:
-        os.chmod(tmp, 0o600)
-        with os.fdopen(fd, 'w') as f:
-            f.write(payload)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp, p)
-    except Exception:
-        try:
-            tmp.unlink()
-        except FileNotFoundError:
-            pass
-        raise
+    _core.write_private(CONFIG_PATH, ''.join(f'{k}="{v}"\n' for k, v in pairs.items()))
