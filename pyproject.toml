@@ -14,10 +14,10 @@ license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Carl Joakim Damsleth" }]
 
-# Runtime deps: none. The whole suite is stdlib-only so it ships as a
-# single self-contained distribution with no third-party runtime
-# dependency. The CLI-contract surface lives in owa_core.conventions.
-dependencies = []
+# Runtime deps: only the owa-piggy auth broker, which the suite runs as a
+# subprocess and never imports. Everything else is stdlib. The
+# CLI-contract surface lives in owa_core.conventions.
+dependencies = ["owa-piggy>=1.1.1"]
 
 [project.optional-dependencies]
 dev = [

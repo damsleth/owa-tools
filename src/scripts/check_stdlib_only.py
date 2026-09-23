@@ -10,10 +10,10 @@ Allowed at runtime:
     bundled allowlist on 3.9).
   * Local suite packages: owa_core, owa_cal, owa_mail, owa_graph,
     owa_doctor, owa_people, owa_sched, owa_drive, owa_todo, owa.
-  * Sanctioned runtime dependencies declared in pyproject.toml
-    [project].dependencies (see RUNTIME_DEPS below): currently none -
-    the suite is stdlib-only.
-  * `owa-piggy` is invoked via subprocess only; no Python import.
+  * Sanctioned importable runtime dependencies (see RUNTIME_DEPS below):
+    currently none - the suite is stdlib-only.
+  * `owa-piggy` is the one pyproject dependency; it is invoked via
+    subprocess only and must never be imported.
 
 Excluded from the check:
   * tests/ directories.
@@ -55,10 +55,9 @@ LOCAL_PACKAGES = frozenset({
     "owa_swodp",
 })
 
-# Third-party runtime dependencies the suite is allowed to import. Must
-# stay in sync with pyproject.toml [project].dependencies. The suite is
-# stdlib-only, so this is empty; add an entry here only alongside a real
-# dependency in pyproject.toml.
+# Third-party runtime dependencies the suite is allowed to import. The
+# suite is stdlib-only, so this is empty. owa-piggy is a pyproject
+# dependency but subprocess-only, so it deliberately stays out of here.
 RUNTIME_DEPS: frozenset[str] = frozenset()
 
 # Bundled stdlib list for Python 3.9 (sys.stdlib_module_names is 3.10+).
