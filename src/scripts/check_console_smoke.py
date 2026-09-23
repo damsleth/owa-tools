@@ -54,7 +54,7 @@ def _expect_json(stdout, label):
 def smoke(venv_dir, wheel):
     failures = []
     subprocess.run(
-        [str(_bin(venv_dir, 'python')), '-m', 'pip', 'install', '--no-index', str(wheel)],
+        [str(_bin(venv_dir, 'python')), '-m', 'pip', 'install', '--no-index', '--no-deps', str(wheel)],
         check=True,
         timeout=60,
     )
