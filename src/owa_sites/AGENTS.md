@@ -17,8 +17,8 @@ per-tenant `*.sharepoint.com` host.
   not "simplify" this back onto Graph `/sites`.
 - Wire format is PascalCase; `sites.py` normalizes to lowercase. All requests
   send `Accept: application/json;odata=nometadata` (clean JSON, no `__metadata`).
-  SharePoint's next link is the bare `odata.nextLink` (no `@`), so `paginate_sp`
-  follows it itself rather than reusing `owa_core.http.paginate` (Graph's `@`).
+  SharePoint's next link is the bare `odata.nextLink` (no `@`);
+  `owa_core.http.paginate` follows either spelling, and `paginate_sp` wraps it.
 - The tenant host is auto-discovered but can be pinned via
   `owa-sites config --host`. The site segment accepts a bare name
   (`owa-casa` -> `sites/owa-casa`), an explicit path, or empty for the root site.

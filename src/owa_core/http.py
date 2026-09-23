@@ -265,7 +265,8 @@ def paginate(
     urlopen=urllib.request.urlopen,
     sleep=time.sleep,
 ):
-    """Yield items from Graph-style `value` pages."""
+    """Yield items from Graph-style `value` pages (`@odata.nextLink`, or
+    SharePoint's bare `odata.nextLink`)."""
     pages = 0
     url = first_url
     while url:
@@ -283,7 +284,8 @@ def paginate(
         if isinstance(payload, dict) and isinstance(payload.get('value'), list):
             for item in payload['value']:
                 yield item
-            url = response.next_link
+            # SharePoint REST (odata=nometadata) uses the bare key.
+            url = response.next_link or payload.get('odata.nextLink')
         else:
             yield payload
             return

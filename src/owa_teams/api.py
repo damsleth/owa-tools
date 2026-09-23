@@ -9,8 +9,7 @@ on failure; the dispatcher owns rendering and exit codes.
   * `chatsvc_messages` - the chat service. Its message stream is
     `{messages: [...], _metadata: {backwardLink}}`, NOT `{value, @odata...}`,
     so the shared paginator does not apply: we follow `_metadata.backwardLink`
-    (an absolute URL, the older-messages cursor) ourselves, like owa-sites'
-    `paginate_sp`.
+    (an absolute URL, the older-messages cursor) ourselves.
 """
 from owa_core import http
 
