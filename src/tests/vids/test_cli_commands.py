@@ -33,14 +33,13 @@ _MAN = {
 def _mock_pipeline(monkeypatch, job=None, man=None):
     job = job or _job()
     man = man if man is not None else _MAN
-    monkeypatch.setattr(resolve_mod, '_resolve', lambda *a, **k: job)
+    monkeypatch.setattr(resolve_mod, 'resolve_url', lambda *a, **k: job)
     monkeypatch.setattr(manifest_mod, '_manifest',
                         lambda *a, **k: (man, {'token': 't', 'refresh': lambda: 't'}))
     return job
 
 
-MANIFEST_ARGS = ['--manifest-url',
-                 'https://globex-mediap.svc.ms/transform/videomanifest?docid=x&format=dash']
+MANIFEST_ARGS = ['https://globex-mediap.svc.ms/transform/videomanifest?docid=x&format=dash']
 
 
 def test_main_schema_returns_tool_name(capsys, clean_env):
@@ -125,7 +124,7 @@ def test_main_err_json_on_auth_failure(capsys, clean_env, tmp_config, monkeypatc
     # Real resolve path (no drive ids in the docid, so no best-effort title
     # fetch), broker missing -> AuthExpiredError when the SPO token is minted.
     monkeypatch.setattr('owa_core.auth.shutil.which', lambda _: None)
-    rc = cli.main(['--err-json', 'info', '--manifest-url',
+    rc = cli.main(['--err-json', 'info',
                    'https://globex-mediap.svc.ms/transform/videomanifest'
                    '?docid=https%3A%2F%2Fcontoso-my.sharepoint.com%2Fx&format=dash'])
     assert rc == 11
@@ -157,11 +156,11 @@ def test_main_config_persists_profile_and_region(capsys, clean_env, tmp_config):
 def test_main_debug_flag_sets_config(clean_env, tmp_config, monkeypatch, capsys):
     seen = {}
 
-    def fake_resolve(manifest_url, embed_url, source_url, region, config, debug):
+    def fake_resolve(source_url, config, region, debug):
         seen['debug'] = debug
         return _job()
 
-    monkeypatch.setattr(resolve_mod, '_resolve', fake_resolve)
+    monkeypatch.setattr(resolve_mod, 'resolve_url', fake_resolve)
     monkeypatch.setattr(manifest_mod, '_manifest',
                         lambda *a, **k: (_MAN, {'token': 't', 'refresh': lambda: 't'}))
 
@@ -175,3 +174,13 @@ def test_main_get_rejects_both_track_filters(capsys, clean_env, tmp_config):
     rc = cli.main(['get', *MANIFEST_ARGS, '--video-only', '--audio-only'])
     assert rc == 2
     assert 'only one of' in capsys.readouterr().err
+
+
+def test_main_info_requires_a_source(capsys, clean_env, tmp_config):
+    assert cli.main(['info', '--pretty']) == 2
+    assert 'need a source' in capsys.readouterr().err
+
+
+def test_main_info_rejects_removed_manifest_url_flag(capsys, clean_env, tmp_config):
+    assert cli.main(['info', '--manifest-url', MANIFEST_ARGS[0]]) == 2
+    assert 'Unknown flag: --manifest-url' in capsys.readouterr().err

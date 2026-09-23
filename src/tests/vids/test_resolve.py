@@ -51,7 +51,7 @@ def test_resolve_manifest_url_skips_cache_when_region_unchanged(monkeypatch):
     )
 
     resolve_mod.resolve_manifest_url(
-        MANIFEST_URL, {'region': 'globex-mediap.svc.ms'}, debug=False,
+        MANIFEST_URL, {'regions': '{"default": "globex-mediap.svc.ms"}'}, debug=False,
     )
 
     assert written == []
@@ -88,7 +88,7 @@ def test_resolve_embed_url_calls_spo_and_graph(monkeypatch):
     embed = ('https://contoso-my.sharepoint.com/personal/u/_layouts/15/'
              'embed.aspx?uniqueId=GUID-1')
     job = resolve_mod.resolve_embed_url(
-        embed, {'region': 'globex-mediap.svc.ms'}, region_override='', debug=False,
+        embed, {'regions': '{"default": "globex-mediap.svc.ms"}'}, region_override='', debug=False,
     )
 
     assert spo_calls == [('spo-tok', 'contoso-my.sharepoint.com', '/personal/u', 'GUID-1')]
@@ -132,35 +132,8 @@ def test_resolve_embed_url_missing_unique_id_raises_usage_error():
     embed = 'https://contoso-my.sharepoint.com/personal/u/_layouts/15/embed.aspx'
     with pytest.raises(UsageError):
         resolve_mod.resolve_embed_url(
-            embed, {'region': 'r'}, region_override='', debug=False,
+            embed, {'regions': '{"default": "r"}'}, region_override='', debug=False,
         )
-
-
-def test_resolve_dispatches_embed_url(monkeypatch):
-    seen = []
-    monkeypatch.setattr(
-        resolve_mod, 'resolve_embed_url',
-        lambda url, config, region, debug: seen.append((url, region)) or 'job',
-    )
-    out = resolve_mod._resolve('', 'https://h/embed.aspx?uniqueId=g', '', 'r1', {}, debug=False)
-    assert out == 'job'
-    assert seen == [('https://h/embed.aspx?uniqueId=g', 'r1')]
-
-
-def test_resolve_dispatches_source_url(monkeypatch):
-    seen = []
-    monkeypatch.setattr(
-        resolve_mod, 'resolve_url',
-        lambda url, config, region, debug: seen.append((url, region)) or 'job',
-    )
-    out = resolve_mod._resolve('', '', 'https://h/x/stream.aspx?id=%2Fa', 'r1', {}, debug=False)
-    assert out == 'job'
-    assert seen == [('https://h/x/stream.aspx?id=%2Fa', 'r1')]
-
-
-def test_resolve_requires_a_source():
-    with pytest.raises(UsageError):
-        resolve_mod._resolve('', '', '', '', {}, debug=False)
 
 
 def test_resolve_url_routes_manifest(monkeypatch):
@@ -188,7 +161,7 @@ def test_resolve_url_stream_page_builds_weburl(monkeypatch):
 def test_resolve_url_stream_page_without_id_raises():
     stream = 'https://contoso-my.sharepoint.com/personal/u/_layouts/15/stream.aspx?foo=bar'
     with pytest.raises(UsageError):
-        resolve_mod.resolve_url(stream, {'region': 'r'}, '', debug=False)
+        resolve_mod.resolve_url(stream, {'regions': '{"default": "r"}'}, '', debug=False)
 
 
 def test_resolve_url_sharing_link_passed_verbatim(monkeypatch):
@@ -196,7 +169,7 @@ def test_resolve_url_sharing_link_passed_verbatim(monkeypatch):
     monkeypatch.setattr(resolve_mod, '_job_from_shares',
                         lambda target, config, region, debug: seen.append(target) or 'j')
     link = 'https://contoso-my.sharepoint.com/:v:/r/personal/u/Documents/rec.mp4?csf=1&web=1&e=x'
-    resolve_mod.resolve_url(link, {'region': 'r'}, '', debug=False)
+    resolve_mod.resolve_url(link, {'regions': '{"default": "r"}'}, '', debug=False)
     assert seen == [link]
 
 
@@ -205,7 +178,7 @@ def test_resolve_url_uniqueid_routes_embed(monkeypatch):
     monkeypatch.setattr(resolve_mod, 'resolve_embed_url',
                         lambda url, config, region, debug: seen.append(url) or 'j')
     embed = 'https://contoso-my.sharepoint.com/personal/u/_layouts/15/embed.aspx?uniqueId=G'
-    resolve_mod.resolve_url(embed, {'region': 'r'}, '', debug=False)
+    resolve_mod.resolve_url(embed, {'regions': '{"default": "r"}'}, '', debug=False)
     assert seen == [embed]
 
 
@@ -257,7 +230,7 @@ def test_resolve_embed_url_missing_ids_raises_not_found(monkeypatch):
     embed = ('https://contoso-my.sharepoint.com/personal/u/_layouts/15/'
              'embed.aspx?uniqueId=GUID-1')
     with pytest.raises(NotFoundError):
-        resolve_mod.resolve_embed_url(embed, {'region': 'r'}, region_override='', debug=False)
+        resolve_mod.resolve_embed_url(embed, {'regions': '{"default": "r"}'}, region_override='', debug=False)
 
 
 def test_fetch_title_sets_title_and_ctag(monkeypatch):

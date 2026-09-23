@@ -2,8 +2,7 @@
 
 Subcommands: info, get, check, config. A recording is addressed by a
 pasted URL (auto-detected: videomanifest, the Stream "watch in browser"
-page, or the "Copy link" sharing URL) or the explicit `--manifest-url` /
-`--embed-url` flags. The media region is auto-detected from the item's
+page, the "Copy link" sharing URL, or the embed page). The media region is auto-detected from the item's
 thumbnails and cached per profile (override with --region).
 
 Auth is deferred into each command handler rather than minted once in
@@ -65,17 +64,17 @@ Commands (unix-style verbs; suite-canonical aliases in parentheses):
   - the Stream "watch in browser" page  (.../stream.aspx?id=...)
   - the "Copy link" sharing URL          (.../:v:/r/...)
   - the videomanifest URL from DevTools  (...svc.ms/.../videomanifest?...)
+  - the Teams/Stream embed page          (.../embed.aspx?uniqueId=...)
                       The media region is auto-detected and cached per
                       profile on first use; --region pins it explicitly.
   --region <host>     Media region, e.g. switzerlandwest1-mediap.svc.ms
-  --manifest-url / --embed-url   Explicit forms of the above (back-compat).
 
 Requires ffmpeg on $PATH for `get` (the mux step).
 
 Examples:
   owa-vids info 'https://contoso-my.sharepoint.com/.../stream.aspx?id=...' --profile globex --pretty
   owa-vids get  'https://contoso-my.sharepoint.com/:v:/r/personal/.../rec.mp4?...' --profile globex
-  owa-vids get  --manifest-url '...videomanifest...&format=dash' --profile globex
+  owa-vids get  '...videomanifest...&format=dash' --profile globex
   owa-vids config --region switzerlandwest1-mediap.svc.ms
 """)
     print()
@@ -89,22 +88,16 @@ Examples:
 # ---------------------------------------------------------------------------
 
 def _parse_source(args):
-    """Pull the shared source flags out of a command's args.
+    """Pull the pasted source URL and --region out of a command's args.
 
-    Returns (manifest_url, embed_url, source_url, region_override, rest).
-    The source can be a bare pasted URL (auto-detected) or the explicit
-    --manifest-url / --embed-url flags. Exactly one must be present;
-    --region is accepted alongside any of them.
+    Returns (source_url, region_override, rest). Exactly one URL must be
+    present; its kind is auto-detected by resolve.resolve_url.
     """
-    manifest_url = embed_url = source_url = region = ''
+    source_url = region = ''
     rest = []
     while args:
         flag, args = args[0], args[1:]
-        if flag == '--manifest-url':
-            manifest_url, args = _require_value(flag, args)
-        elif flag == '--embed-url':
-            embed_url, args = _require_value(flag, args)
-        elif flag == '--region':
+        if flag == '--region':
             region, args = _require_value(flag, args)
         elif flag.startswith(('http://', 'https://')):
             if source_url:
@@ -112,12 +105,9 @@ def _parse_source(args):
             source_url = flag
         else:
             rest.append(flag)
-    if sum(bool(x) for x in (manifest_url, embed_url, source_url)) > 1:
-        raise UsageError('pass only one source URL')
-    if not (manifest_url or embed_url or source_url):
-        raise UsageError('need a source: paste a recording URL '
-                         '(or use --manifest-url / --embed-url)')
-    return manifest_url, embed_url, source_url, region, rest
+    if not source_url:
+        raise UsageError('need a source: paste a recording URL')
+    return source_url, region, rest
 
 
 def _workdir(workdir, job):
@@ -134,7 +124,7 @@ def _default_out(job):
 
 
 def cmd_info(args, config):
-    manifest_url, embed_url, source_url, region, rest = _parse_source(args)
+    source_url, region, rest = _parse_source(args)
     pretty = False
     while rest:
         flag, rest = rest[0], rest[1:]
@@ -144,7 +134,7 @@ def cmd_info(args, config):
             raise UsageError(f'Unknown flag: {flag}')
 
     debug = _debug_enabled(config)
-    job = resolve_mod._resolve(manifest_url, embed_url, source_url, region, config, debug)
+    job = resolve_mod.resolve_url(source_url, config, region, debug)
     http_client = Http(debug)
     man, _holder = manifest_mod._manifest(http_client, job, config, debug)
     v = man['tracks'].get('video', {})
@@ -167,7 +157,7 @@ def cmd_info(args, config):
 
 
 def cmd_check(args, config):
-    manifest_url, embed_url, source_url, region, rest = _parse_source(args)
+    source_url, region, rest = _parse_source(args)
     workdir = ''
     while rest:
         flag, rest = rest[0], rest[1:]
@@ -177,7 +167,7 @@ def cmd_check(args, config):
             raise UsageError(f'Unknown flag: {flag}')
 
     debug = _debug_enabled(config)
-    job = resolve_mod._resolve(manifest_url, embed_url, source_url, region, config, debug)
+    job = resolve_mod.resolve_url(source_url, config, region, debug)
     http_client = Http(debug)
     man, holder = manifest_mod._manifest(http_client, job, config, debug)
     _info(f"manifest OK - {job.title or '(untitled)'}")
@@ -193,7 +183,7 @@ def cmd_check(args, config):
 
 
 def cmd_get(args, config):
-    manifest_url, embed_url, source_url, region, rest = _parse_source(args)
+    source_url, region, rest = _parse_source(args)
     out_path = workdir = ''
     video_only = audio_only = pretty = False
     while rest:
@@ -219,7 +209,7 @@ def cmd_get(args, config):
         )
 
     debug = _debug_enabled(config)
-    job = resolve_mod._resolve(manifest_url, embed_url, source_url, region, config, debug)
+    job = resolve_mod.resolve_url(source_url, config, region, debug)
     http_client = Http(debug)
     man, holder = manifest_mod._manifest(http_client, job, config, debug)
     workdir = _workdir(workdir, job)
@@ -291,12 +281,8 @@ _SOURCE_FLAGS = [
     schema_mod.flag('<url>',
                     summary='Pasted recording URL: stream.aspx watch page, '
                             '"Copy link" sharing URL, or videomanifest URL'),
-    schema_mod.flag('--manifest-url', value='<url>',
-                    summary='videomanifest URL copied from DevTools (...&format=dash)'),
-    schema_mod.flag('--embed-url', value='<url>',
-                    summary='Teams/Stream player page URL (needs cached or explicit --region)'),
     schema_mod.flag('--region', value='<host>',
-                    summary='Media region host for --embed-url, e.g. switzerlandwest1-mediap.svc.ms'),
+                    summary='Media region host (overrides the cache), e.g. switzerlandwest1-mediap.svc.ms'),
 ]
 
 _INFO_FLAGS = _SOURCE_FLAGS + [

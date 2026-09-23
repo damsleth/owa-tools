@@ -37,18 +37,6 @@ def _docid_base(docid):
     return base + "?version=Published"
 
 
-def _resolve(manifest_url, embed_url, source_url, region_override, config, debug):
-    """Dispatch on the source kind. Exactly one of the URLs must be set."""
-    if manifest_url:
-        return resolve_manifest_url(manifest_url, config, debug)
-    if embed_url:
-        return resolve_embed_url(embed_url, config, region_override, debug)
-    if source_url:
-        return resolve_url(source_url, config, region_override, debug)
-    raise UsageError('need a source: paste a recording URL '
-                     '(or use --manifest-url / --embed-url)')
-
-
 def resolve_url(url, config, region_override, debug):
     """Auto-detect a pasted recording URL and route to the right resolver.
 
@@ -84,7 +72,7 @@ def _share_target(url):
 
 
 def resolve_manifest_url(manifest_url, config, debug):
-    """--manifest-url: parse region/docid/ctag straight out of the URL."""
+    """videomanifest URL: parse region/docid/ctag straight out of the URL."""
     q = parse_qs(urlsplit(manifest_url).query, keep_blank_values=True)
     region = urlsplit(manifest_url).netloc
     docid_raw = unquote((q.get("docid") or q.get("docId") or [""])[0])
@@ -124,7 +112,7 @@ def _fetch_title(job, config, debug):
 
 
 def resolve_embed_url(embed_url, config, region_override, debug):
-    """--embed-url: GetFileById(uniqueId) -> webUrl -> Graph /shares -> ids+cTag."""
+    """Embed page URL: GetFileById(uniqueId) -> webUrl -> Graph /shares -> ids+cTag."""
     sp = urlsplit(embed_url)
     spo_host = sp.netloc
     q = parse_qs(sp.query)
