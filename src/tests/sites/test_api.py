@@ -115,3 +115,8 @@ def test_paginate_sp_auth_reraises(monkeypatch):
     monkeypatch.setattr(api_mod.http, 'request', boom)
     with pytest.raises(errors.AuthExpiredError):
         api_mod.paginate_sp('https://h', 'sites/x/_api/web/lists', 'tok')
+
+
+def test_paginate_sp_empty_body_is_no_rows(monkeypatch):
+    monkeypatch.setattr(api_mod.http, 'request', lambda method, url, **k: _resp({}))
+    assert api_mod.paginate_sp('https://h', 'sites/x/_api/web/lists', 'tok') == []
