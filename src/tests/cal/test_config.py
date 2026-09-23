@@ -1,11 +1,11 @@
 """Tests for config file I/O."""
 import stat
 
+from owa_cal import config as config_mod
 from owa_cal.config import (
     ALLOWED_KEYS,
     config_set,
     load_config,
-    save_config,
 )
 from owa_core import config as core_config
 
@@ -39,20 +39,20 @@ def test_load_config_missing_file(tmp_config, clean_env):
 
 
 def test_save_and_load_roundtrip(tmp_config, clean_env):
-    save_config({'owa_piggy_profile': 'work', 'default_timezone': 'Europe/Oslo'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work', 'default_timezone': 'Europe/Oslo'})
     cfg = load_config()
     assert cfg['owa_piggy_profile'] == 'work'
     assert cfg['default_timezone'] == 'Europe/Oslo'
 
 
 def test_save_sets_0600(tmp_config, clean_env):
-    save_config({'owa_piggy_profile': 'work', 'default_timezone': 'Europe/Oslo'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work', 'default_timezone': 'Europe/Oslo'})
     mode = stat.S_IMODE(tmp_config.stat().st_mode)
     assert mode == 0o600
 
 
 def test_env_overrides_file_default_timezone(tmp_config, monkeypatch, clean_env):
-    save_config({'default_timezone': 'from-file'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'default_timezone': 'from-file'})
     monkeypatch.setenv('OWA_CAL_DEFAULT_TIMEZONE', 'from-env')
     cfg = load_config()
     # Env override applies if owa-cal honours that variable; otherwise
@@ -64,14 +64,14 @@ def test_env_overrides_file_default_timezone(tmp_config, monkeypatch, clean_env)
 def test_profile_env_does_not_override(tmp_config, monkeypatch, clean_env):
     # On the owa-piggy path the refresh token lives in owa-piggy's
     # profile store; owa-cal only stores the profile alias.
-    save_config({'owa_piggy_profile': 'from-file'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'from-file'})
     monkeypatch.setenv('OWA_PROFILE', 'from-env')
     cfg = load_config()
     assert cfg['owa_piggy_profile'] == 'from-file'
 
 
 def test_owa_piggy_profile_roundtrip(tmp_config, clean_env):
-    save_config({'owa_piggy_profile': 'work'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
     cfg = load_config()
     assert cfg['owa_piggy_profile'] == 'work'
 
@@ -82,7 +82,7 @@ def test_parse_kv_stream_preserves_profile_key():
 
 
 def test_config_set_preserves_other_keys(tmp_config, clean_env):
-    save_config({'owa_piggy_profile': 'work', 'default_timezone': 'Europe/Oslo'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work', 'default_timezone': 'Europe/Oslo'})
     config_set('owa_piggy_profile', 'home')
     cfg = load_config()
     assert cfg['owa_piggy_profile'] == 'home'
@@ -96,6 +96,6 @@ def test_config_set_rejects_unknown_key(tmp_config, clean_env):
 
 
 def test_save_atomic_no_stray_tmpfile(tmp_config, clean_env):
-    save_config({'owa_piggy_profile': 'work', 'default_timezone': 'Europe/Oslo'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work', 'default_timezone': 'Europe/Oslo'})
     siblings = list(tmp_config.parent.iterdir())
     assert [p.name for p in siblings] == [tmp_config.name]

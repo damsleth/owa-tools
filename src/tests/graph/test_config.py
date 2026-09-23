@@ -49,7 +49,7 @@ def test_load_config_reads_file(tmp_config):
 
 
 def test_save_config_writes_atomically_with_0600(tmp_config):
-    config_mod.save_config({'owa_piggy_profile': 'work'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
     assert tmp_config.exists()
     content = tmp_config.read_text()
     assert 'owa_piggy_profile="work"' in content
@@ -64,7 +64,7 @@ def test_save_config_preserves_existing_lines(tmp_config):
         'default_audience="graph"\n'
         'unknown_key="kept"\n'
     )
-    config_mod.save_config({'owa_piggy_profile': 'new'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'new'})
     content = tmp_config.read_text()
     assert '# pinned comment' in content
     assert 'unknown_key="kept"' in content
@@ -74,7 +74,7 @@ def test_save_config_preserves_existing_lines(tmp_config):
 def test_save_config_overwrites_existing_key_in_place(tmp_config):
     tmp_config.parent.mkdir(parents=True, exist_ok=True)
     tmp_config.write_text('default_audience="graph"\n')
-    config_mod.save_config({'default_audience': 'outlook'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'default_audience': 'outlook'})
     assert 'default_audience="outlook"' in tmp_config.read_text()
     assert 'graph' not in tmp_config.read_text()
 
@@ -94,5 +94,5 @@ def test_config_set_persists_value(tmp_config):
 
 def test_save_config_creates_parent_dir(tmp_config):
     assert not tmp_config.parent.exists()
-    config_mod.save_config({'owa_piggy_profile': 'x'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'x'})
     assert tmp_config.parent.exists()

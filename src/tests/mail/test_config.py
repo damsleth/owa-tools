@@ -4,11 +4,11 @@ import stat
 import pytest
 
 from owa_core import config as core_config
+from owa_mail import config as config_mod
 from owa_mail.config import (
     ALLOWED_KEYS,
     config_set,
     load_config,
-    save_config,
 )
 
 
@@ -39,19 +39,19 @@ def test_load_config_missing_file(tmp_config, clean_env):
 
 
 def test_save_and_load_roundtrip(tmp_config, clean_env):
-    save_config({'owa_piggy_profile': 'work'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
     cfg = load_config()
     assert cfg['owa_piggy_profile'] == 'work'
 
 
 def test_save_sets_0600(tmp_config, clean_env):
-    save_config({'owa_piggy_profile': 'work'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
     mode = stat.S_IMODE(tmp_config.stat().st_mode)
     assert mode == 0o600
 
 
 def test_owa_piggy_profile_roundtrip(tmp_config, clean_env):
-    save_config({'owa_piggy_profile': 'work'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
     cfg = load_config()
     assert cfg['owa_piggy_profile'] == 'work'
 
@@ -83,6 +83,6 @@ def test_config_set_rejects_unknown_key(tmp_config, clean_env):
 
 
 def test_save_no_stray_files(tmp_config, clean_env):
-    save_config({'owa_piggy_profile': 'work'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
     siblings = list(tmp_config.parent.iterdir())
     assert [p.name for p in siblings] == [tmp_config.name]
