@@ -10,9 +10,10 @@ v1 is read-only. Writes are deferred: Planner PATCH requires the exact
 `@odata.etag` in an `If-Match` header and the etag rotates on every write -
 see AGENTS.md.
 """
-from datetime import datetime, timezone
+from datetime import timezone
 
 from owa_core.format import date_part
+from owa_core.timezones import parse_iso_datetime
 
 # User-facing --status filter values mapped to the status_for() vocabulary.
 STATUS_ALIASES = {
@@ -73,11 +74,8 @@ def _local_date(iso):
     """
     if not iso:
         return ''
-    clean = iso.strip()
-    if clean.endswith('Z'):
-        clean = clean[:-1] + '+00:00'
     try:
-        dt = datetime.fromisoformat(clean)
+        dt = parse_iso_datetime(iso)
     except ValueError:
         return date_part(iso)
     if dt.tzinfo is None:

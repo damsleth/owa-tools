@@ -11,9 +11,10 @@ local time on read; a naive datetime is therefore treated as UTC. Unlike
 owa_cal we do not carry the full Windows-zone table here because To Do
 does not return named Windows zones for these fields - see AGENTS.md.
 """
-from datetime import date, datetime, timezone
+from datetime import date, timezone
 
 from owa_core.format import date_part
+from owa_core.timezones import parse_iso_datetime
 
 # User-facing --status / --importance values mapped to the Outlook REST
 # wire vocabulary (PascalCase). Anything already in the wire form passes
@@ -59,38 +60,17 @@ def normalize_importance(value):
     return IMPORTANCE_ALIASES.get(value.lower(), value)
 
 
-def _parse_outlook_datetime(dt_str):
-    clean = dt_str.strip()
-    if clean.endswith('Z'):
-        clean = clean[:-1] + '+00:00'
-    if '.' in clean:
-        prefix, rest = clean.split('.', 1)
-        digits = []
-        suffix_at = len(rest)
-        for i, ch in enumerate(rest):
-            if ch.isdigit():
-                digits.append(ch)
-            else:
-                suffix_at = i
-                break
-        frac = ''.join(digits)[:6]
-        suffix = rest[suffix_at:]
-        clean = f'{prefix}.{frac}{suffix}' if frac else f'{prefix}{suffix}'
-    return datetime.fromisoformat(clean)
-
-
-def to_local(dt_str, tz_name=''):
+def to_local(dt_str):
     """Convert an Outlook task datetime string to local time.
 
     To Do returns these fields in UTC, so a naive datetime is treated as
     UTC. If the string carries its own offset we trust it. On any parse
     failure the raw string is returned unchanged.
     """
-    del tz_name  # To Do task fields are UTC; tz name is informational only.
     if not dt_str:
         return ''
     try:
-        dt = _parse_outlook_datetime(dt_str)
+        dt = parse_iso_datetime(dt_str)
     except ValueError:
         return dt_str
     if dt.tzinfo is None:
@@ -101,7 +81,7 @@ def to_local(dt_str, tz_name=''):
 def _date_field(field):
     """Local date (YYYY-MM-DD) from a {DateTime, TimeZone} field, or ''."""
     field = field or {}
-    return date_part(to_local(field.get('DateTime') or '', field.get('TimeZone') or ''))
+    return date_part(to_local(field.get('DateTime') or ''))
 
 
 def normalize_folder(folder):
@@ -132,7 +112,7 @@ def normalize_task(task):
         'start': _date_field(task.get('StartDateTime')),
         'completed': _date_field(task.get('CompletedDateTime')),
         'reminder': (
-            to_local(reminder.get('DateTime') or '', reminder.get('TimeZone') or '')
+            to_local(reminder.get('DateTime') or '')
             if task.get('IsReminderOn') else ''
         ),
         'categories': task.get('Categories') or [],

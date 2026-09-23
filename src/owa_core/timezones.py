@@ -1,4 +1,7 @@
-"""Resolve supported Windows timezone names and IANA zones without dependencies."""
+"""Resolve supported Windows timezone names and IANA zones without dependencies,
+and parse Microsoft's ISO-8601 timestamps."""
+import re
+from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .errors import UsageError
@@ -44,3 +47,19 @@ def resolve_timezone(name):
         return ZoneInfo(WINDOWS_TZ_TO_IANA.get(name, name))
     except (ZoneInfoNotFoundError, ValueError, TypeError) as exc:
         raise UsageError(f'unsupported timezone: {name!r}; use a supported Windows or IANA name') from exc
+
+
+_OVERLONG_FRACTION_RE = re.compile(r'(\.\d{6})\d+')
+
+
+def parse_iso_datetime(value):
+    """Parse an ISO-8601 timestamp the way Python 3.10's fromisoformat can.
+
+    Accepts a trailing ``Z`` and the 7-digit fractional seconds Outlook, Graph
+    and chatsvc emit (trimmed to microseconds). Naive input stays naive.
+    Raises ValueError when unparseable.
+    """
+    text = value.strip()
+    if text[-1:] in ('Z', 'z'):
+        text = text[:-1] + '+00:00'
+    return datetime.fromisoformat(_OVERLONG_FRACTION_RE.sub(r'\1', text, count=1))

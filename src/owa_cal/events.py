@@ -8,27 +8,7 @@ owa-piggy auth path.
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from owa_core.timezones import WINDOWS_TZ_TO_IANA
-
-
-def _parse_outlook_datetime(dt_str):
-    clean = dt_str.strip()
-    if clean.endswith('Z'):
-        clean = clean[:-1] + '+00:00'
-    if '.' in clean:
-        prefix, rest = clean.split('.', 1)
-        digits = []
-        suffix_at = len(rest)
-        for i, ch in enumerate(rest):
-            if ch.isdigit():
-                digits.append(ch)
-            else:
-                suffix_at = i
-                break
-        frac = ''.join(digits)[:6]
-        suffix = rest[suffix_at:]
-        clean = f'{prefix}.{frac}{suffix}' if frac else f'{prefix}{suffix}'
-    return datetime.fromisoformat(clean)
+from owa_core.timezones import WINDOWS_TZ_TO_IANA, parse_iso_datetime
 
 
 def _windows_zoneinfo(tz_name):
@@ -53,7 +33,7 @@ def to_local(dt_str, tz_name=''):
     if not dt_str:
         return dt_str
     try:
-        dt = _parse_outlook_datetime(dt_str)
+        dt = parse_iso_datetime(dt_str)
     except ValueError:
         return dt_str
     # Build an aware datetime, then let datetime.astimezone() read the

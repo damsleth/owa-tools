@@ -1,8 +1,7 @@
 """Extra tests for owa_cal.events and owa_cal.ics to raise coverage above 90%.
 
 Targets uncovered paths:
-- events.py: _parse_outlook_datetime (fractional+suffix edge),
-  _windows_zoneinfo (unmapped tz, missing tzdata),
+- events.py: _windows_zoneinfo (unmapped tz, missing tzdata),
   to_local (ValueError branch), _attendee_brief (non-dict input),
   normalize_events_detail, build_patch_json 'end' key
 - ics.py: webcals:// rewrite, _split_params (param without =), _split_property (no colon),
@@ -14,24 +13,6 @@ from zoneinfo import ZoneInfoNotFoundError
 
 from owa_cal import events as ev_mod
 from owa_cal import ics as ics_mod
-
-# ---------------------------------------------------------------------------
-# events._parse_outlook_datetime: fractional seconds without suffix (line 135)
-# ---------------------------------------------------------------------------
-
-def test_parse_outlook_datetime_fractional_no_offset():
-    from owa_cal.events import _parse_outlook_datetime
-    # Fractional seconds, no trailing tz offset: the frac branch with no suffix
-    dt = _parse_outlook_datetime('2026-04-20T09:00:00.123456')
-    assert dt.year == 2026
-    assert dt.microsecond == 123456
-
-
-def test_parse_outlook_datetime_z_suffix():
-    from owa_cal.events import _parse_outlook_datetime
-    dt = _parse_outlook_datetime('2026-04-20T09:00:00Z')
-    assert dt.utcoffset().seconds == 0
-
 
 # ---------------------------------------------------------------------------
 # events._windows_zoneinfo: unmapped tz name (line 141, 143-144)
