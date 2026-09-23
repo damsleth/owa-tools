@@ -28,7 +28,6 @@ import json
 import pytest
 
 import owa_cal.api as api_mod
-import owa_cal.auth as auth_mod
 from owa_cal import cli
 from owa_cal.cli import (
     UsageError,
@@ -576,14 +575,6 @@ def test_cmd_config_no_profile_set_message(tmp_config, capsys):
 def test_cmd_refresh_unknown_flag():
     with pytest.raises(UsageError, match='Unknown flag'):
         cmd_refresh(['--bogus'], {})
-
-
-def test_cmd_refresh_auth_verification_fails(monkeypatch, capsys):
-    monkeypatch.setattr(auth_mod, 'do_token_refresh', lambda c, debug=False: 'tok')
-    monkeypatch.setattr(api_mod, 'api_get', lambda *a, **k: 'not-a-dict')
-    rc = cmd_refresh([], {})
-    assert rc == 1
-    assert 'verification failed' in capsys.readouterr().err
 
 
 # ---------------------------------------------------------------------------

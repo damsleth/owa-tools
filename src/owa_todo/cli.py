@@ -269,8 +269,6 @@ def cmd_list_create(args, config, access_token, api_base):
         'POST', api_base, 'me/taskfolders', access_token,
         body=tasks_mod.build_folder_json(name), debug=debug,
     )
-    if not result:
-        return 1
     print(json.dumps(tasks_mod.normalize_folder(result)))
     return 0
 
@@ -298,8 +296,6 @@ def cmd_list_rename(args, config, access_token, api_base):
         'PATCH', api_base, _folder_path(folder_id), access_token,
         body=tasks_mod.build_folder_json(name), debug=debug,
     )
-    if not result:
-        return 1
     print(json.dumps(tasks_mod.normalize_folder(result)))
     return 0
 
@@ -458,8 +454,6 @@ def cmd_create(args, config, access_token, api_base):
     if endpoint is None:
         return rc
     result = api_mod.api_request('POST', api_base, endpoint, access_token, body=body, debug=debug)
-    if not result:
-        return 1
     print(json.dumps(tasks_mod.normalize_task(result)))
     return 0
 
@@ -507,8 +501,6 @@ def cmd_update(args, config, access_token, api_base):
     tz = config.get('default_timezone') or config_mod.DEFAULT_TIMEZONE
     patch = tasks_mod.build_task_patch(fields, tz)
     result = api_mod.api_request('PATCH', api_base, _task_path(task_id), access_token, body=patch, debug=debug)
-    if not result:
-        return 1
     print(json.dumps(tasks_mod.normalize_task(result)))
     return 0
 
@@ -528,8 +520,6 @@ def cmd_done(args, config, access_token, api_base):
         'PATCH', api_base, _task_path(task_id), access_token,
         body={'Status': 'Completed'}, debug=debug,
     )
-    if not result:
-        return 1
     print(json.dumps(tasks_mod.normalize_task(result)))
     return 0
 
@@ -549,8 +539,6 @@ def cmd_undone(args, config, access_token, api_base):
         'PATCH', api_base, _task_path(task_id), access_token,
         body={'Status': 'NotStarted'}, debug=debug,
     )
-    if not result:
-        return 1
     print(json.dumps(tasks_mod.normalize_task(result)))
     return 0
 
@@ -576,8 +564,6 @@ def cmd_delete(args, config, access_token, api_base):
         except UsageError as error:
             return emit_error(error)
         existing = api_mod.api_get(api_base, _task_path(task_id), access_token, debug=debug)
-        if not existing:
-            return 1
         task = tasks_mod.normalize_task(existing)
         if not tty_mod.confirm(
             f"\033[33mDelete '{task.get('subject','')}'? (y/N): \033[0m"
@@ -635,9 +621,6 @@ def cmd_refresh(args, config):
         'https://outlook.office.com/api/v2.0', 'me', access,
         debug=_debug_enabled(config),
     )
-    if not isinstance(me, dict):
-        _error('Auth verification failed.')
-        return 1
     name = me.get('DisplayName') or me.get('displayName')
     if name:
         _info(f'Authenticated as {name}')

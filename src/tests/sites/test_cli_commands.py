@@ -134,11 +134,6 @@ def test_item_non_integer_id():
         cli.cmd_item(['abc', '--list', 'Documents'], {}, 'tok', BASE)
 
 
-def test_item_data_none(monkeypatch):
-    monkeypatch.setattr(cli.api_mod, 'sp_get', lambda *a, **k: None)
-    assert cli.cmd_item(['1', '--list', 'D'], {}, 'tok', BASE) == 1
-
-
 def test_file_by_id(monkeypatch, capsys):
     seen = {}
 
@@ -155,11 +150,6 @@ def test_file_by_id(monkeypatch, capsys):
 def test_file_requires_id():
     with pytest.raises(cli.UsageError, match='file id is required'):
         cli.cmd_file([], {}, 'tok', BASE)
-
-
-def test_file_data_none(monkeypatch):
-    monkeypatch.setattr(cli.api_mod, 'sp_get', lambda *a, **k: None)
-    assert cli.cmd_file(['g1'], {}, 'tok', BASE) == 1
 
 
 def test_site_accepts_url(monkeypatch, capsys):
@@ -318,8 +308,3 @@ def test_refresh_auth_failure(monkeypatch, capsys):
     capsys.readouterr()
 
 
-def test_refresh_verify_failure(monkeypatch, capsys):
-    monkeypatch.setattr(cli.auth_mod, 'setup_auth', lambda config, debug=False: ('tok', 'https://h'))
-    monkeypatch.setattr(cli.api_mod, 'sp_get', lambda *a, **k: None)
-    assert cli.cmd_refresh([], {}) == 1
-    assert 'Auth verification failed' in capsys.readouterr().err

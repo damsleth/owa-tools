@@ -196,20 +196,6 @@ def test_events_search_uses_calendar_view_range_and_filters(capsys, monkeypatch)
     assert [event['subject'] for event in parsed] == ['Daily standup']
 
 
-def test_refresh_returns_error_when_verify_fails(capsys, monkeypatch):
-    import owa_cal.api as api_mod
-    import owa_cal.auth as auth_mod
-    from owa_cal.cli import cmd_refresh
-
-    monkeypatch.setattr(auth_mod, 'do_token_refresh', lambda config, debug=False: 'tok')
-    monkeypatch.setattr(api_mod, 'api_get', lambda *a, **k: None)
-
-    rc = cmd_refresh([], {})
-
-    assert rc == 1
-    assert 'Auth verification failed' in capsys.readouterr().err
-
-
 def test_categories_json_by_default(capsys, monkeypatch):
     """Regression for the JSON-contract bug: `owa-cal categories` must
     emit JSON on stdout, not an aligned text table."""

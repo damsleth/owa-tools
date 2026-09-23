@@ -871,9 +871,6 @@ def cmd_refresh(args, config):
         'https://outlook.office.com/api/v2.0', 'me', access,
         debug=_debug_enabled(config),
     )
-    if not isinstance(me, dict):
-        _error('Auth verification failed.')
-        return 1
     name = me.get('DisplayName') or me.get('displayName')
     if name:
         _info(f'Authenticated as {name}')
