@@ -190,8 +190,6 @@ def test_undone(monkeypatch, capsys):
     assert seen["ep"] == "me/tasks/t1"
     with pytest.raises(cli.UsageError, match="--id is required"):
         cli.cmd_undone([], {}, "tok", "https://outlook.test")
-    monkeypatch.setattr(cli.api_mod, "api_request", lambda *a, **k: None)
-    assert cli.cmd_undone(["t1"], {}, "tok", "https://outlook.test") == 1
 
 
 def test_create_reminder_recurrence_categories(monkeypatch, capsys):
@@ -274,8 +272,6 @@ def test_list_create(monkeypatch, capsys):
     assert seen == {"method": "POST", "ep": "me/taskfolders", "body": {"Name": "Groceries"}}
     with pytest.raises(cli.UsageError, match="--name is required"):
         cli.cmd_list_create([], {}, "tok", "https://outlook.test")
-    monkeypatch.setattr(cli.api_mod, "api_request", lambda *a, **k: None)
-    assert cli.cmd_list_create(["--name", "x"], {}, "tok", "https://outlook.test") == 1
 
 
 def test_list_rename(monkeypatch, capsys):

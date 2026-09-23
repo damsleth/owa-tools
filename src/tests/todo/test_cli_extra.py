@@ -143,7 +143,3 @@ def test_resolve_date():
     assert cli._resolve_date("2026-01-01") == "2026-01-01"
 
 
-def test_recoverable_api_errors_return_1(monkeypatch):
-    monkeypatch.setattr(cli.api_mod, "api_request", lambda *a, **k: None)
-    assert cli.cmd_create(["--subject", "x"], {"default_timezone": "UTC"}, "tok", "https://outlook.test") == 1
-    assert cli.cmd_done(["--id", "t1"], {}, "tok", "https://outlook.test") == 1

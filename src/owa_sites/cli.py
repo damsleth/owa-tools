@@ -267,8 +267,6 @@ def cmd_item(args, config, access_token, base):
     debug = _debug_enabled(config)
     endpoint = sites_mod.list_item_endpoint(site, list_title, item_id, select=select, expand=expand)
     data = api_mod.sp_get(base, endpoint, access_token, debug=debug)
-    if not isinstance(data, dict):
-        return 1
     item = sites_mod.normalize_item(data)
     print(format_items_pretty([item]) if pretty else json.dumps(item))
     return 0
@@ -294,8 +292,6 @@ def cmd_file(args, config, access_token, base):
     debug = _debug_enabled(config)
     endpoint = sites_mod.file_by_id_endpoint(site, unique_id)
     data = api_mod.sp_get(base, endpoint, access_token, debug=debug)
-    if not isinstance(data, dict):
-        return 1
     f = sites_mod.normalize_file(data)
     print(format_files_pretty([f]) if pretty else json.dumps(f))
     return 0
@@ -433,9 +429,6 @@ def cmd_refresh(args, config):
     web = api_mod.sp_get(
         base, sites_mod.api_endpoint('', 'web?$select=Title,Url'), access, debug=debug,
     )
-    if not isinstance(web, dict):
-        _error('Auth verification failed.')
-        return 1
     if web.get('Title'):
         _info(f"Connected to {base} (root web: {web['Title']})")
     return 0
