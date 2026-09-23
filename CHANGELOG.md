@@ -8,6 +8,13 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-mail
+
+- `messages` / `read` `--since` and `--until` accept the same day forms as
+  `owa-cal --date` (`YYYY-MM-DD`, `today`/`yesterday`/`tomorrow`, `+n`/`-n`,
+  weekday names) and reject anything else with a usage error that names the
+  flag. An empty value still means no filter.
+
 ### owa-graph
 
 - Unknown flags on `refresh`, `config` and raw requests now exit `2`

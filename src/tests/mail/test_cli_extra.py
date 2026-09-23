@@ -178,6 +178,21 @@ def test_read_with_all_filters(monkeypatch, capsys):
     assert 'Hello' in capsys.readouterr().out
 
 
+def test_messages_empty_since_until_means_no_filter(monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        cli.api_mod, 'api_get', lambda base, endpoint, *a, **k: seen.append(endpoint) or {'value': []},
+    )
+    assert cli.cmd_messages(['--since', '', '--until', ''], {}, 'tok', 'https://outlook.test') == 0
+    assert '%24filter' not in seen[0] and '$filter' not in seen[0]
+
+
+@pytest.mark.parametrize('flag', ['--since', '--until'])
+def test_bad_since_until_names_the_flag(flag):
+    with pytest.raises(cli.UsageError, match=f'^{flag}: expected'):
+        cli.cmd_messages([flag, 'someday'], {}, 'tok', 'https://outlook.test')
+
+
 # ---------------------------------------------------------------------------
 # cmd_attachment_get: write failure (lines 518-519)
 # ---------------------------------------------------------------------------

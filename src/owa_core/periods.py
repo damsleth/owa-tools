@@ -170,8 +170,9 @@ def _split_weekday(v):
     return wd, weeks
 
 
-def resolve_day(value, *, today=None):
-    """Resolve a ``--date`` value to a ``YYYY-MM-DD`` string."""
+def resolve_day(value, *, today=None, flag='--date'):
+    """Resolve a ``--date`` value to a ``YYYY-MM-DD`` string. ``flag`` names
+    the option in the usage error."""
     base = _today(today)
     v = _norm(value)
     if v in ('', 'today'):
@@ -191,7 +192,7 @@ def resolve_day(value, *, today=None):
         return datetime.strptime(v, '%Y-%m-%d').date().isoformat()
     except ValueError:
         raise UsageError(
-            f'--date: expected YYYY-MM-DD, today/tomorrow/yesterday, a signed '
+            f'{flag}: expected YYYY-MM-DD, today/tomorrow/yesterday, a signed '
             f'day offset (+1/-3), or a weekday name (monday[, monday+1]); '
             f'got {value!r}'
         )

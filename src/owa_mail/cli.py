@@ -123,8 +123,10 @@ messages options:
   --category <name>    Only messages tagged with this category
   --has-attachments    Only messages with attachments
   --importance <level> Only messages of importance low|normal|high
-  --since <date>       ReceivedDateTime >= date (YYYY-MM-DD or today/yesterday)
-  --until <date>       ReceivedDateTime <= date
+  --since <date>       ReceivedDateTime >= date. <date> is YYYY-MM-DD,
+                       today/yesterday/tomorrow, a day offset (+1/-3),
+                       or a weekday in the current week (monday, monday-1)
+  --until <date>       ReceivedDateTime <= date (same forms as --since)
   --limit <n>          Max results per page (default 25, hard cap 200)
   --skip <n>           OData $skip: skip the first n results
   --orderby <field>    OData $orderby (e.g. "ReceivedDateTime desc")
@@ -144,7 +146,7 @@ read options:
   --subject <text>     Subject substring filter
   --search <kql>       KQL search (mutually exclusive with filters)
                        Aliases: --find, --query
-  --since <date>       ReceivedDateTime >= date
+  --since <date>       ReceivedDateTime >= date (see messages --since)
   --until <date>       ReceivedDateTime <= date
   --pretty             Human-readable header block + body (default: JSON)
 
@@ -296,9 +298,9 @@ def cmd_messages(args, config, access_token, api_base):
         elif flag in ('--search', '--find', '--query'):
             search, args = _require_value(flag, args)
         elif flag == '--since':
-            v, args = _require_value(flag, args); since = resolve_day(v)
+            v, args = _require_value(flag, args); since = resolve_day(v, flag=flag) if v else ''
         elif flag == '--until':
-            v, args = _require_value(flag, args); until = resolve_day(v)
+            v, args = _require_value(flag, args); until = resolve_day(v, flag=flag) if v else ''
         elif flag == '--limit':
             limit, args = _require_int(flag, args)
         elif flag == '--skip':
@@ -448,9 +450,9 @@ def cmd_read(args, config, access_token, api_base):
         elif flag in ('--search', '--find', '--query'):
             search, args = _require_value(flag, args)
         elif flag == '--since':
-            v, args = _require_value(flag, args); since = resolve_day(v)
+            v, args = _require_value(flag, args); since = resolve_day(v, flag=flag) if v else ''
         elif flag == '--until':
-            v, args = _require_value(flag, args); until = resolve_day(v)
+            v, args = _require_value(flag, args); until = resolve_day(v, flag=flag) if v else ''
         elif flag == '--pretty':
             pretty = True
         else:
@@ -1228,8 +1230,8 @@ _MESSAGES_FLAGS = [
     schema_mod.flag('--search', value='<kql>', summary='KQL search (mutually exclusive with filters)'),
     _FIND_FLAG,
     _QUERY_FLAG,
-    schema_mod.flag('--since', value='<date>', summary='ReceivedDateTime >= date'),
-    schema_mod.flag('--until', value='<date>', summary='ReceivedDateTime <= date'),
+    schema_mod.flag('--since', value='<date>', summary='ReceivedDateTime >= date (YYYY-MM-DD, today/yesterday, +n/-n, weekday)'),
+    schema_mod.flag('--until', value='<date>', summary='ReceivedDateTime <= date (YYYY-MM-DD, today/yesterday, +n/-n, weekday)'),
     schema_mod.flag('--limit', value='<n>', summary='Max results per page (default 25, cap 200)'),
     schema_mod.flag('--skip', value='<n>', summary='OData $skip: skip the first n results'),
     schema_mod.flag('--orderby', value='<field>', summary='OData $orderby (e.g. "ReceivedDateTime desc")'),
@@ -1257,8 +1259,8 @@ _READ_FLAGS = [
     schema_mod.flag('--search', value='<kql>', summary='KQL search (mutually exclusive with filters)'),
     _FIND_FLAG,
     _QUERY_FLAG,
-    schema_mod.flag('--since', value='<date>', summary='ReceivedDateTime >= date'),
-    schema_mod.flag('--until', value='<date>', summary='ReceivedDateTime <= date'),
+    schema_mod.flag('--since', value='<date>', summary='ReceivedDateTime >= date (YYYY-MM-DD, today/yesterday, +n/-n, weekday)'),
+    schema_mod.flag('--until', value='<date>', summary='ReceivedDateTime <= date (YYYY-MM-DD, today/yesterday, +n/-n, weekday)'),
     schema_mod.flag('--pretty', summary='Human-readable header block + body (default: JSON)'),
 ]
 
