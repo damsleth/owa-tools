@@ -64,8 +64,8 @@ def find_free_port():
         return sock.getsockname()[1]
 
 
-def launch_edge(edge_dir, port, *, headless, url, edge_path=None):
-    binary = edge_path or find_edge()
+def launch_edge(edge_dir, port, *, headless, url):
+    binary = find_edge()
     if not binary:
         raise UsageError("Microsoft Edge not found", remediation="Install Microsoft Edge")
     args = [
@@ -112,7 +112,7 @@ def _evaluate_identity(session):
     return response.get("result", {}).get("value") or {}
 
 
-def capture(instance="prod", *, visible=False, timeout=45.0, edge_path=None, log=None):
+def capture(instance="prod", *, visible=False, timeout=45.0, log=None):
     """Launch Edge, wait for an authenticated page, and return cookies + g_ck.
 
     Credentials remain in memory. The persistent browser profile is the only
@@ -134,9 +134,7 @@ def capture(instance="prod", *, visible=False, timeout=45.0, edge_path=None, log
         pass
     host = INSTANCE_HOSTS[instance]
     port = find_free_port()
-    process = launch_edge(
-        str(directory), port, headless=not visible, url=f"https://{host}/tcp", edge_path=edge_path
-    )
+    process = launch_edge(str(directory), port, headless=not visible, url=f"https://{host}/tcp")
     cdp = None
     started = time.monotonic()
     try:
