@@ -46,40 +46,6 @@ def _debug_enabled(config):
     return bool(config.get('debug')) or os.environ.get('MAIL_DEBUG') == '1'
 
 
-def _split_globals(argv):
-    """Pull --debug/--verbose and --profile out of argv.
-
-    --profile is consumed as a global override unless it appears after the
-    `config` subcommand (where `config --profile <alias>` is the subcommand's
-    own flag for setting the persisted profile).
-
-    Returns (debug, profile, remaining, error). `error` is None on success
-    or a string describing a malformed flag.
-    """
-    debug = False
-    profile = ''
-    seen_cmd = ''
-    out = []
-    i = 0
-    while i < len(argv):
-        a = argv[i]
-        if a in ('--debug', '--verbose'):
-            debug = True
-            i += 1
-            continue
-        if a == '--profile' and seen_cmd != 'config':
-            if i + 1 >= len(argv):
-                return debug, profile, out, '--profile requires a value'
-            profile = argv[i + 1]
-            i += 2
-            continue
-        if not seen_cmd and not a.startswith('-'):
-            seen_cmd = a
-        out.append(a)
-        i += 1
-    return debug, profile, out, None
-
-
 def print_help():
     print("""owa-mail - Mail CLI for Outlook / Microsoft 365
 
@@ -1398,9 +1364,7 @@ def _main(argv):
         print(f'owa-mail {__version__}')
         return 0
 
-    debug_flag, profile_override, argv, err = _split_globals(argv)
-    if err:
-        raise UsageError(err)
+    argv, debug_flag, profile_override = mode_mod.strip_global_flags(argv)
 
     if not argv:
         print_help()
