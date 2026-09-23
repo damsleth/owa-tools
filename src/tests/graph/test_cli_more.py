@@ -211,7 +211,7 @@ def test_refresh_me_probe_failure_returns_1(monkeypatch, loaded_config, capsys):
 
 def test_refresh_rejects_extra_args(monkeypatch, loaded_config, capsys):
     rc = _run(monkeypatch, 'refresh', '--bogus')
-    assert rc == 1
+    assert rc == 2
     assert 'Unknown flag' in capsys.readouterr().err
 
 
@@ -274,7 +274,7 @@ def test_config_writes_profile_and_audience(monkeypatch, loaded_config, capsys):
 
 def test_config_unknown_flag(monkeypatch, loaded_config, capsys):
     rc = _run(monkeypatch, 'config', '--bogus')
-    assert rc == 1
+    assert rc == 2
     assert 'Unknown flag' in capsys.readouterr().err
 
 
@@ -282,7 +282,7 @@ def test_config_rejects_app_client_id(monkeypatch, loaded_config, capsys):
     """--app-client-id was removed from cmd_config; verify it is rejected
     and that the help text no longer advertises it."""
     rc = _run(monkeypatch, 'config', '--app-client-id', 'deadbeef')
-    assert rc == 1
+    assert rc == 2
     assert 'Unknown flag' in capsys.readouterr().err
 
 

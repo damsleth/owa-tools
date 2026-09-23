@@ -396,7 +396,7 @@ def cmd_request(method, path, args, config):
         elif flag == '--include-token':
             include_token = True
         else:
-            _error(f'Unknown flag: {flag}'); return 1
+            raise UsageError(f'Unknown flag: {flag}')
 
     if all_pages and raw:
         _error('--all and --raw are incompatible (collection vs single binary)')
@@ -661,7 +661,7 @@ def cmd_batch(args, config):
 
 def cmd_refresh(args, config):
     if args:
-        _error(f'Unknown flag: {args[0]}'); return 1
+        raise UsageError(f'Unknown flag: {args[0]}')
     _info('Refreshing token...')
     debug = _debug_enabled(config)
     audience = config.get('default_audience') or 'graph'
@@ -695,7 +695,7 @@ def cmd_config(args, config):
         elif flag == '--audience':
             audience, args = _require_value(flag, args)
         else:
-            _error(f'Unknown flag: {flag}'); return 1
+            raise UsageError(f'Unknown flag: {flag}')
 
     wrote = False
     if profile:
