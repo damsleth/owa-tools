@@ -14,11 +14,10 @@ Graph response shape (one element per scheduleId):
       "workingHours": {...}
     }
 """
-import re
 from datetime import datetime, time
 
 from owa_core.errors import ConflictError, UsageError
-from owa_core.timezones import resolve_timezone
+from owa_core.timezones import parse_iso_datetime, resolve_timezone
 
 from .dates import overlaps, slots_in_window
 
@@ -127,8 +126,7 @@ def _slot_within_working_hours(slot, working_hours_list, window_zone):
 
 
 def _busy_datetime(value, source_zone, window_zone):
-    # Graph emits 7-digit fractions; fromisoformat on 3.10 takes at most 6.
-    parsed = datetime.fromisoformat(re.sub(r'(\.\d{6})\d+', r'\1', value.replace('Z', '+00:00')))
+    parsed = parse_iso_datetime(value)
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=_working_zone(source_zone, window_zone))
     return parsed.astimezone(window_zone).replace(tzinfo=None)

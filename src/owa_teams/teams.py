@@ -24,6 +24,8 @@ import re
 import urllib.parse
 import uuid
 
+from owa_core.timezones import parse_iso_datetime
+
 # --- HTML body stripping ------------------------------------------------------
 # Teams message bodies are RichText/Html. Unwrap @-mentions to their text,
 # drop attachment placeholders, strip remaining tags, unescape entities, and
@@ -36,8 +38,7 @@ _WS_RE = re.compile(r'[ \t]+')
 # A chatsvc `from` is a URL like `.../contacts/8:orgid:<oid>`; `8:orgid:` is a
 # tenant user, `28:`/`48:` are bots/apps. We pull the bare MRI out.
 _FROM_MRI_RE = re.compile(r'/contacts/([0-9]+:[^/?#]+)')
-# chatsvc may emit 7-digit fractional seconds; datetime.fromisoformat chokes
-# pre-3.11, so downstream consumers trim - we just hand back the raw string.
+# chatsvc may emit 7-digit fractional seconds; parse_iso() trims them.
 
 
 def strip_html(text):
@@ -55,11 +56,6 @@ def _q(value):
     return urllib.parse.quote(str(value), safe='')
 
 
-# A trailing fractional-second run longer than microseconds (chatsvc emits 7
-# digits) is what trips datetime.fromisoformat; trim it back to 6.
-_OVERLONG_FRACTION_RE = re.compile(r'^(.*\.\d{6})\d+(.*)$')
-
-
 def parse_iso(value):
     """Parse an ISO-8601 timestamp into an aware UTC datetime, or None.
 
@@ -73,13 +69,8 @@ def parse_iso(value):
     text = str(value).strip()
     if not text:
         return None
-    if text.endswith(('Z', 'z')):
-        text = text[:-1] + '+00:00'
-    match = _OVERLONG_FRACTION_RE.match(text)
-    if match:
-        text = match.group(1) + match.group(2)
     try:
-        parsed = _dt.datetime.fromisoformat(text)
+        parsed = parse_iso_datetime(text)
     except ValueError:
         return None
     if parsed.tzinfo is None:
