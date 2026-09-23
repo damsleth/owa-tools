@@ -33,16 +33,7 @@ def _stub_config_and_auth(monkeypatch):
     monkeypatch.setattr(cli.auth_mod, "setup_auth", lambda config, debug=False: ("tok", "https://outlook.test"))
 
 
-def test_main_schema_globals_and_split(capsys, monkeypatch):
-    assert cli._split_globals(["--debug", "--profile", "work", "messages"]) == (
-        True,
-        "work",
-        ["messages"],
-        None,
-    )
-    assert cli._split_globals(["config", "--profile", "work"])[2] == ["config", "--profile", "work"]
-    assert cli._split_globals(["--profile"])[3] == "--profile requires a value"
-
+def test_main_schema(capsys, monkeypatch):
     assert cli._main(["schema"]) == 0
     assert json.loads(capsys.readouterr().out)["tool"] == "owa-mail"
 

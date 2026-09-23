@@ -1,6 +1,8 @@
 import json
 import os
 
+import pytest
+
 from owa_core import modes
 from owa_core.errors import AuthExpiredError, UsageError, emit_error
 
@@ -661,3 +663,15 @@ def test_all_meta_logs_skipped_profiles_under_debug(monkeypatch, capsys):
     err = capsys.readouterr().err
     assert "skip profile 'ado'" in err
     assert 'lacks required scopes' in err
+
+
+def test_strip_global_flags():
+    assert modes.strip_global_flags(['--debug', '--profile', 'work', 'messages']) == (
+        ['messages'], True, 'work',
+    )
+    # `config --profile` is the subcommand's own flag; a leading one is global.
+    assert modes.strip_global_flags(['--profile', 'a', 'config', '--profile', 'b']) == (
+        ['config', '--profile', 'b'], False, 'a',
+    )
+    with pytest.raises(UsageError, match='--profile requires a value'):
+        modes.strip_global_flags(['--profile'])
