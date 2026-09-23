@@ -8,6 +8,11 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-graph
+
+- Unknown flags on `refresh`, `config` and raw requests now exit `2`
+  (usage error) like every other tool, instead of `1`.
+
 ## v1.6.0 - 2026-09-21
 
 ### owa-ado

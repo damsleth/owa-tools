@@ -189,7 +189,7 @@ def test_invalid_body_json_exits(monkeypatch, capsys):
 def test_unknown_flag_returns_error(monkeypatch, capsys):
     rc = _run(monkeypatch, 'GET', '/me', '--bogus')
     err = capsys.readouterr().err
-    assert rc == 1
+    assert rc == 2
     assert 'Unknown flag' in err
 
 
