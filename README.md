@@ -8,9 +8,10 @@ all returning JSON by default.
 [![GitHub release](https://img.shields.io/github/v/release/damsleth/owa-tools.svg)](https://github.com/damsleth/owa-tools/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-No Azure AD app registration. No third-party runtime dependencies. Auth piggybacks
-on the OWA browser session via [`owa-piggy`](https://github.com/damsleth/owa-piggy)
-- separate package, separate token store, never imported.
+No Azure AD app registration. No third-party runtime dependencies beyond the
+auth broker. Auth piggybacks on the OWA browser session via
+[`owa-piggy`](https://github.com/damsleth/owa-piggy) - separate package, separate
+token store, installed as a dependency, never imported.
 
 Every `owa-*` binary shares one CLI contract - the same output classes, exit
 codes, and JSON envelopes - so they behave consistently and compose cleanly in
@@ -21,13 +22,13 @@ scripts and pipelines.
 Homebrew (recommended):
 
 ```bash
-brew install damsleth/tap/owa-piggy damsleth/tap/owa-tools
+brew install damsleth/tap/owa-tools
 ```
 
 PyPI:
 
 ```bash
-pipx install owa-piggy && pipx install owa-tools
+pipx install --include-deps owa-tools
 ```
 
 Either path lands sixteen binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
