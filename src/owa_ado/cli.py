@@ -1531,4 +1531,5 @@ def main(argv=None):
         sys.argv[1:] if argv is None else argv,
         _main,
         commands=COMMAND_SCHEMA,
+        service='ado',
     )

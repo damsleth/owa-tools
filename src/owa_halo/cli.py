@@ -34,7 +34,7 @@ Options:
   --all              Include Halo system actions (ticket)
   --out <dir>        Download attachments and inline images into <dir>
   --pretty           Human-readable output
-  --profile <alias>  owa-piggy Halo profile (default: the only Halo profile)
+  --profile <alias>  owa-piggy profile with Halo (default: the default or only one)
 """)
 
 
@@ -193,5 +193,5 @@ def main(argv=None):
         sys.argv[1:] if argv is None else argv,
         _main,
         commands=COMMAND_SCHEMA,
-        profile_types=(auth_mod.PROFILE_TYPE,),
+        service=auth_mod.SERVICE,
     )
