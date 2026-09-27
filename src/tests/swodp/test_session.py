@@ -138,3 +138,33 @@ def test_capture_rejects_empty_cookies(tmp_path, monkeypatch):
     monkeypatch.setattr(session, "CdpSession", NoCookies)
     with pytest.raises(AuthExpiredError, match="no session cookies"):
         session.capture("prod")
+
+
+def test_prod_uses_the_broker_sidecar_that_declares_swodp(tmp_path, monkeypatch):
+    from owa_core.auth import BrokerProfile
+
+    monkeypatch.delenv("OWA_SWODP_CONFIG_DIR", raising=False)
+    sidecar = tmp_path / "swon" / "edge-profile"
+    rows = [
+        BrokerProfile("nc", False, True, True),
+        BrokerProfile("swon", True, True, True, services=("owa", "swodp"), edge_dir=str(sidecar)),
+    ]
+    monkeypatch.setattr(session, "get_profiles", lambda **kw: rows)
+    assert session.profile_dir("prod") == sidecar
+    # UAT never shares: it is a separate instance with its own sign-in.
+    assert session.profile_dir("uat").name == "edge-profile-uat"
+    monkeypatch.setattr(session, "get_profiles", lambda **kw: rows[:1])
+    assert session.profile_dir("prod").name == "edge-profile"
+
+
+def test_sidecar_lock_is_the_brokers_flock(tmp_path):
+    import fcntl
+    import os
+
+    with session.sidecar_lock(tmp_path):
+        fd = os.open(tmp_path / ".owa-lock", os.O_RDWR)
+        try:
+            with pytest.raises(OSError):
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        finally:
+            os.close(fd)

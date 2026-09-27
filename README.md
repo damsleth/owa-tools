@@ -79,7 +79,7 @@ passed straight through.
 | `owa-teams` | Microsoft Teams (read-only): joined teams, channels, chats, and channel/chat messages (threaded). |
 | `owa-vids` | Download Teams / OneDrive meeting-recap DASH streams and mux to MP4 (token-only, via ffmpeg). |
 | `owa-ado` | Azure DevOps: work items (WIQL), boards/sprints, repos & pull requests, pipelines & runs, library variable groups, task/deployment groups, environments & releases. Auth via `owa-piggy --audience devops`. |
-| `owa-swodp` | SWODP ServiceNow timesheets: dedicated Edge sidecar auth, reads, validated Pending-only writes, prod/UAT isolation. |
+| `owa-swodp` | SWODP ServiceNow timesheets: Edge sidecar auth (the owa-piggy profile with `swodp`), reads, validated Pending-only writes, prod/UAT isolation. |
 | `owa-halo` | HaloITSM (read-only): ticket, status, metadata, actions/comments, attachments and inline screenshots. Auth via the `halo` service on an owa-piggy profile (`clients add halo=<url>`). |
 | `owa` | Umbrella: suite meta (`owa list`, `owa schema`, `owa version`, `owa --doctor`) plus `owa <tool> ...` pass-through dispatch (e.g. `owa cal events`). |
 
@@ -90,8 +90,9 @@ mail reader, Graph explorer), see
 ## Multi-account / profiles
 
 Microsoft 365 and Azure DevOps tools delegate auth to `owa-piggy` and inherit
-its profile model. `owa-swodp` is the exception: it uses dedicated ServiceNow
-Edge profiles selected with `--instance prod|uat`. For broker-backed tools, pin a
+its profile model. `owa-swodp` is the exception: it reads ServiceNow cookies
+from an Edge sidecar (prod: the owa-piggy profile with `swodp`), selected with
+`--instance prod|uat`. For broker-backed tools, pin a
 profile for a tool, switch per call, or set it via env:
 
 ```bash

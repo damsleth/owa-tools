@@ -30,7 +30,7 @@ def print_help():
 Usage: owa-swodp <command> [options]
 
 Session commands:
-  status       Verify the dedicated Edge sidecar and Table API session.
+  status       Verify the Edge sidecar and Table API session.
   setup        Open visible Edge for one-time/recovery sign-in.
   reseed       Verify a silent headless sign-in using the existing profile.
 

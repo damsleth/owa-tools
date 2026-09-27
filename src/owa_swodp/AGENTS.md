@@ -1,9 +1,17 @@
 # AGENTS.md
 
-`owa_swodp` owns ServiceNow SWODP timesheet access through a dedicated Edge
-sidecar profile. It does not use or import `owa-piggy`.
+`owa_swodp` owns ServiceNow SWODP timesheet access through an Edge sidecar
+profile. It never imports `owa_piggy`; it only reads `owa-piggy profiles
+--json`.
 
-- Prod and UAT use separate profile directories.
+- Prod runs in the owa-piggy sidecar (`edge_dir`) of the one profile whose
+  `services` include `swodp` (swon: `OWA_SERVICES="owa,swodp"`), so the
+  account has a single Entra sign-in. With no such profile, or with
+  `OWA_SWODP_CONFIG_DIR` set, prod uses `~/.config/owa-swodp/edge-profile`.
+  UAT always has its own directory.
+- Every Edge run holds `<dir>/.owa-lock` (exclusive flock, waited for) from
+  launch to exit: the broker's lock. Without it a reseed and an owa-swodp
+  call on one dir singleton-forward into each other.
 - Cookies and `window.g_ck` stay in memory and must never be printed or written.
 - `time_card` failures are fatal; `resource_allocation` 403s degrade gracefully.
 - Only Pending cards may be changed. Description creation is POST without
