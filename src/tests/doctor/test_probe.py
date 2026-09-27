@@ -42,6 +42,15 @@ def test_list_piggy_profiles_parses_default_marker(monkeypatch):
     assert default == 'globex'
 
 
+def test_list_piggy_profiles_skips_non_aad_profiles(monkeypatch):
+    monkeypatch.setattr(probe_mod.core_auth, 'get_profiles', lambda **kwargs: [
+        BrokerProfile('acme', default=True, registered=True, has_config=True),
+        BrokerProfile('acme-g', default=False, registered=False, has_config=True, type='google'),
+        BrokerProfile('acme-halo', default=False, registered=True, has_config=True, type='halo'),
+    ])
+    assert probe_mod.list_piggy_profiles() == (['acme'], 'acme')
+
+
 def test_list_piggy_profiles_no_piggy(monkeypatch):
     def _raise(**kwargs):
         raise AuthExpiredError('owa-piggy not found')

@@ -44,6 +44,9 @@ class BrokerProfile:
     default: bool
     registered: bool
     has_config: bool
+    # Broker classification: 'm365', 'ado', 'google' or 'halo'. Older
+    # brokers omit it; every profile they know is AAD.
+    type: str = 'm365'
 
 
 def parse_version(s):
@@ -219,6 +222,7 @@ def get_profiles(*, tool_name, debug=False):
             default=bool(row.get('default')),
             registered=bool(row.get('registered')),
             has_config=bool(row.get('has_config')),
+            type=row.get('type') if isinstance(row.get('type'), str) else 'm365',
         ))
     return profiles
 

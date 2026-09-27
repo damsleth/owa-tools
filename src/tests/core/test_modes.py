@@ -432,6 +432,7 @@ def _patch_profiles(monkeypatch, rows):
             default=r.get('default', False),
             registered=r.get('registered', True),
             has_config=r.get('has_config', True),
+            type=r.get('type', 'm365'),
         )
         for r in rows
     ]
@@ -675,3 +676,34 @@ def test_strip_global_flags():
     )
     with pytest.raises(UsageError, match='--profile requires a value'):
         modes.strip_global_flags(['--profile'])
+
+
+def test_all_meta_profile_skips_non_aad_types_by_default(monkeypatch, capsys):
+    _patch_profiles(monkeypatch, [
+        {'alias': 'a'}, {'alias': 'g', 'type': 'google'}, {'alias': 'h', 'type': 'halo'},
+    ])
+    seen = []
+
+    def dispatch(argv):
+        seen.append(argv[argv.index('--profile') + 1])
+        print('{}')
+        return 0
+
+    assert modes.run_with_output_modes('owa-mail', ['-A', 'messages'], dispatch) == 0
+    assert seen == ['a']
+
+
+def test_all_meta_profile_honours_tool_profile_types(monkeypatch, capsys):
+    _patch_profiles(monkeypatch, [{'alias': 'a'}, {'alias': 'h', 'type': 'halo'}])
+    seen = []
+
+    def dispatch(argv):
+        seen.append(argv[argv.index('--profile') + 1])
+        print('{}')
+        return 0
+
+    rc = modes.run_with_output_modes(
+        'owa-halo', ['-A', 'ticket', '1'], dispatch, profile_types=('halo',),
+    )
+    assert rc == 0
+    assert seen == ['h']

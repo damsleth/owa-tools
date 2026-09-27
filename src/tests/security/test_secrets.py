@@ -79,3 +79,15 @@ def test_emit_error_redacts_message_and_hint(capsys):
     assert _jwt() not in err
     assert _refresh() not in err
     assert err.count(REDACTION) == 2
+
+
+def test_redact_capability_urls():
+    text = (
+        '<img src="https://acme.haloitsm.com/api/attachment/image?token=' + 'Q' * 40 + '">'
+        ' https://cdn.test/a.png?Expires=1&Signature=' + 'k' * 40 + '&Key-Pair-Id=K1'
+    )
+    redacted = redact(text)
+    assert 'Q' * 16 not in redacted and 'k' * 16 not in redacted
+    assert redacted.count(REDACTION) == 2
+    assert 'Key-Pair-Id=K1' in redacted
+    assert {f.kind for f in find_secret_shapes(text)} == {'capability_url'}
