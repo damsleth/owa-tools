@@ -6,6 +6,24 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## Unreleased
+
+### owa-halo (new)
+
+- Read-only HaloITSM client: `owa-halo ticket <id|url>` returns the ticket,
+  status name, every non-empty metadata field and all actions/comments;
+  `owa-halo attachments <id|url> [--out DIR]` lists and downloads attachments
+  and inline screenshots. Auth comes from an `owa-piggy setup --halo <host>`
+  profile (needs the owa-piggy Halo provider).
+
+### owa_core
+
+- `--profile all` / `-A` only expands to AAD profiles (`m365`, `ado`) by
+  default, so Google and Halo profiles never receive Microsoft requests.
+  `run_with_output_modes(profile_types=...)` lets a tool pick other types.
+- `redact()` also scrubs capability URLs (Halo inline-image `token=`,
+  CloudFront `Signature=`).
+
 ## v1.7.0 - 2026-09-23
 
 ### Packaging

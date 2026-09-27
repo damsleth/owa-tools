@@ -28,6 +28,7 @@ TOOLS = (
     'owa-vids',
     'owa-ado',
     'owa-swodp',
+    'owa-halo',
 )
 
 

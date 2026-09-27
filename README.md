@@ -31,9 +31,9 @@ PyPI:
 pipx install --include-deps owa-tools
 ```
 
-Either path lands sixteen binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
+Either path lands seventeen binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
 `owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-places`, `owa-drive`, `owa-todo`,
-`owa-planner`, `owa-sites`, `owa-teams`, `owa-vids`, `owa-ado`, `owa-swodp`) plus the
+`owa-planner`, `owa-sites`, `owa-teams`, `owa-vids`, `owa-ado`, `owa-swodp`, `owa-halo`) plus the
 `owa-piggy` auth broker.
 
 ## Quickstart
@@ -80,6 +80,7 @@ passed straight through.
 | `owa-vids` | Download Teams / OneDrive meeting-recap DASH streams and mux to MP4 (token-only, via ffmpeg). |
 | `owa-ado` | Azure DevOps: work items (WIQL), boards/sprints, repos & pull requests, pipelines & runs, library variable groups, task/deployment groups, environments & releases. Auth via `owa-piggy --audience devops`. |
 | `owa-swodp` | SWODP ServiceNow timesheets: dedicated Edge sidecar auth, reads, validated Pending-only writes, prod/UAT isolation. |
+| `owa-halo` | HaloITSM (read-only): ticket, status, metadata, actions/comments, attachments and inline screenshots. Auth via an `owa-piggy setup --halo` profile. |
 | `owa` | Umbrella: suite meta (`owa list`, `owa schema`, `owa version`, `owa --doctor`) plus `owa <tool> ...` pass-through dispatch (e.g. `owa cal events`). |
 
 This repo is CLI-only. For interactive TUI frontends (curses agenda browser,
