@@ -123,10 +123,15 @@ def _mode_environment(tool, command, err_json):
                 os.environ[key] = value
 
 
+# Broker profile types that hold AAD tokens: the default `--profile all` set.
+AAD_PROFILE_TYPES = ('m365', 'ado')
+
+
 def run_with_output_modes(
     tool, argv, dispatch, *,
     binary_stdout_commands=(), interactive_commands=(), fan_out_profiles=True,
     audience=None, command_scopes=None, commands=(),
+    profile_types=AAD_PROFILE_TYPES,
 ):
     """Run a legacy CLI dispatcher with shared agent/error modes.
 
@@ -156,6 +161,10 @@ def run_with_output_modes(
     longer produces a permission error per profile. Explicit `--profile X`
     runs are never filtered - they still error, since naming a profile is an
     explicit request to run against it.
+
+    `profile_types` limits what `--profile all` expands to by broker profile
+    type. The default keeps the AAD profiles, so a Google or Halo profile
+    never receives a Graph request; owa-halo passes `('halo',)`.
     """
     # Top-level --doctor surface. Intercept before
     # the legacy dispatcher so every owa-* binary picks it up via the
@@ -175,6 +184,7 @@ def run_with_output_modes(
             try:
                 profiles = _resolve_all_meta_profile(
                     profiles, tool=tool, debug=('--debug' in filtered),
+                    profile_types=profile_types,
                 )
             except OwaError as error:
                 return emit_error(
@@ -263,11 +273,12 @@ def run_with_output_modes(
         return 0
 
 
-def _resolve_all_meta_profile(profiles, *, tool, debug):
+def _resolve_all_meta_profile(profiles, *, tool, debug, profile_types=None):
     """Expand the reserved `all` token into every eligible broker profile.
 
-    Eligible = active (registered with the broker) AND configured. Config-less
-    or inactive profiles are not part of "all". `all` is a reserved name: a real
+    Eligible = active (registered with the broker) AND configured AND, when
+    `profile_types` is given, of one of those types. Config-less or inactive
+    profiles are not part of "all". `all` is a reserved name: a real
     profile aliased `all` is a hard usage error, since it would make the
     meta-profile ambiguous. Other profile values given alongside `all` are kept,
     de-duplicated, in first-seen order.
@@ -280,7 +291,11 @@ def _resolve_all_meta_profile(profiles, *, tool, debug):
             "'all' is a reserved meta-profile name; rename the profile aliased "
             "'all' in owa-piggy to use --profile all / -A / --all-profiles",
         )
-    eligible = [row.alias for row in rows if row.registered and row.has_config]
+    eligible = [
+        row.alias for row in rows
+        if row.registered and row.has_config
+        and (profile_types is None or row.type in profile_types)
+    ]
     if not eligible:
         raise UsageError(
             'no active profiles to fan out across; run `owa-piggy login` first',

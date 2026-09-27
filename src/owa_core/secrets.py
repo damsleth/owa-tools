@@ -22,6 +22,12 @@ AUTH_HEADER_RE = re.compile(
 CLIENT_SECRET_RE = re.compile(
     r'(?i)(client_secret\s*[:=]\s*[\'"]?)([A-Za-z0-9._~+/=-]{12,})'
 )
+# Capability URLs: the query value alone grants access. HaloITSM inline
+# images (`/api/attachment/image?token=`) and CloudFront signed links
+# (`Signature=`) work with no Authorization header at all.
+CAPABILITY_QUERY_RE = re.compile(
+    r'(?i)((?:/api/attachment/image\?token|[?&]Signature)=)([^"\'&\s<>]{16,})'
+)
 # Message-content fields (body fields named body, content, text).
 # Not a secret *shape* but message content -
 # email/event/task bodies that must never reach logs or stderr (e.g. the
@@ -57,6 +63,7 @@ def find_secret_shapes(value):
     for kind, pattern, group in (
         ('authorization', AUTH_HEADER_RE, 2),
         ('client_secret', CLIENT_SECRET_RE, 2),
+        ('capability_url', CAPABILITY_QUERY_RE, 2),
         ('refresh_token', REFRESH_RE, 0),
         ('access_token', JWT_RE, 0),
     ):
@@ -83,6 +90,7 @@ def redact(value):
     text = _text(value)
     text = AUTH_HEADER_RE.sub(r'\1' + REDACTION, text)
     text = CLIENT_SECRET_RE.sub(r'\1' + REDACTION, text)
+    text = CAPABILITY_QUERY_RE.sub(r'\1' + REDACTION, text)
     text = REFRESH_RE.sub(REDACTION, text)
     text = JWT_RE.sub(REDACTION, text)
     return BODY_FIELD_RE.sub(r'\1"' + BODY_REDACTION + '"', text)
