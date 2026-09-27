@@ -433,6 +433,7 @@ def _patch_profiles(monkeypatch, rows):
             registered=r.get('registered', True),
             has_config=r.get('has_config', True),
             type=r.get('type', 'm365'),
+            services=tuple(r.get('services', ())),
         )
         for r in rows
     ]
@@ -693,8 +694,12 @@ def test_all_meta_profile_skips_non_aad_types_by_default(monkeypatch, capsys):
     assert seen == ['a']
 
 
-def test_all_meta_profile_honours_tool_profile_types(monkeypatch, capsys):
-    _patch_profiles(monkeypatch, [{'alias': 'a'}, {'alias': 'h', 'type': 'halo'}])
+def test_all_meta_profile_honours_tool_service(monkeypatch, capsys):
+    _patch_profiles(monkeypatch, [
+        {'alias': 'a'},
+        {'alias': 'h', 'type': 'halo'},
+        {'alias': 'nc', 'services': ['owa', 'ado', 'halo']},
+    ])
     seen = []
 
     def dispatch(argv):
@@ -703,7 +708,7 @@ def test_all_meta_profile_honours_tool_profile_types(monkeypatch, capsys):
         return 0
 
     rc = modes.run_with_output_modes(
-        'owa-halo', ['-A', 'ticket', '1'], dispatch, profile_types=('halo',),
+        'owa-halo', ['-A', 'ticket', '1'], dispatch, service='halo',
     )
     assert rc == 0
-    assert seen == ['h']
+    assert seen == ['h', 'nc']

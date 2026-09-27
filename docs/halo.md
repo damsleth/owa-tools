@@ -8,21 +8,20 @@ and inline screenshots. It never writes to Halo.
 
 Halo agents sign in through Entra ID SSO, but Entra is only the login
 provider: Halo's own identity server issues opaque bearer tokens, so no
-Microsoft token from owa-piggy works against Halo. owa-piggy instead holds a
-Halo refresh token in a dedicated profile and mints a one-hour access token
-from it (public client, no secret):
+Microsoft token from owa-piggy works against Halo. Halo is instead a service
+on the owa-piggy profile that already holds that Entra sign-in. The broker
+opens Halo in the profile's Edge sidecar, lets SSO complete (it picks the
+profile's account on the Entra account picker Halo forces), and keeps the
+`refresh_token` cookie Halo sets. Reseed renews it with the profile's other
+sign-ins:
 
 ```bash
-# DevTools on a signed-in Halo tab > Application > Cookies > refresh_token
-owa-piggy setup --profile nc-halo --halo norconsult.haloitsm.com
+owa-piggy clients add halo=https://norconsult.haloitsm.com --profile nc
 ```
 
-The refresh token is the browser session's token, so signing out of Halo in
-the browser may revoke it (untested), and its absolute lifetime is unknown.
-When `owa-halo` starts failing with exit 11, run setup again with a fresh
-cookie.
-With exactly one Halo profile, `owa-halo` picks it automatically; otherwise
-pass `--profile <alias>`. `-A` fans out across Halo profiles only.
+`owa-halo` uses `--profile` when given, else the default profile if it has
+Halo, else the only profile that does. `-A` fans out across profiles with
+Halo only.
 
 ## Commands
 

@@ -47,6 +47,19 @@ class BrokerProfile:
     # Broker classification: 'm365', 'ado', 'google' or 'halo'. Older
     # brokers omit it; every profile they know is AAD.
     type: str = 'm365'
+    # What the profile's user signs in to ('owa', 'ado', 'halo', 'swodp'...).
+    # `-A` fans out on these. Older brokers omit it: derived from `type`.
+    services: tuple = ()
+    # The profile's Edge sidecar, for tools that drive it themselves
+    # (owa-swodp) under the broker's `.owa-lock`. '' from older brokers.
+    edge_dir: str = ''
+
+    def __post_init__(self):
+        if not self.services:
+            object.__setattr__(self, 'services', _SERVICES_BY_TYPE.get(self.type, ('owa',)))
+
+
+_SERVICES_BY_TYPE = {'m365': ('owa',), 'ado': ('ado',), 'google': ('google',), 'halo': ('halo',)}
 
 
 def parse_version(s):
@@ -217,12 +230,16 @@ def get_profiles(*, tool_name, debug=False):
         alias = row.get('alias')
         if not isinstance(alias, str) or not alias:
             continue
+        ptype = row.get('type') if isinstance(row.get('type'), str) else 'm365'
+        services = row.get('services') if isinstance(row.get('services'), list) else ()
         profiles.append(BrokerProfile(
             alias=alias,
             default=bool(row.get('default')),
             registered=bool(row.get('registered')),
             has_config=bool(row.get('has_config')),
-            type=row.get('type') if isinstance(row.get('type'), str) else 'm365',
+            type=ptype,
+            services=tuple(str(x) for x in services),
+            edge_dir=row.get('edge_dir') if isinstance(row.get('edge_dir'), str) else '',
         ))
     return profiles
 

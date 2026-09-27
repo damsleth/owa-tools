@@ -171,17 +171,39 @@ def _profiles(monkeypatch, rows):
 
 
 def test_resolve_profile(monkeypatch):
-    halo = BrokerProfile('h1', False, True, True, type='halo')
-    m365 = BrokerProfile('nc', True, True, True)
+    nc = BrokerProfile('nc', False, True, True, services=('owa', 'ado', 'halo'))
+    swon = BrokerProfile('swon', True, True, True)
     assert auth.resolve_profile({'owa_piggy_profile': 'x'}) == 'x'
-    _profiles(monkeypatch, [m365, halo])
-    assert auth.resolve_profile({}) == 'h1'
-    _profiles(monkeypatch, [m365])
-    with pytest.raises(UsageError, match='setup'):
+    _profiles(monkeypatch, [swon, nc])
+    assert auth.resolve_profile({}) == 'nc'
+    _profiles(monkeypatch, [swon])
+    with pytest.raises(UsageError, match='clients add halo='):
         auth.resolve_profile({})
-    _profiles(monkeypatch, [halo, BrokerProfile('h2', False, True, True, type='halo')])
-    with pytest.raises(UsageError, match='h1, h2'):
+    other = BrokerProfile('h2', False, True, True, services=('halo',))
+    _profiles(monkeypatch, [nc, other])
+    with pytest.raises(UsageError, match='nc, h2'):
         auth.resolve_profile({})
+    # The default profile wins when it has Halo.
+    _profiles(monkeypatch, [BrokerProfile('nc', True, True, True, services=('owa', 'halo')), other])
+    assert auth.resolve_profile({}) == 'nc'
+
+
+def test_broker_rows_without_services_derive_them_from_type(monkeypatch):
+    from owa_core import auth as core_auth
+
+    class _Proc:
+        returncode = 0
+        stderr = ''
+        stdout = json.dumps({'profiles': [
+            {'alias': 'old-halo', 'type': 'halo', 'has_config': True},
+            {'alias': 'nc', 'services': ['owa', 'halo'], 'edge_dir': '/x/nc/edge-profile'},
+        ]})
+
+    monkeypatch.setattr(core_auth, '_ensure_broker_available', lambda *a: None)
+    monkeypatch.setattr(core_auth.subprocess, 'run', lambda *a, **kw: _Proc())
+    old, nc = core_auth.get_profiles(tool_name='owa-halo')
+    assert old.services == ('halo',)
+    assert (nc.services, nc.edge_dir) == (('owa', 'halo'), '/x/nc/edge-profile')
 
 
 def test_setup_auth_uses_broker_host(monkeypatch):
@@ -189,7 +211,7 @@ def test_setup_auth_uses_broker_host(monkeypatch):
     monkeypatch.setattr(auth, 'get_token', lambda **kw: token)
     assert auth.setup_auth({'owa_piggy_profile': 'h1'}) == ('opaque', BASE)
     monkeypatch.setattr(auth, 'get_token', lambda **kw: BrokerToken('opaque', 'halo', raw={}))
-    with pytest.raises(UsageError, match='not a Halo profile'):
+    with pytest.raises(UsageError, match='no Halo sign-in'):
         auth.setup_auth({'owa_piggy_profile': 'h1'})
 
 
@@ -198,7 +220,7 @@ def test_setup_auth_maps_unknown_audience(monkeypatch):
         raise AuthExpiredError("ERROR: unknown audience 'halo'")
 
     monkeypatch.setattr(auth, 'get_token', boom)
-    with pytest.raises(UsageError, match="'nc' is not a Halo profile"):
+    with pytest.raises(UsageError, match="'nc' has no Halo sign-in"):
         auth.setup_auth({'owa_piggy_profile': 'nc'})
 
     def expired(**kw):

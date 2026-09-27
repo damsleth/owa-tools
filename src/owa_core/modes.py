@@ -123,15 +123,11 @@ def _mode_environment(tool, command, err_json):
                 os.environ[key] = value
 
 
-# Broker profile types that hold AAD tokens: the default `--profile all` set.
-AAD_PROFILE_TYPES = ('m365', 'ado')
-
-
 def run_with_output_modes(
     tool, argv, dispatch, *,
     binary_stdout_commands=(), interactive_commands=(), fan_out_profiles=True,
     audience=None, command_scopes=None, commands=(),
-    profile_types=AAD_PROFILE_TYPES,
+    service='owa',
 ):
     """Run a legacy CLI dispatcher with shared agent/error modes.
 
@@ -162,9 +158,10 @@ def run_with_output_modes(
     runs are never filtered - they still error, since naming a profile is an
     explicit request to run against it.
 
-    `profile_types` limits what `--profile all` expands to by broker profile
-    type. The default keeps the AAD profiles, so a Google or Halo profile
-    never receives a Graph request; owa-halo passes `('halo',)`.
+    `service` limits what `--profile all` expands to: profiles whose broker
+    `services` include it. The default `owa` keeps Graph/Outlook tools off
+    Google-only and Halo-only profiles; owa-ado passes `ado` (only profiles
+    with a devops sign-in), owa-halo `halo`, owa-swodp `swodp`.
     """
     # Top-level --doctor surface. Intercept before
     # the legacy dispatcher so every owa-* binary picks it up via the
@@ -184,7 +181,7 @@ def run_with_output_modes(
             try:
                 profiles = _resolve_all_meta_profile(
                     profiles, tool=tool, debug=('--debug' in filtered),
-                    profile_types=profile_types,
+                    service=service,
                 )
             except OwaError as error:
                 return emit_error(
@@ -273,11 +270,11 @@ def run_with_output_modes(
         return 0
 
 
-def _resolve_all_meta_profile(profiles, *, tool, debug, profile_types=None):
+def _resolve_all_meta_profile(profiles, *, tool, debug, service=None):
     """Expand the reserved `all` token into every eligible broker profile.
 
     Eligible = active (registered with the broker) AND configured AND, when
-    `profile_types` is given, of one of those types. Config-less or inactive
+    `service` is given, offering that service. Config-less or inactive
     profiles are not part of "all". `all` is a reserved name: a real
     profile aliased `all` is a hard usage error, since it would make the
     meta-profile ambiguous. Other profile values given alongside `all` are kept,
@@ -294,7 +291,7 @@ def _resolve_all_meta_profile(profiles, *, tool, debug, profile_types=None):
     eligible = [
         row.alias for row in rows
         if row.registered and row.has_config
-        and (profile_types is None or row.type in profile_types)
+        and (service is None or service in row.services)
     ]
     if not eligible:
         raise UsageError(

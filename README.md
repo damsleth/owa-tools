@@ -80,7 +80,7 @@ passed straight through.
 | `owa-vids` | Download Teams / OneDrive meeting-recap DASH streams and mux to MP4 (token-only, via ffmpeg). |
 | `owa-ado` | Azure DevOps: work items (WIQL), boards/sprints, repos & pull requests, pipelines & runs, library variable groups, task/deployment groups, environments & releases. Auth via `owa-piggy --audience devops`. |
 | `owa-swodp` | SWODP ServiceNow timesheets: dedicated Edge sidecar auth, reads, validated Pending-only writes, prod/UAT isolation. |
-| `owa-halo` | HaloITSM (read-only): ticket, status, metadata, actions/comments, attachments and inline screenshots. Auth via an `owa-piggy setup --halo` profile. |
+| `owa-halo` | HaloITSM (read-only): ticket, status, metadata, actions/comments, attachments and inline screenshots. Auth via the `halo` service on an owa-piggy profile (`clients add halo=<url>`). |
 | `owa` | Umbrella: suite meta (`owa list`, `owa schema`, `owa version`, `owa --doctor`) plus `owa <tool> ...` pass-through dispatch (e.g. `owa cal events`). |
 
 This repo is CLI-only. For interactive TUI frontends (curses agenda browser,

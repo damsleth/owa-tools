@@ -15,7 +15,6 @@ import subprocess
 from owa_core import auth as core_auth
 from owa_core.errors import OwaError
 from owa_core.jwt import decode_token_audience, token_minutes_remaining
-from owa_core.modes import AAD_PROFILE_TYPES
 from owa_core.registry import CONSUMER_TOOLS
 
 # owa-piggy (the auth broker) plus every consumer CLI, derived from the
@@ -100,7 +99,7 @@ def list_piggy_profiles():
         return [], None
     # The probe mints AAD audiences; Google/Halo profiles would answer with
     # an opaque token and read as a bogus pass or audience mismatch.
-    profiles = [p for p in profiles if p.type in AAD_PROFILE_TYPES]
+    profiles = [p for p in profiles if 'owa' in p.services]
     aliases = [profile.alias for profile in profiles]
     default = next((profile.alias for profile in profiles if profile.default), None)
     return aliases, default
