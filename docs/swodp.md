@@ -4,12 +4,26 @@
 does not fetch calendar events or perform matching; use `owa-cal` for calendar
 data and pass a reviewed row plan to the write command.
 
-Unlike the Microsoft 365 tools, this command does not use `owa-piggy`. It opens
-Microsoft Edge against a dedicated profile, waits for the existing SSO session,
-captures ServiceNow cookies and `window.g_ck` through local CDP, closes Edge,
-then makes plain stdlib HTTP calls. Captured credentials remain in memory and
-are never written to config or emitted. Prod and UAT have separate profiles:
-`~/.config/owa-swodp/edge-profile/` and `edge-profile-uat/`.
+Unlike the Microsoft 365 tools, this command takes no token from `owa-piggy`.
+It opens Microsoft Edge against a sidecar profile, waits for the existing SSO
+session, captures ServiceNow cookies and `window.g_ck` through local CDP,
+closes Edge, then makes plain stdlib HTTP calls. Captured credentials remain in
+memory and are never written to config or emitted.
+
+Prod runs in the owa-piggy sidecar of the profile that declares the `swodp`
+service, read from `owa-piggy profiles --json` (`edge_dir`). That sidecar is
+already signed in to Entra for the same account, so there is one sign-in to
+keep alive, not two:
+
+```bash
+# once, in the profile's config (~/.config/owa-piggy/profiles/swon/config)
+OWA_SERVICES="owa,swodp"
+```
+
+Each run holds the broker's `<edge_dir>/.owa-lock` so it never races a
+reseed. Without a `swodp` profile (or with `OWA_SWODP_CONFIG_DIR` set), prod
+uses `~/.config/owa-swodp/edge-profile/`. UAT always uses
+`~/.config/owa-swodp/edge-profile-uat/`.
 
 ## Session
 

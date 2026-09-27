@@ -14,10 +14,14 @@ component that stores refresh tokens.
 - `owa-tools` must not read `~/.config/owa-piggy` directly and must not import
   `owa_piggy` Python modules.
 
-`owa-swodp` is a separate ServiceNow credential domain and does not use the
-broker. It owns dedicated prod/UAT Edge userdata directories under
-`~/.config/owa-swodp/`. CDP-captured cookies and `g_ck` stay in memory for one
-command and are never written by the CLI or emitted.
+`owa-swodp` is a separate ServiceNow credential domain and takes no token from
+the broker. Prod drives the Edge sidecar of the owa-piggy profile that declares
+the `swodp` service; it learns the path from `owa-piggy profiles --json`
+(`edge_dir`), never by reading `~/.config/owa-piggy`, and holds the broker's
+`.owa-lock` while Edge runs. UAT, and prod without such a profile, use
+dedicated userdata directories under `~/.config/owa-swodp/`. CDP-captured
+cookies and `g_ck` stay in memory for one command and are never written by the
+CLI or emitted.
 
 ## Local Files
 
