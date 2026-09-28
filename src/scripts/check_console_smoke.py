@@ -29,6 +29,7 @@ TOOLS = (
     'owa-ado',
     'owa-swodp',
     'owa-halo',
+    'owa-kova',
 )
 
 

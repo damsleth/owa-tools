@@ -18,6 +18,7 @@ from owa_drive.cli import COMMAND_SCHEMA as DRIVE_SCHEMA  # noqa: E402
 from owa_graph import resources as graph_resources  # noqa: E402
 from owa_graph.cli import COMMAND_SCHEMA as GRAPH_SCHEMA  # noqa: E402
 from owa_halo.cli import COMMAND_SCHEMA as HALO_SCHEMA  # noqa: E402
+from owa_kova.cli import COMMAND_SCHEMA as KOVA_SCHEMA  # noqa: E402
 from owa_mail.cli import COMMAND_SCHEMA as MAIL_SCHEMA  # noqa: E402
 from owa_people.cli import COMMAND_SCHEMA as PEOPLE_SCHEMA  # noqa: E402
 from owa_places.cli import COMMAND_SCHEMA as PLACES_SCHEMA  # noqa: E402
@@ -46,6 +47,7 @@ DOCS = {
     'owa-ado': ('docs/ado.md', ADO_SCHEMA),
     'owa-swodp': ('docs/swodp.md', SWODP_SCHEMA),
     'owa-halo': ('docs/halo.md', HALO_SCHEMA),
+    'owa-kova': ('docs/kova.md', KOVA_SCHEMA),
 }
 
 SHELL_FENCES = {'', 'sh', 'bash', 'shell', 'console'}

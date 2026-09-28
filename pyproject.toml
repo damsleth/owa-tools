@@ -46,6 +46,7 @@ owa-vids = "owa_vids:main"
 owa-ado = "owa_ado:main"
 owa-swodp = "owa_swodp:main"
 owa-halo = "owa_halo:main"
+owa-kova = "owa_kova:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -70,6 +71,7 @@ packages = [
   "owa_ado",
   "owa_swodp",
   "owa_halo",
+  "owa_kova",
 ]
 
 [tool.setuptools.package-data]
@@ -108,6 +110,7 @@ source = [
   "owa_ado",
   "owa_swodp",
   "owa_halo",
+  "owa_kova",
 ]
 omit = ["*/__main__.py"]
 

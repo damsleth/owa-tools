@@ -8,19 +8,35 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+Needs owa-piggy with `services` and `edge_dir` in `profiles --json`.
+
+### owa-kova (new)
+
+- Read-only Kova (Red Cross) schedule: `owa-kova schedule [--from DATE]
+  [--open] [--pretty]` lists your duties (or every open duty in the unit)
+  with start/end, your role and full/locked flags; other members' names and
+  numbers are never read out. Runs in the owa-piggy sidecar of the profile
+  with the `kova` service (`owa-piggy clients add kova --profile brkh`).
+
 ### owa-halo (new)
 
 - Read-only HaloITSM client: `owa-halo ticket <id|url>` returns the ticket,
   status name, every non-empty metadata field and all actions/comments;
   `owa-halo attachments <id|url> [--out DIR]` lists and downloads attachments
-  and inline screenshots. Auth comes from an `owa-piggy setup --halo <host>`
-  profile (needs the owa-piggy Halo provider).
+  and inline screenshots. Auth is the `halo` service on an owa-piggy profile
+  (`owa-piggy clients add halo=<url> --profile nc`).
+
+### owa-swodp
+
+- Prod runs in the owa-piggy sidecar of the profile with the `swodp`
+  service, under the broker's `.owa-lock`, so the account keeps one Entra
+  sign-in. UAT keeps its own profile.
 
 ### owa_core
 
-- `--profile all` / `-A` only expands to AAD profiles (`m365`, `ado`) by
-  default, so Google and Halo profiles never receive Microsoft requests.
-  `run_with_output_modes(profile_types=...)` lets a tool pick other types.
+- `--profile all` / `-A` fans out on broker `services`: `owa` by default,
+  `ado` for owa-ado (only profiles with a DevOps sign-in), `halo`, `kova`.
+  `BrokerProfile` gains `services` and `edge_dir`.
 - `redact()` also scrubs capability URLs (Halo inline-image `token=`,
   CloudFront `Signature=`).
 
