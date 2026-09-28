@@ -16,6 +16,7 @@ are retained beside the report; completed tasks are archived in DONE.md.
 
 - [owa-places](owa-places.md): partially implemented; request/response contract remains unverified. Capture a sanitized valid payload before treating the shipped CLI as operational.
 - [owa-pim](owa-pim.md): deferred; no package exists here. Broker dependency and tenant feasibility require separate verification/authorization.
+- [owa-halo](owa-halo.md): implemented + live-verified (uncommitted); commit owa-piggy then owa-tools, release broker first.
 - [SWODP production readiness](owa-swodp-production-readiness.md): Recall implementation complete; live acceptance remains outstanding.
 
 ## Feature gaps
