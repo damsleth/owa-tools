@@ -19,3 +19,4 @@ htmlcov/
 .serena/
 # agent tools write a CLAUDE.md, but we're using AGENTS.md globally
 CLAUDE.md
+.plans/
