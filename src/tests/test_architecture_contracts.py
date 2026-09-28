@@ -21,6 +21,8 @@ RUNTIME_DIRS = [
     'owa_vids',
     'owa_ado',
     'owa_swodp',
+    'owa_halo',
+    'owa_kova',
 ]
 
 

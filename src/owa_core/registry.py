@@ -34,6 +34,7 @@ CONSUMER_TOOLS: tuple[str, ...] = (
     "owa-ado",
     "owa-swodp",
     "owa-halo",
+    "owa-kova",
 )
 
 __all__ = ["CONSUMER_TOOLS"]
