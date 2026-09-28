@@ -5,7 +5,7 @@ import json
 import os
 import sys
 
-from .errors import OwaError, UsageError, emit_error, env_truthy
+from .errors import OwaError, ScopeInsufficientError, UsageError, emit_error, env_truthy
 from .profiles_args import ALL_PROFILES, normalize_all_flags, parse_profiles
 from .schema import SCHEMA_VERSION, resolve_alias
 from .secrets import redact
@@ -399,10 +399,24 @@ def _run_multi_profile(
     if all_requested and audience and command_scopes:
         acceptable = command_scopes.get(command)
         if acceptable:
+            candidates = profiles
             profiles = _filter_profiles_by_scope(
                 tool, profiles, audience, acceptable,
                 debug='--debug' in rest,
             )
+            if candidates and not profiles:
+                # Dropping every profile is not an empty success: nothing
+                # ran, so say why instead of printing `results: []`, exit 0.
+                return emit_error(
+                    ScopeInsufficientError(
+                        f'no profile can run {command}: none of '
+                        f'{", ".join(candidates)} has a {audience} token with '
+                        f'{" or ".join(sorted(acceptable))}'
+                    ),
+                    tool=tool,
+                    command=command,
+                    err_json=err_json,
+                )
 
     pretty = '--pretty' in rest
     ndjson = '--ndjson' in rest
