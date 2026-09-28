@@ -597,6 +597,23 @@ def test_all_meta_skips_profile_lacking_scopes(monkeypatch, capsys):
     assert [r['profile'] for r in payload['results']] == ['mail']
 
 
+def test_all_meta_errors_when_scope_filter_drops_every_profile(monkeypatch, capsys):
+    """Every profile filtered out used to print `results: []` and exit 0."""
+    _patch_profiles(monkeypatch, [{'alias': 'a'}, {'alias': 'b'}])
+    _patch_scope_tokens(monkeypatch, {'a': {'User.Read'}, 'b': None})
+
+    rc = modes.run_with_output_modes(
+        'owa-mail', ['-A', 'messages'],
+        lambda av: pytest.fail('dispatched'),
+        audience='outlook', command_scopes={'messages': _MAIL_SCOPES},
+    )
+
+    assert rc == 12
+    out = capsys.readouterr()
+    assert out.out == ''
+    assert 'no profile can run messages' in out.err and 'a, b' in out.err
+
+
 def test_all_meta_skips_profile_with_unmintable_token(monkeypatch, capsys):
     _patch_profiles(monkeypatch, [{'alias': 'mail'}, {'alias': 'ado'}])
     _patch_scope_tokens(monkeypatch, {'mail': {'Mail.ReadWrite'}, 'ado': None})
