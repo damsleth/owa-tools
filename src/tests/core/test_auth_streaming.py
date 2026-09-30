@@ -22,7 +22,7 @@ def test_run_streaming_echoes_progress_and_holds_back_errors(capsys):
 
 
 def test_run_streaming_redacts_echoed_lines(capsys):
-    jwt = 'eyJhbGciOiJIUzI1NiIs.eyJhdWQiOiJvd2EtdG9vbHMi.c2lnbmF0dXJlZm9ydGVzdHM'
+    jwt = '.'.join(['eyJhbGciOiJIUzI1NiIs', 'eyJhdWQiOiJvd2EtdG9vbHMi', 'c2lnbmF0dXJlZm9ydGVzdHM'])
     auth._run_streaming(
         [sys.executable, '-c', f"import sys; print('token {jwt}', file=sys.stderr)"],
         label='owa-piggy', timeout=30,
