@@ -15,6 +15,7 @@ from owa_cal.cli import COMMAND_SCHEMA as CAL_SCHEMA  # noqa: E402
 from owa_core.registry import CONSUMER_TOOLS  # noqa: E402
 from owa_doctor.cli import COMMAND_SCHEMA as DOCTOR_SCHEMA  # noqa: E402
 from owa_drive.cli import COMMAND_SCHEMA as DRIVE_SCHEMA  # noqa: E402
+from owa_gdrive.cli import COMMAND_SCHEMA as GDRIVE_SCHEMA  # noqa: E402
 from owa_gmail.cli import COMMAND_SCHEMA as GMAIL_SCHEMA  # noqa: E402
 from owa_graph import resources as graph_resources  # noqa: E402
 from owa_graph.cli import COMMAND_SCHEMA as GRAPH_SCHEMA  # noqa: E402
@@ -50,6 +51,7 @@ DOCS = {
     'owa-halo': ('docs/halo.md', HALO_SCHEMA),
     'owa-kova': ('docs/kova.md', KOVA_SCHEMA),
     'owa-gmail': ('docs/gmail.md', GMAIL_SCHEMA),
+    'owa-gdrive': ('docs/gdrive.md', GDRIVE_SCHEMA),
 }
 
 SHELL_FENCES = {'', 'sh', 'bash', 'shell', 'console'}

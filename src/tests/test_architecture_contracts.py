@@ -24,6 +24,7 @@ RUNTIME_DIRS = [
     'owa_halo',
     'owa_kova',
     'owa_gmail',
+    'owa_gdrive',
 ]
 
 

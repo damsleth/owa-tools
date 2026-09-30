@@ -31,6 +31,7 @@ TOOLS = (
     'owa-halo',
     'owa-kova',
     'owa-gmail',
+    'owa-gdrive',
 )
 
 
