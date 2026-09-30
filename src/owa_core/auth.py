@@ -248,6 +248,30 @@ def refresh_access_token(config, *, tool_name, audience, debug=False):
         return None
 
 
+def resolve_service_profile(config, *, tool_name, service, missing_hint):
+    """Profile alias for a tool that runs on one broker service (google,
+    halo, kova...): the explicit/pinned `owa_piggy_profile` wins; else the
+    default profile if it has `service`; else the only profile that does.
+    Raises UsageError when none or several qualify."""
+    from .errors import UsageError
+
+    explicit = (config.get('owa_piggy_profile') or '').strip()
+    if explicit:
+        return explicit
+    rows = [p for p in get_profiles(tool_name=tool_name) if service in p.services and p.has_config]
+    default = next((p.alias for p in rows if p.default), None)
+    if default:
+        return default
+    if len(rows) == 1:
+        return rows[0].alias
+    if not rows:
+        raise UsageError(f'no profile has {service}; {missing_hint}')
+    raise UsageError(
+        f'several profiles have {service} ({", ".join(p.alias for p in rows)}); '
+        'pick one with --profile'
+    )
+
+
 def get_profiles(*, tool_name, debug=False):
     """Return broker profile registry rows or raise a typed OwaError."""
     _ensure_broker_available(tool_name, MIN_JSON_BROKER_VERSION)

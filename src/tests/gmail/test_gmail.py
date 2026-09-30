@@ -236,13 +236,13 @@ def test_resolve_profile(monkeypatch):
     g = BrokerProfile('g1', False, True, True, services=['google'])
     nc = BrokerProfile('nc', True, True, True, services=['owa'])
     assert auth.resolve_profile({'owa_piggy_profile': 'x'}) == 'x'
-    monkeypatch.setattr(auth, 'get_profiles', lambda **kw: [nc, g])
+    monkeypatch.setattr('owa_core.auth.get_profiles', lambda **kw: [nc, g])
     assert auth.resolve_profile({}) == 'g1'
-    monkeypatch.setattr(auth, 'get_profiles', lambda **kw: [nc])
-    with pytest.raises(UsageError, match='setup'):
+    monkeypatch.setattr('owa_core.auth.get_profiles', lambda **kw: [nc])
+    with pytest.raises(UsageError, match='no profile has google; run: owa-piggy setup'):
         auth.resolve_profile({})
     g2 = BrokerProfile('g2', False, True, True, services=['google'])
-    monkeypatch.setattr(auth, 'get_profiles', lambda **kw: [g, g2])
+    monkeypatch.setattr('owa_core.auth.get_profiles', lambda **kw: [g, g2])
     with pytest.raises(UsageError, match='g1, g2'):
         auth.resolve_profile({})
 
