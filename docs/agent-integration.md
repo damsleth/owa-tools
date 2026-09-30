@@ -87,11 +87,17 @@ Shape:
 Messages are redacted before rendering. Do not parse human stderr when
 structured mode is available.
 
+A `RATE_LIMITED` error (exit `14`) adds `"retry_after": <seconds>` when the
+service sent a `Retry-After` header; wait at least that long before retrying.
+Graph and Outlook throttling (`ApplicationThrottled`, `MailboxConcurrency`)
+is shared with browser OWA, which uses the same app id.
+
 ## Safe Automation
 
 - Treat exit code `2` as caller error and do not retry unchanged input.
 - Treat `10`, `14`, and some `20` failures as retry candidates only when the
-  surrounding workflow can safely repeat the command.
+  surrounding workflow can safely repeat the command. For `14`, honour
+  `retry_after` when present.
 - Destructive commands require `--confirm` in non-interactive contexts.
 - Live Microsoft calls are never required for schema, help, version, config, or
   packaging smoke checks.

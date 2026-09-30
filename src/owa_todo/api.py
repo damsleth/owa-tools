@@ -2,18 +2,20 @@
 from owa_core import http
 
 
-def api_request(method, base, endpoint, access_token, body=None, debug=False):
+def api_request(method, base, endpoint, access_token, body=None, debug=False, retry=0):
     """Issue a request against Outlook REST.
 
     Returns parsed JSON on 2xx (an empty 202/204 body decodes to {}).
     Raises typed ``OwaError`` subclasses for expected failures.
     """
     url = f'{base}/{endpoint}'
-    return http.request(method, url, token=access_token, body=body, debug=debug).json
+    return http.request(
+        method, url, token=access_token, body=body, retry=retry, debug=debug,
+    ).json
 
 
-def api_get(base, endpoint, access_token, debug=False):
-    return api_request('GET', base, endpoint, access_token, debug=debug)
+def api_get(base, endpoint, access_token, debug=False, retry=0):
+    return api_request('GET', base, endpoint, access_token, debug=debug, retry=retry)
 
 
 def paginate_all(base, endpoint, access_token, debug=False):

@@ -48,6 +48,14 @@ def _parse_retry_after(value, default=2):
         return default
 
 
+def _retry_after(headers):
+    """Retry-After seconds from a header map (any case), or None."""
+    for key, value in headers.items():
+        if key.lower() == 'retry-after':
+            return _parse_retry_after(value, default=None)
+    return None
+
+
 def _request_id(headers):
     for key in ('request-id', 'client-request-id', 'x-ms-ags-diagnostic'):
         if key in headers:
@@ -78,7 +86,7 @@ def _raise_for_http_error(error, *, debug=False):
     if status in (409, 412):
         raise ConflictError(f'conflict ({status})')
     if status == 429:
-        raise RateLimitedError('rate limited (429)')
+        raise RateLimitedError('rate limited (429)', retry_after=_retry_after(headers))
     if status >= 500:
         raise NetworkError(f'service unavailable ({status})')
     message = f'HTTP {status}'
@@ -123,6 +131,7 @@ def _send(method, url, *, data, headers, timeout, retry, retry_statuses, debug, 
                 raise RateLimitedError(
                     f'rate limited ({error.code}); server asked for {wait}s '
                     f'(>cap {RETRY_AFTER_CAP_SECONDS}s). Try again later.',
+                    retry_after=wait,
                 )
             if debug:
                 print(f'DEBUG: {error.code} - retrying in {wait}s', file=sys.stderr)

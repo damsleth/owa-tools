@@ -17,13 +17,19 @@ UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024
 
 
 def api_request(method, base, endpoint, access_token, body=None,
-                extra_headers=None, debug=False):
-    """JSON in / JSON out (or empty for 204). Raises OwaError on failure."""
+                extra_headers=None, debug=False, retry=0):
+    """JSON in / JSON out (or empty for 204). Raises OwaError on failure.
+    `retry` rides Retry-After on that many 429/503s; 0 fails fast."""
     url = f'{base}/{endpoint.lstrip("/")}'
     headers = dict(extra_headers or {})
     return http.request(
-        method, url, token=access_token, body=body, headers=headers, debug=debug,
+        method, url, token=access_token, body=body, headers=headers, retry=retry, debug=debug,
     ).json
+
+
+def api_get(base, endpoint, access_token, extra_headers=None, debug=False, retry=0):
+    return api_request('GET', base, endpoint, access_token,
+                       extra_headers=extra_headers, debug=debug, retry=retry)
 
 
 def paginate_all(base, endpoint, access_token, extra_headers=None, debug=False):

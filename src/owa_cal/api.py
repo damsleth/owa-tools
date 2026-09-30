@@ -2,7 +2,8 @@
 from owa_core import http
 
 
-def api_request(method, base, endpoint, access_token, body=None, debug=False, headers=None):
+def api_request(method, base, endpoint, access_token, body=None, debug=False, headers=None,
+                retry=0):
     """Issue a request against Outlook REST.
 
     - `base` and `endpoint` are joined with a single slash.
@@ -10,13 +11,19 @@ def api_request(method, base, endpoint, access_token, body=None, debug=False, he
     - `headers` adds request headers (e.g. `Prefer: outlook.timezone`).
     - Returns parsed JSON on 2xx.
     - Raises typed ``OwaError`` subclasses for expected failures.
+    `retry` rides Retry-After on that many 429/503s (capped at 60s each);
+    0 keeps the fail-fast default.
     """
     url = f'{base}/{endpoint}'
-    return http.request(method, url, token=access_token, body=body, headers=headers, debug=debug).json
+    return http.request(
+        method, url, token=access_token, body=body, headers=headers, retry=retry, debug=debug,
+    ).json
 
 
-def api_get(base, endpoint, access_token, debug=False, headers=None):
-    return api_request('GET', base, endpoint, access_token, debug=debug, headers=headers)
+def api_get(base, endpoint, access_token, debug=False, headers=None, retry=0):
+    return api_request(
+        'GET', base, endpoint, access_token, debug=debug, headers=headers, retry=retry,
+    )
 
 
 def paginate_all(base, endpoint, access_token, debug=False, headers=None):

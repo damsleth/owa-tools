@@ -57,7 +57,14 @@ class NotFoundError(OwaError):
 
 
 class RateLimitedError(OwaError):
+    """429 (or a Retry-After above the cap). `retry_after` is the server's
+    requested wait in seconds when it sent one, else None."""
+
     exit_code = ExitCode.RATE_LIMITED
+
+    def __init__(self, message, *, retry_after=None, **kwargs):
+        super().__init__(message, **kwargs)
+        self.retry_after = retry_after
 
 
 class ConflictError(OwaError):
@@ -101,6 +108,8 @@ def emit_error(error, *, stream=None, tool=None, command=None, err_json=None):
         command = command or os.environ.get('OWA_COMMAND')
         if error.remediation:
             payload['error']['hint'] = redact(error.remediation)
+        if getattr(error, 'retry_after', None) is not None:
+            payload['error']['retry_after'] = error.retry_after
         if tool:
             payload['error']['tool'] = tool
         if command:
@@ -110,6 +119,8 @@ def emit_error(error, *, stream=None, tool=None, command=None, err_json=None):
         return int(error.exit_code)
 
     print(f'ERROR: {redact(error.message)}', file=stream)
+    if getattr(error, 'retry_after', None) is not None:
+        print(f'hint: retry after {error.retry_after}s', file=stream)
     if error.remediation:
         print(f'hint: {redact(error.remediation)}', file=stream)
     return int(error.exit_code)

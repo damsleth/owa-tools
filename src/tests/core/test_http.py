@@ -225,7 +225,7 @@ def test_retry_after_over_cap_maps_to_rate_limited_without_sleep():
     def fake_urlopen(req, timeout):
         raise _http_error(429, headers={'Retry-After': '999'})
 
-    with pytest.raises(RateLimitedError):
+    with pytest.raises(RateLimitedError) as info:
         http.request(
             'GET',
             'https://graph.example.test/me',
@@ -235,6 +235,32 @@ def test_retry_after_over_cap_maps_to_rate_limited_without_sleep():
             urlopen=fake_urlopen,
         )
     assert sleeps == []
+    assert info.value.retry_after == 999
+
+
+@pytest.mark.parametrize('headers, expected', [
+    ({'Retry-After': '7'}, 7), ({'retry-after': '3'}, 3), ({}, None), ({'Retry-After': 'soon'}, None),
+])
+def test_429_without_retry_carries_retry_after(headers, expected):
+    def fake_urlopen(req, timeout):
+        raise _http_error(429, headers=headers)
+
+    with pytest.raises(RateLimitedError) as info:
+        http.request('GET', 'https://graph.example.test/me', token='fake', urlopen=fake_urlopen)
+    assert info.value.retry_after == expected
+
+
+def test_emit_error_reports_retry_after(capsys):
+    import json
+
+    from owa_core.errors import emit_error
+
+    assert emit_error(RateLimitedError('rate limited (429)', retry_after=12), err_json=True) == 14
+    assert json.loads(capsys.readouterr().err)['error']['retry_after'] == 12
+    emit_error(RateLimitedError('rate limited (429)', retry_after=12), err_json=False)
+    assert 'retry after 12s' in capsys.readouterr().err
+    emit_error(RateLimitedError('rate limited (429)'), err_json=True)
+    assert 'retry_after' not in json.loads(capsys.readouterr().err)['error']
 
 
 def test_url_error_maps_to_network_error():
