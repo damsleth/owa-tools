@@ -3,17 +3,17 @@ from owa_core import http
 
 
 def api_request(method, base, endpoint, access_token, body=None,
-                extra_headers=None, debug=False):
+                extra_headers=None, debug=False, retry=0):
     url = f'{base}/{endpoint.lstrip("/")}'
     headers = dict(extra_headers or {})
     return http.request(
-        method, url, token=access_token, body=body, headers=headers, debug=debug,
+        method, url, token=access_token, body=body, headers=headers, retry=retry, debug=debug,
     ).json
 
 
-def api_get(base, endpoint, access_token, extra_headers=None, debug=False):
+def api_get(base, endpoint, access_token, extra_headers=None, debug=False, retry=0):
     return api_request('GET', base, endpoint, access_token,
-                       extra_headers=extra_headers, debug=debug)
+                       extra_headers=extra_headers, debug=debug, retry=retry)
 
 
 def api_get_binary(base, endpoint, access_token, extra_headers=None, debug=False):

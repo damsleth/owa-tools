@@ -2,7 +2,8 @@
 from owa_core import http
 
 
-def api_request(method, base, endpoint, access_token, body=None, extra_headers=None, debug=False):
+def api_request(method, base, endpoint, access_token, body=None, extra_headers=None, debug=False,
+                retry=0):
     """Issue a request against Microsoft Graph.
 
     Returns parsed JSON on 2xx (an empty 202/204 body decodes to {}).
@@ -16,12 +17,13 @@ def api_request(method, base, endpoint, access_token, body=None, extra_headers=N
         token=access_token,
         body=body,
         headers=headers,
+        retry=retry,
         debug=debug,
     ).json
 
 
-def api_get(base, endpoint, access_token, debug=False):
-    return api_request('GET', base, endpoint, access_token, debug=debug)
+def api_get(base, endpoint, access_token, debug=False, retry=0):
+    return api_request('GET', base, endpoint, access_token, debug=debug, retry=retry)
 
 
 def api_post(base, endpoint, access_token, body=None, debug=False):

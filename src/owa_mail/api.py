@@ -4,20 +4,24 @@ from owa_core import upload as upload_mod
 from owa_core.errors import InternalError
 
 
-def api_request(method, base, endpoint, access_token, body=None, debug=False):
+def api_request(method, base, endpoint, access_token, body=None, debug=False, retry=0):
     """Issue a request against Outlook REST.
 
     - `base` and `endpoint` are joined with a single slash.
     - `body` is dict-serialised to JSON when non-None.
     - Returns parsed JSON on 2xx.
     - Raises typed ``OwaError`` subclasses for expected failures.
+    `retry` rides Retry-After on that many 429/503s (capped at 60s each);
+    0 keeps the fail-fast default.
     """
     url = f'{base}/{endpoint}'
-    return http.request(method, url, token=access_token, body=body, debug=debug).json
+    return http.request(
+        method, url, token=access_token, body=body, retry=retry, debug=debug,
+    ).json
 
 
-def api_get(base, endpoint, access_token, debug=False):
-    return api_request('GET', base, endpoint, access_token, debug=debug)
+def api_get(base, endpoint, access_token, debug=False, retry=0):
+    return api_request('GET', base, endpoint, access_token, debug=debug, retry=retry)
 
 
 def paginate_all(base, endpoint, access_token, extra_headers=None, debug=False):
