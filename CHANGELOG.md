@@ -6,6 +6,19 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## Unreleased
+
+### owa-gmail (new)
+
+- Read-only Gmail over an owa-piggy Google profile (a Desktop OAuth client;
+  no API key): `owa-gmail messages` (filters or raw `--search`, paging,
+  `--with-body`), `show`, `get` (.eml), `attachments`, `labels`, `refresh`,
+  `config`. `-A` and the default profile ride the broker `google` service.
+
+### owa-halo, owa-kova
+
+- `--help` includes the suite's multi-profile and machine-surface blocks.
+
 ## v1.8.0 - 2026-09-30
 
 Needs owa-piggy >= 1.3.0 (`services` and `edge_dir` in `profiles --json`);
