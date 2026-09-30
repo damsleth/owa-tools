@@ -5,8 +5,8 @@ class OwaTools < Formula
 
   desc "Outlook/Microsoft 365 CLI suite (mail, calendar, graph, drive, todo, video)"
   homepage "https://github.com/damsleth/owa-tools"
-  url "https://github.com/damsleth/owa-tools/archive/refs/tags/v1.7.0.tar.gz"
-  sha256 "3596a5a34a5988f873164f49d981cdfff66c8eb652810266c40cbd78bd8783f1"
+  url "https://github.com/damsleth/owa-tools/archive/refs/tags/v1.8.0.tar.gz"
+  sha256 "80fe540933f4bdef4a61c8301ea970ca2e66a3cd913293f009622a02f9b5628e"
   license "MIT"
   head "https://github.com/damsleth/owa-tools.git", branch: "main"
 
@@ -18,10 +18,10 @@ class OwaTools < Formula
   end
 
   test do
-    # All sixteen binaries land on PATH and report the same suite version.
+    # All eighteen binaries land on PATH and report the same suite version.
     %w[owa owa-cal owa-mail owa-graph owa-doctor owa-people owa-sched owa-places
        owa-drive owa-todo owa-planner owa-sites owa-teams owa-vids owa-ado
-       owa-swodp].each do |bin_name|
+       owa-swodp owa-halo owa-kova].each do |bin_name|
       assert_match version.to_s, shell_output("#{bin}/#{bin_name} --version")
     end
     system "#{bin}/owa", "list"
