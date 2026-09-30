@@ -48,3 +48,10 @@ def test_api_request_auth_failure_raises_typed_error(monkeypatch):
     with pytest.raises(AuthExpiredError) as exc:
         api.api_request('POST', 'https://graph.microsoft.com/v1.0', '/me', 'fake')
     assert exc.value.exit_code == 11
+
+
+def test_camel_lowercases_keys_recursively_and_is_idempotent():
+    raw = {"Value": [{"ScheduleId": "a@x", "Error": {"Message": "m"}, "ScheduleItems": [{"Status": "Busy"}]}]}
+    out = api.camel(raw)
+    assert out == {"value": [{"scheduleId": "a@x", "error": {"message": "m"}, "scheduleItems": [{"status": "Busy"}]}]}
+    assert api.camel(out) == out

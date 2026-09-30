@@ -114,8 +114,8 @@ def test_availability_and_find_time(monkeypatch, capsys):
     ], config, "tok", "https://graph.test") == 0
     attendees = json.loads(capsys.readouterr().out)
     assert attendees[0]["busy"][0]["subject"] == "Focus"
-    assert calls[-1][3]["schedules"] == ["ada@example.com", "bob@example.com"]
-    assert calls[-1][3]["availabilityViewInterval"] == 15
+    assert calls[-1][3]["Schedules"] == ["ada@example.com", "bob@example.com"]
+    assert calls[-1][3]["AvailabilityViewInterval"] == 15
 
     assert cli.cmd_find_time([
         "--who",
@@ -127,7 +127,7 @@ def test_availability_and_find_time(monkeypatch, capsys):
         "--pretty",
     ], config, "tok", "https://graph.test") == 0
     assert "Open slots:" in capsys.readouterr().out
-    assert calls[-1][3]["availabilityViewInterval"] == 15
+    assert calls[-1][3]["AvailabilityViewInterval"] == 15
 
 
 def test_sched_validation_and_failures(monkeypatch, capsys):
@@ -207,14 +207,42 @@ def test_find_time_server_posts_findmeetingtimes(monkeypatch, capsys):
         "--tz", "UTC",
     ], {}, "tok", "https://graph.test") == 0
     body = calls[0][3]
-    assert calls[0][1] == "me/findMeetingTimes"
-    assert body["meetingDuration"] == "PT30M"
-    assert body["maxCandidates"] == 5
-    assert body["minimumAttendeePercentage"] == 50.0
-    assert body["isOrganizerOptional"] is True
-    assert body["attendees"][0]["type"] == "optional"
-    assert body["timeConstraint"]["activityDomain"] == "work"
+    assert calls[0][1] == "me/findmeetingtimes"
+    assert body["MeetingDuration"] == "PT30M"
+    assert body["MaxCandidates"] == 5
+    assert body["MinimumAttendeePercentage"] == 50.0
+    assert body["IsOrganizerOptional"] is True
+    assert body["Attendees"][0]["Type"] == "Optional"
+    assert body["TimeConstraint"]["ActivityDomain"] == "Work"
     assert json.loads(capsys.readouterr().out)[0]["confidence"] == 87.5
+
+
+def test_find_time_server_sends_utc_and_localizes_pascalcase_reply(monkeypatch, capsys):
+    """findmeetingtimes rejects IANA zones (ErrorTimeZone): slots go out in
+    UTC, and the PascalCase suggestions come back in the requested zone."""
+    calls = []
+
+    def fake_post(base, endpoint, token, body=None, debug=False, extra_headers=None):
+        calls.append(body)
+        return {"MeetingTimeSuggestions": [{
+            "Confidence": 100.0,
+            "MeetingTimeSlot": {
+                "Start": {"DateTime": "2026-09-28T06:00:00.0000000", "TimeZone": "UTC"},
+                "End": {"DateTime": "2026-09-28T06:30:00.0000000", "TimeZone": "UTC"},
+            },
+        }]}
+
+    monkeypatch.setattr(cli.api_mod, "api_post", fake_post)
+    assert cli.cmd_find_time([
+        "--who", "ada@example.com", "--date", "2026-09-28", "--duration", "30",
+        "--server", "--tz", "Europe/Oslo",
+    ], {}, "tok", "https://outlook.test") == 0
+    slot = calls[0]["TimeConstraint"]["Timeslots"][0]
+    assert slot["Start"] == {"DateTime": "2026-09-28T06:00:00", "TimeZone": "UTC"}  # 08:00 CEST
+    row = json.loads(capsys.readouterr().out)[0]
+    assert (row["start"], row["end"], row["timeZone"]) == (
+        "2026-09-28T08:00:00", "2026-09-28T08:30:00", "Europe/Oslo",
+    )
 
 
 def test_find_time_local_limit(monkeypatch, capsys):

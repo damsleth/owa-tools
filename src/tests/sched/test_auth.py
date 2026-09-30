@@ -15,7 +15,7 @@ class FakeProc:
         self.stderr = stderr
 
 
-def test_setup_auth_returns_graph_api_base(monkeypatch):
+def test_setup_auth_returns_outlook_api_base(monkeypatch):
     monkeypatch.setattr(core_auth.shutil, 'which', lambda name: '/usr/bin/owa-piggy')
 
     def fake_run(argv, *args, **kwargs):
@@ -26,7 +26,7 @@ def test_setup_auth_returns_graph_api_base(monkeypatch):
     monkeypatch.setattr(core_auth.subprocess, 'run', fake_run)
     access, base = auth.setup_auth({}, debug=False)
     assert access == 'fake-access-token-for-tests'
-    assert base == 'https://graph.microsoft.com/v1.0'
+    assert base == 'https://outlook.office.com/api/v2.0'
 
 
 def test_setup_auth_missing_broker_raises_auth_error(monkeypatch):

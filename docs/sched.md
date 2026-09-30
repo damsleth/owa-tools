@@ -2,8 +2,10 @@
 
 Scheduling assistant for Outlook / Microsoft 365.
 
-Free/busy lookups and naive multi-attendee slot finding via Graph
-`/me/calendar/getSchedule`. Sibling of `owa-cal` / `owa-mail` / `owa-people`.
+Free/busy lookups and naive multi-attendee slot finding via Outlook REST v2.0
+`me/calendar/getschedule` (the `outlook` token owa-cal uses; owa-piggy's
+`graph` token carries no `Calendars.*` scope, so Graph `getSchedule` answers
+403). Sibling of `owa-cal` / `owa-mail` / `owa-people`.
 
 ```
 $ owa-sched availability --who alice@example.com,bob@example.com --date tomorrow --pretty
@@ -35,7 +37,7 @@ Run as `owa-sched ...` or via the umbrella `owa sched ...`.
 ## Auth
 
 owa-sched shells out to `owa-piggy` for a fresh access token on every call;
-`owa-piggy` owns the refresh token and profile registry. Audience: graph.
+`owa-piggy` owns the refresh token and profile registry. Audience: outlook.
 
 ```bash
 owa-piggy setup --profile work        # one-time, opens a browser
@@ -64,13 +66,14 @@ and precedence rules. Note owa-sched weeks are **Mon–Fri** (the work week),
 whereas owa-cal weeks are Mon–Sun. `--start` / `--end` set the work-day window
 (defaults 08:00 / 17:00, or the `default_work_start` / `default_work_end`
 config values). `getSchedule` caps `--who` at 20 attendees; more than that is
-rejected with a usage error rather than an opaque Graph 400.
+rejected with a usage error rather than an opaque Outlook 400.
 
 - `availability` adds `--interval <min>` (availabilityView granularity,
-  5-1440, default 30) and `--tz <timezone>` (override the configured Graph
+  5-1440, default 30) and `--tz <timezone>` (override the configured
   time zone for this call).
 - `find-time` adds `--duration <min>` (slot length, default 30), `--server`
-  for Graph `/me/findMeetingTimes`, `--max-candidates`,
+  for Outlook `me/findmeetingtimes` (sent in UTC, since that endpoint rejects
+  IANA zone names; suggestions come back in `--tz`), `--max-candidates`,
   `--min-attendee-pct`, `--attendee-type`, `--location`,
   `--organizer-optional`, `--tz`, `--limit`/`--max`, and local
   `--interval <min>`. `--interval` applies only to the local slot finder;
@@ -116,7 +119,7 @@ See [agent-integration.md](agent-integration.md) for the full contract.
 
 - The local slot finder applies the `--start`/`--end` work-day window to
   everyone, then intersects it with each attendee's own `workingHours` from the
-  getSchedule response when Graph advertises them: a candidate slot survives
+  getschedule response when Outlook advertises them: a candidate slot survives
   only if it lands on a working day and inside the working window of every
   attendee that publishes one (attendees with no published working hours add no
   constraint). Busy intervals and working-hour windows are converted between
@@ -124,11 +127,11 @@ See [agent-integration.md](agent-integration.md) for the full contract.
   offsets and local weekdays. Supported zones are IANA names and the Windows
   names in the shared timezone mapping. Unknown or custom zones exit 2;
   use `find-time --server` for those calendars.
-- Local slot finding exits 15 when a requested attendee is missing, Graph
+- Local slot finding exits 15 when a requested attendee is missing, Outlook
   returns an attendee error, or busy intervals/working hours cannot be parsed.
   It cannot claim free time from incomplete availability.
 - Normalized `workingHours` uses a sorted `days` array (Monday = 0), ISO time
   strings in `start` and `end`, and the upstream `timeZone` value. It is safe
   to serialize in JSON, agent envelopes, and profile fan-out results.
-- Graph's per-attendee error surface (e.g. mailbox not found, calendar hidden)
+- Outlook's per-attendee error surface (e.g. mailbox not found, calendar hidden)
   is preserved on the JSON output; consult the `error` field on each attendee.
