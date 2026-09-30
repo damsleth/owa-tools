@@ -398,3 +398,30 @@ def test_paginate_honors_max_pages():
         )
     )
     assert items == [{'id': 'https://graph.example.test/page1'}]
+
+
+def test_paginate_by_token_follows_next_page_token():
+    import urllib.parse
+
+    pages = [{'files': [{'id': '1'}], 'nextPageToken': 'p2'},
+             {'files': [{'id': '2'}], 'nextPageToken': 'p3'},
+             {'files': [{'id': '3'}]}]
+    seen = []
+
+    def fake_urlopen(req, timeout):
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(req.full_url).query)
+        seen.append(query.get('pageToken', [None])[0])
+        return FakeResp(json.dumps(pages[len(seen) - 1]).encode())
+
+    items, nxt = http.paginate_by_token(
+        'https://api.example.test/files', token='fake', list_key='files',
+        params={'q': "'root' in parents"}, urlopen=fake_urlopen,
+    )
+    assert [i['id'] for i in items] == ['1', '2', '3'] and nxt is None
+    assert seen == [None, 'p2', 'p3']
+    seen.clear()
+    items, nxt = http.paginate_by_token(
+        'https://api.example.test/files', token='fake', list_key='files',
+        max_pages=1, urlopen=fake_urlopen,
+    )
+    assert (len(items), nxt) == (1, 'p2')

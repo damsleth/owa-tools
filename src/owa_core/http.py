@@ -276,3 +276,40 @@ def paginate(
             if url and on_truncate is not None:
                 on_truncate(pages, url)
             return
+
+
+def paginate_by_token(
+    url,
+    *,
+    token,
+    list_key,
+    params=None,
+    max_pages=None,
+    retry=0,
+    debug=False,
+    urlopen=urllib.request.urlopen,
+    sleep=time.sleep,
+):
+    """Collect `list_key` items across Google-style pages (`nextPageToken`
+    in the body, echoed back as the `pageToken` query param).
+
+    Returns ``(items, next_page_token)``; the token is None when the last
+    page was reached, else the continuation `max_pages` stopped at.
+    """
+    from urllib.parse import urlencode
+
+    items = []
+    page_params = dict(params or {})
+    pages = 0
+    while True:
+        query = urlencode(page_params)
+        payload = request(
+            'GET', f'{url}?{query}' if query else url, token=token, retry=retry,
+            debug=debug, urlopen=urlopen, sleep=sleep,
+        ).json or {}
+        items.extend(payload.get(list_key) or [])
+        next_token = payload.get('nextPageToken')
+        pages += 1
+        if not next_token or (max_pages is not None and pages >= max_pages):
+            return items, next_token
+        page_params['pageToken'] = next_token

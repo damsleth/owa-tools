@@ -87,21 +87,16 @@ def test_build_list_query():
 # --- api.py ------------------------------------------------------------
 
 
-def test_paginate_follows_next_page_token(monkeypatch):
-    pages = [{'messages': [{'id': '1'}], 'nextPageToken': 'p2'},
-             {'messages': [{'id': '2'}], 'nextPageToken': 'p3'},
-             {'messages': [{'id': '3'}]}]
-    seen = []
+def test_paginate_delegates_to_core(monkeypatch):
+    seen = {}
 
-    def fake_get(base, endpoint, token, params=None, debug=False, retry=0):
-        seen.append(params.get('pageToken'))
-        return pages[len(seen) - 1]
+    def fake(url, **kw):
+        seen.update(url=url, **kw)
+        return [{'id': '1'}], None
 
-    monkeypatch.setattr(api, 'api_get', fake_get)
-    assert api.paginate(BASE, 'messages', 'tok', {}, 'messages') == ([{'id': '1'}, {'id': '2'}, {'id': '3'}], None)
-    assert seen == [None, 'p2', 'p3']
-    seen.clear()
-    assert api.paginate(BASE, 'messages', 'tok', {}, 'messages', max_pages=1) == ([{'id': '1'}], 'p2')
+    monkeypatch.setattr(api.http, 'paginate_by_token', fake)
+    assert api.paginate(BASE, 'messages', 'tok', {'q': 'x'}, 'messages', max_pages=1) == ([{'id': '1'}], None)
+    assert seen['url'] == f'{BASE}/messages' and seen['list_key'] == 'messages' and seen['max_pages'] == 1
 
 
 def test_api_get_builds_url(monkeypatch):
