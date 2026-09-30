@@ -729,3 +729,23 @@ def test_all_meta_profile_honours_tool_service(monkeypatch, capsys):
     )
     assert rc == 0
     assert seen == ['h', 'nc']
+
+
+def test_fan_out_reports_a_failing_profile_on_stderr_immediately(monkeypatch, capsys):
+    _patch_profiles(monkeypatch, [{'alias': 'a'}, {'alias': 'b'}])
+    order = []
+
+    def dispatch(argv):
+        p = argv[argv.index('--profile') + 1]
+        order.append(('dispatch', p, capsys.readouterr().err))
+        if p == 'a':
+            raise AuthExpiredError('refresh token expired')
+        print('{}')
+        return 0
+
+    rc = modes.run_with_output_modes('owa-mail', ['-A', 'messages'], dispatch)
+
+    assert rc == 2
+    # The failure was on stderr before profile b even started.
+    assert order[1] == ('dispatch', 'b', 'ERROR [a]: refresh token expired\n')
+    assert json.loads(capsys.readouterr().out)['results'][0]['error'] == 'refresh token expired'

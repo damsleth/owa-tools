@@ -8,9 +8,11 @@ actual subprocess, and parsing the sanitized token envelope.
 Stdlib only. No third-party deps.
 """
 import json
+import os
 import shutil
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass
 
 from .errors import AuthExpiredError, InternalError, OwaError, emit_error
@@ -109,6 +111,55 @@ def _ensure_broker_available(tool_name, min_version):
         )
 
 
+def _run_streaming(argv, *, label, timeout):
+    """subprocess.run with stderr echoed live and still collected.
+
+    A token mint can block for a minute (auto-reseed launches Edge); with
+    captured stderr the user saw nothing until it finished or timed out, and
+    in an `-A` fan-out not even which profile was stuck. Each broker stderr
+    line is echoed to our stderr as `<label>: <line>` (redacted) the moment it
+    arrives. `ERROR:` lines are held back: they come out once, via the typed
+    exception built from the collected text.
+
+    Returns (proc, stderr_text). stdout stays captured (it's the JSON).
+    """
+    read_fd, write_fd = os.pipe()
+    lines = []
+
+    def pump():
+        with os.fdopen(read_fd, 'r', errors='replace') as stream:
+            for line in stream:
+                lines.append(line)
+                if line.strip() and not line.startswith('ERROR:'):
+                    print(f'{label}: {redact(line.rstrip())}', file=sys.stderr, flush=True)
+
+    reader = threading.Thread(target=pump, daemon=True)
+    reader.start()
+    try:
+        proc = subprocess.run(
+            argv, stdout=subprocess.PIPE, stderr=write_fd, text=True,
+            check=False, timeout=timeout,
+        )
+    finally:
+        os.close(write_fd)  # the child's copy is gone; this EOFs the reader
+        reader.join(timeout=5)
+    # A stubbed subprocess.run never writes to the pipe; fall back to its
+    # stderr so test doubles keep working.
+    return proc, ''.join(lines) or (getattr(proc, 'stderr', None) or '')
+
+
+def _broker_error(stderr_text):
+    """The failure message from broker stderr: its `ERROR:` lines (prefix
+    dropped - emit_error adds its own), else everything. Progress lines were
+    already echoed live, so repeating them here would print them twice."""
+    errors = [
+        line[len('ERROR:'):].strip()
+        for line in stderr_text.splitlines()
+        if line.startswith('ERROR:')
+    ]
+    return redact('\n'.join(errors) or stderr_text.strip()) or 'token refresh failed'
+
+
 def _optional_int(value):
     if value is None:
         return None
@@ -145,15 +196,13 @@ def get_token(
         argv += ['--profile', profile]
     if debug:
         print(f'DEBUG: auth via owa-piggy ({" ".join(argv)})', file=sys.stderr)
+    label = f'owa-piggy[{profile}]' if profile else 'owa-piggy'
     try:
-        proc = subprocess.run(
-            argv, capture_output=True, text=True, check=False, timeout=60,
-        )
+        proc, stderr_text = _run_streaming(argv, label=label, timeout=60)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise AuthExpiredError('failed to run owa-piggy token', cause=exc)
     if proc.returncode != 0:
-        message = redact((proc.stderr or '').strip()) or 'token refresh failed'
-        raise AuthExpiredError(message)
+        raise AuthExpiredError(_broker_error(stderr_text))
     try:
         result = json.loads(proc.stdout)
     except json.JSONDecodeError as exc:

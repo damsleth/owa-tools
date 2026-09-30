@@ -434,6 +434,10 @@ def _run_multi_profile(
             except OwaError as error:
                 rc = int(error.exit_code)
                 err_msg = redact(error.message)
+                if not err_json:
+                    # Say so now, not only in the merged result after every
+                    # other profile has run (stdout stays the merged JSON).
+                    print(f'ERROR [{p}]: {err_msg}', file=sys.stderr, flush=True)
             except SystemExit as exc:
                 rc = int(exc.code or 0)
         if rc == 0 and not pretty and not ndjson and captured.getvalue().strip():
