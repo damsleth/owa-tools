@@ -6,7 +6,7 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
-## Unreleased
+## v1.9.0 - 2026-10-01
 
 ### owa-gmail (new)
 
