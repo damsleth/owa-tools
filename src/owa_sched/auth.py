@@ -1,6 +1,9 @@
-"""Token acquisition. Audience: graph. /me/calendar/getSchedule needs
-Calendars.Read.Shared on the Graph audience, which the OWA SPA scopes
-do carry.
+"""Token acquisition. Audience: outlook.
+
+owa-piggy's graph token carries no Calendars.* scope, so Graph getSchedule
+answers 403. The outlook token (what owa-cal uses) carries
+Calendars.ReadWrite(.Shared) and works against Outlook REST v2.0
+`me/calendar/getschedule` and `me/findmeetingtimes`.
 
 Thin wrapper over owa_core.auth - see owa_drive/auth.py for the
 """
@@ -8,8 +11,8 @@ Thin wrapper over owa_core.auth - see owa_drive/auth.py for the
 from owa_core import auth as _core
 
 TOOL_NAME = 'owa-sched'
-AUDIENCE = 'graph'
-API_BASE = 'https://graph.microsoft.com/v1.0'
+AUDIENCE = 'outlook'
+API_BASE = 'https://outlook.office.com/api/v2.0'
 
 
 def do_token_refresh(config, debug=False):

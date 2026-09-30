@@ -155,7 +155,7 @@ def test_availability_tz_override_passed_to_get_schedule(monkeypatch):
     seen = {}
 
     def fake_post(base, endpoint, token, body=None, debug=False, extra_headers=None):
-        seen["tz"] = body["startTime"]["timeZone"]
+        seen["tz"] = body["StartTime"]["TimeZone"]
         return _schedule_payload()
 
     monkeypatch.setattr(cli.api_mod, "api_post", fake_post)

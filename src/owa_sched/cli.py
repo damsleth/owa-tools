@@ -4,18 +4,20 @@ Two main subcommands:
   availability   - per-attendee busy listing
   find-time      - naive multi-attendee slot finder
 
-Both call POST /me/calendar/getSchedule. The slot finder layers
+Both call Outlook REST POST me/calendar/getschedule. The slot finder layers
 pure-function logic in `schedule.find_open_slots` on top of the
 same response.
 """
 import json
 import os
 import sys
+from datetime import timezone as dt_timezone
 
 from owa_core import modes as mode_mod
 from owa_core import periods as periods_mod
 from owa_core import schema as schema_mod
 from owa_core.errors import UsageError, _require_value, emit_message
+from owa_core.timezones import parse_iso_datetime, resolve_timezone
 
 from . import __version__
 from . import api as api_mod
@@ -149,28 +151,28 @@ Examples:
 
 def _call_get_schedule(who, from_date, to_date, start_hhmm, end_hhmm,
                        interval, tz, access_token, api_base, debug):
-    """Issue one POST /me/calendar/getSchedule call covering the
+    """Issue one POST me/calendar/getschedule call covering the
     full window. The endpoint accepts a single (start, end) pair, so
     we don't paginate per-day - we span the whole window."""
     body = {
-        'schedules': who,
-        'startTime': {
-            'dateTime': make_local_iso(from_date, start_hhmm),
-            'timeZone': tz,
+        'Schedules': who,
+        'StartTime': {
+            'DateTime': make_local_iso(from_date, start_hhmm),
+            'TimeZone': tz,
         },
-        'endTime': {
-            'dateTime': make_local_iso(to_date, end_hhmm),
-            'timeZone': tz,
+        'EndTime': {
+            'DateTime': make_local_iso(to_date, end_hhmm),
+            'TimeZone': tz,
         },
-        'availabilityViewInterval': interval,
+        'AvailabilityViewInterval': interval,
     }
     payload = api_mod.api_post(
-        api_base, 'me/calendar/getSchedule', access_token,
+        api_base, 'me/calendar/getschedule', access_token,
         body=body, extra_headers={'Prefer': f'outlook.timezone="{tz}"'}, debug=debug,
     )
     if payload is None:
         return None
-    items = payload.get('value') or []
+    items = api_mod.camel(payload).get('value') or []
     attendees = [normalize_attendee(it) for it in items]
     returned = {a['email'].lower() for a in attendees}
     attendees.extend(
@@ -189,17 +191,34 @@ def _duration_iso(minutes):
     return f'PT{mins}M'
 
 
-def _normalize_meeting_suggestions(payload):
-    suggestions = payload.get('meetingTimeSuggestions') or []
+def _to_utc(date_, hhmm, tz):
+    """Local wall time in `tz` (Windows or IANA name) -> naive UTC ISO.
+    findmeetingtimes rejects IANA names (ErrorTimeZone), so it gets UTC."""
+    local = parse_iso_datetime(make_local_iso(date_, hhmm)).replace(tzinfo=resolve_timezone(tz))
+    return local.astimezone(dt_timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
+
+
+def _from_utc(value, tz):
+    """A suggestion time (UTC per our request) -> local ISO in `tz`."""
+    if not value:
+        return value
+    parsed = parse_iso_datetime(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt_timezone.utc)
+    return parsed.astimezone(resolve_timezone(tz)).strftime('%Y-%m-%dT%H:%M:%S')
+
+
+def _normalize_meeting_suggestions(payload, tz):
+    suggestions = api_mod.camel(payload).get('meetingTimeSuggestions') or []
     rows = []
     for item in suggestions:
         slot = item.get('meetingTimeSlot') or {}
         start = slot.get('start') or {}
         end = slot.get('end') or {}
         rows.append({
-            'start': start.get('dateTime'),
-            'end': end.get('dateTime'),
-            'timeZone': start.get('timeZone') or end.get('timeZone'),
+            'start': _from_utc(start.get('dateTime'), tz),
+            'end': _from_utc(end.get('dateTime'), tz),
+            'timeZone': tz,
             'confidence': item.get('confidence'),
             'organizerAvailability': item.get('organizerAvailability'),
             'attendeesAvailability': item.get('attendeeAvailability') or [],
@@ -215,49 +234,50 @@ def _call_find_meeting_times(who, from_date, to_date, start_hhmm, end_hhmm,
                              location, organizer_optional, debug):
     attendees = [
         {
-            'type': attendee_type,
-            'emailAddress': {'address': email},
+            'Type': attendee_type.capitalize(),
+            'EmailAddress': {'Address': email},
         }
         for email in who
     ]
     body = {
-        'attendees': attendees,
-        'timeConstraint': {
-            'activityDomain': 'work',
+        'Attendees': attendees,
+        'TimeConstraint': {
+            'ActivityDomain': 'Work',
             # One timeslot per day so the --start/--end work-day window is
             # honored on every day in the range. A single from..to slot would
-            # let Graph suggest out-of-hours times (e.g. 02:00) on the
-            # intermediate days and across overnight gaps.
-            'timeslots': [
+            # let Outlook suggest out-of-hours times (e.g. 02:00) on the
+            # intermediate days and across overnight gaps. Sent in UTC:
+            # findmeetingtimes only knows Windows zone names.
+            'Timeslots': [
                 {
-                    'start': {'dateTime': make_local_iso(d, start_hhmm), 'timeZone': tz},
-                    'end': {'dateTime': make_local_iso(d, end_hhmm), 'timeZone': tz},
+                    'Start': {'DateTime': _to_utc(d, start_hhmm, tz), 'TimeZone': 'UTC'},
+                    'End': {'DateTime': _to_utc(d, end_hhmm, tz), 'TimeZone': 'UTC'},
                 }
                 for d in daterange(from_date, to_date)
             ],
         },
-        'meetingDuration': _duration_iso(duration),
-        'maxCandidates': max_candidates,
-        'minimumAttendeePercentage': min_attendee_pct,
-        'isOrganizerOptional': organizer_optional,
-        'returnSuggestionReasons': True,
+        'MeetingDuration': _duration_iso(duration),
+        'MaxCandidates': max_candidates,
+        'MinimumAttendeePercentage': min_attendee_pct,
+        'IsOrganizerOptional': organizer_optional,
+        'ReturnSuggestionReasons': True,
     }
     if location:
-        body['locationConstraint'] = {
-            'isRequired': False,
-            'suggestLocation': True,
-            'locations': [{'displayName': location}],
+        body['LocationConstraint'] = {
+            'IsRequired': False,
+            'SuggestLocation': True,
+            'Locations': [{'DisplayName': location}],
         }
     payload = api_mod.api_post(
         api_base,
-        'me/findMeetingTimes',
+        'me/findmeetingtimes',
         access_token,
         body=body,
         debug=debug,
     )
     if payload is None:
         return None
-    return _normalize_meeting_suggestions(payload)
+    return _normalize_meeting_suggestions(payload, tz)
 
 
 def cmd_availability(args, config, access_token, api_base):
@@ -635,9 +655,11 @@ def _main(argv):
 
 # Delegated scopes that grant each scheduling command (any-of), used by the
 # --profile all fan-out to silently skip profiles with no calendar access
-# (getSchedule free/busy needs Calendars.Read). refresh/config are local.
+# (getschedule free/busy needs a Calendars scope on the outlook token).
+# refresh/config are local.
 _SCHED_SCOPES = frozenset({
     'Calendars.Read', 'Calendars.ReadWrite', 'Calendars.Read.Shared',
+    'Calendars.ReadWrite.Shared',
 })
 COMMAND_SCOPES = {cmd: _SCHED_SCOPES for cmd in ('availability', 'find-time')}
 

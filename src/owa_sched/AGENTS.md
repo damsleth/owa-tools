@@ -2,7 +2,10 @@
 
 `owa_sched` handles free/busy, availability, and slot finding.
 
-- Auth audience is `graph`.
+- Auth audience is `outlook` (Outlook REST v2.0 `me/calendar/getschedule`,
+  `me/findmeetingtimes`). The `graph` token has no `Calendars.*` scope (403).
+  Requests are PascalCase; `api.camel` lower-cases responses for the
+  normalizers. `findmeetingtimes` rejects IANA zones, so its slots go in UTC.
 - Date parsing, timezone conversion, interval math, and working-window defaults
   are high-risk.
 - Do not infer write behavior; this tool should stay read-only until a plan says
