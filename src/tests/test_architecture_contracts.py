@@ -23,6 +23,7 @@ RUNTIME_DIRS = [
     'owa_swodp',
     'owa_halo',
     'owa_kova',
+    'owa_gmail',
 ]
 
 

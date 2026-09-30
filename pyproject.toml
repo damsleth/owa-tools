@@ -47,6 +47,7 @@ owa-ado = "owa_ado:main"
 owa-swodp = "owa_swodp:main"
 owa-halo = "owa_halo:main"
 owa-kova = "owa_kova:main"
+owa-gmail = "owa_gmail:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -72,6 +73,7 @@ packages = [
   "owa_swodp",
   "owa_halo",
   "owa_kova",
+  "owa_gmail",
 ]
 
 [tool.setuptools.package-data]
@@ -111,6 +113,7 @@ source = [
   "owa_swodp",
   "owa_halo",
   "owa_kova",
+  "owa_gmail",
 ]
 omit = ["*/__main__.py"]
 

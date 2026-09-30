@@ -30,6 +30,7 @@ TOOLS = (
     'owa-swodp',
     'owa-halo',
     'owa-kova',
+    'owa-gmail',
 )
 
 

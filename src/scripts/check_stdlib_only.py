@@ -53,6 +53,9 @@ LOCAL_PACKAGES = frozenset({
     "owa_vids",
     "owa_ado",
     "owa_swodp",
+    "owa_halo",
+    "owa_kova",
+    "owa_gmail",
 })
 
 # Third-party runtime dependencies the suite is allowed to import. The
