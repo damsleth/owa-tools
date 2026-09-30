@@ -15,6 +15,20 @@ per-tool subsections inside that release when useful.
   `--with-body`), `show`, `get` (.eml), `attachments`, `labels`, `refresh`,
   `config`. `-A` and the default profile ride the broker `google` service.
 
+### owa-gdrive (new)
+
+- Read-only Google Drive over the same owa-piggy Google profile: `owa-gdrive
+  ls [folder-id]` (My Drive top level by default; `--name`/`--search` over
+  the whole Drive, `--shared`, raw `--query`, paging), `show`, `get`
+  (Google Docs/Sheets/Slides/Drawings exported to text/csv/text/png, or
+  `--export-mime`), `refresh`, `config`.
+
+### owa_core
+
+- `http.paginate_by_token` (Google `nextPageToken` paging) and
+  `auth.resolve_service_profile` (pick the profile with a broker service),
+  shared by owa-gmail and owa-gdrive.
+
 ### owa-halo, owa-kova
 
 - `--help` includes the suite's multi-profile and machine-surface blocks.

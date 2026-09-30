@@ -31,10 +31,10 @@ PyPI:
 pipx install --include-deps owa-tools
 ```
 
-Either path lands nineteen binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
+Either path lands twenty binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
 `owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-places`, `owa-drive`, `owa-todo`,
 `owa-planner`, `owa-sites`, `owa-teams`, `owa-vids`, `owa-ado`, `owa-swodp`, `owa-halo`,
-`owa-kova`, `owa-gmail`) plus the
+`owa-kova`, `owa-gmail`, `owa-gdrive`) plus the
 `owa-piggy` auth broker.
 
 ## Quickstart
@@ -83,6 +83,7 @@ passed straight through.
 | `owa-swodp` | SWODP ServiceNow timesheets: Edge sidecar auth (the owa-piggy profile with `swodp`), reads, validated Pending-only writes, prod/UAT isolation. |
 | `owa-halo` | HaloITSM (read-only): ticket, status, metadata, actions/comments, attachments and inline screenshots. Auth via the `halo` service on an owa-piggy profile (`clients add halo=<url>`). |
 | `owa-gmail` | Gmail (read-only): list/search messages, show one, raw .eml, attachments, labels. Auth via an owa-piggy Google profile (`setup --google`). |
+| `owa-gdrive` | Google Drive (read-only): list/search, metadata, download; Docs/Sheets/Slides exported to text/csv. Auth via an owa-piggy Google profile. |
 | `owa-kova` | Kova (Red Cross) schedule (read-only): your duties and the unit's open duties. Session via the `kova` service on an owa-piggy profile (`clients add kova`). |
 | `owa` | Umbrella: suite meta (`owa list`, `owa schema`, `owa version`, `owa --doctor`) plus `owa <tool> ...` pass-through dispatch (e.g. `owa cal events`). |
 
