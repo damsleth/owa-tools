@@ -28,7 +28,3 @@ are retained beside the report; completed tasks are archived in DONE.md.
 - [ ] owa-swodp: capture natural expired-session signal and verify setup recovery
 
 Historical TUI work is retired from this CLI-only repository; see [snapshot](done/legacy-todo-2026-09-08.md).
-- [ ] when fanning out with -A, any token related error, warning or wait time, e.g. due to expired token requiring refresh, should surface immediately, instead of leaving the user waiting for the underlying operation to finish, time out or err. this might require a contract change across all of the owa tools, owa piggy and owa tui
-- [ ] owa-sched: audience graph has no Calendars.* scope for owa-piggy tokens → always 403. Switch to audience outlook + https://outlook.office.com/api/v2.0/me/calendar/getschedule (PascalCase body/response); owa-tui sched already does this (owa-tui 04103b7)
-- [ ] owa-sched -A returns profiles: [] exit 0 when every profile fails — fan-out silently skips instead of reporting
-- [ ] owa_core.http: RateLimitedError should carry retry_after (Retry-After header); expose retry= on owa_mail/owa_cal/owa_people/owa_planner/owa_todo/owa_drive api_get like owa_teams/owa_graph do. Graph 429 ApplicationThrottled/MailboxConcurrency is shared with browser OWA (same One Outlook Web app id)

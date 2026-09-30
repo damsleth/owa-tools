@@ -10,6 +10,28 @@ exist (introduced in `d875cde`). Scaffolding is no longer the blocker.
 probe below records that shape as rejected. No successful sanitized capture is
 present in this plan or its tests. Historical 400 evidence has not been re-run.
 
+Probe 2026-09-30 (from `.tmp/initMeetingLocationsHAR.json`, replayed with the
+owa-piggy `outlook` token):
+
+- The browser's successful call is `POST .../SchedulingB2/api/v1.0/me/initmeetinglocations?n=12`
+  with body `{"timeConstraint":{"timeslots":[{"Start":{"DateTime":"<day> 00:00:00","TimeZone":"W. Europe Standard Time"},"End":{"DateTime":"<day+1> 00:00:00",...}}],"recurrence":null},"queryConstraint":{"Query":"","WorkspacesOnly":true}}`.
+  The shipped `{"NumberOfLocations": n}` body is wrong.
+- Without app headers the call answers **400** (an HttpResponseMessage-shaped
+  body). With `x-findmeetinglocations-appname: owa-reactplaces`,
+  `x-findmeetinglocations-appscenario: LocationWell`,
+  `x-ms-appname: owa-reactplaces`, `owaappid: 472dd75b-cdf2-42a0-9fec-b86cefca8135`
+  it answers **200**. Not-whole-day timeslots -> 400 BadArgument
+  "Invalid time constraints".
+- But the 200 body is empty (`{}`/`[]`) on nc, swon, une, brkh, for any
+  Query/WorkspacesOnly combination. The HAR was captured on the Places
+  Explore page, which loaded `EmptyBuildingImage.png`: these tenants likely
+  have no Places buildings configured, so this endpoint has nothing to
+  return. The response body was not saved in the HAR, so the success shape
+  is still unknown.
+- Next step, if pursued: capture the location picker in the *calendar event
+  form* (Room Finder / "Add a room"), not Places Explore, with response
+  bodies saved. That is the UI that lists rooms for a tenant without Places.
+
 Remaining acceptance:
 
 - [ ] Capture a successful request/response with the operator's intended profile;
