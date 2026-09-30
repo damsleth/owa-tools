@@ -19,16 +19,8 @@ def api_get(base, endpoint, access_token, params=None, debug=False, retry=0):
 
 
 def paginate(base, endpoint, access_token, params, list_key, *, max_pages=None, debug=False):
-    """Follow Gmail's `nextPageToken` (not Graph's @odata.nextLink) and collect
-    every `list_key` item. Returns (items, next_page_token_or_None)."""
-    items = []
-    page_params = dict(params or {})
-    pages = 0
-    while True:
-        payload = api_get(base, endpoint, access_token, params=page_params, debug=debug) or {}
-        items.extend(payload.get(list_key) or [])
-        token = payload.get('nextPageToken')
-        pages += 1
-        if not token or (max_pages is not None and pages >= max_pages):
-            return items, token
-        page_params = dict(page_params, pageToken=token)
+    """Gmail's nextPageToken paging; returns (items, next_page_token_or_None)."""
+    return http.paginate_by_token(
+        f'{base}/{endpoint.lstrip("/")}', token=access_token, list_key=list_key,
+        params=params, max_pages=max_pages, debug=debug,
+    )
