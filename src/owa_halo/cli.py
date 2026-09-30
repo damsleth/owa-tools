@@ -36,6 +36,9 @@ Options:
   --pretty           Human-readable output
   --profile <alias>  owa-piggy profile with Halo (default: the default or only one)
 """)
+    print(schema_mod.MULTI_PROFILE_HELP)
+    print()
+    print(schema_mod.MACHINE_SURFACE_HELP)
 
 
 def _parse(args, flags):
