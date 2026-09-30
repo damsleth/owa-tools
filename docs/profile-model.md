@@ -146,6 +146,14 @@ aborts the others. The overall exit code reflects the set:
 | Some succeeded, some failed | `2` |
 | All profiles failed | `1` |
 
+Problems surface on stderr as they happen, not only in the merged result at
+the end: broker progress (e.g. `owa-piggy[nc]: ... auto-reseeding...` while a
+token is being re-captured) is echoed live, and a profile that fails prints
+`ERROR [<alias>]: <message>` before the next profile starts (suppressed under
+`--err-json`, where the merged result carries the error). With `-A`, if the
+scope filter leaves no profile able to run the command, the run exits `12`
+naming the profiles and the missing scopes instead of printing `results: []`.
+
 ### What can't fan out
 
 Interactive commands (a curses `tui` is one terminal, not N) and binary-output
