@@ -17,7 +17,7 @@ authors = [{ name = "Carl Joakim Damsleth" }]
 # Runtime deps: only the owa-piggy auth broker, which the suite runs as a
 # subprocess and never imports. Everything else is stdlib. The
 # CLI-contract surface lives in owa_core.conventions.
-dependencies = ["owa-piggy>=1.1.1"]
+dependencies = ["owa-piggy>=1.3.0"]
 
 [project.optional-dependencies]
 dev = [

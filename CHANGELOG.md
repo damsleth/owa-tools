@@ -8,7 +8,8 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
-Needs owa-piggy with `services` and `edge_dir` in `profiles --json`.
+Needs owa-piggy >= 1.3.0 (`services` and `edge_dir` in `profiles --json`);
+the dependency floor is raised to match.
 
 ### owa-kova (new)
 
@@ -26,6 +27,14 @@ Needs owa-piggy with `services` and `edge_dir` in `profiles --json`.
   and inline screenshots. Auth is the `halo` service on an owa-piggy profile
   (`owa-piggy clients add halo=<url> --profile nc`).
 
+### owa-sched
+
+- Uses the `outlook` audience and Outlook REST v2.0 `me/calendar/getschedule`
+  / `me/findmeetingtimes`. owa-piggy's `graph` token carries no `Calendars.*`
+  scope, so every call used to answer 403. `find-time --server` sends its
+  timeslots in UTC (findmeetingtimes rejects IANA zone names) and returns
+  suggestions in `--tz`.
+
 ### owa-swodp
 
 - Prod runs in the owa-piggy sidecar of the profile with the `swodp`
@@ -39,6 +48,16 @@ Needs owa-piggy with `services` and `edge_dir` in `profiles --json`.
   `BrokerProfile` gains `services` and `edge_dir`.
 - `redact()` also scrubs capability URLs (Halo inline-image `token=`,
   CloudFront `Signature=`).
+- `-A` exits `12` naming the profiles and missing scopes when the scope
+  filter leaves no profile able to run the command (it printed `results: []`
+  and exited `0`).
+- Broker progress is echoed live on stderr as `owa-piggy[<profile>]: ...`
+  (e.g. while a token auto-reseeds), and a failing fan-out profile prints
+  `ERROR [<alias>]: ...` immediately. Broker errors no longer print
+  `ERROR: ERROR:`.
+- A 429 carries `retry_after` (from `Retry-After`) in `--err-json` and as a
+  stderr hint. The mail/cal/people/planner/todo/drive `api_get` helpers take
+  `retry=` (default 0, unchanged).
 
 ## v1.7.0 - 2026-09-23
 
