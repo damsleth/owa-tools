@@ -31,6 +31,13 @@ PyPI:
 pipx install --include-deps owa-tools
 ```
 
+No Homebrew? One line installs owa-tools and owa-piggy with uv (or pipx),
+asks whether to add owa-tui, and puts them on PATH:
+
+```bash
+curl -fsSL https://owa-piggy.dv.ms/install.sh | bash
+```
+
 Either path lands twenty binaries on your PATH (`owa`, `owa-cal`, `owa-mail`,
 `owa-graph`, `owa-doctor`, `owa-people`, `owa-sched`, `owa-places`, `owa-drive`, `owa-todo`,
 `owa-planner`, `owa-sites`, `owa-teams`, `owa-vids`, `owa-ado`, `owa-swodp`, `owa-halo`,
