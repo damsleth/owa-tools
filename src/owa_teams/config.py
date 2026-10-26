@@ -1,7 +1,7 @@
 """Config file I/O for owa-teams.
 
 KEY="VALUE" lines, shell-sourceable for symmetry with the rest of the suite.
-owa-teams holds no secrets - only an optional profile alias, the chatsvc region
+owa-teams holds no secrets - only the chatsvc region
 (`emea`/`amer`/`apac`/...), and a default page size. The on-disk file is 0600.
 
 Mechanics live in owa_core.config; this file just declares the per-tool path
@@ -17,7 +17,6 @@ CONFIG_PATH = Path(
 ) / 'owa-teams' / 'config'
 
 ALLOWED_KEYS = (
-    'owa_piggy_profile',
     'teams_region',
     'page_size',
     'debug',

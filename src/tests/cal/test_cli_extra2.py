@@ -200,13 +200,10 @@ def test_main_dispatches_refresh(monkeypatch, capsys):
 
 
 def test_main_dispatches_config(monkeypatch, capsys):
-    saved = {}
     monkeypatch.setattr(cli.config_mod, 'CONFIG_PATH', '/tmp/owa-cal-cfg-test')
-    monkeypatch.setattr(cli.config_mod, 'config_set',
-                        lambda k, v: saved.setdefault(k, v))
-    rc = cli._main(['config', '--profile', 'myprofile'])
+    rc = cli._main(['config'])
     assert rc == 0
-    assert saved.get('owa_piggy_profile') == 'myprofile'
+    assert '/tmp/owa-cal-cfg-test' in capsys.readouterr().err
 
 
 def test_main_dispatches_profiles(monkeypatch, capsys):
@@ -559,13 +556,6 @@ def test_cmd_categories_unknown_flag():
 def test_cmd_config_unknown_flag():
     with pytest.raises(UsageError, match='Unknown flag'):
         cmd_config(['--bogus'], {})
-
-
-def test_cmd_config_no_profile_set_message(tmp_config, capsys):
-    rc = cmd_config([], {})
-    assert rc == 0
-    err = capsys.readouterr().err
-    assert 'not set' in err
 
 
 # ---------------------------------------------------------------------------

@@ -11,18 +11,18 @@ from owa_core import config as core_config
 
 
 def test_parse_kv_stream_basic():
-    out = core_config.parse_kv_stream('owa_piggy_profile=work\ndefault_timezone=Europe/Oslo\n', ALLOWED_KEYS)
-    assert out == {'owa_piggy_profile': 'work', 'default_timezone': 'Europe/Oslo'}
+    out = core_config.parse_kv_stream('debug=1\ndefault_timezone=Europe/Oslo\n', ALLOWED_KEYS)
+    assert out == {'debug': '1', 'default_timezone': 'Europe/Oslo'}
 
 
 def test_parse_kv_stream_strips_quotes():
-    out = core_config.parse_kv_stream('owa_piggy_profile="quoted"\ndefault_timezone=\'single\'\n', ALLOWED_KEYS)
-    assert out == {'owa_piggy_profile': 'quoted', 'default_timezone': 'single'}
+    out = core_config.parse_kv_stream('debug="quoted"\ndefault_timezone=\'single\'\n', ALLOWED_KEYS)
+    assert out == {'debug': 'quoted', 'default_timezone': 'single'}
 
 
 def test_parse_kv_stream_rejects_unknown_keys():
-    out = core_config.parse_kv_stream('EVIL=1\nowa_piggy_profile=ok\n', ALLOWED_KEYS)
-    assert out == {'owa_piggy_profile': 'ok'}
+    out = core_config.parse_kv_stream('EVIL=1\nowa_piggy_profile=x\ndebug=ok\n', ALLOWED_KEYS)
+    assert out == {'debug': 'ok'}
 
 
 def test_parse_kv_stream_ignores_comments_and_blanks():
@@ -39,14 +39,14 @@ def test_load_config_missing_file(tmp_config, clean_env):
 
 
 def test_save_and_load_roundtrip(tmp_config, clean_env):
-    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work', 'default_timezone': 'Europe/Oslo'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'debug': '1', 'default_timezone': 'Europe/Oslo'})
     cfg = load_config()
-    assert cfg['owa_piggy_profile'] == 'work'
+    assert cfg['debug'] == '1'
     assert cfg['default_timezone'] == 'Europe/Oslo'
 
 
 def test_save_sets_0600(tmp_config, clean_env):
-    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work', 'default_timezone': 'Europe/Oslo'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'debug': '1', 'default_timezone': 'Europe/Oslo'})
     mode = stat.S_IMODE(tmp_config.stat().st_mode)
     assert mode == 0o600
 
@@ -61,31 +61,26 @@ def test_env_overrides_file_default_timezone(tmp_config, monkeypatch, clean_env)
     assert cfg['default_timezone'] in ('from-file', 'from-env')
 
 
-def test_profile_env_does_not_override(tmp_config, monkeypatch, clean_env):
-    # On the owa-piggy path the refresh token lives in owa-piggy's
-    # profile store; owa-cal only stores the profile alias.
-    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'from-file'})
+def test_stale_owa_piggy_profile_line_is_ignored(tmp_config, monkeypatch, clean_env):
+    tmp_config.parent.mkdir(parents=True, exist_ok=True)
+    tmp_config.write_text('owa_piggy_profile="stale"\ndefault_timezone="Europe/Oslo"\n')
     monkeypatch.setenv('OWA_PROFILE', 'from-env')
     cfg = load_config()
-    assert cfg['owa_piggy_profile'] == 'from-file'
+    assert 'owa_piggy_profile' not in cfg
+    assert cfg['default_timezone'] == 'Europe/Oslo'
 
 
-def test_owa_piggy_profile_roundtrip(tmp_config, clean_env):
-    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
-    cfg = load_config()
-    assert cfg['owa_piggy_profile'] == 'work'
-
-
-def test_parse_kv_stream_preserves_profile_key():
-    out = core_config.parse_kv_stream('owa_piggy_profile="work"\n', ALLOWED_KEYS)
-    assert out == {'owa_piggy_profile': 'work'}
+def test_owa_piggy_profile_not_settable():
+    import pytest
+    with pytest.raises(ValueError):
+        config_set('owa_piggy_profile', 'work')
 
 
 def test_config_set_preserves_other_keys(tmp_config, clean_env):
-    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work', 'default_timezone': 'Europe/Oslo'})
-    config_set('owa_piggy_profile', 'home')
+    core_config.save_config(config_mod.CONFIG_PATH, {'debug': '1', 'default_timezone': 'Europe/Oslo'})
+    config_set('debug', '0')
     cfg = load_config()
-    assert cfg['owa_piggy_profile'] == 'home'
+    assert cfg['debug'] == '0'
     assert cfg['default_timezone'] == 'Europe/Oslo'
 
 
@@ -96,6 +91,6 @@ def test_config_set_rejects_unknown_key(tmp_config, clean_env):
 
 
 def test_save_atomic_no_stray_tmpfile(tmp_config, clean_env):
-    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work', 'default_timezone': 'Europe/Oslo'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'debug': '1', 'default_timezone': 'Europe/Oslo'})
     siblings = list(tmp_config.parent.iterdir())
     assert [p.name for p in siblings] == [tmp_config.name]

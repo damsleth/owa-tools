@@ -1,8 +1,8 @@
 """Config file I/O for owa-mail.
 
 KEY="VALUE" lines, shell-sourceable for symmetry with owa-cal and
-owa-piggy. owa-mail holds no secrets - only an optional profile alias.
-The on-disk file is chmod 0600.
+owa-piggy. owa-mail holds no secrets. The
+on-disk file is chmod 0600.
 
 Mechanics live in owa_core.config; this file just declares the
 per-tool path and allowlist.
@@ -17,7 +17,6 @@ CONFIG_PATH = Path(
 ) / 'owa-mail' / 'config'
 
 ALLOWED_KEYS = (
-    'owa_piggy_profile',
     'debug',
 )
 

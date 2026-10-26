@@ -16,7 +16,7 @@ owa-piggy setup --profile brkh-g --google \
 ```
 
 With exactly one Google profile, `owa-gmail` picks it; otherwise pass
-`--profile <alias>` or pin one with `owa-gmail config --profile <alias>`.
+`--profile <alias>`.
 `-A` fans out across Google profiles only. Pointing it at a Microsoft profile
 exits `2` ("not a Google profile").
 
@@ -32,7 +32,7 @@ owa-gmail get 1a0f38f0c80a6be4 --out mail.eml
 owa-gmail attachments 1a0f38f0c80a6be4 <attachment-id> --out logo.png
 owa-gmail labels --pretty
 owa-gmail refresh
-owa-gmail config --profile brkh-g
+owa-gmail config
 ```
 
 - `owa-gmail messages` lists newest first across every label except spam and
@@ -54,7 +54,7 @@ owa-gmail config --profile brkh-g
   (exit `15`) without `--force`. They cannot fan out across profiles.
 - `owa-gmail labels` prints `{id, name, type}` rows, system labels first.
 - `owa-gmail refresh` verifies auth and prints the account address;
-  `owa-gmail config` shows or pins the default profile.
+  `owa-gmail config` shows the config path.
 
 ## Errors
 

@@ -154,24 +154,6 @@ def test_do_token_refresh_no_profile(monkeypatch, clean_env):
     assert captured['argv'] == ['owa-piggy', 'token', '--audience', 'outlook', '--json']
 
 
-def test_config_profile_writes_to_file(tmp_config, clean_env):
-    from owa_mail.cli import cmd_config
-    cmd_config(['--profile', 'work'], {})
-    assert tmp_config.exists()
-    content = tmp_config.read_text()
-    assert 'owa_piggy_profile="work"' in content
-
-
-def test_config_profile_with_leading_debug_writes_to_file(tmp_config, clean_env, monkeypatch):
-    from owa_mail.cli import main
-
-    monkeypatch.setattr(sys, 'argv', ['owa-mail', '--debug', 'config', '--profile', 'work'])
-
-    assert main() == 0
-    assert tmp_config.exists()
-    assert 'owa_piggy_profile="work"' in tmp_config.read_text()
-
-
 def _capture_setup_auth_config(monkeypatch, argv):
     """Run main() with sys.argv = argv and capture the config dict that
     setup_auth receives."""
@@ -210,9 +192,9 @@ def test_profile_flag_after_subcommand_also_works(tmp_config, clean_env, monkeyp
     assert seen.get('owa_piggy_profile') == 'home'
 
 
-def test_global_profile_overrides_config_pin(tmp_config, clean_env, monkeypatch):
-    from owa_mail import config as config_mod
-    config_mod.config_set('owa_piggy_profile', 'pinned')
+def test_global_profile_ignores_stale_config_line(tmp_config, clean_env, monkeypatch):
+    tmp_config.parent.mkdir(parents=True, exist_ok=True)
+    tmp_config.write_text('owa_piggy_profile="stale"\n')
     seen = _capture_setup_auth_config(
         monkeypatch, ['owa-mail', '--profile', 'override', 'messages']
     )

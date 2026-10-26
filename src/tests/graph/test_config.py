@@ -31,8 +31,8 @@ malformed line
 
 
 def test_parse_kv_stream_drops_unknown_keys(tmp_config):
-    text = 'owa_piggy_profile="work"\nUNKNOWN_KEY="y"\n'
-    assert core_config.parse_kv_stream(text, config_mod.ALLOWED_KEYS) == {'owa_piggy_profile': 'work'}
+    text = 'default_audience="work"\nowa_piggy_profile="p"\nUNKNOWN_KEY="y"\n'
+    assert core_config.parse_kv_stream(text, config_mod.ALLOWED_KEYS) == {'default_audience': 'work'}
 
 
 def test_load_config_default_audience_when_no_file(tmp_config):
@@ -42,9 +42,9 @@ def test_load_config_default_audience_when_no_file(tmp_config):
 
 def test_load_config_reads_file(tmp_config):
     tmp_config.parent.mkdir(parents=True, exist_ok=True)
-    tmp_config.write_text('owa_piggy_profile="work"\ndefault_audience="outlook"\n')
+    tmp_config.write_text('debug="1"\ndefault_audience="outlook"\n')
     cfg = config_mod.load_config()
-    assert cfg['owa_piggy_profile'] == 'work'
+    assert cfg['debug'] == '1'
     assert cfg['default_audience'] == 'outlook'
 
 
@@ -85,10 +85,10 @@ def test_config_set_rejects_unknown_key(tmp_config):
 
 
 def test_config_set_persists_value(tmp_config):
-    config_mod.config_set('owa_piggy_profile', 'work')
+    config_mod.config_set('debug', '1')
     config_mod.config_set('default_audience', 'outlook')
     cfg = config_mod.load_config()
-    assert cfg['owa_piggy_profile'] == 'work'
+    assert cfg['debug'] == '1'
     assert cfg['default_audience'] == 'outlook'
 
 
@@ -96,3 +96,14 @@ def test_save_config_creates_parent_dir(tmp_config):
     assert not tmp_config.parent.exists()
     core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'x'})
     assert tmp_config.parent.exists()
+
+
+def test_config_set_rejects_removed_profile_pin(tmp_config):
+    with pytest.raises(ValueError, match='unknown config key'):
+        config_mod.config_set('owa_piggy_profile', 'work')
+
+
+def test_load_config_ignores_stale_profile_line(tmp_config):
+    tmp_config.parent.mkdir(parents=True, exist_ok=True)
+    tmp_config.write_text('owa_piggy_profile="work"\n')
+    assert 'owa_piggy_profile' not in config_mod.load_config()

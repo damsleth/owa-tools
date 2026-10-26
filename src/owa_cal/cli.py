@@ -101,14 +101,13 @@ Global options:
   --profile <alias>   Profile alias for this invocation. Resolves to a
                       local webcal source first (see `profiles add`),
                       else forwarded to owa-piggy as --profile <alias>.
-                      Overrides owa_piggy_profile in the config file
-                      and OWA_PROFILE in the env.
+                      Overrides OWA_PROFILE in the env.
 
 Environment:
   CAL_DEBUG=1         Same as --debug
   OWA_PROFILE=<alias> Inherited by the owa-piggy subprocess. Lower
-                      precedence than --profile and the config file
-                      pin, but useful for one-shot sessions
+                      precedence than --profile, but useful for one-shot
+                      sessions
                       (`OWA_PROFILE=work owa-cal events`)
   OWA_REFRESH_TOKEN,  Env-only mode: passed through to owa-piggy so it
   OWA_TENANT_ID       can mint tokens with no on-disk config. Enables
@@ -128,7 +127,7 @@ Commands:
   categories          List or add master categories
   profiles            List/add/delete calendar profiles (merged with
                       owa-piggy profiles)
-  config              View or update configuration
+  config              Show configuration
   help                Show this help
 
 Events options:
@@ -203,13 +202,10 @@ Profiles options:
                                  ~/.config/owa-cal/profiles.json (0600).
   profiles delete <alias>        Remove an owa-cal profile
 
-Config options:
-  --profile <alias>   Pin a default profile alias (owa_piggy_profile)
-
 Auth:
   owa-cal shells out to owa-piggy for a fresh access token on every
-  call. owa-piggy owns the token lifecycle; owa-cal stores nothing
-  more than an optional profile alias.
+  call. owa-piggy owns the token lifecycle; owa-cal stores no
+  profile of its own.
 
   Quickstart:
     brew install damsleth/tap/owa-piggy
@@ -837,24 +833,10 @@ def cmd_config(args, config):
     handling, and conflating them with the flat KV config file made
     the data model harder to reason about.
     """
-    profile = ''
-    while args:
-        flag, args = args[0], args[1:]
-        if flag == '--profile':
-            profile, args = _require_value(flag, args)
-        else:
-            raise UsageError(f'Unknown flag: {flag}')
-
-    if profile:
-        config_mod.config_set('owa_piggy_profile', profile)
-        _info(f'default profile saved: {profile}')
-        return 0
+    if args:
+        raise UsageError(f'Unknown flag: {args[0]}')
 
     _info(f'Config file: {config_mod.CONFIG_PATH}')
-    if config.get('owa_piggy_profile'):
-        _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
-    else:
-        _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
     _info(f"  default_timezone={config.get('default_timezone')}")
     return 0
 
@@ -968,9 +950,6 @@ _PROFILES_FLAGS = [
     schema_mod.flag('--pretty', summary='Human-readable listing (default: JSON)'),
 ]
 
-_CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
-]
 
 COMMAND_SCHEMA = [
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
@@ -998,7 +977,7 @@ COMMAND_SCHEMA = [
     ),
     schema_mod.command('categories', 'List or add master categories', auth='outlook', mutates=True, flags=_CATEGORIES_FLAGS),
     schema_mod.command('profiles', 'List/add/delete calendar profiles', mutates=True, flags=_PROFILES_FLAGS),
-    schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
+    schema_mod.command('config', 'Show configuration'),
 ]
 
 
@@ -1011,7 +990,7 @@ def _resolve_source(config):
                             ('' meaning piggy's own default)
 
     Order ("closest profile wins"):
-      1. A name set via --profile / config pin: if it matches a local
+      1. A name set via --profile: if it matches a local
          webcal profile -> webcal. If it ALSO matches an owa-piggy
          profile, emit a stderr note - the user can run owa-piggy
          directly to escape the shadow.

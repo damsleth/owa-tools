@@ -109,7 +109,6 @@ owa-todo undone --id <task-id>                # reopen (status -> notStarted)
 owa-todo delete --id <task-id>                # prompts unless --confirm
 
 owa-todo config --folder <folder-id>          # pin a default folder
-owa-todo config --profile work                # pin a default profile
 owa-todo refresh                              # force token refresh
 ```
 

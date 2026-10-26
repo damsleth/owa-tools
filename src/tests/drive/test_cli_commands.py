@@ -347,10 +347,11 @@ def test_drive_config_and_refresh(monkeypatch, capsys):
     monkeypatch.setattr(cli.config_mod, "CONFIG_PATH", "/tmp/owa-drive-config")
     monkeypatch.setattr(cli.config_mod, "config_set", lambda key, value: saved.setdefault(key, value))
 
-    assert cli.cmd_config([], {"owa_piggy_profile": "work"}) == 0
-    assert "owa_piggy_profile=work" in capsys.readouterr().err
-    assert cli.cmd_config(["--profile", "home"], {}) == 0
-    assert saved["owa_piggy_profile"] == "home"
+    assert cli.cmd_config([], {}) == 0
+    assert "Config file: /tmp/owa-drive-config" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match="Unknown flag: --profile"):
+        cli.cmd_config(["--profile", "home"], {})
+    assert saved == {}
 
     monkeypatch.setattr(cli.auth_mod, "do_token_refresh", lambda config, debug=False: "tok")
     monkeypatch.setattr(cli.api_mod, "api_request", lambda *args, **kwargs: {"displayName": "Ada"})

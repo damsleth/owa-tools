@@ -256,10 +256,9 @@ def test_config(monkeypatch, capsys):
     monkeypatch.setattr(cli.config_mod, 'CONFIG_PATH', '/tmp/owa-sites-cfg')
     monkeypatch.setattr(cli.config_mod, 'config_set', lambda k, v: saved.__setitem__(k, v))
     assert cli.cmd_config(
-        ['--profile', 'work', '--host', 'contoso.sharepoint.com', '--site', 'owa-casa'], {}
+        ['--host', 'contoso.sharepoint.com', '--site', 'owa-casa'], {}
     ) == 0
     assert saved == {
-        'owa_piggy_profile': 'work',
         'sharepoint_host': 'contoso.sharepoint.com',
         'default_site': 'owa-casa',
     }

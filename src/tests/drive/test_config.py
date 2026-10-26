@@ -10,8 +10,8 @@ def test_load_config_empty_when_no_file(tmp_path, monkeypatch):
 
 def test_config_set_and_load_round_trips(tmp_path, monkeypatch):
     monkeypatch.setattr(config_mod, 'CONFIG_PATH', tmp_path / 'owa-drive' / 'config')
-    config_mod.config_set('owa_piggy_profile', 'work')
-    assert config_mod.load_config()['owa_piggy_profile'] == 'work'
+    config_mod.config_set('debug', '1')
+    assert config_mod.load_config()['debug'] == '1'
 
 
 def test_save_config_writes_owner_only_perms(tmp_path, monkeypatch):
@@ -23,6 +23,7 @@ def test_save_config_writes_owner_only_perms(tmp_path, monkeypatch):
 
 
 def test_parse_kv_stream_filters_to_allowlist():
-    parsed = core_config.parse_kv_stream('owa_piggy_profile="work"\nbogus="x"\n', config_mod.ALLOWED_KEYS)
-    assert parsed.get('owa_piggy_profile') == 'work'
+    parsed = core_config.parse_kv_stream('debug="1"\nowa_piggy_profile="work"\nbogus="x"\n', config_mod.ALLOWED_KEYS)
+    assert parsed.get('debug') == '1'
+    assert 'owa_piggy_profile' not in parsed
     assert 'bogus' not in parsed

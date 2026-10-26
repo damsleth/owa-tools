@@ -44,15 +44,9 @@ owa-cal events --pretty
 owa-piggy and owa-tools version independently. owa-cal expects any
 owa-piggy >= 0.7.1 and sanity-checks the version on first call.
 
-Multi-account: seed a named owa-piggy profile and pin it in owa-cal's
-config.
-
-```sh
-owa-piggy setup --profile work
-owa-cal config --profile work
-```
-
-`--profile` also works as a one-shot override:
+Multi-account: seed a named owa-piggy profile, then pick it per call with
+`--profile` (or `OWA_PROFILE` for a shell session); without either, owa-cal
+follows owa-piggy's default profile:
 `owa-cal --profile home events`.
 
 Refresh tokens rotate on every call and are persisted by owa-piggy in
@@ -164,7 +158,7 @@ owa-cal categories --pretty                   # aligned table
 
 owa-cal profiles list                         # local + broker profile view
 owa-cal refresh                               # force token refresh
-owa-cal config --profile work                 # pin a profile
+owa-cal config                                # show config
 ```
 
 For an interactive curses agenda browser, see [owa-tui](https://github.com/damsleth/owa-tui).
@@ -248,16 +242,10 @@ Every owa binary exposes the same machine surface (see
 owa-cal shells out to [`owa-piggy`](https://github.com/damsleth/owa-piggy)
 for a fresh access token on every call. owa-piggy piggybacks on OWA's public
 SPA client (no Azure AD app registration needed) and owns the refresh-token
-lifecycle. owa-cal stores no refresh token of its own - at most an
-`owa_piggy_profile` alias. Audience: `outlook` (Outlook REST).
+lifecycle. owa-cal stores no refresh token or profile of its own. Audience: `outlook` (Outlook REST).
 
 Config lives at `~/.config/owa-cal/config` and holds only non-secret
-preferences:
-
-```
-# Optional - pins which owa-piggy profile owa-cal uses by default
-owa_piggy_profile="work"
-```
+preferences (`default_timezone`).
 
 ### Single-line uvx (no install, no disk state)
 

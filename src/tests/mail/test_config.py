@@ -14,22 +14,22 @@ from owa_mail.config import (
 
 def test_parse_kv_stream_basic():
     out = core_config.parse_kv_stream('owa_piggy_profile=work\ndebug=1\n', ALLOWED_KEYS)
-    assert out == {'owa_piggy_profile': 'work', 'debug': '1'}
+    assert out == {'debug': '1'}
 
 
 def test_parse_kv_stream_strips_quotes():
-    out = core_config.parse_kv_stream('owa_piggy_profile="work"\ndebug=\'1\'\n', ALLOWED_KEYS)
-    assert out == {'owa_piggy_profile': 'work', 'debug': '1'}
+    out = core_config.parse_kv_stream('debug="2"\ndebug=\'1\'\n', ALLOWED_KEYS)
+    assert out == {'debug': '1'}
 
 
 def test_parse_kv_stream_rejects_unknown_keys():
-    out = core_config.parse_kv_stream('EVIL=1\nowa_piggy_profile=ok\n', ALLOWED_KEYS)
-    assert out == {'owa_piggy_profile': 'ok'}
+    out = core_config.parse_kv_stream('EVIL=1\ndebug=ok\n', ALLOWED_KEYS)
+    assert out == {'debug': 'ok'}
 
 
 def test_parse_kv_stream_ignores_comments_and_blanks():
-    out = core_config.parse_kv_stream('\n# comment\nowa_piggy_profile=work\n\n', ALLOWED_KEYS)
-    assert out == {'owa_piggy_profile': 'work'}
+    out = core_config.parse_kv_stream('\n# comment\ndebug=1\n\n', ALLOWED_KEYS)
+    assert out == {'debug': '1'}
 
 
 def test_load_config_missing_file(tmp_config, clean_env):
@@ -39,26 +39,28 @@ def test_load_config_missing_file(tmp_config, clean_env):
 
 
 def test_save_and_load_roundtrip(tmp_config, clean_env):
-    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'debug': '1'})
     cfg = load_config()
-    assert cfg['owa_piggy_profile'] == 'work'
+    assert cfg['debug'] == '1'
 
 
 def test_save_sets_0600(tmp_config, clean_env):
-    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'debug': '1'})
     mode = stat.S_IMODE(tmp_config.stat().st_mode)
     assert mode == 0o600
 
 
-def test_owa_piggy_profile_roundtrip(tmp_config, clean_env):
-    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
+def test_stale_owa_piggy_profile_line_is_ignored(tmp_config, clean_env):
+    tmp_config.parent.mkdir(parents=True, exist_ok=True)
+    tmp_config.write_text('owa_piggy_profile="stale"\ndebug=1\n')
     cfg = load_config()
-    assert cfg['owa_piggy_profile'] == 'work'
+    assert 'owa_piggy_profile' not in cfg
+    assert cfg['debug'] == '1'
 
 
-def test_parse_kv_stream_preserves_profile_key():
-    out = core_config.parse_kv_stream('owa_piggy_profile="work"\n', ALLOWED_KEYS)
-    assert out == {'owa_piggy_profile': 'work'}
+def test_owa_piggy_profile_not_settable():
+    with pytest.raises(ValueError):
+        config_set('owa_piggy_profile', 'work')
 
 
 def test_config_set_preserves_unknown_lines(tmp_config, clean_env):
@@ -67,12 +69,12 @@ def test_config_set_preserves_unknown_lines(tmp_config, clean_env):
     tmp_config.parent.mkdir(parents=True, exist_ok=True)
     tmp_config.write_text(
         '# user comment\n'
-        'owa_piggy_profile="work"\n'
+        'debug="1"\n'
         'CUSTOM_THING="kept"\n'
     )
-    config_set('owa_piggy_profile', 'home')
+    config_set('debug', '0')
     text = tmp_config.read_text()
-    assert 'owa_piggy_profile="home"' in text
+    assert 'debug="0"' in text
     assert 'CUSTOM_THING="kept"' in text
     assert '# user comment' in text
 
@@ -83,6 +85,6 @@ def test_config_set_rejects_unknown_key(tmp_config, clean_env):
 
 
 def test_save_no_stray_files(tmp_config, clean_env):
-    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'debug': '1'})
     siblings = list(tmp_config.parent.iterdir())
     assert [p.name for p in siblings] == [tmp_config.name]

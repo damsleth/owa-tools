@@ -1,4 +1,4 @@
-"""Config file I/O for owa-gdrive: only an optional pinned profile alias."""
+"""Config file I/O for owa-gdrive: only a `debug` flag."""
 import os
 from pathlib import Path
 
@@ -9,7 +9,6 @@ CONFIG_PATH = Path(
 ) / 'owa-gdrive' / 'config'
 
 ALLOWED_KEYS = (
-    'owa_piggy_profile',
     'debug',
 )
 

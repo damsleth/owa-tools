@@ -127,7 +127,6 @@ owa-sites search --q "owner:kim" --limit 50
 
 owa-sites config --host contoso.sharepoint.com            # pin the SP host
 owa-sites config --site owa-casa                          # pin a default site
-owa-sites config --profile work                           # pin a default profile
 owa-sites config --unset site                             # drop a pinned key
 owa-sites config --clear                                  # delete the config file
 owa-sites refresh                                         # verify SharePoint access

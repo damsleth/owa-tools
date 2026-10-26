@@ -55,8 +55,7 @@ Global options:
   --debug, --verbose   Print HTTP requests and response bodies on errors
                        (also: MAIL_DEBUG=1)
   --profile <alias>    Forward to owa-piggy as --profile <alias> for
-                       this invocation (overrides owa_piggy_profile in
-                       the config file, and OWA_PROFILE in the env)
+                       this invocation (overrides OWA_PROFILE in the env)
 
 Commands:
   messages             List messages (default: Inbox, last 25)
@@ -76,7 +75,7 @@ Commands:
   thread               List messages in a conversation (alias: conversation)
   folders              List mail folders
   refresh              Force a token refresh and verify auth
-  config               View or update configuration
+  config               Show configuration
   help                 Show this help
 
 messages options:
@@ -179,13 +178,10 @@ folders options:
   --all                Follow @odata.nextLink until exhausted
   --pretty             Human-readable table
 
-config options:
-  --profile <alias>    Pin an owa-piggy profile alias (owa_piggy_profile)
-
 Auth:
   owa-mail shells out to owa-piggy for a fresh access token on every
-  call. owa-piggy owns the token lifecycle; owa-mail stores nothing
-  more than an optional profile alias.
+  call. owa-piggy owns the token lifecycle; owa-mail stores no
+  profile of its own.
 
   Quickstart:
     brew install damsleth/tap/owa-piggy
@@ -1101,24 +1097,10 @@ def cmd_folders(args, config, access_token, api_base):
 
 def cmd_config(args, config):
     """Handled specially: no auth required."""
-    profile = ''
-    while args:
-        flag, args = args[0], args[1:]
-        if flag == '--profile':
-            profile, args = _require_value(flag, args)
-        else:
-            raise UsageError(f'Unknown flag: {flag}')
-
-    if profile:
-        config_mod.config_set('owa_piggy_profile', profile)
-        _info(f'owa-piggy profile saved: {profile}')
-        return 0
+    if args:
+        raise UsageError(f'Unknown flag: {args[0]}')
 
     _info(f'Config file: {config_mod.CONFIG_PATH}')
-    if config.get('owa_piggy_profile'):
-        _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
-    else:
-        _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
     return 0
 
 
@@ -1314,9 +1296,6 @@ _FOLDERS_FLAGS = [
     schema_mod.flag('--pretty', summary='Human-readable table (default: JSON)'),
 ]
 
-_CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
-]
 
 COMMAND_SCHEMA = [
     schema_mod.command('messages', 'List messages', auth='outlook', flags=_MESSAGES_FLAGS),
@@ -1345,7 +1324,7 @@ COMMAND_SCHEMA = [
     schema_mod.command('thread', 'List messages in a conversation', auth='outlook', aliases=('conversation',), flags=_THREAD_FLAGS),
     schema_mod.command('folders', 'List mail folders', auth='outlook', flags=_FOLDERS_FLAGS),
     schema_mod.command('refresh', 'Force a token refresh', auth='outlook'),
-    schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
+    schema_mod.command('config', 'Show configuration'),
 ]
 
 

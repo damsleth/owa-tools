@@ -448,10 +448,12 @@ def test_config_unknown_flag_raises():
         cli.cmd_config(['--bogus'], {})
 
 
-def test_config_no_profile_set_message(capsys):
+def test_config_prints_path_only(capsys):
     rc = cli.cmd_config([], {})
     assert rc == 0
-    assert 'not set' in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert 'Config file:' in err
+    assert 'owa_piggy_profile' not in err
 
 
 # ---------------------------------------------------------------------------

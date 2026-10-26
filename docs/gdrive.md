@@ -16,7 +16,7 @@ owa-piggy setup --profile brkh-g --google \
 ```
 
 With exactly one Google profile, `owa-gdrive` picks it; otherwise pass
-`--profile <alias>` or pin one with `owa-gdrive config --profile <alias>`.
+`--profile <alias>`.
 `-A` fans out across Google profiles only; a Microsoft profile exits `2`.
 
 ## Commands
@@ -32,7 +32,7 @@ owa-gdrive show 1aoGx5JoUltJ5MPrrcFhfHOUEneNeDaViEazcQbLEOQY --pretty
 owa-gdrive get 1aoGx5JoUltJ5MPrrcFhfHOUEneNeDaViEazcQbLEOQY --out agenda.txt
 owa-gdrive get 1aoGx5JoUltJ5MPrrcFhfHOUEneNeDaViEazcQbLEOQY --export-mime application/pdf --out agenda.pdf
 owa-gdrive refresh
-owa-gdrive config --profile brkh-g
+owa-gdrive config
 ```
 
 - `owa-gdrive ls [folder-id]` lists a folder, folders first, by name. With no

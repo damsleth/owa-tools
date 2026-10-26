@@ -152,12 +152,12 @@ def test_sched_config_and_refresh(monkeypatch, capsys):
     monkeypatch.setattr(cli.config_mod, "CONFIG_PATH", "/tmp/owa-sched-config")
     monkeypatch.setattr(cli.config_mod, "config_set", lambda key, value: saved.setdefault(key, value))
 
-    assert cli.cmd_config([], {"owa_piggy_profile": "work", "default_timezone": "UTC"}) == 0
+    assert cli.cmd_config([], {"default_timezone": "UTC"}) == 0
     err = capsys.readouterr().err
-    assert "owa_piggy_profile=work" in err
     assert "default_timezone=UTC" in err
-    assert cli.cmd_config(["--profile", "home"], {}) == 0
-    assert saved["owa_piggy_profile"] == "home"
+    with pytest.raises(cli.UsageError, match="Unknown flag: --profile"):
+        cli.cmd_config(["--profile", "home"], {})
+    assert saved == {}
 
     monkeypatch.setattr(cli.auth_mod, "do_token_refresh", lambda config, debug=False: "tok")
     monkeypatch.setattr(cli.api_mod, "api_request", lambda *args, **kwargs: {"displayName": "Ada"})

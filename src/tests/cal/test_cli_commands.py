@@ -317,12 +317,10 @@ def test_cal_validation_confirm_profiles_and_refresh(monkeypatch, capsys):
     assert cli.cmd_profiles(["delete", "missing"], {}) == 1
     assert "no owa-cal profile" in capsys.readouterr().err
 
-    saved = {}
     monkeypatch.setattr(cli.config_mod, "CONFIG_PATH", "/tmp/owa-cal-config")
-    monkeypatch.setattr(cli.config_mod, "config_set", lambda key, value: saved.setdefault(key, value))
-    assert cli.cmd_config(["--profile", "home"], {}) == 0
-    assert saved["owa_piggy_profile"] == "home"
-    assert cli.cmd_config([], {"owa_piggy_profile": "work", "default_timezone": "UTC"}) == 0
+    with pytest.raises(cli.UsageError, match="Unknown flag"):
+        cli.cmd_config(["--profile", "home"], {})
+    assert cli.cmd_config([], {"default_timezone": "UTC"}) == 0
     assert "default_timezone=UTC" in capsys.readouterr().err
 
     monkeypatch.setattr(cli.auth_mod, "do_token_refresh", lambda config, debug=False: "tok")

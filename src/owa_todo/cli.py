@@ -118,7 +118,7 @@ Global options:
   --debug, --verbose  Print HTTP requests and response bodies on errors
                       (also: TODO_DEBUG=1)
   --profile <alias>   owa-piggy profile alias for this invocation.
-                      Overrides owa_piggy_profile in the config file.
+                      Overrides OWA_PROFILE in the env.
 
 Commands:
   lists               List task folders (To Do lists)
@@ -174,7 +174,6 @@ Delete options:
   --confirm           Skip confirmation prompt
 
 Config options:
-  --profile <alias>   Pin a default owa-piggy profile alias
   --folder <id>       Pin a default task folder
 
 Auth:
@@ -577,21 +576,15 @@ def cmd_delete(args, config, access_token, api_base):
 
 
 def cmd_config(args, config):
-    profile = folder = ''
+    folder = ''
     while args:
         flag, args = args[0], args[1:]
-        if flag == '--profile':
-            profile, args = _require_value(flag, args)
-        elif flag == '--folder':
+        if flag == '--folder':
             folder, args = _require_value(flag, args)
         else:
             raise UsageError(f'Unknown flag: {flag}')
 
     changed = False
-    if profile:
-        config_mod.config_set('owa_piggy_profile', profile)
-        _info(f'default profile saved: {profile}')
-        changed = True
     if folder:
         config_mod.config_set('default_folder', folder)
         _info(f'default folder saved: {folder}')
@@ -600,10 +593,6 @@ def cmd_config(args, config):
         return 0
 
     _info(f'Config file: {config_mod.CONFIG_PATH}')
-    if config.get('owa_piggy_profile'):
-        _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
-    else:
-        _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
     _info(f"  default_folder={config.get('default_folder') or '(not set - default Tasks list)'}")
     _info(f"  default_timezone={config.get('default_timezone')}")
     return 0
@@ -705,7 +694,6 @@ _DELETE_FLAGS = [
 ]
 
 _CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
     schema_mod.flag('--folder', value='<id>', summary='Pin a default task folder'),
 ]
 

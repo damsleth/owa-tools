@@ -1,8 +1,7 @@
 """Config file I/O for owa-planner.
 
 KEY="VALUE" lines, shell-sourceable for symmetry with the rest of the suite.
-owa-planner holds no secrets - only an optional profile alias and a default
-plan id. The on-disk file is 0600.
+owa-planner holds no secrets - only a default plan id. The on-disk file is 0600.
 
 Mechanics live in owa_core.config; this file just declares the per-tool path
 and allowlist.
@@ -18,7 +17,6 @@ CONFIG_PATH = Path(
 ) / 'owa-planner' / 'config'
 
 ALLOWED_KEYS = (
-    'owa_piggy_profile',
     'default_plan',
     'debug',
 )

@@ -206,19 +206,9 @@ def cmd_refresh(args, config):
 
 
 def cmd_config(args, config):
-    profile = ''
-    while args:
-        flag, args = args[0], args[1:]
-        if flag == '--profile':
-            profile, args = _require_value(flag, args)
-        else:
-            raise UsageError(f'Unknown flag: {flag}')
-    if profile:
-        config_mod.config_set('owa_piggy_profile', profile)
-        _info(f'default profile saved: {profile}')
-        return 0
+    if args:
+        raise UsageError(f'Unknown flag: {args[0]}')
     _info(f'Config file: {config_mod.CONFIG_PATH}')
-    _info(f"  owa_piggy_profile={config.get('owa_piggy_profile') or '(not set - the only Google profile)'}")
     return 0
 
 
@@ -249,9 +239,7 @@ COMMAND_SCHEMA = [
         schema_mod.flag('--export-mime', value='<type>', summary='Export format for Google-native files'),
     ]),
     schema_mod.command('refresh', 'Force a token refresh', auth=auth_mod.AUDIENCE),
-    schema_mod.command('config', 'View or update configuration', mutates=True, flags=[
-        schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias'),
-    ]),
+    schema_mod.command('config', 'Show configuration'),
 ]
 
 

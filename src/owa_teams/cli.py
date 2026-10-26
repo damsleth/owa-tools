@@ -403,12 +403,10 @@ def cmd_send(args, config):
 
 
 def cmd_config(args, config):
-    profile = region = page_size = ''
+    region = page_size = ''
     while args:
         flag, args = args[0], args[1:]
-        if flag == '--profile':
-            profile, args = _require_value(flag, args)
-        elif flag == '--region':
+        if flag == '--region':
             region, args = _require_value(flag, args)
         elif flag == '--page-size':
             page_size, args = _require_value(flag, args)
@@ -416,10 +414,6 @@ def cmd_config(args, config):
             raise UsageError(f'Unknown flag: {flag}')
 
     changed = False
-    if profile:
-        config_mod.config_set('owa_piggy_profile', profile)
-        _info(f'default profile saved: {profile}')
-        changed = True
     if region:
         config_mod.config_set('teams_region', region.strip().lower())
         _info(f'teams_region saved: {region.strip().lower()}')
@@ -432,10 +426,6 @@ def cmd_config(args, config):
         return 0
 
     _info(f'Config file: {config_mod.CONFIG_PATH}')
-    if config.get('owa_piggy_profile'):
-        _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
-    else:
-        _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
     _info(f"  teams_region={config.get('teams_region') or '(not set - default emea)'}")
     _info(f"  page_size={config.get('page_size') or '(not set - default 50)'}")
     return 0
@@ -518,7 +508,6 @@ _MESSAGES_FLAGS = [
 ]
 
 _CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias'),
     schema_mod.flag('--region', value='<region>', summary='Pin the chatsvc region (emea/amer/...)'),
     schema_mod.flag('--page-size', value='<n>', summary='Pin the chatsvc page size (max 50)'),
 ]

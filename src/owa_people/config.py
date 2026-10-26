@@ -1,8 +1,7 @@
 """Config file I/O for owa-people.
 
 KEY="VALUE" lines, shell-sourceable for symmetry with the rest of
-the owa-* suite. owa-people holds no secrets - only an optional
-`owa_piggy_profile` alias. The on-disk file is chmod 0600.
+the owa-* suite. owa-people holds no secrets. The on-disk file is chmod 0600.
 
 Mechanics live in owa_core.config; this file just declares the
 per-tool path and allowlist.
@@ -17,7 +16,6 @@ CONFIG_PATH = Path(
 ) / 'owa-people' / 'config'
 
 ALLOWED_KEYS = (
-    'owa_piggy_profile',
     'debug',
 )
 

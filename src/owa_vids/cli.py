@@ -56,9 +56,8 @@ Commands (unix-style verbs; suite-canonical aliases in parentheses):
                         --workdir <dir>   segment scratch (default: temp;
                                           pre-downloaded segments resume free)
   check <source>      Validate auth + manifest + first segments. (alias: probe)
-  config              View / set the cached region and default profile.
+  config              View / set the cached media region.
                         --region <host>   e.g. switzerlandwest1-mediap.svc.ms
-                        --profile <alias> pin a default owa-piggy profile
 
 <source>: just paste the recording URL - the kind is auto-detected:
   - the Stream "watch in browser" page  (.../stream.aspx?id=...)
@@ -240,22 +239,15 @@ def cmd_get(args, config):
 
 
 def cmd_config(args, config):
-    profile = region = ''
+    region = ''
     while args:
         flag, args = args[0], args[1:]
-        if flag in ('--profile', '--set-profile'):
-            profile, args = _require_value(flag, args)
-        elif flag == '--region':
+        if flag == '--region':
             region, args = _require_value(flag, args)
         else:
             raise UsageError(f'Unknown flag: {flag}')
 
     changed = False
-    if profile:
-        config_mod.config_set('owa_piggy_profile', profile)
-        config['owa_piggy_profile'] = profile  # so --region attaches to it
-        _info(f'default profile saved: {profile}')
-        changed = True
     if region:
         config_mod.set_region(config, region.strip().lower())
         _info(f'region saved for profile {config_mod._profile(config)}: '
@@ -265,7 +257,6 @@ def cmd_config(args, config):
         return 0
 
     _info(f'Config file: {config_mod.CONFIG_PATH}')
-    _info(f"  owa_piggy_profile={config.get('owa_piggy_profile') or '(not set - owa-piggy picks its default)'}")
     _info(f"  region[{config_mod._profile(config)}]="
           f"{config_mod.get_region(config) or '(not set - auto-detected on first use)'}")
     return 0
@@ -306,9 +297,6 @@ _CHECK_FLAGS = _SOURCE_FLAGS + [
 ]
 
 _CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>',
-                    summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
-    schema_mod.flag('--set-profile', value='<alias>', summary='Alias for --profile'),
     schema_mod.flag('--region', value='<host>', summary='Pin the media region host'),
 ]
 

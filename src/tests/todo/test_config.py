@@ -16,10 +16,13 @@ def test_load_config_seeds_default_timezone(tmp_config):
 
 
 def test_save_and_load_roundtrip(tmp_config):
-    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work', 'default_folder': 'fX'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'default_timezone': 'UTC', 'default_folder': 'fX'})
     cfg = load_config()
-    assert cfg['owa_piggy_profile'] == 'work'
+    assert cfg['default_timezone'] == 'UTC'
     assert cfg['default_folder'] == 'fX'
+
+    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work'})
+    assert 'owa_piggy_profile' not in load_config()
 
 
 def test_save_sets_0600(tmp_config):
@@ -28,11 +31,11 @@ def test_save_sets_0600(tmp_config):
 
 
 def test_config_set_preserves_other_keys(tmp_config):
-    core_config.save_config(config_mod.CONFIG_PATH, {'owa_piggy_profile': 'work', 'default_folder': 'fX'})
+    core_config.save_config(config_mod.CONFIG_PATH, {'default_timezone': 'UTC', 'default_folder': 'fX'})
     config_set('default_folder', 'fY')
     cfg = load_config()
     assert cfg['default_folder'] == 'fY'
-    assert cfg['owa_piggy_profile'] == 'work'
+    assert cfg['default_timezone'] == 'UTC'
 
 
 def test_config_set_rejects_unknown_key(tmp_config):
