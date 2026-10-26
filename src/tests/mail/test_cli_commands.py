@@ -248,14 +248,12 @@ def test_send_stdin_invalid_and_api_failures(monkeypatch, capsys):
 
 
 def test_mail_config_and_refresh(monkeypatch, capsys):
-    saved = {}
     monkeypatch.setattr(cli.config_mod, "CONFIG_PATH", "/tmp/owa-mail-config")
-    monkeypatch.setattr(cli.config_mod, "config_set", lambda key, value: saved.setdefault(key, value))
 
-    assert cli.cmd_config([], {"owa_piggy_profile": "work"}) == 0
-    assert "owa_piggy_profile=work" in capsys.readouterr().err
-    assert cli.cmd_config(["--profile", "home"], {}) == 0
-    assert saved["owa_piggy_profile"] == "home"
+    assert cli.cmd_config([], {}) == 0
+    assert "/tmp/owa-mail-config" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match="Unknown flag"):
+        cli.cmd_config(["--profile", "home"], {})
 
     monkeypatch.setattr(cli.auth_mod, "do_token_refresh", lambda config, debug=False: "tok")
     monkeypatch.setattr(cli.api_mod, "api_get", lambda *args, **kwargs: {"DisplayName": "Ada"})

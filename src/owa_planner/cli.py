@@ -104,9 +104,8 @@ Task options:
   --pretty            Human-readable detail
 
 Config options:
-  --profile <alias>   Pin a default owa-piggy profile alias
   --plan <id>         Pin a default plan id
-  --unset <key>       Remove one pinned key (profile/plan)
+  --unset <key>       Remove one pinned key (plan)
   --clear             Delete the config file
 
 Auth:
@@ -544,20 +543,17 @@ def cmd_task(args, config, access_token, api_base):
 
 # Public config keys, mapped from their --flag form. Used by --unset.
 _CONFIG_KEYS = {
-    'profile': 'owa_piggy_profile',
     'plan': 'default_plan',
 }
 
 
 def cmd_config(args, config):
-    profile = plan = ''
+    plan = ''
     unset = []
     clear = False
     while args:
         flag, args = args[0], args[1:]
-        if flag == '--profile':
-            profile, args = _require_value(flag, args)
-        elif flag == '--plan':
+        if flag == '--plan':
             plan, args = _require_value(flag, args)
         elif flag == '--unset':
             name, args = _require_value(flag, args)
@@ -583,10 +579,6 @@ def cmd_config(args, config):
         config_mod.config_unset(key)
         _info(f'unset: {key}')
         changed = True
-    if profile:
-        config_mod.config_set('owa_piggy_profile', profile)
-        _info(f'default profile saved: {profile}')
-        changed = True
     if plan:
         config_mod.config_set('default_plan', plan)
         _info(f'default plan saved: {plan}')
@@ -595,10 +587,6 @@ def cmd_config(args, config):
         return 0
 
     _info(f'Config file: {config_mod.CONFIG_PATH}')
-    if config.get('owa_piggy_profile'):
-        _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
-    else:
-        _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
     _info(f"  default_plan={config.get('default_plan') or '(not set)'}")
     return 0
 
@@ -714,9 +702,8 @@ _UPDATE_PLAN_DETAILS_FLAGS = [
 ]
 
 _CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias'),
     schema_mod.flag('--plan', value='<id>', summary='Pin a default plan id'),
-    schema_mod.flag('--unset', value='<key>', repeatable=True, summary='Remove one pinned key (profile/plan)'),
+    schema_mod.flag('--unset', value='<key>', repeatable=True, summary='Remove one pinned key (plan)'),
     schema_mod.flag('--clear', summary='Delete the config file'),
 ]
 

@@ -191,7 +191,9 @@ def test_main_dispatch_alias_refresh_config(monkeypatch, capsys):
     assert seen['cfg'] == {'owa_piggy_profile': 'g1', 'debug': True}
     assert cli._main(['refresh']) == 0
     assert 'Authenticated as Me <me@x>' in capsys.readouterr().err
-    assert cli._main(['config', '--profile', 'g2']) == 0 and seen['owa_piggy_profile'] == 'g2'
+    with pytest.raises(cli.UsageError, match='Unknown flag'):
+        cli._main(['config', '--profile', 'g2'])
+    assert 'owa_piggy_profile' not in seen
     assert cli._main(['config']) == 0
 
 

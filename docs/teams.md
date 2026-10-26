@@ -136,7 +136,6 @@ owa-teams send --chat "19:def@unq.gbl.spaces" --html --text "<b>bold</b>"
 owa-teams send --chat "19:def@unq.gbl.spaces" --text "see doc" --attachment "Spec=https://x/f"
 
 owa-teams config --region amer                            # pin the chatsvc region
-owa-teams config --profile work                           # pin a default profile
 owa-teams refresh                                         # verify Graph access
 ```
 

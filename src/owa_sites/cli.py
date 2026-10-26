@@ -104,10 +104,9 @@ Search options:
   --limit <n>         Row limit (default 20, cap 200)
 
 Config options:
-  --profile <alias>   Pin a default owa-piggy profile alias
   --host <host>       Pin the tenant SharePoint host (skips auto-discovery)
   --site <addr>       Pin a default site
-  --unset <key>       Remove a pinned key (profile/host/site)
+  --unset <key>       Remove a pinned key (host/site)
   --clear             Delete the config file
 
 Auth:
@@ -350,21 +349,18 @@ def cmd_search(args, config, access_token, base):
 
 # Public config keys, mapped from their --flag form. Used by --unset.
 _CONFIG_KEYS = {
-    'profile': 'owa_piggy_profile',
     'host': 'sharepoint_host',
     'site': 'default_site',
 }
 
 
 def cmd_config(args, config):
-    profile = host = site = ''
+    host = site = ''
     unset = []
     clear = False
     while args:
         flag, args = args[0], args[1:]
-        if flag == '--profile':
-            profile, args = _require_value(flag, args)
-        elif flag == '--host':
+        if flag == '--host':
             host, args = _require_value(flag, args)
         elif flag == '--site':
             site, args = _require_value(flag, args)
@@ -392,10 +388,6 @@ def cmd_config(args, config):
         config_mod.config_unset(key)
         _info(f'unset: {key}')
         changed = True
-    if profile:
-        config_mod.config_set('owa_piggy_profile', profile)
-        _info(f'default profile saved: {profile}')
-        changed = True
     if host:
         config_mod.config_set('sharepoint_host', host)
         _info(f'sharepoint_host saved: {host}')
@@ -408,10 +400,6 @@ def cmd_config(args, config):
         return 0
 
     _info(f'Config file: {config_mod.CONFIG_PATH}')
-    if config.get('owa_piggy_profile'):
-        _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
-    else:
-        _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
     _info(f"  sharepoint_host={config.get('sharepoint_host') or '(not set - auto-discovered)'}")
     _info(f"  default_site={config.get('default_site') or '(not set - root site)'}")
     return 0
@@ -495,10 +483,9 @@ _SEARCH_FLAGS = [
 ]
 
 _CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias'),
     schema_mod.flag('--host', value='<host>', summary='Pin the tenant SharePoint host'),
     schema_mod.flag('--site', value='<addr>', summary='Pin a default site'),
-    schema_mod.flag('--unset', value='<key>', summary='Remove a pinned key (profile/host/site)'),
+    schema_mod.flag('--unset', value='<key>', summary='Remove a pinned key (host/site)'),
     schema_mod.flag('--clear', summary='Delete the config file'),
 ]
 

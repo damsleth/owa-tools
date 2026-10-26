@@ -1,8 +1,8 @@
 """Config file I/O for owa-todo.
 
 KEY="VALUE" lines, shell-sourceable for symmetry with the rest of the
-suite. owa-todo holds no secrets - only an optional profile alias, a
-default task folder, and a default timezone. The on-disk file is 0600.
+suite. owa-todo holds no secrets - only a default task
+folder and a default timezone. The on-disk file is 0600.
 
 Mechanics live in owa_core.config; this file just declares the per-tool
 path, allowlist, and defaults.
@@ -17,7 +17,6 @@ CONFIG_PATH = Path(
 ) / 'owa-todo' / 'config'
 
 ALLOWED_KEYS = (
-    'owa_piggy_profile',
     'default_folder',
     'default_timezone',
     'debug',

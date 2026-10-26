@@ -1,7 +1,7 @@
 """Config file I/O for owa-vids.
 
 KEY="VALUE" lines, mostly shell-sourceable. owa-vids holds no secrets -
-only an optional profile alias and the cached media region host
+only the cached media region host
 (`*-mediap.svc.ms`). The region is tenant-wide but differs per profile,
 so it is cached per profile in the `regions` JSON map (see get_region /
 set_region). The region is learned automatically (item thumbnails name the
@@ -22,14 +22,13 @@ CONFIG_PATH = Path(
 ) / 'owa-vids' / 'config'
 
 ALLOWED_KEYS = (
-    'owa_piggy_profile',
     'regions',    # JSON map {profile: mediap-host} - tenants differ per profile
     'debug',
 )
 
 
 def _profile(config):
-    """Active owa-piggy profile alias, or 'default' when none is pinned."""
+    """Active owa-piggy profile alias, or 'default' when --profile is not given."""
     return (config.get('owa_piggy_profile') or '').strip() or 'default'
 
 

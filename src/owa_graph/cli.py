@@ -64,7 +64,6 @@ _BATCH_FLAGS = [
 ]
 
 _CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
     schema_mod.flag('--audience', value='<name>', summary='Pin a default audience (default: graph)'),
 ]
 
@@ -119,7 +118,7 @@ Usage: owa-graph [METHOD] <path> [options]
        owa-graph <group> <shortcut> [options]
        owa-graph batch <file|-> [--ndjson] [--pretty] [--retry]
        owa-graph refresh
-       owa-graph config [--profile <alias>] [--audience <name>]
+       owa-graph config [--audience <name>]
 
 METHOD: GET | POST | PATCH | PUT | DELETE  (case-insensitive; omit for GET)
 path:   /me, /users, '/users?$top=5', me/messages/<id>  (leading slash optional)
@@ -171,13 +170,12 @@ Global options:
   --debug, --verbose        Print HTTP requests and response bodies on errors
                             (also: GRAPH_DEBUG=1).
   --profile <alias>         Forward to owa-piggy as --profile <alias>
-                            (overrides owa_piggy_profile in the config file
-                            and OWA_PROFILE in the env).
+                            (overrides OWA_PROFILE in the env).
 
 Environment:
   GRAPH_DEBUG=1             Same as --debug.
   OWA_PROFILE=<alias>       Inherited by the owa-piggy subprocess. Lower
-                            precedence than --profile and the config file pin.
+                            precedence than --profile.
   OWA_REFRESH_TOKEN,        Env-only mode: passed through to owa-piggy so it
   OWA_TENANT_ID             can mint tokens with no on-disk config. Enables
                             single-line uvx (`uvx owa-graph GET /me`).
@@ -188,8 +186,8 @@ Environment:
 
 Auth:
   owa-graph shells out to owa-piggy for a fresh access token on every
-  call. owa-piggy owns the refresh token; owa-graph stores only an
-  optional profile alias and a default audience.
+  call. owa-piggy owns the refresh token; owa-graph stores only a
+  default audience.
 
   Quickstart:
     brew install damsleth/tap/owa-piggy
@@ -687,31 +685,21 @@ def cmd_refresh(args, config):
 
 def cmd_config(args, config):
     """Handled specially: no auth required."""
-    profile = audience = ''
+    audience = ''
     while args:
         flag, args = args[0], args[1:]
-        if flag == '--profile':
-            profile, args = _require_value(flag, args)
-        elif flag == '--audience':
+        if flag == '--audience':
             audience, args = _require_value(flag, args)
         else:
             raise UsageError(f'Unknown flag: {flag}')
 
-    wrote = False
-    if profile:
-        config_mod.config_set('owa_piggy_profile', profile)
-        _info(f'owa-piggy profile saved: {profile}'); wrote = True
     if audience:
         config_mod.config_set('default_audience', audience)
-        _info(f'Default audience saved: {audience}'); wrote = True
+        _info(f'Default audience saved: {audience}')
+        return 0
 
-    if not wrote:
-        _info(f'Config file: {config_mod.CONFIG_PATH}')
-        if config.get('owa_piggy_profile'):
-            _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
-        else:
-            _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
-        _info(f"  default_audience={config.get('default_audience')}")
+    _info(f'Config file: {config_mod.CONFIG_PATH}')
+    _info(f"  default_audience={config.get('default_audience')}")
     return 0
 
 

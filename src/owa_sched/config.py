@@ -1,7 +1,7 @@
 """Config file I/O for owa-sched.
 
-KEY="VALUE" lines, shell-sourceable. Stores only an optional
-`owa_piggy_profile` alias and a default work-day window. The on-disk
+KEY="VALUE" lines, shell-sourceable. Stores only a default
+work-day window. The on-disk
 file is chmod 0600.
 
 Mechanics live in owa_core.config; this file just declares the
@@ -17,7 +17,6 @@ CONFIG_PATH = Path(
 ) / 'owa-sched' / 'config'
 
 ALLOWED_KEYS = (
-    'owa_piggy_profile',
     'default_timezone',
     'default_work_start',
     'default_work_end',

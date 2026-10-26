@@ -93,7 +93,7 @@ Commands (unix-style verbs; suite-canonical aliases in parentheses):
                       skipped / failed lists.
   rm <path>           Delete an item (requires --confirm).   (alias: delete)
   refresh             Force a token refresh and verify auth.
-  config              View or update configuration.
+  config              Show configuration.
   help                Show this help.
 
 Common options:
@@ -442,24 +442,10 @@ def cmd_rm(args, config, access_token, api_base):
 
 
 def cmd_config(args, config):
-    profile = ''
-    while args:
-        flag, args = args[0], args[1:]
-        if flag == '--profile':
-            profile, args = _require_value(flag, args)
-        else:
-            raise UsageError(f'Unknown flag: {flag}')
-
-    if profile:
-        config_mod.config_set('owa_piggy_profile', profile)
-        _info(f'default profile saved: {profile}')
-        return 0
+    if args:
+        raise UsageError(f'Unknown flag: {args[0]}')
 
     _info(f'Config file: {config_mod.CONFIG_PATH}')
-    if config.get('owa_piggy_profile'):
-        _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
-    else:
-        _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
     return 0
 
 
@@ -519,9 +505,6 @@ _RM_FLAGS = [
     schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
 ]
 
-_CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
-]
 
 COMMAND_SCHEMA = [
     schema_mod.command('ls', 'List a folder', auth='graph', flags=_LS_FLAGS, aliases=['list']),
@@ -540,7 +523,7 @@ COMMAND_SCHEMA = [
         aliases=['delete'],
     ),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
-    schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
+    schema_mod.command('config', 'Show configuration'),
 ]
 
 

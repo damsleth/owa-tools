@@ -20,10 +20,10 @@ def test_load_config_seeds_work_window_defaults(tmp_path, monkeypatch):
 def test_config_set_round_trips(tmp_path, monkeypatch):
     monkeypatch.setattr(config_mod, 'CONFIG_PATH', tmp_path / 'owa-sched' / 'config')
     config_mod.config_set('default_work_start', '07:30')
-    config_mod.config_set('owa_piggy_profile', 'work')
+    config_mod.config_set('debug', '1')
     loaded = config_mod.load_config()
     assert loaded['default_work_start'] == '07:30'
-    assert loaded['owa_piggy_profile'] == 'work'
+    assert loaded['debug'] == '1'
 
 
 # ----- work-window resolution in availability -----

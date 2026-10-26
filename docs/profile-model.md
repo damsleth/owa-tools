@@ -28,9 +28,8 @@ only) - it is not an encrypted bundle. Short-lived access tokens are cached
 per profile (also `0600`) so back-to-back calls don't re-hit the token
 endpoint.
 
-Consumer tools store at most an alias name (e.g. `owa_piggy_profile=work` in
-`~/.config/owa-cal/config`). They forward the alias to `owa-piggy` as
-`--profile work`, and `owa-piggy` returns an access token for the right
+Consumer tools store no profile of their own. They forward `--profile work`
+to `owa-piggy`, and `owa-piggy` returns an access token for the right
 identity.
 
 ## Setup
@@ -52,21 +51,12 @@ When a consumer tool resolves which profile to use, in order:
 
 1. `--profile <alias>` flag on the command line.
 2. `OWA_PROFILE` environment variable.
-3. Tool's persisted config (`~/.config/<tool>/config`, key `owa_piggy_profile`).
-4. `owa-piggy`'s default profile.
+3. `owa-piggy`'s default profile (`owa-piggy profiles set-default <alias>` to change it).
 
-This matches the precedence used by every consumer tool today. Note the env var
-is `OWA_PROFILE`; `owa_piggy_profile` is the *config-file key*, not an env var.
-
-## Pinning a tool to a profile
-
-```bash
-# Make `owa-cal` always use the "work" profile, no matter what
-# OWA_PROFILE is set to.
-owa-cal config --profile work
-```
-
-Each tool has its own `config --profile <alias>` subcommand for this.
+There is no per-tool profile pin: change the default in one place and every
+tool follows. A stale `owa_piggy_profile` line in `~/.config/<tool>/config` is
+ignored. One exception: `owa-ado` keeps its `config --profile` pin, because its
+pinned `ado_org` is bound to one tenant.
 
 ## Fan-out across profiles
 

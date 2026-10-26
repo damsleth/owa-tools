@@ -108,7 +108,7 @@ owa-people contact-update AAMk... --title "Countess"
 owa-people contact-delete AAMk... --confirm
 owa-people --profile acme find "ole kristian"
 owa-people refresh
-owa-people config --profile work
+owa-people config
 ```
 
 ## Output contract

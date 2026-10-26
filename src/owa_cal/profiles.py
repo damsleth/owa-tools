@@ -14,7 +14,7 @@ already enforces. Schema is intentionally permissive: future per-profile
 keys can be added without a migration.
 
 Resolution order (the "closest profile wins" rule, see cli.py):
-  1. A name set via --profile / OWA_PROFILE / config pin: if it lives
+  1. A name set via --profile / OWA_PROFILE: if it lives
      in profiles.json -> webcal source; otherwise forwarded to piggy.
   2. OWA_CAL_WEBCAL_URL env: ad-hoc, no name, last fallback.
   3. Plain owa-piggy default.

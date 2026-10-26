@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from owa_core.errors import UsageError
 from owa_sites import cli
 
 
@@ -65,12 +66,13 @@ def test_main_profile_requires_value():
         cli._main(['--profile'])
 
 
-def test_config_via_main_keeps_profile_as_subflag(monkeypatch, capsys):
+def test_config_via_main_rejects_profile_subflag(monkeypatch, capsys):
     saved = {}
     monkeypatch.setattr(cli.config_mod, 'load_config', lambda: {})
     monkeypatch.setattr(cli.config_mod, 'config_set', lambda k, v: saved.__setitem__(k, v))
-    assert cli._main(['config', '--profile', 'work']) == 0
-    assert saved == {'owa_piggy_profile': 'work'}
+    with pytest.raises(UsageError, match='Unknown flag: --profile'):
+        cli._main(['config', '--profile', 'work'])
+    assert saved == {}
     capsys.readouterr()
 
 

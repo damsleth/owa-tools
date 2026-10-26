@@ -12,11 +12,17 @@ from owa_core.errors import UsageError
 
 def test_config_no_args_lists_state_to_stderr(tmp_config, clean_env, capsys):
     from owa_cal.cli import cmd_config
-    cmd_config([], {'default_timezone': 'UTC', 'owa_piggy_profile': 'work'})
+    cmd_config([], {'default_timezone': 'UTC'})
     err = capsys.readouterr().err
     assert 'Config file:' in err
-    assert 'owa_piggy_profile=work' in err
+    assert 'owa_piggy_profile' not in err
     assert 'default_timezone=UTC' in err
+
+
+def test_config_rejects_flags():
+    from owa_cal.cli import cmd_config
+    with pytest.raises(UsageError, match='Unknown flag'):
+        cmd_config(['--profile', 'work'], {})
 
 
 def test_delete_no_confirm_aborts_on_n(monkeypatch, capsys):

@@ -299,10 +299,10 @@ def test_drive_config_unknown_flag_raises():
         cli.cmd_config(["--bogus"], {})
 
 
-def test_drive_config_no_profile_shows_not_set(capsys):
+def test_drive_config_prints_path(capsys):
     rc = cli.cmd_config([], {})
     assert rc == 0
-    assert "not set" in capsys.readouterr().err
+    assert "Config file:" in capsys.readouterr().err
 
 
 # ===========================================================================
@@ -401,11 +401,10 @@ def test_main_profile_override(monkeypatch, capsys):
 
 
 def test_main_config_dispatch(monkeypatch, capsys):
-    saved = {}
-    monkeypatch.setattr(cli.config_mod, "config_set", lambda k, v: saved.setdefault(k, v))
-    rc = cli._main(["config", "--profile", "home"])
-    assert rc == 0
-    assert saved["owa_piggy_profile"] == "home"
+    assert cli._main(["config"]) == 0
+    assert "Config file:" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match="Unknown flag"):
+        cli._main(["config", "--profile", "home"])
 
 
 def test_main_refresh_dispatch(monkeypatch, capsys):

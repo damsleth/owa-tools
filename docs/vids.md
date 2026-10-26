@@ -95,12 +95,9 @@ View or update configuration (`~/.config/owa-vids/config`).
 - `--region <host>` - pin the media region host, e.g.
   `switzerlandwest1-mediap.svc.ms`. Cached **per profile** (tenants differ
   per profile); normally auto-detected on first use, so you rarely set it.
-- `--profile <alias>` - pin a default owa-piggy profile
-  (`--set-profile` is accepted as an alias).
 
 ```bash
-owa-vids config --profile globex --region switzerlandwest1-mediap.svc.ms
-owa-vids config --profile globex
+owa-vids --profile globex config --region switzerlandwest1-mediap.svc.ms
 owa-vids config            # show current values (region shown per profile)
 ```
 

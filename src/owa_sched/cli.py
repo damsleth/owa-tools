@@ -95,7 +95,7 @@ Commands:
   availability        Per-attendee free/busy listing in a window.
   find-time           Find open slots when every attendee is free.
   refresh             Force a token refresh and verify auth.
-  config              View or update configuration.
+  config              Show configuration.
   help                Show this help.
 
 availability options:
@@ -492,24 +492,10 @@ def cmd_find_time(args, config, access_token, api_base):
 
 
 def cmd_config(args, config):
-    profile = ''
-    while args:
-        flag, args = args[0], args[1:]
-        if flag == '--profile':
-            profile, args = _require_value(flag, args)
-        else:
-            raise UsageError(f'Unknown flag: {flag}')
-
-    if profile:
-        config_mod.config_set('owa_piggy_profile', profile)
-        _info(f'default profile saved: {profile}')
-        return 0
+    if args:
+        raise UsageError(f'Unknown flag: {args[0]}')
 
     _info(f'Config file: {config_mod.CONFIG_PATH}')
-    if config.get('owa_piggy_profile'):
-        _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
-    else:
-        _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
     _info(f"  default_timezone={config.get('default_timezone')}")
     _info(f"  default_work_start={config.get('default_work_start')}")
     _info(f"  default_work_end={config.get('default_work_end')}")
@@ -583,15 +569,12 @@ _FIND_TIME_FLAGS = [
     schema_mod.flag('--pretty', summary='Human-readable view (default: JSON)'),
 ]
 
-_CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
-]
 
 COMMAND_SCHEMA = [
     schema_mod.command('availability', 'List attendee free/busy windows', auth='graph', flags=_AVAILABILITY_FLAGS),
     schema_mod.command('find-time', 'Find meeting slots', auth='graph', flags=_FIND_TIME_FLAGS),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
-    schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
+    schema_mod.command('config', 'Show configuration'),
 ]
 
 

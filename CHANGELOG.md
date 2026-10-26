@@ -6,6 +6,17 @@ scripts share one version.
 Format: append a `## vX.Y.Z` section when tagging a release, then use
 per-tool subsections inside that release when useful.
 
+## Unreleased
+
+### All tools
+
+- Breaking: per-tool profile pins are gone. Every tool except `owa-ado`
+  resolves the profile as `--profile`, then `OWA_PROFILE`, then
+  owa-piggy's default profile. `<tool> config --profile` is removed, and
+  a leftover `owa_piggy_profile` line in `~/.config/<tool>/config` is
+  ignored. `owa-ado` keeps its pin because its `ado_org` is bound to one
+  tenant.
+
 ## v1.9.0 - 2026-10-01
 
 ### owa-gmail (new)

@@ -20,7 +20,7 @@ owa-graph GET /me --curl | pbcopy
 owa-graph GET me/events --audience outlook --pretty
 owa-graph batch requests.json --pretty
 owa-graph refresh
-owa-graph config --profile work
+owa-graph config --audience outlook
 ```
 
 Or, since v0.3, with curated shortcuts:

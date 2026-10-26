@@ -1,8 +1,8 @@
 """Config file I/O for owa-cal.
 
 KEY="VALUE" lines, shell-sourceable for symmetry with owa-mail and
-owa-piggy. owa-cal holds no secrets - only an optional profile alias
-and a default timezone. The on-disk file is chmod 0600.
+owa-piggy. owa-cal holds no secrets - only a default
+timezone. The on-disk file is chmod 0600.
 
 Mechanics live in owa_core.config; this file just declares the
 per-tool path, allowlist, and defaults.
@@ -17,7 +17,6 @@ CONFIG_PATH = Path(
 ) / 'owa-cal' / 'config'
 
 ALLOWED_KEYS = (
-    'owa_piggy_profile',
     'default_timezone',
     'debug',
 )

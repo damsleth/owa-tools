@@ -1,4 +1,4 @@
-"""Config file I/O for owa-gmail: only an optional pinned profile alias."""
+"""Config file I/O for owa-gmail: only a `debug` flag."""
 import os
 from pathlib import Path
 
@@ -9,7 +9,6 @@ CONFIG_PATH = Path(
 ) / 'owa-gmail' / 'config'
 
 ALLOWED_KEYS = (
-    'owa_piggy_profile',
     'debug',
 )
 

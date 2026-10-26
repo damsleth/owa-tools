@@ -143,14 +143,19 @@ def test_main_config_verb_unauthenticated(capsys, clean_env, tmp_config, monkeyp
     assert 'region' in err
 
 
-def test_main_config_persists_profile_and_region(capsys, clean_env, tmp_config):
-    rc = cli.main(['config', '--profile', 'globex', '--region', 'GLOBEX-mediap.svc.ms'])
+def test_main_config_persists_region_per_global_profile(capsys, clean_env, tmp_config):
+    rc = cli.main(['--profile', 'globex', 'config', '--region', 'GLOBEX-mediap.svc.ms'])
     assert rc == 0
     from owa_vids import config as config_mod
     saved = config_mod.load_config()
-    assert saved['owa_piggy_profile'] == 'globex'
-    # region is cached per profile, normalized to lowercase
-    assert config_mod.get_region(saved) == 'globex-mediap.svc.ms'
+    assert 'owa_piggy_profile' not in saved
+    # region is cached per profile (keyed by the in-memory profile), lowercased
+    assert config_mod.get_region({**saved, 'owa_piggy_profile': 'globex'}) == 'globex-mediap.svc.ms'
+
+
+def test_main_config_rejects_profile_subflag(capsys, clean_env, tmp_config):
+    assert cli.main(['config', '--profile', 'globex']) == 2
+    assert 'Unknown flag: --profile' in capsys.readouterr().err
 
 
 def test_main_debug_flag_sets_config(clean_env, tmp_config, monkeypatch, capsys):

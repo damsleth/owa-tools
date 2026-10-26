@@ -1,8 +1,8 @@
 """Config file I/O for owa-sites.
 
 KEY="VALUE" lines, shell-sourceable for symmetry with the rest of the suite.
-owa-sites holds no secrets - only an optional profile alias, a pinned
-SharePoint host (to skip discovery), and a default site. The on-disk file is
+owa-sites holds no secrets - only a pinned SharePoint
+host (to skip discovery), and a default site. The on-disk file is
 0600.
 
 Mechanics live in owa_core.config; this file just declares the per-tool path
@@ -19,7 +19,6 @@ CONFIG_PATH = Path(
 ) / 'owa-sites' / 'config'
 
 ALLOWED_KEYS = (
-    'owa_piggy_profile',
     'sharepoint_host',
     'default_site',
     'debug',

@@ -10,10 +10,10 @@ def test_load_missing_is_empty(tmp_config):
 
 
 def test_config_set_round_trip(tmp_config):
-    config_mod.config_set('owa_piggy_profile', 'work')
+    config_mod.config_set('page_size', '20')
     config_mod.config_set('teams_region', 'amer')
     loaded = config_mod.load_config()
-    assert loaded['owa_piggy_profile'] == 'work'
+    assert loaded['page_size'] == '20'
     assert loaded['teams_region'] == 'amer'
 
 

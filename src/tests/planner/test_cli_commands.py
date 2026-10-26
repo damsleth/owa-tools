@@ -345,10 +345,10 @@ def test_config_and_refresh(monkeypatch, capsys):
     monkeypatch.setattr(
         cli.config_mod, 'config_set', lambda key, value: saved.__setitem__(key, value)
     )
-    assert cli.cmd_config(['--profile', 'work', '--plan', 'pX'], {}) == 0
-    assert saved == {'owa_piggy_profile': 'work', 'default_plan': 'pX'}
+    assert cli.cmd_config(['--plan', 'pX'], {}) == 0
+    assert saved == {'default_plan': 'pX'}
     err = capsys.readouterr().err
-    assert 'default profile saved' in err and 'default plan saved' in err
+    assert 'default plan saved' in err and 'profile' not in err
     assert cli.cmd_config([], {'default_plan': 'pX'}) == 0
     assert 'default_plan=pX' in capsys.readouterr().err
 

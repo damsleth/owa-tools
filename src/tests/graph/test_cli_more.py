@@ -227,49 +227,15 @@ def test_config_no_args_prints_current_state(monkeypatch, loaded_config, capsys)
     assert 'default_audience=graph' in err
 
 
-def test_config_shows_pinned_profile(monkeypatch, capsys):
-    monkeypatch.setattr(
-        cli.config_mod, 'load_config',
-        lambda: {
-            'default_audience': 'graph',
-            'owa_piggy_profile': 'work',
-        },
-    )
-    rc = _run(monkeypatch, 'config')
-    err = capsys.readouterr().err
-    assert rc == 0
-    assert 'owa_piggy_profile=work' in err
-
-
-def test_config_writes_profile(monkeypatch, loaded_config, capsys):
+def test_config_writes_audience(monkeypatch, loaded_config, capsys):
     written = {}
     monkeypatch.setattr(
         cli.config_mod, 'config_set',
         lambda k, v: written.update({k: v}),
     )
-    rc = _run(monkeypatch, 'config', '--profile', 'work')
-    err = capsys.readouterr().err
+    rc = _run(monkeypatch, 'config', '--audience', 'outlook')
     assert rc == 0
-    assert written == {'owa_piggy_profile': 'work'}
-    assert 'profile saved' in err
-
-
-def test_config_writes_profile_and_audience(monkeypatch, loaded_config, capsys):
-    written = {}
-    monkeypatch.setattr(
-        cli.config_mod, 'config_set',
-        lambda k, v: written.update({k: v}),
-    )
-    rc = _run(
-        monkeypatch, 'config',
-        '--profile', 'work',
-        '--audience', 'outlook',
-    )
-    assert rc == 0
-    assert written == {
-        'owa_piggy_profile': 'work',
-        'default_audience': 'outlook',
-    }
+    assert written == {'default_audience': 'outlook'}
 
 
 def test_config_unknown_flag(monkeypatch, loaded_config, capsys):
@@ -397,15 +363,8 @@ def test_invalid_stdin_body_exits(monkeypatch, stub_auth, loaded_config, capsys)
     assert 'stdin body is not valid JSON' in capsys.readouterr().err
 
 
-def test_config_command_keeps_its_own_profile_flag(monkeypatch, loaded_config, capsys):
-    """Global --profile is forwarded to owa-piggy normally, BUT under
-    `owa-graph config --profile <alias>` it's the subcommand form
-    that writes to the config file. Verify the subcommand wins."""
-    written = {}
-    monkeypatch.setattr(
-        cli.config_mod, 'config_set',
-        lambda k, v: written.update({k: v}),
-    )
+def test_config_rejects_profile_flag(monkeypatch, loaded_config, capsys):
+    """The per-tool profile pin is gone: `config --profile` is unknown."""
     rc = _run(monkeypatch, 'config', '--profile', 'newalias')
-    assert rc == 0
-    assert written == {'owa_piggy_profile': 'newalias'}
+    assert rc == 2
+    assert 'Unknown flag: --profile' in capsys.readouterr().err

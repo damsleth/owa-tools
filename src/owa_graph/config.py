@@ -1,7 +1,7 @@
 """Config file I/O for owa-graph.
 
 KEY="VALUE" lines, shell-sourceable. owa-graph holds no secrets - just
-an optional profile alias and a default audience. The on-disk file is
+a default audience. The on-disk file is
 chmod 0600.
 
 Mechanics live in owa_core.config; this file just declares the
@@ -17,7 +17,6 @@ CONFIG_PATH = Path(
 ) / 'owa-graph' / 'config'
 
 ALLOWED_KEYS = (
-    'owa_piggy_profile',
     'default_audience',
     'debug',
 )

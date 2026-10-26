@@ -300,19 +300,6 @@ def test_cmd_config_unknown_flag_raises():
         cli.cmd_config(["--bogus"], {})
 
 
-def test_cmd_config_no_profile_set(capsys):
-    # Without a profile in config, shows the "(not set)" message
-    assert cli.cmd_config([], {}) == 0
-    err = capsys.readouterr().err
-    assert "not set" in err
-
-
-def test_cmd_config_profile_set_shows_it(capsys):
-    assert cli.cmd_config([], {"owa_piggy_profile": "acme"}) == 0
-    err = capsys.readouterr().err
-    assert "owa_piggy_profile=acme" in err
-
-
 # ---------------------------------------------------------------------------
 # cmd_refresh: displayName absent
 # ---------------------------------------------------------------------------
@@ -372,10 +359,10 @@ def test_main_profile_missing_value_raises():
 
 
 def test_main_config_dispatch(monkeypatch, capsys):
-    saved = {}
-    monkeypatch.setattr(cli.config_mod, "config_set", lambda k, v: saved.setdefault(k, v))
-    assert cli._main(["config", "--profile", "work"]) == 0
-    assert saved["owa_piggy_profile"] == "work"
+    assert cli._main(["config"]) == 0
+    assert "Config file:" in capsys.readouterr().err
+    with pytest.raises(UsageError, match="Unknown flag"):
+        cli._main(["config", "--profile", "work"])
 
 
 def test_main_refresh_dispatch(monkeypatch, capsys):

@@ -362,10 +362,10 @@ def test_config_and_refresh(monkeypatch, capsys):
     saved = {}
     monkeypatch.setattr(cli.config_mod, "CONFIG_PATH", "/tmp/owa-todo-config")
     monkeypatch.setattr(cli.config_mod, "config_set", lambda key, value: saved.__setitem__(key, value))
-    assert cli.cmd_config(["--profile", "work", "--folder", "fX"], {}) == 0
-    assert saved == {"owa_piggy_profile": "work", "default_folder": "fX"}
+    assert cli.cmd_config(["--folder", "fX"], {}) == 0
+    assert saved == {"default_folder": "fX"}
     err = capsys.readouterr().err
-    assert "default profile saved" in err and "default folder saved" in err
+    assert "default folder saved" in err and "profile" not in err
     assert cli.cmd_config([], {"default_timezone": "UTC"}) == 0
     assert "default_timezone=UTC" in capsys.readouterr().err
 

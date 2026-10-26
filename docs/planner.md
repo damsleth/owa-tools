@@ -117,7 +117,6 @@ owa-planner task <task-id>                    # one task + checklist + descripti
 owa-planner task --id <task-id> --pretty
 
 owa-planner config --plan <plan-id>           # pin a default plan
-owa-planner config --profile work             # pin a default profile
 owa-planner config --unset plan               # remove a pinned key (profile/plan)
 owa-planner config --clear                    # delete the config file
 owa-planner refresh                           # force token refresh

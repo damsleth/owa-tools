@@ -33,7 +33,11 @@ def parse_kv_stream(text):
 
 
 def load_config():
-    return _core.load_config_file(CONFIG_PATH)
+    # ponytail: the one tool that keeps a profile pin - ado_org is
+    # tenant-bound, so the broker default would auth into the wrong tenant.
+    if not CONFIG_PATH.exists():
+        return {}
+    return _core.parse_lines(CONFIG_PATH.read_text())
 
 
 def config_set(key, value):

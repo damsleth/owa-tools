@@ -109,7 +109,6 @@ profile for a tool, switch per call, or set it via env:
 ```bash
 owa-cal --profile acme events --pretty         # one call
 OWA_PROFILE=acme owa-cal events --pretty       # one shell session
-owa-cal config --profile acme                  # persistent for owa-cal
 ```
 
 Repeat `--profile` to fan out across profiles in one call - results are merged

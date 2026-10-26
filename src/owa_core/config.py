@@ -36,11 +36,17 @@ def parse_kv_stream(text, allowed_keys):
 
 def load_config_file(path):
     """Read `path` and return a dict (empty if file missing).
-    Caller seeds defaults afterwards as appropriate for the tool."""
+    Caller seeds defaults afterwards as appropriate for the tool.
+
+    A stale `owa_piggy_profile` line is ignored: profile selection is
+    `--profile`, then `OWA_PROFILE`, then owa-piggy's default - never a
+    per-tool pin."""
     p = Path(path)
     if not p.exists():
         return {}
-    return parse_lines(p.read_text())
+    config = parse_lines(p.read_text())
+    config.pop('owa_piggy_profile', None)
+    return config
 
 
 def save_config(path, config):

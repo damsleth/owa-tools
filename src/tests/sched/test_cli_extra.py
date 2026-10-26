@@ -255,12 +255,11 @@ def test_config_unknown_flag_raises():
         cli.cmd_config(["--unknown-flag"], {})
 
 
-def test_config_no_profile_set_prints_defaults(capsys):
-    # Branch: no owa_piggy_profile in config
+def test_config_prints_defaults(capsys):
     rc = cli.cmd_config([], {"default_timezone": "Europe/Oslo"})
     assert rc == 0
     err = capsys.readouterr().err
-    assert "owa_piggy_profile=(not set" in err
+    assert "default_timezone=Europe/Oslo" in err
 
 
 # ---------------------------------------------------------------------------
@@ -318,11 +317,10 @@ def test_main_empty_after_filter(capsys):
 
 
 def test_main_config_dispatch(monkeypatch, capsys):
-    saved = {}
-    monkeypatch.setattr(cli.config_mod, "config_set", lambda k, v: saved.setdefault(k, v))
-    rc = cli._main(["config", "--profile", "home"])
-    assert rc == 0
-    assert saved["owa_piggy_profile"] == "home"
+    assert cli._main(["config"]) == 0
+    assert "Config file:" in capsys.readouterr().err
+    with pytest.raises(cli.UsageError, match="Unknown flag"):
+        cli._main(["config", "--profile", "home"])
 
 
 def test_main_refresh_dispatch(monkeypatch, capsys):

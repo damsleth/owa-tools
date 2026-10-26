@@ -1,7 +1,7 @@
 """Config file I/O for owa-drive.
 
-KEY="VALUE" lines, shell-sourceable. Stores only an optional
-`owa_piggy_profile` alias. The on-disk file is chmod 0600.
+KEY="VALUE" lines, shell-sourceable. Stores only a `debug`
+flag. The on-disk file is chmod 0600.
 
 Mechanics live in owa_core.config; this file just declares the
 per-tool path and allowlist.
@@ -16,7 +16,6 @@ CONFIG_PATH = Path(
 ) / 'owa-drive' / 'config'
 
 ALLOWED_KEYS = (
-    'owa_piggy_profile',
     'debug',
 )
 

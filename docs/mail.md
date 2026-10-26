@@ -42,15 +42,9 @@ owa-mail messages --pretty
 owa-piggy and owa-tools version independently. owa-mail expects any
 owa-piggy >= 0.7.1 and sanity-checks the version on first call.
 
-Multi-account: seed a named owa-piggy profile and pin it in owa-mail's
-config.
-
-```sh
-owa-piggy setup --profile work
-owa-mail config --profile work
-```
-
-`--profile` also works as a one-shot override:
+Multi-account: seed a named owa-piggy profile, then pick it per call with
+`--profile` (or `OWA_PROFILE` for a shell session); without either, owa-mail
+follows owa-piggy's default profile:
 `owa-mail --profile home messages`.
 
 ---
@@ -178,7 +172,7 @@ owa-mail categories --id AAMkAG...                   # clear all categories
 owa-mail delete --id AAMkAG... --confirm
 
 owa-mail refresh
-owa-mail config --profile work
+owa-mail config
 ```
 
 Messages carry opaque ids: address one via `--id` or as a bare positional
@@ -356,18 +350,10 @@ owa-mail shells out to
 [`owa-piggy`](https://github.com/damsleth/owa-piggy) for an access
 token on every call. owa-piggy piggybacks on OWA's public SPA client,
 so no app registration is needed; owa-mail itself stores no token.
-Optional `owa_piggy_profile` pins a named owa-piggy profile.
 
 If you have your own app registration and would rather use it, that
 goes through owa-piggy too - owa-mail is a token consumer, not a
 token acquirer.
-
-Config lives at `~/.config/owa-mail/config`:
-
-```
-# Optional - pins which owa-piggy profile to consume tokens from
-owa_piggy_profile="work"
-```
 
 ---
 

@@ -58,8 +58,7 @@ Global options:
   --debug, --verbose  Print HTTP requests and response bodies on errors
                       (also: PEOPLE_DEBUG=1)
   --profile <alias>   Forward to owa-piggy as --profile <alias> for
-                      this invocation. Overrides owa_piggy_profile in
-                      the config file.
+                      this invocation. Overrides OWA_PROFILE in the env.
 
 Commands:
   find <query>        Search people you've recently interacted with
@@ -77,7 +76,7 @@ Commands:
   contact-update <id> Update a personal contact.
   contact-delete <id> Delete a personal contact.
   refresh             Force a token refresh and verify auth.
-  config              View or update configuration.
+  config              Show configuration.
   help                Show this help.
 
 Common options:
@@ -681,24 +680,10 @@ def cmd_contacts(args, config, access_token, api_base):
 
 
 def cmd_config(args, config):
-    profile = ''
-    while args:
-        flag, args = args[0], args[1:]
-        if flag == '--profile':
-            profile, args = _require_value(flag, args)
-        else:
-            raise UsageError(f'Unknown flag: {flag}')
-
-    if profile:
-        config_mod.config_set('owa_piggy_profile', profile)
-        _info(f'default profile saved: {profile}')
-        return 0
+    if args:
+        raise UsageError(f'Unknown flag: {args[0]}')
 
     _info(f'Config file: {config_mod.CONFIG_PATH}')
-    if config.get('owa_piggy_profile'):
-        _info(f"  owa_piggy_profile={config.get('owa_piggy_profile')}")
-    else:
-        _info('  owa_piggy_profile=(not set - owa-piggy picks its default)')
     return 0
 
 
@@ -820,9 +805,6 @@ _CONTACT_DELETE_FLAGS = [
     schema_mod.flag('--confirm', summary='Skip confirmation prompt'),
 ]
 
-_CONFIG_FLAGS = [
-    schema_mod.flag('--profile', value='<alias>', summary='Pin a default owa-piggy profile alias (owa_piggy_profile)'),
-]
 
 COMMAND_SCHEMA = [
     schema_mod.command('find', 'Search recent people', auth='graph', flags=_FIND_FLAGS),
@@ -849,7 +831,7 @@ COMMAND_SCHEMA = [
         flags=_CONTACT_DELETE_FLAGS,
     ),
     schema_mod.command('refresh', 'Force a token refresh', auth='graph'),
-    schema_mod.command('config', 'View or update configuration', mutates=True, flags=_CONFIG_FLAGS),
+    schema_mod.command('config', 'Show configuration'),
 ]
 
 
