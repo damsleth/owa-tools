@@ -8,6 +8,8 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+## v1.10.0 - 2026-10-28
+
 ### All tools
 
 - Breaking: per-tool profile pins are gone. Every tool except `owa-ado`
@@ -16,6 +18,12 @@ per-tool subsections inside that release when useful.
   a leftover `owa_piggy_profile` line in `~/.config/<tool>/config` is
   ignored. `owa-ado` keeps its pin because its `ado_org` is bound to one
   tenant.
+
+### Build
+
+- GitHub Actions pins bumped to the latest releases (checkout v7,
+  setup-python v7, setup-uv v10, upload-artifact v7, download-artifact v8,
+  action-gh-release v3). Dev dependencies were already current.
 
 ## v1.9.0 - 2026-10-01
 
