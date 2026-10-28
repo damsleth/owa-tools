@@ -5,8 +5,8 @@ class OwaTools < Formula
 
   desc "Outlook/Microsoft 365 CLI suite (mail, calendar, graph, drive, todo, video)"
   homepage "https://github.com/damsleth/owa-tools"
-  url "https://github.com/damsleth/owa-tools/archive/refs/tags/v1.9.0.tar.gz"
-  sha256 "3a8a0f2b6a160cc4ad5f37cca1e0aae20ab9301a386aaa6edef37d9693f6df44"
+  url "https://github.com/damsleth/owa-tools/archive/refs/tags/v1.10.0.tar.gz"
+  sha256 "34509e9e6914231d7daf53bfd1ad7bb03e468ea90b8c0cb360d6fd0db7987e96"
   license "MIT"
   head "https://github.com/damsleth/owa-tools.git", branch: "main"
 
