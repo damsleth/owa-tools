@@ -24,6 +24,13 @@ per-tool subsections inside that release when useful.
 - New project cards link the resource plan that covers the written week and
   is not completed or closed, instead of the newest one, which SWODP refused
   with 403 when that plan was completed.
+- A new card refused with 403 is retried once without `resource_plan`, as
+  the extension does (no hard allocation on the plan).
+- `categories` (and `sync`'s `otherCategories`) read the full choice list from
+  `sys_choice` first, so a category never booked before can be written; the
+  user's own task-less cards add to it.
+- `serve` forbids framing, and prints `?backend=local` in its URL on a port
+  other than 8765.
 
 ## v1.10.0 - 2026-10-28
 

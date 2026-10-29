@@ -128,7 +128,10 @@ and `projectTasks`, and reads `resource_allocation` in the app's raw
 The daemon is reachable from every web page on the machine, so it refuses a
 `Host` that is not `127.0.0.1:<port>` or `localhost:<port>` (DNS rebinding), an
 `Origin` that is not its own, and any POST that is not `application/json`. It
-sends no CORS headers and never returns or logs tokens or cookies.
+sends no CORS headers, forbids framing (`X-Frame-Options: DENY`,
+`frame-ancestors 'none'`), and never returns or logs tokens or cookies. On a
+port other than 8765 the startup line prints the URL with `?backend=local`,
+which the app needs to pick the daemon.
 
 Weeks across a month boundary are written as one row per month segment:
 `scope` lists the weekdays (0 = Monday) the row owns, and its hours must stay
