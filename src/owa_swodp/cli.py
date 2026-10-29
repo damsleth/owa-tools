@@ -18,6 +18,7 @@ from owa_core.errors import (
 )
 
 from . import __version__, service
+from . import serve as serve_mod
 from . import session as session_mod
 
 TOOL = "owa-swodp"
@@ -48,6 +49,9 @@ Write commands:
   recall       Move one Submitted time card to Recalled with a reason.
   delete       Delete one Pending time card by sys id.
 
+Daemon:
+  serve        Serve the SWODPal app and its /bridge on 127.0.0.1 (no extension).
+
 Common options:
   --instance <prod|uat>  Target instance (default: prod). Separate Edge profile per instance.
   --pretty               Indented human-readable JSON.
@@ -61,6 +65,7 @@ Examples:
   owa-swodp submit --sys-id fa6f509b2bfec3102ba6fe9cf291bf0f --confirm
   owa-swodp recall --sys-id fa6f509b2bfec3102ba6fe9cf291bf0f --reason "Correction needed" --confirm
   owa-swodp delete --sys-id fa6f509b2bfec3102ba6fe9cf291bf0f --confirm
+  owa-swodp serve --port 8765 --app-dir ~/code/swodp-enrichment/outlook-matching/app/dist
 """
     )
     print(schema_mod.MACHINE_SURFACE_HELP)
@@ -313,6 +318,34 @@ def cmd_write(args):
     return 0
 
 
+def cmd_serve(args):
+    instance, _, debug, rest = _common(args)
+    port, app_dir = 8765, os.environ.get("OWA_SWODP_APP_DIR") or None
+    while rest:
+        flag, rest = rest[0], rest[1:]
+        if flag == "--port":
+            raw, rest = _require_value(flag, rest)
+            if not raw.isdigit() or not 0 < int(raw) < 65536:
+                raise UsageError("--port requires a number from 1 to 65535")
+            port = int(raw)
+        elif flag == "--app-dir":
+            app_dir, rest = _require_value(flag, rest)
+        else:
+            raise UsageError(f"Unknown flag: {flag}")
+    try:
+        server = serve_mod.make_server(port, serve_mod.Daemon(instance, debug=debug), app_dir)
+    except OSError as exc:
+        raise UsageError(f"could not listen on 127.0.0.1:{port}: {exc.strerror or exc}") from exc
+    print(f"owa-swodp serve: http://127.0.0.1:{port}/ (SWODP {instance}); Ctrl-C to stop", file=sys.stderr)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return 0
+
+
 _INSTANCE = schema_mod.flag("--instance", value="<prod|uat>", summary="Target instance (default: prod)")
 _PRETTY = schema_mod.flag("--pretty", summary="Indented human-readable JSON")
 _DEBUG = schema_mod.flag("--debug", summary="Diagnostics to stderr")
@@ -337,6 +370,7 @@ COMMAND_SCHEMA = [
     schema_mod.command("allocations", "Fetch recent resource allocations", auth="swodp-session", flags=_COMMON + [schema_mod.flag("--since", value="<YYYY-MM-DD>", summary="Earliest allocation end date")]),
     schema_mod.command("categories", "Build the Other-category display/value map", auth="swodp-session", flags=_COMMON),
     schema_mod.command("task", "Look up a task number", auth="swodp-session", flags=_COMMON + [schema_mod.flag("<task-number>", summary="Task number", required=True), schema_mod.flag("--number", value="<task-number>", summary="Task number flag alternative")]),
+    schema_mod.command("serve", "Serve the SWODPal app and its /bridge on 127.0.0.1", auth="swodp-session", output="text", flags=_COMMON + [schema_mod.flag("--port", value="<n>", summary="Listen port (default: 8765)"), schema_mod.flag("--app-dir", value="<dir>", summary="Built SWODPal app (npm run build output; or OWA_SWODP_APP_DIR)")]),
     schema_mod.command("submit", "Move one Pending time card to Submitted", auth="swodp-session", mutates=True, confirmation=True, idempotent=False, flags=_COMMON + _CARD),
     schema_mod.command("recall", "Move one Submitted time card to Recalled", auth="swodp-session", mutates=True, destructive=True, confirmation=True, idempotent=False, flags=_COMMON + _RECALL_CARD),
     schema_mod.command("delete", "Delete one Pending time card", auth="swodp-session", mutates=True, destructive=True, confirmation=True, idempotent=False, flags=_COMMON + _CARD),
@@ -369,6 +403,7 @@ def _main(argv):
         "categories": cmd_categories,
         "task": cmd_task,
         "write": cmd_write,
+        "serve": cmd_serve,
         "submit": cmd_submit,
         "recall": cmd_recall,
         "delete": cmd_delete,
@@ -383,7 +418,7 @@ def main(argv=None):
         TOOL,
         sys.argv[1:] if argv is None else argv,
         _main,
-        interactive_commands=("setup",),
+        interactive_commands=("setup", "serve"),
         fan_out_profiles=False,
         commands=COMMAND_SCHEMA,
     )

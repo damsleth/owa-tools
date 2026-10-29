@@ -8,6 +8,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 from owa_core.errors import (
+    AuthExpiredError,
     ConflictError,
     NotFoundError,
     OwaError,
@@ -96,20 +97,33 @@ def history(session, *, debug=False):
     )
 
 
-def allocations(session, *, since=None, debug=False):
+def allocations(session, *, since=None, app=False, debug=False):
+    """Recent resource allocations.
+
+    `app=True` is the SWODPal shape (extension parity): raw `{display_value,
+    value}` fields so end dates read as ISO, the plan state for expiry, a
+    two-year window (an unseen allocation means an activity of unknown
+    expiry), newest first so truncation hits the oldest rows.
+    """
+    if app and not since:
+        since = (date.today() - timedelta(days=730)).isoformat()
     since = since or (date.today() - timedelta(days=90)).isoformat()
     parse_iso_date(since, name="since")
+    fields = (
+        "resource_plan.task.number,resource_plan.task.short_description,"
+        "resource_plan.task.top_task.short_description,"
+        + ("resource_plan.state," if app else "")
+        + "start_date,end_date,state"
+    )
     return api.request(
         session,
         "GET",
         "resource_allocation",
         params={
-            "sysparm_display_value": "true",
-            "sysparm_fields": (
-                "resource_plan.task.number,resource_plan.task.short_description,"
-                "resource_plan.task.top_task.short_description,start_date,end_date,state"
-            ),
-            "sysparm_query": f"user.user_name={session.user}^end_date>={since}",
+            "sysparm_display_value": "all" if app else "true",
+            "sysparm_fields": fields,
+            "sysparm_query": f"user.user_name={session.user}^end_date>={since}"
+            + ("^ORDERBYDESCend_date" if app else ""),
             "sysparm_limit": "1000",
         },
         debug=debug,
@@ -259,6 +273,87 @@ def recall_card(session, sys_id, reason, *, debug=False):
     return result
 
 
+PROJECT_CLASSES = ("tsp1_project", "pm_project")
+
+
+def _cell(value):
+    """Plain string of a Table API field that may be `{display_value, value}`."""
+    if isinstance(value, dict):
+        value = value.get("display_value") or value.get("value")
+    return value.strip() if isinstance(value, str) else ""
+
+
+def task_states(session, history_rows, allocation_rows, *, debug=False):
+    """`{number, active, sys_class_name}` for every task the app knows of.
+
+    The only expiry signal for activities that exist in history alone.
+    Best effort like the extension: no read access to `task` means unknown
+    state (activities stay open). An expired session still propagates.
+    """
+    numbers = list(dict.fromkeys(
+        number
+        for number in (
+            [_cell(row.get("task.number")) for row in history_rows]
+            + [_cell(row.get("resource_plan.task.number")) for row in allocation_rows]
+        )
+        if number
+    ))[:300]
+    rows = []
+    try:
+        for index in range(0, len(numbers), 100):
+            rows += api.request(
+                session,
+                "GET",
+                "task",
+                params={
+                    "sysparm_fields": "number,active,sys_class_name",
+                    "sysparm_query": f"numberIN{','.join(numbers[index:index + 100])}",
+                    "sysparm_limit": "100",
+                },
+                debug=debug,
+            )
+    except AuthExpiredError:
+        raise
+    except OwaError:
+        return []
+    return rows
+
+
+def project_tasks(session, states, history_rows, *, debug=False):
+    """Open tasks under project activities the user never booked on.
+
+    SWODP refuses time cards on the project itself; the app lists these as
+    "book on this instead". Link is task.parent. ServiceNow silently ignores
+    filters on unknown fields and then returns the whole table, so every
+    row's parent is checked.
+    """
+    booked = {_cell(row.get("task.number")) for row in history_rows}
+    numbers = [
+        row["number"]
+        for row in states
+        if row.get("sys_class_name") in PROJECT_CLASSES and row.get("number") not in booked
+    ][:50]
+    if not numbers:
+        return []
+    try:
+        rows = api.request(
+            session,
+            "GET",
+            "task",
+            params={
+                "sysparm_fields": "number,short_description,parent.number",
+                "sysparm_query": f"parent.numberIN{','.join(numbers)}^active=true",
+                "sysparm_limit": "200",
+            },
+            debug=debug,
+        )
+    except AuthExpiredError:
+        raise
+    except OwaError:
+        return []
+    return [row for row in rows if row.get("parent.number") in set(numbers)]
+
+
 def sync(session, week_start, *, weeks=3, cards_only=False, debug=False):
     cards = week_cards(session, week_start, weeks=weeks, debug=debug)
     warnings = []
@@ -283,7 +378,7 @@ def sync(session, week_start, *, weeks=3, cards_only=False, debug=False):
     allocation_rows = optional(
         "resource_allocation",
         "only projects already present in time-card history are available",
-        lambda: allocations(session, debug=debug),
+        lambda: allocations(session, app=True, debug=debug),
     )
     category_map = optional(
         "time_card category map",
@@ -292,11 +387,15 @@ def sync(session, week_start, *, weeks=3, cards_only=False, debug=False):
     )
     if len(history_rows) >= 1000 or len(allocation_rows) >= 1000:
         warnings.append("history or allocations reached the 1000-row limit and may be truncated")
+    states = task_states(session, history_rows, allocation_rows, debug=debug)
     result = {
+        "user": session.user,
         "history": history_rows,
         "allocations": allocation_rows,
         "weekCards": cards,
         "otherCategories": category_map,
+        "taskStates": states,
+        "projectTasks": project_tasks(session, states, history_rows, debug=debug),
     }
     if warnings:
         result["warnings"] = warnings

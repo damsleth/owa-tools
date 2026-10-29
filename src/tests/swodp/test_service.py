@@ -60,6 +60,7 @@ def test_sync_degrades_optional_403(monkeypatch):
         lambda *a, **k: (_ for _ in ()).throw(ScopeInsufficientError("403")),
     )
     monkeypatch.setattr(service, "categories", lambda *a, **k: {"Admin": "admin"})
+    monkeypatch.setattr(service, "task_states", lambda *a, **k: [])
     result = service.sync(SESSION, "2026-08-17")
     assert result["allocations"] == []
     assert "resource_allocation" in result["warnings"][0]
@@ -355,3 +356,48 @@ def test_new_row_rerun_updates_its_pending_card(monkeypatch):
     result = service.write_week(SESSION, "2026-08-17", [valid_row(description="Work", new=True)])
     assert result[0] == {"taskNumber": "TABC123", "action": "updated", "sys_id": "second-card"}
     assert "POST" not in calls
+
+
+def test_sync_payload_matches_extension_keys(monkeypatch):
+    """user, taskStates, projectTasks ride along with the app's other keys."""
+    calls = []
+
+    def request(session, method, table, **kwargs):
+        calls.append((table, kwargs.get("params", {})))
+        query = kwargs.get("params", {}).get("sysparm_query", "")
+        if table == "time_card" and "ORDERBYDESC" in query and "taskISEMPTY" not in query:
+            return [{"task.number": "T100"}]
+        if table == "resource_allocation":
+            return [{"resource_plan.task.number": {"display_value": "T200", "value": "T200"}}]
+        if table == "task" and query.startswith("numberIN"):
+            assert query == "numberINT100,T200"
+            return [
+                {"number": "T100", "active": "true", "sys_class_name": "tsp1_project"},
+                {"number": "T200", "active": "true", "sys_class_name": "tsp1_project"},
+            ]
+        if table == "task":
+            assert query == "parent.numberINT200^active=true"  # T100 is booked in history
+            return [
+                {"number": "T201", "parent.number": "T200"},
+                {"number": "T999", "parent.number": "TOTHER"},
+            ]
+        return []
+
+    monkeypatch.setattr(service.api, "request", request)
+    result = service.sync(SESSION, "2026-08-17")
+    assert set(result) == {
+        "user", "history", "allocations", "weekCards", "otherCategories", "taskStates", "projectTasks",
+    }
+    assert result["user"] == SESSION.user
+    assert result["projectTasks"] == [{"number": "T201", "parent.number": "T200"}]
+    alloc = next(p for t, p in calls if t == "resource_allocation")
+    assert alloc["sysparm_display_value"] == "all" and "resource_plan.state" in alloc["sysparm_fields"]
+
+
+def test_task_states_unreadable_means_unknown(monkeypatch):
+    def request(session, method, table, **kwargs):
+        raise ScopeInsufficientError("403")
+
+    monkeypatch.setattr(service.api, "request", request)
+    assert service.task_states(SESSION, [{"task.number": "T1"}], []) == []
+    assert service.project_tasks(SESSION, [{"number": "T1", "sys_class_name": "pm_project"}], []) == []

@@ -89,6 +89,51 @@ printf '%s' '[{"category":"admin","days":[1,0,0,0,0,0,0],"description":"Admin"}]
   | owa-swodp write --instance uat --week-start 2026-08-24 --file - --confirm
 ```
 
+## Serve (SWODPal without the browser extension)
+
+`owa-swodp serve` is a personal localhost daemon that answers the SWODPal app's
+bridge protocol, so the built app runs without the extension and without an
+open SWODP tab. It binds `127.0.0.1` only.
+
+```bash
+npm run build --prefix ~/code/swodp-enrichment/outlook-matching/app
+owa-swodp serve --app-dir ~/code/swodp-enrichment/outlook-matching/app/dist
+# open http://127.0.0.1:8765/
+```
+
+Options: `--port` (default 8765; the app picks this transport on that port, or
+with `?backend=local`), `--instance` (default `prod`; the app's per-request
+instance wins), `--app-dir` (or `OWA_SWODP_APP_DIR`; without it only `/bridge`
+is served).
+
+`GET` serves the built app's static files. `POST /bridge` takes `{type, ...}`:
+
+| type | does |
+|---|---|
+| `ping` | `{ok, version}`; the version is the bridge version the app expects |
+| `swodp-tab` | `{state: "ready"}` (there is no tab) |
+| `swodp-open-tab`, `graph-signout` | no-op |
+| `swodp-sync` | `sync` with the cached session; `mode: "cards"` is `--cards-only` |
+| `swodp-write` | `write` for a row plan; no progress frames |
+| `graph-calendar` | owa-piggy Outlook token of the profile declaring `swodp`, `/me/calendarview` for +-4 weeks, paged, reshaped to the Graph form the app reads; the token stays in the daemon |
+
+The Graph audience of owa-piggy's borrowed OWA client has no Calendars scope
+(403), so the calendar is read from Outlook REST, which has.
+
+Errors are `{error, code}`; an expired SWODP session is recaptured once before
+`code: "noSession"` is returned. `sync` here also returns `user`, `taskStates`
+and `projectTasks`, and reads `resource_allocation` in the app's raw
+`display_value=all` shape over two years, as the extension does.
+
+The daemon is reachable from every web page on the machine, so it refuses a
+`Host` that is not `127.0.0.1:<port>` or `localhost:<port>` (DNS rebinding), an
+`Origin` that is not its own, and any POST that is not `application/json`. It
+sends no CORS headers and never returns or logs tokens or cookies.
+
+Rows scoped to a month segment (`scope` other than all seven days, used for
+month-boundary weeks) are refused: `write` ignores `scope` and would touch the
+neighbouring month's card. Write those weeks from the extension.
+
 ## Single-card commands
 
 A time sheet is a set of time cards. `submit`, `recall`, and `delete` act on

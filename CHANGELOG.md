@@ -8,6 +8,17 @@ per-tool subsections inside that release when useful.
 
 ## Unreleased
 
+### owa-swodp
+
+- New `serve`: a 127.0.0.1-only daemon that answers the SWODPal app's bridge
+  protocol (`POST /bridge`) and serves its built files, so the app runs
+  without the browser extension. Calendar via an owa-piggy Outlook token (Graph audience has no Calendars scope), SWODP
+  via the existing sidecar session. Host, Origin and Content-Type guards; no
+  CORS headers.
+- `sync` also returns `user`, `taskStates` and `projectTasks`, and reads
+  `resource_allocation` as `display_value=all` over two years (with
+  `resource_plan.state`), matching the extension.
+
 ## v1.10.0 - 2026-10-28
 
 ### All tools
