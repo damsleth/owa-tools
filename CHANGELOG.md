@@ -18,6 +18,12 @@ per-tool subsections inside that release when useful.
 - `sync` also returns `user`, `taskStates` and `projectTasks`, and reads
   `resource_allocation` as `display_value=all` over two years (with
   `resource_plan.state`), matching the extension.
+- `write` honours `scope` (month segments of a week across a month boundary)
+  as the extension does: each segment only touches its own cards, and split
+  rows group per task and scope.
+- New project cards link the resource plan that covers the written week and
+  is not completed or closed, instead of the newest one, which SWODP refused
+  with 403 when that plan was completed.
 
 ## v1.10.0 - 2026-10-28
 

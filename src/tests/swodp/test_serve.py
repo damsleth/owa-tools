@@ -110,7 +110,7 @@ def test_errors_carry_code(daemon, monkeypatch):
     assert result == {"error": "down", "code": None}
 
 
-def test_write_dispatch_and_scope_refusal(daemon, monkeypatch):
+def test_write_dispatch_and_scope_validation(daemon, monkeypatch):
     monkeypatch.setattr(
         service, "write_week", lambda s, week, rows, debug: [{"taskNumber": "T12345", "action": "created"}]
     )
@@ -121,7 +121,9 @@ def test_write_dispatch_and_scope_refusal(daemon, monkeypatch):
     full = [{**WEEK_ROWS[0], "scope": [0, 1, 2, 3, 4, 5, 6]}]
     assert "results" in serve.dispatch(daemon, {**msg, "rows": full})
     partial = [{**WEEK_ROWS[0], "scope": [0, 1, 2]}]
-    assert "month segment" in serve.dispatch(daemon, {**msg, "rows": partial})["error"]
+    assert "results" in serve.dispatch(daemon, {**msg, "rows": partial})
+    outside = [{**WEEK_ROWS[0], "scope": [5, 6]}]
+    assert "outside its scope" in serve.dispatch(daemon, {**msg, "rows": outside})["error"]
     assert "1-200 rows" in serve.dispatch(daemon, {**msg, "rows": []})["error"]
 
 
