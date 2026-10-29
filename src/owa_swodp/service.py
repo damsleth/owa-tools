@@ -131,21 +131,56 @@ def allocations(session, *, since=None, app=False, debug=False):
 
 
 def categories(session, *, debug=False):
-    rows = api.request(
-        session,
-        "GET",
-        "time_card",
-        params={
-            "sysparm_display_value": "all",
-            "sysparm_fields": "category",
-            "sysparm_query": (
-                f"user.user_name={session.user}^taskISEMPTY^ORDERBYDESCweek_starts_on"
-            ),
-            "sysparm_limit": "100",
-        },
-        debug=debug,
-    )
-    result = {}
+    """Display name -> raw value for Other categories (Admin, Vacation, ...).
+
+    The primary source is the table metadata in sys_choice: the whole choice
+    list for time_card.category, whether or not the user has booked the type
+    before. The user's own task-less cards add to it and win on conflict
+    (their display_value follows the session language). With sys_choice
+    unreadable the history is the only source, so its 403 propagates for
+    sync's warning; with sys_choice rows it is enrichment only.
+    """
+    try:
+        choices = api.request(
+            session,
+            "GET",
+            "sys_choice",
+            params={
+                "sysparm_fields": "label,value",
+                "sysparm_query": "name=time_card^element=category^inactive=false",
+                "sysparm_limit": "100",
+            },
+            debug=debug,
+        )
+    except AuthExpiredError:
+        raise
+    except OwaError:
+        choices = []
+    result = {
+        row["label"]: row["value"]
+        for row in choices
+        if isinstance(row, dict) and row.get("label") and row.get("value")
+        and row["label"] != "Project/Project Task"
+    }
+    try:
+        rows = api.request(
+            session,
+            "GET",
+            "time_card",
+            params={
+                "sysparm_display_value": "all",
+                "sysparm_fields": "category",
+                "sysparm_query": (
+                    f"user.user_name={session.user}^taskISEMPTY^ORDERBYDESCweek_starts_on"
+                ),
+                "sysparm_limit": "100",
+            },
+            debug=debug,
+        )
+    except ScopeInsufficientError:
+        if not result:
+            raise
+        rows = []
     for row in rows:
         category = row.get("category") or {}
         if not isinstance(category, dict):
@@ -520,7 +555,16 @@ def _verify_description(session, sys_id, sent, *, debug=False):
 def _create_card(session, identity, body, *, debug=False):
     description = body.get(DESCRIPTION_FIELD)
     post_body = {key: value for key, value in body.items() if key != DESCRIPTION_FIELD}
-    created = api.request(session, "POST", "time_card", body=post_body, debug=debug)
+    try:
+        created = api.request(session, "POST", "time_card", body=post_body, debug=debug)
+    except ScopeInsufficientError:
+        # SWODP refuses cards against plans the user has no hard allocation
+        # on. The card can still be booked without the plan, the same way as
+        # for tasks with no allocation, so try once more before giving up.
+        if "resource_plan" not in post_body:
+            raise
+        post_body = {key: value for key, value in post_body.items() if key != "resource_plan"}
+        created = api.request(session, "POST", "time_card", body=post_body, debug=debug)
     sys_id = created.get("sys_id") if isinstance(created, dict) else None
     if not sys_id:
         return {"taskNumber": identity, "action": "failed", "detail": "POST lacked sys_id"}

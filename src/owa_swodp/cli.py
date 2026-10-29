@@ -336,7 +336,9 @@ def cmd_serve(args):
         server = serve_mod.make_server(port, serve_mod.Daemon(instance, debug=debug), app_dir)
     except OSError as exc:
         raise UsageError(f"could not listen on 127.0.0.1:{port}: {exc.strerror or exc}") from exc
-    print(f"owa-swodp serve: http://127.0.0.1:{port}/ (SWODP {instance}); Ctrl-C to stop", file=sys.stderr)
+    # The app picks the daemon transport by port 8765 or ?backend=local
+    query = "" if port == 8765 else "?backend=local"
+    print(f"owa-swodp serve: http://127.0.0.1:{port}/{query} (SWODP {instance}); Ctrl-C to stop", file=sys.stderr)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

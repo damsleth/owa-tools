@@ -211,6 +211,8 @@ def test_content_type_and_body_validation(running):
 def test_static_files_and_traversal(running):
     status, headers, body = call(running, "GET", "/")
     assert status == 200 and body == b"<html>app</html>" and headers["Content-Type"].startswith("text/html")
+    assert headers["X-Frame-Options"] == "DENY"
+    assert headers["Content-Security-Policy"] == "frame-ancestors 'none'"
     assert call(running, "GET", "/assets/a.js")[0] == 200
     assert call(running, "GET", "/assets")[0] == 404
     for path in ("/../secret.txt", "/%2e%2e/secret.txt", "/assets/../../secret.txt"):
@@ -229,3 +231,17 @@ def test_cli_registers_serve_and_validates_port(capsys):
     assert "serve" in {row["name"] for row in cli.COMMAND_SCHEMA}
     assert cli.main(["serve", "--port", "99999"]) != 0
     assert "--port" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("port,url", [("8765", "http://127.0.0.1:8765/ "), ("9876", "http://127.0.0.1:9876/?backend=local ")])
+def test_cli_prints_a_url_the_app_routes_to_the_daemon(monkeypatch, capsys, port, url):
+    class Server:
+        def serve_forever(self):
+            raise KeyboardInterrupt
+
+        def server_close(self):
+            pass
+
+    monkeypatch.setattr(cli.serve_mod, "make_server", lambda *a, **k: Server())
+    assert cli.main(["serve", "--port", port]) == 0
+    assert url in capsys.readouterr().err

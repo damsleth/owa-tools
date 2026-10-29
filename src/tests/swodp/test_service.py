@@ -401,3 +401,59 @@ def test_task_states_unreadable_means_unknown(monkeypatch):
     monkeypatch.setattr(service.api, "request", request)
     assert service.task_states(SESSION, [{"task.number": "T1"}], []) == []
     assert service.project_tasks(SESSION, [{"number": "T1", "sys_class_name": "pm_project"}], []) == []
+
+
+def test_categories_prefer_sys_choice_and_history_wins(monkeypatch):
+    def request(session, method, table, **kwargs):
+        if table == "sys_choice":
+            return [{"label": "Vacation", "value": "vacation"}, {"label": "Admin", "value": "adm"},
+                    {"label": "Project/Project Task", "value": "project_work"}]
+        return [{"category": {"display_value": "Admin", "value": "admin"}}]
+
+    monkeypatch.setattr(service.api, "request", request)
+    assert service.categories(SESSION) == {"Vacation": "vacation", "Admin": "admin"}
+
+
+def test_categories_history_403_only_matters_without_sys_choice(monkeypatch):
+    def request(choices):
+        def fake(session, method, table, **kwargs):
+            if table == "sys_choice" and not isinstance(choices, Exception):
+                return choices
+            raise ScopeInsufficientError("403")
+        return fake
+
+    monkeypatch.setattr(service.api, "request", request([{"label": "Vacation", "value": "vacation"}]))
+    assert service.categories(SESSION) == {"Vacation": "vacation"}
+    monkeypatch.setattr(service.api, "request", request(ScopeInsufficientError("403")))
+    with pytest.raises(ScopeInsufficientError):
+        service.categories(SESSION)
+
+
+def test_create_retries_without_refused_resource_plan(monkeypatch):
+    posts = []
+
+    def request(session, method, table, **kwargs):
+        if method == "POST":
+            posts.append(kwargs["body"])
+            if "resource_plan" in kwargs["body"]:
+                raise ScopeInsufficientError("403 hard allocation")
+            return {"sys_id": "new"}
+        return {"comments": "saved"}
+
+    monkeypatch.setattr(service.api, "request", request)
+    body = {"task": "t", "resource_plan": "plan", "monday": "8", "comments": "work"}
+    assert service._create_card(SESSION, "T12345", body)["action"] == "created"
+    assert [("resource_plan" in post) for post in posts] == [True, False]
+
+
+def test_create_without_plan_does_not_retry_a_403(monkeypatch):
+    posts = []
+
+    def request(session, method, table, **kwargs):
+        posts.append(kwargs.get("body"))
+        raise ScopeInsufficientError("403")
+
+    monkeypatch.setattr(service.api, "request", request)
+    with pytest.raises(ScopeInsufficientError):
+        service._create_card(SESSION, "T12345", {"task": "t", "monday": "8"})
+    assert len(posts) == 1
