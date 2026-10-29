@@ -446,7 +446,47 @@ def validate_write_rows(rows):
             raise UsageError(f"row {index + 1} new may only be true")
         if row.get("new") and (row.get("remove") or row.get("split")):
             raise UsageError(f"row {index + 1} new cannot remove or split")
+        # scope = the weekdays (0=Monday) a month segment owns in a week that
+        # crosses a month boundary. Hours outside it would land in the wrong
+        # month and never be cleaned up, so the plan is refused.
+        if "scope" in row:
+            scope = row["scope"]
+            if (
+                not isinstance(scope, list)
+                or not 1 <= len(scope) <= 7
+                or any(isinstance(day, bool) or not isinstance(day, int) or not 0 <= day <= 6 for day in scope)
+                or len(set(scope)) != len(scope)
+            ):
+                raise UsageError(f"row {index + 1} scope must be 1-7 distinct weekday indexes 0-6")
+            if any(hours and day not in scope for day, hours in enumerate(days)):
+                raise UsageError(f"row {index + 1} has hours outside its scope")
     return rows
+
+
+def _scope(row):
+    """The days a row owns; None for a whole-week row (owns every card)."""
+    scope = row.get("scope")
+    return None if scope is None or len(scope) == 7 else frozenset(scope)
+
+
+def _card_days(card):
+    """Day hours from a raw (non-display) time_card row."""
+    values = []
+    for field in DAY_FIELDS:
+        try:
+            values.append(float(card.get(field) or 0))
+        except (TypeError, ValueError):
+            values.append(0.0)
+    return values
+
+
+def _within(card, scope):
+    """A card belongs to a month segment only if all its hours fall inside it.
+
+    A card spanning the boundary is owned by no segment row, only by a
+    whole-week row, which the app sends when it rewrites such a card.
+    """
+    return scope is None or all(not hours or day in scope for day, hours in enumerate(_card_days(card)))
 
 
 def _identity(row):
@@ -505,28 +545,61 @@ def _project_base(session, week_start, task_number, *, debug=False):
     if not task:
         return None
     base = {"task": task["sys_id"], "week_starts_on": week_start, "category": "project_work"}
+    # resource_plan is enrichment, not required: cards without it are accepted.
+    # It must be an allocation that covers the week on a plan still taking
+    # hours. The newest end_date alone can be a Completed plan, and SWODP then
+    # refuses the whole POST with 403; with no covering allocation the card is
+    # created without the field, as for tasks with no allocation at all.
     try:
         rows = api.request(
             session,
             "GET",
             "resource_allocation",
             params={
-                "sysparm_fields": "resource_plan",
+                "sysparm_display_value": "all",
+                "sysparm_fields": "resource_plan,resource_plan.state,start_date,end_date,state",
                 "sysparm_query": (
                     f"user.user_name={session.user}^resource_plan.task.number={task_number}"
                     "^ORDERBYDESCend_date"
                 ),
-                "sysparm_limit": "1",
+                "sysparm_limit": "20",
             },
             debug=debug,
         )
-        plan = rows[0].get("resource_plan") if rows else None
+        week_end = (date.fromisoformat(week_start) + timedelta(days=6)).isoformat()
+        alloc = next((row for row in rows if _covers_week(row, week_start, week_end)), None)
+        plan = alloc.get("resource_plan") if alloc else None
         value = plan.get("value") if isinstance(plan, dict) else plan
         if value:
             base["resource_plan"] = value
     except ScopeInsufficientError:
         pass
     return base
+
+
+# Same reading as the app's availability.ts: unknown states count as open, so
+# a localised state name does not take away a plan that works.
+_CLOSED_STATE_RE = re.compile(r"complete|closed|cancel|reject", re.IGNORECASE)
+
+
+def _covers_week(alloc, week_start, week_end):
+    """An allocation on an open plan whose window overlaps the week.
+
+    Dates come from `.value` (YYYY-MM-DD); the display form dd/MM/yyyy is
+    ambiguous.
+    """
+    def value(field):
+        return field.get("value", "") if isinstance(field, dict) else (field or "")
+
+    def label(field):
+        return field.get("display_value", "") if isinstance(field, dict) else (field or "")
+
+    if _CLOSED_STATE_RE.search(label(alloc.get("resource_plan.state"))):
+        return False
+    if _CLOSED_STATE_RE.search(label(alloc.get("state"))):
+        return False
+    start, end = value(alloc.get("start_date")), value(alloc.get("end_date"))
+    return not (end and end < week_start) and not (start and start > week_end)
 
 
 def write_week(session, week_start, rows, *, debug=False):
@@ -551,14 +624,20 @@ def write_week(session, week_start, rows, *, debug=False):
         key = card.get("task.number")
         (by_task if key else by_category)[key or card.get("category")].append(card)
     results = []
+    # Cards an earlier row already took. An all-zero card fits every scope, so
+    # without this the October and November rows would fight over one card.
+    claimed = set()
 
     def cards_for(row):
-        return (by_task if row.get("taskNumber") else by_category).get(
+        cards = (by_task if row.get("taskNumber") else by_category).get(
             row.get("taskNumber") or row.get("category"), []
         )
+        scope = _scope(row)
+        return [card for card in cards if card["sys_id"] not in claimed and _within(card, scope)]
 
     def delete_pending(identity, cards):
         for card in cards:
+            claimed.add(card["sys_id"])
             if card.get("state") != "Pending":
                 results.append(
                     {"taskNumber": identity, "action": "skipped", "detail": f"state={card.get('state')}"}
@@ -567,19 +646,30 @@ def write_week(session, week_start, rows, *, debug=False):
             api.request(session, "DELETE", "time_card", sys_id=card["sys_id"], debug=debug)
             results.append({"taskNumber": identity, "action": "deleted"})
 
+    # Split rows group per identity AND scope: in a boundary week the October
+    # and November segments of one task are separate replace sets.
     split_groups = defaultdict(list)
     plain_rows = []
     for row in rows:
-        (split_groups[_identity(row)] if row.get("split") else plain_rows).append(row)
+        (split_groups[(_identity(row), _scope(row))] if row.get("split") else plain_rows).append(row)
+
+    def overlap(a, b):
+        return a is None or b is None or bool(a & b)
 
     # Resolve every split before *any* mutation, including unrelated plain rows.
-    # Mixing split and ordinary writes to one identity makes the snapshot stale.
-    if set(split_groups) & {_identity(row) for row in plain_rows}:
-        raise UsageError("cannot mix split and ordinary writes for the same identity")
-    split_bases = {}
-    for identity, group in split_groups.items():
-        sample = group[0]
-        if any(card.get("state") != "Pending" for card in cards_for(sample)):
+    # Mixing split and ordinary writes to the same identity and days makes the
+    # snapshot stale; disjoint month segments are independent.
+    keys = list(split_groups) + [(_identity(row), _scope(row)) for row in plain_rows]
+    for index, (identity, scope) in enumerate(keys[: len(split_groups)]):
+        if any(other == identity and overlap(scope, other_scope) for other, other_scope in keys[index + 1:]):
+            raise UsageError("cannot mix split and ordinary writes for the same identity and days")
+    split_bases, split_originals = {}, {}
+    for key, group in split_groups.items():
+        identity, sample = key[0], group[0]
+        originals = cards_for(sample)
+        claimed.update(card["sys_id"] for card in originals)
+        split_originals[key] = originals
+        if any(card.get("state") != "Pending" for card in originals):
             raise ConflictError(f"cannot split {identity}: existing cards must all be Pending")
         base = (
             _project_base(session, week_start, sample["taskNumber"], debug=debug)
@@ -588,7 +678,7 @@ def write_week(session, week_start, rows, *, debug=False):
         )
         if base is None:
             raise NotFoundError(f"split task not found: {identity}")
-        split_bases[identity] = base
+        split_bases[key] = base
 
     for row in plain_rows:
         identity = _identity(row)
@@ -606,6 +696,8 @@ def write_week(session, week_start, rows, *, debug=False):
         if row.get("new"):
             cards = [item for item in cards if item.get("state") == "Pending"]
         card = next((item for item in cards if item.get("state") == "Pending"), cards[0] if cards else None)
+        if card:
+            claimed.add(card["sys_id"])
         body = _days_body(row)
         if card:
             if card.get("state") != "Pending":
@@ -634,13 +726,13 @@ def write_week(session, week_start, rows, *, debug=False):
 
     # Preserve originals until all replacements in a group are created and verified.
     # On any partial failure return IDs/snapshots; do not perform an implicit rollback.
-    for identity, group in split_groups.items():
-        originals = cards_for(group[0])
+    for key, group in split_groups.items():
+        identity, originals = key[0], split_originals[key]
         created = []
         try:
             for row in group:
                 result = _create_card(
-                    session, identity, {**_days_body(row), **split_bases[identity]}, debug=debug,
+                    session, identity, {**_days_body(row), **split_bases[key]}, debug=debug,
                 )
                 results.append(result)
                 if result.get("sys_id"):

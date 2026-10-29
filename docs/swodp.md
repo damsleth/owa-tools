@@ -130,9 +130,14 @@ The daemon is reachable from every web page on the machine, so it refuses a
 `Origin` that is not its own, and any POST that is not `application/json`. It
 sends no CORS headers and never returns or logs tokens or cookies.
 
-Rows scoped to a month segment (`scope` other than all seven days, used for
-month-boundary weeks) are refused: `write` ignores `scope` and would touch the
-neighbouring month's card. Write those weeks from the extension.
+Weeks across a month boundary are written as one row per month segment:
+`scope` lists the weekdays (0 = Monday) the row owns, and its hours must stay
+inside them. A segment row only touches cards whose hours all fall inside its
+scope, a card one row took is not reused by another, and split rows group per
+task and scope. A card spanning the boundary belongs to no segment, only to a
+whole-week row. New project cards link the resource plan whose allocation
+covers the week on a plan that is not completed, closed, cancelled or
+rejected; without one the card is created without `resource_plan`.
 
 ## Single-card commands
 

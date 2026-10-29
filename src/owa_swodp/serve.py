@@ -158,19 +158,6 @@ def graph_calendar(daemon, message):
     }
 
 
-def _check_rows(rows):
-    rows = service.validate_write_rows(rows)
-    for row in rows:
-        # service.write_week ignores `scope` (the app's month-segment ownership),
-        # so a partial scope would PATCH or delete the neighbouring month's card.
-        if "scope" in row and sorted(row["scope"] or []) != list(range(7)):
-            raise UsageError(
-                "rows scoped to a month segment are not supported by owa-swodp serve yet; "
-                "write boundary weeks from the extension"
-            )
-    return rows
-
-
 def dispatch(daemon, message):
     """One bridge request -> response dict. Errors come back as {error, code}."""
     kind = message.get("type")
@@ -199,7 +186,7 @@ def dispatch(daemon, message):
                 week = message.get("weekStart")
                 if not isinstance(week, str) or not WEEK_RE.match(week):
                     return {"error": "weekStart must be YYYY-MM-DD"}
-                rows = _check_rows(message.get("rows"))
+                rows = service.validate_write_rows(message.get("rows"))
                 instance = _instance(message, daemon)
                 return {
                     "results": daemon.with_session(
