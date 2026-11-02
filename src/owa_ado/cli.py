@@ -111,6 +111,8 @@ Commands:
                                        Spans every project in the org; pass
                                        --project/-P to narrow to one.
                        --state <s>     Filter by state.
+                       --include-closed  Keep Closed items (hidden by
+                                       default unless --state is given).
                        --type <t>      Filter by work-item type.
                        --top <n>       Cap results (default 50).
                        --query <wiql>  Raw WIQL (overrides the builder).
@@ -242,7 +244,7 @@ def cmd_sprints(args, config, token, base):
 
 def cmd_wi(args, config, token, base):
     pretty = False
-    mine = False
+    mine = include_closed = False
     full = detailed = short = False
     state = wi_type = query = iteration = ''
     top = 50
@@ -259,6 +261,8 @@ def cmd_wi(args, config, token, base):
             short = True
         elif flag == '--mine':
             mine = True
+        elif flag == '--include-closed':
+            include_closed = True
         elif flag == '--state':
             state, args = _require_value(flag, args)
         elif flag == '--type':
@@ -313,7 +317,8 @@ def cmd_wi(args, config, token, base):
             mine = True
         # Only --mine is org-wide; plain --state/--type/--iteration stay on the project.
         query = res.build_wiql(project=_project_scope(config) if mine else project, mine=mine,
-                               state=state, wi_type=wi_type, iteration=iteration)
+                               state=state, wi_type=wi_type, iteration=iteration,
+                               exclude_closed=not include_closed)
     # WIQL has no TOP clause; cap the id set server-side with $top instead.
     wiql = api_mod.ado_request(
         'POST', base, f'{project}/_apis/wit/wiql', token,
@@ -1284,6 +1289,7 @@ COMMAND_SCHEMA = [
                            schema_mod.flag('--full', summary='(show) raw full REST payload'),
                            schema_mod.flag('--mine', summary='Assigned to me, across every project'),
                            schema_mod.flag('--state', value='<state>', summary='Filter by state'),
+                           schema_mod.flag('--include-closed', summary='Keep Closed items (hidden by default)'),
                            schema_mod.flag('--type', value='<type>', summary='Filter by work-item type'),
                            schema_mod.flag('--top', value='<n>', summary='Cap results (default 50)'),
                            schema_mod.flag('--query', value='<wiql>', summary='Raw WIQL (overrides builder)'),

@@ -425,7 +425,7 @@ def _quote_wiql(value):
 
 
 def build_wiql(*, project=None, mine=False, state=None, wi_type=None,
-               iteration=None):
+               iteration=None, exclude_closed=False):
     """Assemble a WIQL query from the common owa-ado filters.
 
     Selects only [System.Id] (the fields come from a follow-up batch get).
@@ -441,6 +441,8 @@ def build_wiql(*, project=None, mine=False, state=None, wi_type=None,
         clauses.append('[System.AssignedTo] = @Me')
     if state:
         clauses.append(f"[System.State] = '{_quote_wiql(state)}'")
+    elif exclude_closed:
+        clauses.append("[System.State] <> 'Closed'")
     if wi_type:
         clauses.append(f"[System.WorkItemType] = '{_quote_wiql(wi_type)}'")
     if iteration:

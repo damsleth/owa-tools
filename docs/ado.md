@@ -84,6 +84,7 @@ positional id, show that one work item.
   assigned to you in another project still shows up. Pass `--project/-P`
   (or `OWA_ADO_PROJECT`) to narrow the listing to one project.
 - `--state <state>` — filter by state (e.g. `Active`, `New`)
+- `--include-closed` — keep `Closed` items; without it (and without `--state`) they are left out
 - `--type <type>` — filter by work-item type (e.g. `Task`, `Bug`)
 - `--top <n>` — cap results (default 50)
 - `--query <wiql>` — raw WIQL, overriding the builder

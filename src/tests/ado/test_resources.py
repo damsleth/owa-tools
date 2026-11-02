@@ -267,3 +267,9 @@ def test_render_toc_relative_nesting_with_inconsistent_levels():
         '- [Debugging](#debugging)',
         '  - [Provisioning](#provisioning)',
     ]
+
+
+def test_build_wiql_exclude_closed_unless_state_given():
+    assert "[System.State] <> 'Closed'" in res.build_wiql(mine=True, exclude_closed=True)
+    q = res.build_wiql(state='Closed', exclude_closed=True)
+    assert "<> 'Closed'" not in q and "[System.State] = 'Closed'" in q
