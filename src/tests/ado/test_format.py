@@ -29,10 +29,10 @@ def test_format_work_item_handles_missing():
     assert fmt.format_work_item({}) == '(no work item)'
 
 
-def test_format_work_items_truncates_long_title():
+def test_format_work_items_keeps_full_title():
     out = fmt.format_work_items([{'id': 1, 'type': 'Task', 'state': 'New',
                                   'assignedTo': 'X', 'title': 'y' * 100}])
-    assert '…' in out
+    assert 'y' * 100 in out and '…' not in out
 
 
 def test_format_pr_view_and_table():

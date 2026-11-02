@@ -28,9 +28,10 @@ def format_tasks_pretty(tasks):
     if not tasks:
         return 'No tasks found.'
     out = []
+    title_w = max(len(t.get('title') or '') for t in tasks)
     for t in tasks:
         mark = _DONE_MARK if t.get('status') == 'Completed' else _OPEN_MARK
-        title = pad(truncate(t.get('title') or '', 44), 44)
+        title = pad(t.get('title') or '', title_w)
         bits = [f"{t.get('percentComplete') or 0:>3}%"]
         if t.get('due'):
             bits.append(f"due {t['due']}")

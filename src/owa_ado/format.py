@@ -43,7 +43,7 @@ def format_work_items(items):
         rows.append((
             wi.get('id'), wi.get('type'), wi.get('state'),
             _truncate(wi.get('assignedTo') or '-', 20),
-            _truncate(wi.get('title') or '', 60),
+            wi.get('title') or '',  # last column: full text, let the terminal wrap
         ))
     return _table(rows)
 
@@ -81,7 +81,7 @@ def format_prs(items):
         rows.append((
             pr.get('id'), pr.get('status'), pr.get('repo'),
             _truncate(pr.get('createdBy') or '-', 18),
-            _truncate(pr.get('title') or '', 50),
+            pr.get('title') or '',
         ))
     return _table(rows)
 

@@ -2,7 +2,7 @@
 
 Stdout-only; callers decide whether to emit this or raw JSON.
 """
-from owa_core.format import pad, truncate
+from owa_core.format import pad
 
 
 def format_web_pretty(web):
@@ -50,8 +50,8 @@ def format_items_pretty(items):
 def format_search_pretty(rows):
     if not rows:
         return 'No results.'
+    width = max(len(row.get('Title') or '') for row in rows)
     out = []
     for row in rows:
-        title = truncate(row.get('Title') or '', 50)
-        out.append(f"{pad(title, 50)}  {row.get('Path') or ''}")
+        out.append(f"{pad(row.get('Title') or '', width)}  {row.get('Path') or ''}")
     return '\n'.join(out)

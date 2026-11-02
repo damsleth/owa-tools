@@ -45,6 +45,7 @@ def format_messages_pretty(messages):
         reverse=True,
     )
     out = []
+    subj_w = max(len(m.get('subject') or '(no subject)') for m in rows)
     for m in rows:
         date = _date_part(m.get('received') or '')
         time = _time_part(m.get('received') or '')
@@ -52,7 +53,7 @@ def format_messages_pretty(messages):
         flag = '!' if (m.get('flag') == 'Flagged') else ' '
         att = '@' if m.get('has_attachments') else ' '
         sender = _pad(_truncate(m.get('from') or '', 28), 28)
-        subj = _pad(_truncate(m.get('subject') or '(no subject)', 40), 40)
+        subj = _pad(m.get('subject') or '(no subject)', subj_w)
         preview = _truncate(
             (m.get('preview') or '').replace('\r', ' ').replace('\n', ' '),
             60,

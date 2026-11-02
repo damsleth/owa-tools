@@ -48,3 +48,7 @@ def test_format_task_pretty_minimal():
     out = fmt.format_task_pretty({'title': 'Bare', 'status': 'NotStarted'}, {})
     assert out.splitlines()[0] == 'Bare'
     assert 'status: NotStarted (0%)' in out
+
+
+def test_format_tasks_pretty_keeps_full_title():
+    assert 't' * 100 in fmt.format_tasks_pretty([{'title': 't' * 100}])

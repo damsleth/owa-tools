@@ -38,3 +38,7 @@ def test_format_search_pretty():
     assert 'No results' in fmt.format_search_pretty([])
     out = fmt.format_search_pretty([{'Title': 'Doc', 'Path': 'http://x'}])
     assert 'Doc' in out and 'http://x' in out
+
+
+def test_format_search_pretty_keeps_full_title():
+    assert 't' * 100 in fmt.format_search_pretty([{'Title': 't' * 100, 'Path': 'p'}])

@@ -125,3 +125,8 @@ def test_format_folders_pretty_aligns_names():
     assert 'Inbox' in out
     assert 'unread=5' in out
     assert 'total=100' in out
+
+
+def test_messages_pretty_keeps_full_subject():
+    out = format_messages_pretty([{'subject': 's' * 100, 'received': '2026-01-01T10:00:00Z'}])
+    assert 's' * 100 in out
